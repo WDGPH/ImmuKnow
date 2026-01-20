@@ -112,6 +112,7 @@ class TestNormalize:
         """Verify that non-letter characters are preserved."""
         assert preprocess.normalize("123 Name!") == "123 name!"
 
+
 @pytest.mark.unit
 class TestFilterColumns:
     """Unit tests for filter_columns() column filtering utility."""
@@ -143,7 +144,7 @@ class TestFilterColumns:
 
     def test_handles_empty_dataframe(self):
         """Verify that an empty DataFrame is returned unchanged."""
-        df = pd.DataFrame(columns=["child_first_name", "child_last_name"])
+        df = pd.DataFrame(columns=pd.Index(["child_first_name", "child_last_name"]))
         result = preprocess.filter_columns(df, ["child_first_name"])
         assert result.empty
 
@@ -164,7 +165,10 @@ class TestFilterColumns:
         required = ["dob", "child_first_name"]
         result = preprocess.filter_columns(df, required)
 
-        assert list(result.columns) == ["child_first_name", "dob"] or list(result.columns) == required
+        assert (
+            list(result.columns) == ["child_first_name", "dob"]
+            or list(result.columns) == required
+        )
         # Either column order can appear depending on implementation; both are acceptable
 
     def test_ignores_required_columns_not_in_df(self):
@@ -175,6 +179,7 @@ class TestFilterColumns:
 
         assert "child_first_name" in result.columns
         assert "missing_column" not in result.columns
+
 
 @pytest.mark.unit
 class TestReadInput:
@@ -785,5 +790,3 @@ class TestBuildPreprocessResult:
         # Should have NO warnings about duplicates
         duplicate_warnings = [w for w in result.warnings if "Duplicate client ID" in w]
         assert len(duplicate_warnings) == 0
-    
-

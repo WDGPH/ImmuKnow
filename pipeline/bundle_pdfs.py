@@ -316,7 +316,7 @@ def build_client_lookup(
     clients_obj = artifact.get("clients", [])
     clients = clients_obj if isinstance(clients_obj, list) else []
     lookup: Dict[tuple[str, str], dict] = {}
-    for client in clients:  # type: ignore[var-annotated]
+    for client in clients:
         sequence = client.get("sequence")  # type: ignore[attr-defined]
         client_id = client.get("client_id")  # type: ignore[attr-defined]
         lookup[(sequence, client_id)] = client  # type: ignore[typeddict-item]
