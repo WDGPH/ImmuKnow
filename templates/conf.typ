@@ -31,7 +31,8 @@
   client_id,
   font_size,
   school_type,
-  envelope_window_height
+  envelope_window_height,
+  border: true,
 ) = {
   // Define column widths based on equal_split
   let columns = if equal_split {
@@ -41,6 +42,7 @@
   }
 
   let vline_stroke = if vline { 1pt + black } else { none }
+  let outline_stroke = if border { 1pt + black } else { none }
 
   let address_to = if client_data.over_16 {
     "To:"
@@ -66,6 +68,7 @@
   // Build the table content
   let table_content = align(center)[
     #table(
+      stroke: outline_stroke,
       columns: columns,
       rows: (envelope_window_height),
       inset: font_size,
@@ -96,7 +99,8 @@
   client_id,
   font_size,
   school_type,
-  envelope_window_height
+  envelope_window_height,
+  border: true,
 ) = {
   // Define column widths based on equal_split
   let columns = if equal_split {
@@ -106,6 +110,8 @@
   }
 
   let vline_stroke = if vline { 1pt + black } else { none }
+  let outline_stroke = if border { 1pt + black } else { none }
+
   let address_to = if client_data.over_16 {
     "Au:"
   } else {
@@ -130,6 +136,7 @@
   // Build the table content
   let table_content = align(center)[
     #table(
+      stroke: outline_stroke,
       columns: columns,
       rows: (envelope_window_height),
       inset: font_size,
