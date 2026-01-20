@@ -34,7 +34,7 @@ class TestClientRecord:
             sequence="00001",
             client_id="C00001",
             language="en",
-            person={"first_name": "Alice", "last_name": "Zephyr"},
+            person={"first_name": "Alice", "last_name": "Zephyr", "over_16": False},
             school={"name": "Tunnel Academy"},
             board={"name": "Guelph Board"},
             contact={"street": "123 Main St"},
