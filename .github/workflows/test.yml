@@ -10,7 +10,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     env:
-      typst_ver: 0.13.1
+      typst_ver: 0.14.2
     steps:
       - uses: actions/checkout@v6
         with:
