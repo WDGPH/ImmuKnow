@@ -15,7 +15,7 @@ dependencies = [
     "openpyxl",
     "pypdf",
     "qrcode>=7.4.2",
-    "pillow>=10.4.0",
+    "pillow>=12.2.0",
     "babel>=2.17.0",
     "rapidfuzz"
 ]
@@ -25,7 +25,7 @@ dev = [
     "pytest",
     "pytest-cov",
     "pre-commit",
-    "ty>=0.0.1a24",
+    "ty>=0.0.29",
     "git-changelog>=2.5.2",
     "pypandoc>=1.15",
 ]
