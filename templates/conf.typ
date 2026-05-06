@@ -1,4 +1,6 @@
-#let vax = ("⬤")
+#let vax_valid = ("⬤")
+#let vax_invalid = ("◯")
+
 
 // Custom colours
 #let wdgteal = rgb(0, 85, 104)
@@ -234,7 +236,7 @@
       let cell_content = ""
       for record_disease in record.diseases {
         if record_disease == disease_name { 
-          cell_content = vax
+          cell_content = vax_valid
           // Found a match, no need to check other diseases for this cell
           break 
         }

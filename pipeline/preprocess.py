@@ -399,6 +399,28 @@ def normalize(col: str) -> str:
     return col_normalized
 
 
+def format_vaccine_due_list(vaccine_due_list: list[str]) -> list[str]:
+    """Format vaccine due entries as '<name> (dose #<dose>)'."""
+
+    formatted: list[str] = []
+    for item in vaccine_due_list:
+        first_part, sep, second_part = item.rpartition("-")
+        if not sep:
+            formatted.append(item.strip())
+            continue
+
+        if second_part.strip()[-1] == '1':
+            formatted.append(f"{first_part.strip()} ({second_part.strip()}st dose)")
+        elif second_part.strip()[-1] == '2':
+            formatted.append(f"{first_part.strip()} ({second_part.strip()}nd dose)")
+        elif second_part.strip()[-1] == '3':
+            formatted.append(f"{first_part.strip()} ({second_part.strip()}rd dose)")
+        else:
+            formatted.append(f"{first_part.strip()} ({second_part.strip()}th dose)")
+
+    return formatted
+
+
 def map_columns(df: pd.DataFrame, required_columns=REQUIRED_COLUMNS):
     """
     Map dataframe columns to a set of required column names using fuzzy matching.
@@ -801,6 +823,7 @@ def build_preprocess_result(
         vaccines_due_list = [
             item.strip() for item in vaccines_due.split(",") if item.strip()
         ]
+        vaccines_due_list = format_vaccine_due_list(vaccines_due_list)
         received_grouped = process_received_agents(row.IMMS_GIVEN, replace_unspecified)  # type: ignore[attr-defined]
         received = enrich_grouped_records(
             received_grouped, vaccine_reference, language, chart_diseases_header
