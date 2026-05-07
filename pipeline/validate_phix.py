@@ -129,7 +129,7 @@ class PHIXMatchResult:
     phu_name: Optional[str] = None
     phu_code: Optional[str] = None
     confidence: int = 0
-    match_type: str = "none"  # exact or none
+    match_type: str = "none"  # exact, no_phix_id, wrong_phix_id, or none
 
 
 def parse_facility_entry(entry: str, phu: str) -> Optional[PHIXFacility]:
@@ -357,23 +357,50 @@ def match_facility(
             match_type="none",
         )
 
-    normalized_input = normalize_facility_name(input_name)
+    # Input normalization - split PHIX ID if present in column
+    normalized_entry = parse_facility_entry(input_name, phu="")
+    normalized_input = normalize_facility_name(normalized_entry.name)
     by_name = reference["by_name"]
 
     # Try exact match first
     if normalized_input in by_name:
         facility = by_name[normalized_input]
+
         phu_code = facility_phu_codes.get(normalized_input) if facility_phu_codes else None
-        return PHIXMatchResult(
-            input_name=input_name,
-            matched=True,
-            phix_id=facility.phix_id,
-            phix_name=facility.name,
-            phu_name=facility.phu,
-            phu_code=phu_code,
-            confidence=100,
-            match_type="exact",
-        )
+
+        if normalized_entry.phix_id and by_name[normalized_input].phix_id == normalized_entry.phix_id:
+            return PHIXMatchResult(
+                input_name=input_name,
+                matched=True,
+                phix_id=facility.phix_id,
+                phix_name=facility.name,
+                phu_name=facility.phu,
+                phu_code=phu_code,
+                confidence=100,
+                match_type="exact",
+            )
+        elif normalized_entry.phix_id:
+            return PHIXMatchResult(
+                input_name=input_name,
+                matched=False,
+                phix_id=facility.phix_id,
+                phix_name=facility.name,
+                phu_name=facility.phu,
+                phu_code=phu_code,
+                confidence=100,
+                match_type="wrong_phix_id",
+            )
+        else:
+            return PHIXMatchResult(
+                input_name=input_name,
+                matched=True,
+                phix_id=facility.phix_id,
+                phix_name=facility.name,
+                phu_name=facility.phu,
+                phu_code=phu_code,
+                confidence=100,
+                match_type="no_phix_id",
+            )
 
     return PHIXMatchResult(
         input_name=input_name,
@@ -728,13 +755,22 @@ def _validate_single_column(
         column_prefix=column_prefix,
     )
 
+
+    # Classify match outcomes
+    exact_matches = [r for r in match_results.values() if r.match_type == "exact"]
+    inexact_matches = [r for r in match_results.values() if r.match_type == "no_phix_id"]
+    wrong_phix_id_matches = [r for r in match_results.values() if r.match_type == "wrong_phix_id"]
+    none_matches = [r for r in match_results.values() if r.match_type == "none"]
+
     # Identify unmatched facilities
-    unmatched = [r for r in match_results.values() if not r.matched]
+    unmatched = wrong_phix_id_matches + none_matches
+
+
 
     if unmatched:
         unmatched_names = sorted(set(r.input_name for r in unmatched))
         LOG.warning(
-            "%d facilities could not be matched to PHIX reference: %s",
+            "%d facilities failed strict PHIX validation (name not found or PHIX ID mismatch): %s",
             len(unmatched_names),
             unmatched_names[:5],  # Log first 5
         )
@@ -748,6 +784,10 @@ def _validate_single_column(
                     "facility_name": r.input_name,
                     "match_type": r.match_type,
                     "confidence": r.confidence,
+                    "matched_phix_name": r.phix_name,
+                    "matched_phix_id": r.phix_id,
+                    "matched_phu": r.phu_name,
+                    "matched_phu_code": r.phu_code,
                     "target_phu_code": target_codes_str or "",
                     "target_phu_label": target_display or "",
                 }
@@ -756,14 +796,16 @@ def _validate_single_column(
         )
         unmatched_df.to_csv(unmatched_path, index=False)
         LOG.info("Wrote %d unmatched facilities to %s", len(unmatched), unmatched_path)
+
         warnings.append(
-            f"{len(unmatched_names)} facilities not found in PHIX reference. "
+            f"{len(none_matches)} facilities had no PHIX name match and "
+            f"{len(wrong_phix_id_matches)} facilities had a PHIX ID mismatch (name matched, ID differed). "
             f"See {unmatched_path} for details."
         )
 
         if unmatched_behavior == "error":
             raise ValueError(
-                f"{len(unmatched_names)} facilities not found in PHIX reference: "
+                f"{len(unmatched_names)} facilities failed strict PHIX validation (missing PHIX name match or PHIX ID mismatch): "
                 f"{', '.join(unmatched_names[:10])}"
                 + (f" (and {len(unmatched_names) - 10} more)" if len(unmatched_names) > 10 else "")
             )
@@ -774,20 +816,82 @@ def _validate_single_column(
             df = df[df[school_column].isin(matched_names)]
             filtered_count = original_count - len(df)
             LOG.info(
-                "Filtered %d records with unmatched facilities, %d remaining",
+                "Filtered %d records that failed strict PHIX validation (no name match or ID mismatch), %d remaining",
                 filtered_count,
                 len(df),
             )
             warnings.append(
-                f"Filtered {filtered_count} records with unmatched facilities."
+                f"Filtered {filtered_count} records that failed strict PHIX validation (no name match or ID mismatch)."
             )
+
+    if inexact_matches:
+        inexact_names = sorted(set(r.input_name for r in inexact_matches))
+        LOG.warning(
+            "%d facilities matched PHIX by name only (input PHIX ID missing): %s",
+            len(inexact_names),
+            inexact_names[:5],  # Log first 5
+        )
+
+        # Write unmatched to CSV
+        output_dir.mkdir(parents=True, exist_ok=True)
+        inexact_path = output_dir / "inexact_matched_facilities.csv"
+        inexact_df = pd.DataFrame(
+            [
+                {
+                    "facility_name": r.input_name,
+                    "match_type": r.match_type,
+                    "confidence": r.confidence,
+                    "matched_phix_name": r.phix_name,
+                    "matched_phix_id": r.phix_id,
+                    "matched_phu": r.phu_name,
+                    "matched_phu_code": r.phu_code,
+                    "target_phu_code": target_codes_str or "",
+                    "target_phu_label": target_display or "",
+                }
+                for r in inexact_matches
+            ]
+        )
+        inexact_df.to_csv(inexact_path, index=False)
+        LOG.info("Wrote %d inexact matched facilities to %s", len(inexact_matches), inexact_path)
+        warnings.append(
+            f"{len(inexact_names)} facilities matched by name without PHIX ID. "
+            f"See {inexact_path} for details."
+        )
+
+    # Save exact matches
+    if exact_matches:
+         # Write exact matched to CSV
+        output_dir.mkdir(parents=True, exist_ok=True)
+        exact_path = output_dir / "exact_matched_facilities.csv"
+        exact_df = pd.DataFrame(
+            [
+                {
+                    "facility_name": r.input_name,
+                    "match_type": r.match_type,
+                    "confidence": r.confidence,
+                    "matched_phix_name": r.phix_name,
+                    "matched_phix_id": r.phix_id,
+                    "matched_phu": r.phu_name,
+                    "matched_phu_code": r.phu_code,
+                    "target_phu_code": target_codes_str or "",
+                    "target_phu_label": target_display or "",
+                }
+                for r in exact_matches
+            ]
+        )
+        exact_df.to_csv(exact_path, index=False)
+
 
     # Log summary
     matched_count = sum(1 for r in match_results.values() if r.matched)
     LOG.info(
-        "PHIX validation complete: %d matched, %d unmatched",
+        "PHIX validation complete: %d matched (exact=%d, no_phix_id=%d), %d unmatched (wrong_phix_id=%d, none=%d)",
         matched_count,
+        len(exact_matches),
+        len(inexact_matches),
         len(unmatched),
+        len(wrong_phix_id_matches),
+        len(none_matches),
     )
 
     return df, warnings

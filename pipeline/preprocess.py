@@ -441,6 +441,8 @@ def map_columns(df: pd.DataFrame, required_columns=REQUIRED_COLUMNS):
     # Normalize input columns for matching
     normalized_input_cols = [normalize(c) for c in input_cols]
 
+    best_matches = {}
+
     # Check each input column against required columns
     for input_col in normalized_input_cols:
         
@@ -456,10 +458,25 @@ def map_columns(df: pd.DataFrame, required_columns=REQUIRED_COLUMNS):
         if score >= THRESHOLD:  # adjustable threshold
             # Map the original column name, not the normalized one
             actual_in_col = next(c for c in input_cols if normalize(c) == input_col)
-            col_map[actual_in_col] = best_match
+            #col_map[actual_in_col] = best_match
 
             # print colname and score for debugging
             print(f"Matching '{input_col}' to '{best_match}' with score {score}")
+
+            # Check if column already has an assigned mapping
+            if best_match not in col_map.values():
+                print(f"The value {best_match} does not exist in the dictionary - adding value.")
+                col_map[actual_in_col] = best_match
+                best_matches[best_match] = {"actual_in_col": actual_in_col, "score": score}
+                
+            # Replace if higher score 
+            elif score > best_matches[best_match]["score"]:
+                print(f"{input_col} has a higher score than current best match in the dictionary - replacing value.")
+
+                col_map = col_map.pop(best_matches[best_match]["actual_in_col"], None) 
+                col_map[actual_in_col] = best_match
+
+                best_matches[best_match] = {"actual_in_col": actual_in_col, "score": score}
         
     return df.rename(columns=col_map), col_map
 

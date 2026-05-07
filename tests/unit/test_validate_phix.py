@@ -170,8 +170,18 @@ class TestLoadPhixReference:
 
 class TestMatchFacility:
     """Tests for match_facility function."""
-
     def test_exact_match(self, sample_phix_excel: Path):
+        """Exact match returns 100% confidence."""
+        ref = load_phix_reference(sample_phix_excel)
+
+        result = match_facility("Lincoln Elementary School - SCH001", ref)
+        assert result.matched is True
+        assert result.phix_id == "SCH001"
+        assert result.confidence == 100
+        assert result.match_type == "exact"
+        assert result.phu_name == "Test PHU 1"
+
+    def test_no_phix_match(self, sample_phix_excel: Path):
         """Exact match returns 100% confidence."""
         ref = load_phix_reference(sample_phix_excel)
 
@@ -179,7 +189,18 @@ class TestMatchFacility:
         assert result.matched is True
         assert result.phix_id == "SCH001"
         assert result.confidence == 100
-        assert result.match_type == "exact"
+        assert result.match_type == "no_phix_id"
+        assert result.phu_name == "Test PHU 1"
+
+    def test_wrong_phix_match(self, sample_phix_excel: Path):
+        """Exact match returns 100% confidence."""
+        ref = load_phix_reference(sample_phix_excel)
+
+        result = match_facility("Lincoln Elementary School - SCH002", ref)
+        assert result.matched is False
+        assert result.phix_id == "SCH001"
+        assert result.confidence == 100
+        assert result.match_type == "wrong_phix_id"
         assert result.phu_name == "Test PHU 1"
 
     def test_exact_match_case_insensitive(self, sample_phix_excel: Path):
@@ -215,7 +236,7 @@ class TestValidateFacilities:
     def test_validate_all_matched(self, sample_phix_excel: Path, tmp_path: Path):
         """All facilities matched returns no warnings."""
         df = pd.DataFrame({
-            "SCHOOL_NAME": ["Lincoln Elementary School", "Maple High School"],
+            "SCHOOL_NAME": ["Lincoln Elementary School - SCH001", "Maple High School - SCH002"],
             "OTHER_COL": ["A", "B"],
         })
 
@@ -241,8 +262,8 @@ class TestValidateFacilities:
         df = pd.DataFrame(
             {
                 "SCHOOL_NAME": [
-                    "Lincoln Elementary School",  # PHU 1
-                    "Oak Valley Public School",  # PHU 2
+                    "Lincoln Elementary School - SCH001",  # PHU 1
+                    "Oak Valley Public School - SCH003",  # PHU 2
                 ],
             }
         )
@@ -324,7 +345,7 @@ phu_aliases:
     ):
         """Unmatched facilities with warn behavior logs warning."""
         df = pd.DataFrame({
-            "SCHOOL_NAME": ["Lincoln Elementary School", "Unknown School XYZ"],
+            "SCHOOL_NAME": ["Lincoln Elementary School - SCH001", "Unknown School XYZ"],
         })
 
         result_df, warnings = validate_facilities(
@@ -347,10 +368,10 @@ phu_aliases:
     ):
         """Unmatched facilities with error behavior raises."""
         df = pd.DataFrame({
-            "SCHOOL_NAME": ["Lincoln Elementary School", "Unknown School XYZ"],
+            "SCHOOL_NAME": ["Lincoln Elementary School - SCH001", "Unknown School XYZ"],
         })
 
-        with pytest.raises(ValueError, match="not found in PHIX reference"):
+        with pytest.raises(ValueError, match="failed PHIX validation"):
             validate_facilities(
                 df,
                 sample_phix_excel,
@@ -363,7 +384,7 @@ phu_aliases:
     ):
         """Unmatched facilities with skip behavior filters them out."""
         df = pd.DataFrame({
-            "SCHOOL_NAME": ["Lincoln Elementary School", "Unknown School XYZ"],
+            "SCHOOL_NAME": ["Lincoln Elementary School - SCH001", "Unknown School XYZ"],
         })
 
         result_df, warnings = validate_facilities(
@@ -374,7 +395,7 @@ phu_aliases:
         )
 
         assert len(result_df) == 1  # Unknown filtered out
-        assert result_df.iloc[0]["SCHOOL_NAME"] == "Lincoln Elementary School"
+        assert result_df.iloc[0]["SCHOOL_NAME"] == "Lincoln Elementary School - SCH001"
         assert len(warnings) == 2  # unmatched warning + filtered warning
 
     def test_validate_missing_column(
@@ -410,8 +431,8 @@ phu_aliases:
     def test_validate_multiple_columns(self, sample_phix_excel, tmp_path):
         """Multiple facility columns can be validated in one call."""
         df = pd.DataFrame({
-            "SCHOOL_NAME": ["Lincoln Elementary School", "Unknown School"],
-            "DAYCARE_NAME": ["Sunshine Childcare Centre", "Unknown Daycare"],
+            "SCHOOL_NAME": ["Lincoln Elementary School - SCH001", "Unknown School"],
+            "DAYCARE_NAME": ["Sunshine Childcare Centre - DAY001", "Unknown Daycare"],
         })
 
         result_df, warnings = validate_facilities(

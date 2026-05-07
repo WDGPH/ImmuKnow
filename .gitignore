@@ -18,6 +18,7 @@ input/*
 PHIX Reference*.xlsx
 PHIX Reference*.xls
 *PHIX*Reference*List*.xlsx
+*PHIX*Reference*List*.xlsm
 phu_templates/*
 !phu_templates/README.md
 !phu_templates/.gitkeep
