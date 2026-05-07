@@ -357,7 +357,7 @@ phu_aliases:
 
         assert len(result_df) == 2  # All records kept
         assert len(warnings) == 1
-        assert "not found in PHIX reference" in warnings[0]
+        assert "facilities had no PHIX name match" in warnings[0]
 
         # Check unmatched CSV was written
         unmatched_csv = tmp_path / "unmatched_facilities.csv"
@@ -371,7 +371,7 @@ phu_aliases:
             "SCHOOL_NAME": ["Lincoln Elementary School - SCH001", "Unknown School XYZ"],
         })
 
-        with pytest.raises(ValueError, match="failed PHIX validation"):
+        with pytest.raises(ValueError, match="failed strict PHIX validation"):
             validate_facilities(
                 df,
                 sample_phix_excel,
@@ -449,7 +449,7 @@ phu_aliases:
         assert result_df.loc[0, "PHIX_ID"] is not None
         # Warnings should be generated for unmatched facilities
         assert len(warnings) >= 2  # One for each unmatched column
-        assert all("not found in PHIX reference" in w for w in warnings)
+        assert all("facilities had no PHIX name match" in w for w in warnings)
 
 
 class TestPHIXFacilityDataclass:
