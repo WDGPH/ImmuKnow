@@ -224,11 +224,12 @@ def run_step_2_preprocess(
     input_path = input_dir / input_file
     df_raw = preprocess.read_input(input_path)
     mapped_df, column_mapping = preprocess.map_columns(df_raw)
-    df_filtered = preprocess.filter_columns(mapped_df)
+    df_filtered = preprocess.filter_columns(mapped_df, keep_columns=["AGE"])
     df = preprocess.ensure_required_columns(df_filtered)
 
     # Check that addresses are complete, return only complete rows
     df = preprocess.check_addresses_complete(df)
+    df = preprocess.check_client_info_complete(df)
 
     # Load configuration
     vaccine_reference_path = preprocess.VACCINE_REFERENCE_PATH
