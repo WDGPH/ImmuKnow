@@ -10,7 +10,7 @@ scoping to prevent cross-jurisdiction matches.
 - Each column is a PHU, values are "FACILITY NAME - ID" format
 
 **Output Contract:**
-- Returns validation results with matched PHIX IDs and confidence scores
+- Returns validation results with matched facility IDs and confidence scores
 - Writes unmatched facilities to CSV for PHU review
 - Raises or warns based on configured `unmatched_behavior`
 
@@ -37,7 +37,7 @@ LOG = logging.getLogger(__name__)
 # ============================================================================
 
 PHIX_OUTPUT_COLUMNS = {
-    "id": "PHIX_ID",
+    "id": "FACILITY_ID",
     "confidence": "PHIX_MATCH_CONFIDENCE",
     "match_type": "PHIX_MATCH_TYPE",
     "phu_name": "PHIX_MATCHED_PHU",
@@ -110,12 +110,12 @@ _PHU_MAPPING_LOADER = PHIXReferenceCache(cache_enabled=True)
 class PHIXFacility:
     """A facility entry from the PHIX reference list."""
 
-    phix_id: str
+    facility_id: str
     name: str
     phu: str  # Public Health Unit that owns this facility
 
     def __hash__(self) -> int:
-        return hash((self.phix_id, self.name, self.phu))
+        return hash((self.facility_id, self.name, self.phu))
 
 
 @dataclass
@@ -124,12 +124,12 @@ class PHIXMatchResult:
 
     input_name: str
     matched: bool
-    phix_id: Optional[str] = None
+    facility_id: Optional[str] = None
     phix_name: Optional[str] = None
     phu_name: Optional[str] = None
     phu_code: Optional[str] = None
     confidence: int = 0
-    match_type: str = "none"  # exact, no_phix_id, wrong_phix_id, or none
+    match_type: str = "none"  # exact, no_facility_id, wrong_facility_id, or none
 
 
 def parse_facility_entry(entry: str, phu: str) -> Optional[PHIXFacility]:
@@ -159,13 +159,13 @@ def parse_facility_entry(entry: str, phu: str) -> Optional[PHIXFacility]:
     parts = entry.rsplit(" - ", maxsplit=1)
     if len(parts) == 2:
         name = parts[0].strip()
-        phix_id = parts[1].strip()
+        facility_id = parts[1].strip()
     else:
         # No ID separator found, use entire string as name
         name = entry
-        phix_id = ""
+        facility_id = ""
 
-    return PHIXFacility(phix_id=phix_id, name=name, phu=phu)
+    return PHIXFacility(facility_id=facility_id, name=name, phu=phu)
 
 
 def load_phix_reference(
@@ -357,7 +357,7 @@ def match_facility(
             match_type="none",
         )
 
-    # Input normalization - split PHIX ID if present in column
+    # Input normalization - split facility ID if present in column
     normalized_entry = parse_facility_entry(input_name, phu="")
     normalized_input = normalize_facility_name(normalized_entry.name)
     by_name = reference["by_name"]
@@ -368,38 +368,38 @@ def match_facility(
 
         phu_code = facility_phu_codes.get(normalized_input) if facility_phu_codes else None
 
-        if normalized_entry.phix_id and by_name[normalized_input].phix_id == normalized_entry.phix_id:
+        if normalized_entry.facility_id and by_name[normalized_input].facility_id == normalized_entry.facility_id:
             return PHIXMatchResult(
                 input_name=input_name,
                 matched=True,
-                phix_id=facility.phix_id,
+                facility_id=facility.facility_id,
                 phix_name=facility.name,
                 phu_name=facility.phu,
                 phu_code=phu_code,
                 confidence=100,
                 match_type="exact",
             )
-        elif normalized_entry.phix_id:
+        elif normalized_entry.facility_id:
             return PHIXMatchResult(
                 input_name=input_name,
                 matched=False,
-                phix_id=facility.phix_id,
+                facility_id=facility.facility_id,
                 phix_name=facility.name,
                 phu_name=facility.phu,
                 phu_code=phu_code,
                 confidence=100,
-                match_type="wrong_phix_id",
+                match_type="wrong_facility_id",
             )
         else:
             return PHIXMatchResult(
                 input_name=input_name,
                 matched=True,
-                phix_id=facility.phix_id,
+                facility_id=facility.facility_id,
                 phix_name=facility.name,
                 phu_name=facility.phu,
                 phu_code=phu_code,
                 confidence=100,
-                match_type="no_phix_id",
+                match_type="no_facility_id",
             )
 
     return PHIXMatchResult(
@@ -471,7 +471,7 @@ def _enrich_dataframe_with_phix(
             # Result fields are extracted from match results
             if field_name == "id":
                 df[col_name] = df[school_column].apply(
-                    lambda x: get_result(x).phix_id if pd.notna(x) else None
+                    lambda x: get_result(x).facility_id if pd.notna(x) else None
                 )
             elif field_name == "confidence":
                 df[col_name] = df[school_column].apply(
@@ -758,19 +758,19 @@ def _validate_single_column(
 
     # Classify match outcomes
     exact_matches = [r for r in match_results.values() if r.match_type == "exact"]
-    inexact_matches = [r for r in match_results.values() if r.match_type == "no_phix_id"]
-    wrong_phix_id_matches = [r for r in match_results.values() if r.match_type == "wrong_phix_id"]
+    inexact_matches = [r for r in match_results.values() if r.match_type == "no_facility_id"]
+    wrong_facility_id_matches = [r for r in match_results.values() if r.match_type == "wrong_facility_id"]
     none_matches = [r for r in match_results.values() if r.match_type == "none"]
 
     # Identify unmatched facilities
-    unmatched = wrong_phix_id_matches + none_matches
+    unmatched = wrong_facility_id_matches + none_matches
 
 
 
     if unmatched:
         unmatched_names = sorted(set(r.input_name for r in unmatched))
         LOG.warning(
-            "%d facilities failed strict PHIX validation (name not found or PHIX ID mismatch): %s",
+            "%d facilities failed strict PHIX validation (name not found or facility ID mismatch): %s",
             len(unmatched_names),
             unmatched_names[:5],  # Log first 5
         )
@@ -785,7 +785,7 @@ def _validate_single_column(
                     "match_type": r.match_type,
                     "confidence": r.confidence,
                     "matched_phix_name": r.phix_name,
-                    "matched_phix_id": r.phix_id,
+                    "matched_facility_id": r.facility_id,
                     "matched_phu": r.phu_name,
                     "matched_phu_code": r.phu_code,
                     "target_phu_code": target_codes_str or "",
@@ -799,13 +799,13 @@ def _validate_single_column(
 
         warnings.append(
             f"{len(none_matches)} facilities had no PHIX name match and "
-            f"{len(wrong_phix_id_matches)} facilities had a PHIX ID mismatch (name matched, ID differed). "
+            f"{len(wrong_facility_id_matches)} facilities had a facility ID mismatch (name matched, ID differed). "
             f"See {unmatched_path} for details."
         )
 
         if unmatched_behavior == "error":
             raise ValueError(
-                f"{len(unmatched_names)} facilities failed strict PHIX validation (missing PHIX name match or PHIX ID mismatch): "
+                f"{len(unmatched_names)} facilities failed strict PHIX validation (missing PHIX name match or facility ID mismatch): "
                 f"{', '.join(unmatched_names[:10])}"
                 + (f" (and {len(unmatched_names) - 10} more)" if len(unmatched_names) > 10 else "")
             )
@@ -827,7 +827,7 @@ def _validate_single_column(
     if inexact_matches:
         inexact_names = sorted(set(r.input_name for r in inexact_matches))
         LOG.warning(
-            "%d facilities matched PHIX by name only (input PHIX ID missing): %s",
+            "%d facilities matched PHIX by name only (input facility ID missing): %s",
             len(inexact_names),
             inexact_names[:5],  # Log first 5
         )
@@ -842,7 +842,7 @@ def _validate_single_column(
                     "match_type": r.match_type,
                     "confidence": r.confidence,
                     "matched_phix_name": r.phix_name,
-                    "matched_phix_id": r.phix_id,
+                    "matched_facility_id": r.facility_id,
                     "matched_phu": r.phu_name,
                     "matched_phu_code": r.phu_code,
                     "target_phu_code": target_codes_str or "",
@@ -854,7 +854,7 @@ def _validate_single_column(
         inexact_df.to_csv(inexact_path, index=False)
         LOG.info("Wrote %d inexact matched facilities to %s", len(inexact_matches), inexact_path)
         warnings.append(
-            f"{len(inexact_names)} facilities matched by name without PHIX ID. "
+            f"{len(inexact_names)} facilities matched by name without facility ID. "
             f"See {inexact_path} for details."
         )
 
@@ -870,7 +870,7 @@ def _validate_single_column(
                     "match_type": r.match_type,
                     "confidence": r.confidence,
                     "matched_phix_name": r.phix_name,
-                    "matched_phix_id": r.phix_id,
+                    "matched_facility_id": r.facility_id,
                     "matched_phu": r.phu_name,
                     "matched_phu_code": r.phu_code,
                     "target_phu_code": target_codes_str or "",
@@ -885,12 +885,12 @@ def _validate_single_column(
     # Log summary
     matched_count = sum(1 for r in match_results.values() if r.matched)
     LOG.info(
-        "PHIX validation complete: %d matched (exact=%d, no_phix_id=%d), %d unmatched (wrong_phix_id=%d, none=%d)",
+        "PHIX validation complete: %d matched (exact=%d, no_facility_id=%d), %d unmatched (wrong_facility_id=%d, none=%d)",
         matched_count,
         len(exact_matches),
         len(inexact_matches),
         len(unmatched),
-        len(wrong_phix_id_matches),
+        len(wrong_facility_id_matches),
         len(none_matches),
     )
 
