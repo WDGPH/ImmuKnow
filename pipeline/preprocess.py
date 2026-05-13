@@ -404,7 +404,7 @@ def format_vaccine_due_list(vaccine_due_list: list[str]) -> list[str]:
 
     formatted: list[str] = []
     for item in vaccine_due_list:
-        first_part, sep, second_part = item.rpartition("-")
+        first_part, sep, second_part = item.rpartition(" - ")
         if not sep:
             formatted.append(item.strip())
             continue
@@ -416,7 +416,18 @@ def format_vaccine_due_list(vaccine_due_list: list[str]) -> list[str]:
         elif second_part.strip()[-1] == '3':
             formatted.append(f"{first_part.strip()} ({second_part.strip()}rd dose)")
         else:
-            formatted.append(f"{first_part.strip()} ({second_part.strip()}th dose)")
+            # Ensure separated section is an integer within vaccine series range
+            try:
+                if int(second_part.strip()) < 5:
+                    formatted.append(f"{first_part.strip()} ({second_part.strip()}th dose)")
+                else:
+                    LOG.warning(
+                        f"Vaccine with ' - ' separator but invalid dose number: {item}"
+                    )
+                    formatted.append(item.strip())
+                
+            except (ValueError, TypeError):
+                formatted.append(item.strip())
 
     return formatted
 
@@ -771,6 +782,8 @@ def build_preprocess_result(
         params = yaml.safe_load(PARAMETERS_PATH.read_text(encoding="utf-8")) or {}
     date_notice_delivery: Optional[str] = params.get("date_notice_delivery")
     chart_diseases_header: List[str] = params.get("chart_diseases_header", [])
+    preprocess_cfg: Dict[str, Any] = params.get("preprocess", {})
+    include_dose: bool = preprocess_cfg.get("include_dose", True)
 
     working["SCHOOL_ID"] = working.apply(
         lambda row: synthesize_identifier(
@@ -823,7 +836,8 @@ def build_preprocess_result(
         vaccines_due_list = [
             item.strip() for item in vaccines_due.split(",") if item.strip()
         ]
-        vaccines_due_list = format_vaccine_due_list(vaccines_due_list)
+        if include_dose:
+            vaccines_due_list = format_vaccine_due_list(vaccines_due_list)
         received_grouped = process_received_agents(row.IMMS_GIVEN, replace_unspecified)  # type: ignore[attr-defined]
         received = enrich_grouped_records(
             received_grouped, vaccine_reference, language, chart_diseases_header

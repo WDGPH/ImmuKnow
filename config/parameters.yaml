@@ -39,6 +39,8 @@ pipeline:
     remove_unencrypted_pdfs: false
   before_run:
     clear_output_directory: true
+preprocess:
+  include_dose: true
 qr:
   enabled: false
   payload_template: https://www.test-immunization.ca/update?client_id={client_id}&dob={date_of_birth_iso}&lang={language_code}
