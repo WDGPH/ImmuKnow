@@ -37,7 +37,7 @@ LOG = logging.getLogger(__name__)
 # ============================================================================
 
 PHIX_OUTPUT_COLUMNS = {
-    "id": "FACILITY_ID",
+    "id": "PHIX_FACILITY_ID",
     "confidence": "PHIX_MATCH_CONFIDENCE",
     "match_type": "PHIX_MATCH_TYPE",
     "phu_name": "PHIX_MATCHED_PHU",
@@ -419,8 +419,11 @@ def _enrich_dataframe_with_phix(
 ) -> pd.DataFrame:
     """Enrich DataFrame with PHIX validation columns.
     
-    Consolidates all PHIX output columns in a single operation using
-    the PHIX_OUTPUT_COLUMNS constant for maintainability.
+    Consolidates all PHIX output columns in a single operation.
+    Column names are generated from ``column_prefix`` plus fixed suffixes
+    (e.g., ``FACILITY_ID``, ``MATCH_CONFIDENCE``). With the default
+    ``column_prefix="PHIX_"``, resolved names align with
+    ``PHIX_OUTPUT_COLUMNS``.
     
     Parameters
     ----------
@@ -435,7 +438,10 @@ def _enrich_dataframe_with_phix(
     target_display : Optional[str]
         Target PHU display label
     column_prefix : str
-        Prefix for output column names (default: "PHIX_")
+        Prefix used when constructing output column names (default: "PHIX_").
+        For example, ``column_prefix="PHIX_"`` produces
+        ``PHIX_FACILITY_ID``, while ``column_prefix="CUSTOM_"`` produces
+        ``CUSTOM_FACILITY_ID``.
     
     Returns
     -------
@@ -450,7 +456,7 @@ def _enrich_dataframe_with_phix(
     
     # Build column names with custom prefix
     col_names = {
-        "id": f"{column_prefix}ID",
+        "id": f"{column_prefix}FACILITY_ID",
         "confidence": f"{column_prefix}MATCH_CONFIDENCE",
         "match_type": f"{column_prefix}MATCH_TYPE",
         "phu_name": f"{column_prefix}MATCHED_PHU",
@@ -534,7 +540,10 @@ def validate_facilities(
     reference_sheet_name : str
         Name of the Excel sheet containing facility data (default: "Schools & Day Cares")
     column_prefix : str
-        Prefix for output column names (default: "PHIX_")
+        Prefix used when constructing PHIX output columns. Suffixes are
+        fixed by the validation contract (e.g., ``FACILITY_ID``,
+        ``MATCH_CONFIDENCE``), and the default ``"PHIX_"`` resolves to
+        the names listed in ``PHIX_OUTPUT_COLUMNS``.
 
     Returns
     -------
@@ -607,7 +616,8 @@ def _validate_single_column(
     reference_sheet_name : str
         Name of Excel sheet containing facility data
     column_prefix : str
-        Prefix for output column names
+        Prefix used when constructing PHIX output columns for this
+        validated column.
     
     Returns
     -------

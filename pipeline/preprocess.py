@@ -872,7 +872,7 @@ def build_preprocess_result(
             "postal_code": postal_code,
         }
 
-        phix_id = clean_optional(getattr(row, "PHIX_ID", None))
+        phix_facility_id = clean_optional(getattr(row, "PHIX_FACILITY_ID", None))
         phix_match_type = getattr(row, "PHIX_MATCH_TYPE", "none")
         phix_match_conf = getattr(row, "PHIX_MATCH_CONFIDENCE", 0)
         if pd.isna(phix_match_conf):
@@ -887,7 +887,7 @@ def build_preprocess_result(
             "unique_id": row.UNIQUE_ID or None,  # type: ignore[attr-defined]
         }
         metadata["phix_validation"] = {
-            "id": phix_id,
+            "id": phix_facility_id,
             "match_type": phix_match_type or "none",
             "confidence": phix_match_conf,
             "phu_name": phix_phu_name,

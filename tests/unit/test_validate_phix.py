@@ -90,7 +90,7 @@ class TestParseFacilityEntry:
         )
         assert facility is not None
         assert facility.name == "ANNA MCCREA PUBLIC SCHOOL"
-        assert facility.phix_id == "019186"
+        assert facility.facility_id == "019186"
         assert facility.phu == "Test PHU"
 
     def test_parse_entry_with_multiple_dashes(self):
@@ -101,14 +101,14 @@ class TestParseFacilityEntry:
         assert facility is not None
         # Should split on last " - "
         assert facility.name == "ST. MARY'S CO-OP - PRE-SCHOOL"
-        assert facility.phix_id == "DAY123"
+        assert facility.facility_id == "DAY123"
 
     def test_parse_entry_no_id(self):
         """Parse entry without ID separator."""
         facility = parse_facility_entry("Some School Name", "PHU")
         assert facility is not None
         assert facility.name == "Some School Name"
-        assert facility.phix_id == ""
+        assert facility.facility_id == ""
 
     def test_parse_empty_entry(self):
         """Empty entries return None."""
@@ -176,7 +176,7 @@ class TestMatchFacility:
 
         result = match_facility("Lincoln Elementary School - SCH001", ref)
         assert result.matched is True
-        assert result.phix_id == "SCH001"
+        assert result.facility_id == "SCH001"
         assert result.confidence == 100
         assert result.match_type == "exact"
         assert result.phu_name == "Test PHU 1"
@@ -187,9 +187,9 @@ class TestMatchFacility:
 
         result = match_facility("Lincoln Elementary School", ref)
         assert result.matched is True
-        assert result.phix_id == "SCH001"
+        assert result.facility_id == "SCH001"
         assert result.confidence == 100
-        assert result.match_type == "no_phix_id"
+        assert result.match_type == "no_facility_id"
         assert result.phu_name == "Test PHU 1"
 
     def test_wrong_phix_match(self, sample_phix_excel: Path):
@@ -198,9 +198,9 @@ class TestMatchFacility:
 
         result = match_facility("Lincoln Elementary School - SCH002", ref)
         assert result.matched is False
-        assert result.phix_id == "SCH001"
+        assert result.facility_id == "SCH001"
         assert result.confidence == 100
-        assert result.match_type == "wrong_phix_id"
+        assert result.match_type == "wrong_facility_id"
         assert result.phu_name == "Test PHU 1"
 
     def test_exact_match_case_insensitive(self, sample_phix_excel: Path):
@@ -243,9 +243,9 @@ class TestValidateFacilities:
         result_df, warnings = validate_facilities(df, sample_phix_excel, tmp_path)
 
         assert len(result_df) == 2
-        assert "PHIX_ID" in result_df.columns
+        assert "PHIX_FACILITY_ID" in result_df.columns
         assert "PHIX_MATCH_CONFIDENCE" in result_df.columns
-        assert result_df.iloc[0]["PHIX_ID"] == "SCH001"
+        assert result_df.iloc[0]["PHIX_FACILITY_ID"] == "SCH001"
         assert "PHIX_MATCHED_PHU" in result_df.columns
         assert result_df.iloc[0]["PHIX_MATCHED_PHU"] == "Test PHU 1"
         assert "PHIX_TARGET_PHU_CODE" in result_df.columns
@@ -277,8 +277,8 @@ class TestValidateFacilities:
         )
 
         assert result_df.iloc[0]["PHIX_MATCH_TYPE"] == "none"
-        assert result_df.iloc[0]["PHIX_ID"] is None
-        assert result_df.iloc[1]["PHIX_ID"] == "SCH003"
+        assert result_df.iloc[0]["PHIX_FACILITY_ID"] is None
+        assert result_df.iloc[1]["PHIX_FACILITY_ID"] == "SCH003"
         assert result_df.iloc[1]["PHIX_MATCHED_PHU_CODE"] == "test_phu_2"
         assert result_df.iloc[1]["PHIX_TARGET_PHU_CODE"] == "test_phu_2"
         assert len(warnings) == 1  # unmatched facility warning
@@ -412,7 +412,7 @@ phu_aliases:
         )
 
         assert len(result_df) == 2
-        assert "PHIX_ID" not in result_df.columns
+        assert "PHIX_FACILITY_ID" not in result_df.columns
         assert len(warnings) == 0
 
     def test_validate_empty_dataframe(
@@ -444,9 +444,9 @@ phu_aliases:
         )
 
         # Both columns should be validated
-        assert "PHIX_ID" in result_df.columns
+        assert "PHIX_FACILITY_ID" in result_df.columns
         # First row schools/daycare should match
-        assert result_df.loc[0, "PHIX_ID"] is not None
+        assert result_df.loc[0, "PHIX_FACILITY_ID"] is not None
         # Warnings should be generated for unmatched facilities
         assert len(warnings) >= 2  # One for each unmatched column
         assert all("facilities had no PHIX name match" in w for w in warnings)
@@ -457,15 +457,15 @@ class TestPHIXFacilityDataclass:
 
     def test_hash_equality(self):
         """Two facilities with same data have same hash."""
-        f1 = PHIXFacility(phix_id="123", name="Test", phu="PHU1")
-        f2 = PHIXFacility(phix_id="123", name="Test", phu="PHU1")
+        f1 = PHIXFacility(facility_id="123", name="Test", phu="PHU1")
+        f2 = PHIXFacility(facility_id="123", name="Test", phu="PHU1")
 
         assert hash(f1) == hash(f2)
 
     def test_hash_difference(self):
         """Different facilities have different hashes."""
-        f1 = PHIXFacility(phix_id="123", name="Test", phu="PHU1")
-        f2 = PHIXFacility(phix_id="456", name="Test", phu="PHU1")
+        f1 = PHIXFacility(facility_id="123", name="Test", phu="PHU1")
+        f2 = PHIXFacility(facility_id="456", name="Test", phu="PHU1")
 
         assert hash(f1) != hash(f2)
 
@@ -477,7 +477,7 @@ class TestPHIXMatchResultDataclass:
         """Verify default values."""
         result = PHIXMatchResult(input_name="Test", matched=False)
 
-        assert result.phix_id is None
+        assert result.facility_id is None
         assert result.phix_name is None
         assert result.phu_name is None
         assert result.phu_code is None
