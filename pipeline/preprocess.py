@@ -470,28 +470,41 @@ def map_columns(df: pd.DataFrame, required_columns=REQUIRED_COLUMNS):
     """
     input_cols = df.columns
     col_map = {}
-
-    # Normalize input columns for matching
-    normalized_input_cols = [normalize(c) for c in input_cols]
+    normalized_required = [normalize(req) for req in required_columns]
+    best_matches = {}
 
     # Check each input column against required columns
-    for input_col in normalized_input_cols:
-        col_name, score, index = process.extractOne(
+    for actual_in_col in input_cols:
+        input_col = normalize(actual_in_col)
+        result = process.extractOne(
             query=input_col,
-            choices=[normalize(req) for req in required_columns],
+            choices=normalized_required,
             scorer=fuzz.partial_ratio,
         )
+        if result is None:
+            continue
 
-        # Remove column if it has a score of 0
+        _, score, index = result
+        if score < THRESHOLD:
+            continue
+
         best_match = required_columns[index]
+        print(f"Matching '{input_col}' to '{best_match}' with score {score}")
 
-        if score >= THRESHOLD:  # adjustable threshold
-            # Map the original column name, not the normalized one
-            actual_in_col = next(c for c in input_cols if normalize(c) == input_col)
+        prior = best_matches.get(best_match)
+        if prior is None:
+            print(
+                f"The value {best_match} does not exist in the dictionary - adding value."
+            )
             col_map[actual_in_col] = best_match
-
-            # print colname and score for debugging
-            print(f"Matching '{input_col}' to '{best_match}' with score {score}")
+            best_matches[best_match] = {"actual_in_col": actual_in_col, "score": score}
+        elif score > prior["score"]:
+            print(
+                f"{input_col} has a higher score than current best match in the dictionary - replacing value."
+            )
+            col_map.pop(prior["actual_in_col"], None)
+            col_map[actual_in_col] = best_match
+            best_matches[best_match] = {"actual_in_col": actual_in_col, "score": score}
 
     return df.rename(columns=col_map), col_map
 
@@ -658,6 +671,48 @@ def process_vaccines_due(vaccines_due: Any, language: str) -> str:
     )
 
 
+def normalize_validity_status(raw_status: Any) -> str:
+    """Normalize vaccine validity to valid/invalid/unknown.
+
+    Only "valid"/"Valid" and "invalid"/"Invalid" are treated as known statuses.
+    All other values (including empty/missing) are normalized to "unknown".
+    """
+    status = str(raw_status).strip()
+    if status in {"valid", "Valid"}:
+        return "valid"
+    if status in {"invalid", "Invalid"}:
+        return "invalid"
+    return "unknown"
+
+
+def collapse_validity_statuses(statuses: List[Any]) -> str:
+    """Collapse multiple validity statuses using strict precedence.
+
+    Precedence:
+    1. invalid (if any invalid is present)
+    2. valid (if at least one valid is present and none invalid)
+    3. mixed (if both valid and invalid are present)
+    4. unknown (otherwise)
+    """
+    normalized = [normalize_validity_status(s) for s in statuses]
+    
+    has_valid = "valid" in normalized
+    has_invalid = "invalid" in normalized
+    has_unknown = "unknown" in normalized
+
+    if has_valid and has_invalid and not has_unknown:
+        return "mixed"
+
+    # "All valid" / "all invalid" only when no unknowns are present
+    if has_valid and not has_unknown:
+        return "valid"
+    if has_invalid and not has_unknown:
+        return "invalid"
+
+    # anything involving unknown (or empty) stays unknown
+    return "unknown"
+
+
 def process_received_agents(
     received_agents: Any, replace_unspecified: List[str]
 ) -> List[Dict[str, Any]]:
@@ -670,12 +725,22 @@ def process_received_agents(
     rows: List[Dict[str, Any]] = []
 
     for match in matches:
-        date_str, vaccine = match.split(" - ", maxsplit=1)
+        date_str, part_two = match.split(" - ", maxsplit=1)
+        if " - " in part_two:
+            vaccine, raw_valid = part_two.rsplit(" - ", maxsplit=1)
+        else:
+            vaccine, raw_valid = part_two, None
         vaccine = vaccine.strip()
         if vaccine in replace_unspecified:
             continue
         date_iso = convert_date_iso(date_str.strip())
-        rows.append({"date_given": date_iso, "vaccine": vaccine})
+        rows.append(
+            {
+                "date_given": date_iso,
+                "vaccine": vaccine,
+                "valid": normalize_validity_status(raw_valid),
+            }
+        )
 
     rows.sort(key=lambda item: item["date_given"])
     grouped: List[Dict[str, Any]] = []
@@ -685,10 +750,12 @@ def process_received_agents(
                 {
                     "date_given": entry["date_given"],
                     "vaccine": [entry["vaccine"]],
+                    "valid": [entry["valid"]]
                 }
             )
         else:
             grouped[-1]["vaccine"].append(entry["vaccine"])
+            grouped[-1]["valid"].append(entry["valid"])
 
     return grouped
 
@@ -727,30 +794,55 @@ def enrich_grouped_records(
             v.replace("-unspecified", "*").replace(" unspecified", "*")
             for v in item["vaccine"]
         ]
+
+        source_valid = [normalize_validity_status(v) for v in item.get("valid", [])]
+
         diseases: List[str] = []
-        for vaccine in vaccines:
+        valid: List[Any] = []
+
+        for i, vaccine in enumerate(vaccines):
+            vaccine_valid = source_valid[i] if i < len(source_valid) else "unknown"
             ref = vaccine_reference.get(vaccine, vaccine)
-            if isinstance(ref, list):
-                diseases.extend(ref)
-            else:
-                diseases.append(ref)
+            mapped = ref if isinstance(ref, list) else [ref]
+
+            for disease in mapped:
+                diseases.append(disease)
+                valid.append(vaccine_valid)
 
         # Collapse diseases not in chart to "Other"
         if chart_diseases_header:
             filtered_diseases: List[str] = []
-            has_unmapped = False
-            for disease in diseases:
+            filtered_valid: List[Any] = []
+            unmapped_valid: List[Any] = []
+            other_idx: int | None = None
+
+            for disease, disease_valid in zip(diseases, valid):
                 if disease in chart_diseases_header:
                     filtered_diseases.append(disease)
+                    filtered_valid.append(disease_valid)
+                    if disease == "Other":
+                        other_idx = len(filtered_diseases) - 1
                 else:
-                    has_unmapped = True
-            if has_unmapped and "Other" not in filtered_diseases:
-                filtered_diseases.append("Other")
+                    unmapped_valid.append(disease_valid)
+
+            if unmapped_valid:
+                collapsed_other_valid = collapse_validity_statuses(unmapped_valid)
+
+                if other_idx is None:
+                    filtered_diseases.append("Other")
+                    filtered_valid.append(collapsed_other_valid)
+                else:
+                    filtered_valid[other_idx] = collapse_validity_statuses(
+                        [filtered_valid[other_idx], collapsed_other_valid]
+                    )
+
             diseases = filtered_diseases
+            valid = filtered_valid
 
         enriched.append(
             {
                 "date_given": item["date_given"],
+                "valid": valid,
                 "vaccine": vaccines,
                 "diseases": diseases,
             }
@@ -784,6 +876,7 @@ def build_preprocess_result(
     chart_diseases_header: List[str] = params.get("chart_diseases_header", [])
     preprocess_cfg: Dict[str, Any] = params.get("preprocess", {})
     include_dose: bool = preprocess_cfg.get("include_dose", True)
+    show_validity_markers: bool = preprocess_cfg.get("show_validity_markers", False)
 
     working["SCHOOL_ID"] = working.apply(
         lambda row: synthesize_identifier(
@@ -842,6 +935,18 @@ def build_preprocess_result(
         received = enrich_grouped_records(
             received_grouped, vaccine_reference, language, chart_diseases_header
         )
+        if show_validity_markers:
+            unknown_count = sum(
+                1
+                for record in received
+                for status in record.get("valid", [])
+                if normalize_validity_status(status) == "unknown"
+            )
+            if unknown_count > 0:
+                warnings.add(
+                    "Unknown vaccine validity status for client "
+                    f"{client_id}: {unknown_count} disease marker(s) set to unknown."
+                )
 
         postal_code = row.POSTAL_CODE if row.POSTAL_CODE else "Not provided"  # type: ignore[attr-defined]
         address_line = " ".join(

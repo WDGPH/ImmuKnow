@@ -403,6 +403,10 @@ def build_template_context(
         Template context with translated disease names and formatted date.
     """
     config = load_config()
+    preprocess_cfg: Dict[str, object] = config.get("preprocess", {})
+    show_validity_markers = bool(
+        preprocess_cfg.get("show_validity_markers", False)
+    )
 
     # Load and format date_data_cutoff for the client's language
     date_data_cutoff_iso = config.get("date_data_cutoff")
@@ -487,6 +491,7 @@ def build_template_context(
         "received": to_typ_value(received_translated),
         "num_rows": str(len(received_translated)),
         "chart_diseases_translated": to_typ_value(chart_diseases_translated),
+        "show_validity_markers": to_typ_value(show_validity_markers),
     }
 
 
