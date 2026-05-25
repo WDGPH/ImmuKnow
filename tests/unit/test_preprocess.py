@@ -881,3 +881,66 @@ class TestVaccineProcessingDue:
         # Should normalize Poliomyelitis to Polio (canonical form)
         assert "Polio" in result
         assert "Measles" in result
+
+@pytest.mark.unit
+class TestValidityStatusHandling:
+    """Unit tests for vaccine validity normalization and warnings."""
+
+    def test_normalize_validity_status_strict_values(self) -> None:
+        """Only valid/Valid and invalid/Invalid are treated as known."""
+        assert preprocess.normalize_validity_status("valid") == "valid"
+        assert preprocess.normalize_validity_status("Valid") == "valid"
+        assert preprocess.normalize_validity_status("invalid") == "invalid"
+        assert preprocess.normalize_validity_status("Invalid") == "invalid"
+
+        # Everything else should normalize to unknown
+        assert preprocess.normalize_validity_status("VALID") == "unknown"
+        assert preprocess.normalize_validity_status("true") == "unknown"
+        assert preprocess.normalize_validity_status("") == "unknown"
+        assert preprocess.normalize_validity_status(None) == "unknown"
+
+    def test_unknown_validity_warns_when_markers_enabled(
+        self, tmp_path: Path, monkeypatch, default_vaccine_reference
+    ) -> None:
+        """Unknown validity should be flagged if marker differentiation is enabled."""
+        params_path = tmp_path / "parameters.yaml"
+        params_path.write_text(
+            "\n".join(
+                [
+                    "date_notice_delivery: '2025-04-08'",
+                    "chart_diseases_header:",
+                    "  - Diphtheria",
+                    "  - Tetanus",
+                    "  - Pertussis",
+                    "  - Other",
+                    "preprocess:",
+                    "  include_dose: true",
+                    "  show_validity_markers: true",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(preprocess, "PARAMETERS_PATH", params_path)
+
+        df = sample_input.create_test_input_dataframe(num_clients=1)
+        # No explicit validity token -> unknown
+        df["IMMS GIVEN"] = ["May 1, 2020 - DTaP"]
+        normalized = preprocess.ensure_required_columns(df)
+
+        result = preprocess.build_preprocess_result(
+            normalized,
+            language="en",
+            vaccine_reference=default_vaccine_reference,
+            replace_unspecified=[],
+        )
+
+        assert len(result.clients) == 1
+        client = result.clients[0]
+        assert client.received is not None
+        assert len(client.received) > 0
+        assert client.received[0]["valid"] == ["unknown", "unknown", "unknown"]
+
+        validity_warnings = [
+            w for w in result.warnings if "Unknown vaccine validity status" in w
+        ]
+        assert len(validity_warnings) == 1
