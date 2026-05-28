@@ -8,10 +8,7 @@ It contains:
 - PHU onboarding checklist
 - Example introductory email for contacting interested PHUs
 
-For questions or setup support, please reach out to:
-- **Kassy Raymond** — Data Engineer & Primary Developer  
-- **Justin Angevaare** — Data Science and AI Portfolio Lead  
-- **Mai Miner** — Panorama & PEAR Subject Matter Expertss
+For questions or setup support, please reach out to this repository's GitHub organization.
 
 ## Implementation Process — PHU Email Package
 

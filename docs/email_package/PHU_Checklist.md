@@ -6,7 +6,7 @@ Please complete the following items to participate in the automation pilot.
 
 ## 1. Set-Up and Communication
 - [ ] Create a SharePoint folder for exchanging data and output files
-- [ ] Start a Microsoft Teams chat for ongoing communication (contact **Justin Angevaare** if assistance is needed)
+- [ ] Start a Microsoft Teams chat for ongoing communication (contact our team if assistance is needed)
 
 ---
 
