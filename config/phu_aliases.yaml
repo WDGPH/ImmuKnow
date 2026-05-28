@@ -1,0 +1,30 @@
+# Maps canonical PHU acronyms (matching template folder names) to every
+# alias that may appear in the PHIX reference workbook. Customize this file
+# so each Public Health Unit is represented with all historic spellings,
+# ensuring PHIX validation can restrict facilities to the correct PHU.
+#
+# Example usage:
+#   phu_aliases:
+#     wdgph:
+#       display_name: Wellington-Dufferin-Guelph Public Health
+#       aliases:
+#         - Wellington Dufferin Guelph Public Health
+#         - WDGPH
+
+phu_aliases:
+  wdgph:
+    display_name: Wellington-Dufferin-Guelph Public Health
+    aliases:
+      - Wellington Dufferin Guelph Public Health
+      - Wellington-Dufferin-Guelph Health Unit
+      - WDGPH
+  peel:
+    display_name: Peel Public Health
+    aliases:
+      - Region of Peel Public Health
+      - PEEL HEALTH UNIT
+  ottawa:
+    display_name: Ottawa Public Health
+    aliases:
+      - City of Ottawa Health Unit
+      - OTTAWA PHU

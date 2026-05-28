@@ -220,7 +220,8 @@ class TestPipelineSteps:
         mock_result.clients = [client1, client2]
         mock_result.warnings = []
 
-        with patch("pipeline.orchestrator.preprocess.read_input", return_value=mock_df), \
+        with patch("pipeline.orchestrator.load_config", return_value={"phix_validation": {"enabled": False}}), \
+            patch("pipeline.orchestrator.preprocess.read_input", return_value=mock_df), \
             patch("pipeline.orchestrator.preprocess.map_columns", return_value=(mock_mapped_df, {})), \
             patch("pipeline.orchestrator.preprocess.filter_columns", return_value=mock_filtered_df), \
             patch("pipeline.orchestrator.preprocess.ensure_required_columns", return_value=mock_final_df), \
@@ -236,6 +237,8 @@ class TestPipelineSteps:
                 output_dir=tmp_output_structure["root"],
                 language="en",
                 run_id="test_20250101_120000",
+                config_dir=tmp_test_dir,
+                template_code=None,
             )
 
         assert total == 2

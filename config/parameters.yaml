@@ -1,6 +1,33 @@
 bundling:
   bundle_size: 100
   group_by: null
+
+# Step 2: Preprocessing - PHIX Reference Validation
+# Validates school/daycare names against the official PHIX reference list
+phix_validation:
+  enabled: true
+  # Path to PHIX reference Excel file (relative to project root)
+  # IMPORTANT: We cannot redistribute the PHIX workbook. Provide your own copy
+  # and update this path (absolute path or relative to repo root).
+  reference_file: BYO_PHIX_REFERENCE.xlsx
+  # Name of the Excel sheet containing facility data
+  # Default: "Schools & Day Cares"
+  reference_sheet_name: "Schools & Day Cares"
+  # Prefix for output column names (e.g., "PHIX_ID", "PHIX_MATCHED_PHU", etc.)
+  # Default: "PHIX_"
+  column_prefix: "PHIX_"
+  # Optional mapping file that converts PHIX PHU column names to canonical
+  # template codes. Required when target_phu_code or --template is provided.
+  phu_mapping_file: config/phu_aliases.yaml
+  # Optional default PHU scope when running without --template.
+  # Accepts a single code or list of codes. Leave null to accept all PHUs.
+  target_phu_code: null
+  # How to handle unmatched facilities: 'warn', 'error', or 'skip'
+  # - warn: Log warning, continue processing all records
+  # - error: Fail pipeline if any facilities don't match
+  # - skip: Filter out records with unmatched facilities
+  unmatched_behavior: warn
+
 chart_diseases_header:
 - Diphtheria
 - Tetanus

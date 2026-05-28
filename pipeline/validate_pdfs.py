@@ -242,6 +242,7 @@ def validate_pdf_layout(
     reader: PdfReader,
     enabled_rules: dict[str, str],
     client_id_map: dict[str, str] | None = None,
+    client_metadata_map: dict[str, dict[str, object]] | None = None,
 ) -> tuple[List[str], dict[str, float]]:
     """Check PDF for layout issues using invisible markers and metadata.
 
@@ -256,6 +257,9 @@ def validate_pdf_layout(
     client_id_map : dict[str, str], optional
         Mapping of PDF filename (without path) to expected client ID.
         If provided, client_id_presence validation uses this as source of truth.
+    client_metadata_map : dict[str, dict], optional
+        Additional per-client metadata (PHIX validation scope, school name, etc.)
+        injected into per-PDF measurements for audit trails.
 
     Returns
     -------
@@ -343,6 +347,39 @@ def validate_pdf_layout(
             # If client ID check fails, skip silently (parsing error)
             pass
 
+    if client_metadata_map:
+        meta = client_metadata_map.get(pdf_path.name, {})
+        phix_meta = meta.get("phix_validation") or {}
+        target_phu_code = meta.get("phix_target_phu_code") or phix_meta.get("target_phu_code")
+        target_phu_label = meta.get("phix_target_phu_label") or phix_meta.get("target_phu_label")
+        matched_phu_code = phix_meta.get("phu_code")
+        matched_phu_name = phix_meta.get("phu_name")
+        match_type = phix_meta.get("match_type")
+        match_confidence = phix_meta.get("confidence", 0)
+        facility_name = meta.get("school_name")
+
+        measurements["phix_target_phu_code"] = target_phu_code or ""
+        measurements["phix_target_phu_label"] = target_phu_label or ""
+        measurements["phix_matched_phu_code"] = matched_phu_code or ""
+        measurements["phix_matched_phu_name"] = matched_phu_name or ""
+        measurements["phix_match_type"] = match_type or ""
+        try:
+            measurements["phix_match_confidence"] = int(match_confidence or 0)
+        except (TypeError, ValueError):
+            measurements["phix_match_confidence"] = 0
+        if facility_name:
+            measurements["phix_facility_school"] = facility_name
+
+        if (
+            target_phu_code
+            and matched_phu_code
+            and target_phu_code != matched_phu_code
+        ):
+            warnings.append(
+                "phix_target_phu: Facility PHU code "
+                f"{matched_phu_code} does not match template PHU {target_phu_code}"
+            )
+
     return warnings, measurements
 
 
@@ -350,6 +387,7 @@ def validate_pdf_structure(
     pdf_path: Path,
     enabled_rules: dict[str, str] | None = None,
     client_id_map: dict[str, str] | None = None,
+    client_metadata_map: dict[str, dict[str, object]] | None = None,
 ) -> ValidationResult:
     """Validate a single PDF file for structure and layout.
 
@@ -361,6 +399,9 @@ def validate_pdf_structure(
         Validation rules configuration (rule_name -> "disabled"/"warn"/"error").
     client_id_map : dict[str, str], optional
         Mapping of PDF filename to expected client ID (from preprocessed_clients.json).
+    client_metadata_map : dict[str, dict], optional
+        Per-PDF metadata (PHIX validation scope, school name, etc.) to include in
+        measurements and warnings.
 
     Returns
     -------
@@ -390,7 +431,11 @@ def validate_pdf_structure(
 
     # Validate layout using markers
     layout_warnings, layout_measurements = validate_pdf_layout(
-        pdf_path, reader, enabled_rules, client_id_map=client_id_map
+        pdf_path,
+        reader,
+        enabled_rules,
+        client_id_map=client_id_map,
+        client_metadata_map=client_metadata_map,
     )
     warnings.extend(layout_warnings)
     measurements.update(layout_measurements)
@@ -449,6 +494,7 @@ def validate_pdfs(
     files: List[Path],
     enabled_rules: dict[str, str] | None = None,
     client_id_map: dict[str, str] | None = None,
+    client_metadata_map: dict[str, dict[str, object]] | None = None,
 ) -> ValidationSummary:
     """Validate all PDF files and generate summary.
 
@@ -460,6 +506,8 @@ def validate_pdfs(
         Validation rules configuration (rule_name -> "disabled"/"warn"/"error").
     client_id_map : dict[str, str], optional
         Mapping of PDF filename to expected client ID (from preprocessed_clients.json).
+    client_metadata_map : dict[str, dict], optional
+        Per-PDF metadata (PHIX validation scope, school name, etc.).
 
     Returns
     -------
@@ -477,7 +525,10 @@ def validate_pdfs(
 
     for pdf_path in files:
         result = validate_pdf_structure(
-            pdf_path, enabled_rules=enabled_rules, client_id_map=client_id_map
+            pdf_path,
+            enabled_rules=enabled_rules,
+            client_id_map=client_id_map,
+            client_metadata_map=client_metadata_map,
         )
         results.append(result)
         page_count = int(result.measurements.get("page_count", 0))
@@ -592,6 +643,7 @@ def main(
     json_output: Path | None = None,
     client_id_map: dict[str, str] | None = None,
     config_dir: Path | None = None,
+    client_metadata_map: dict[str, dict[str, object]] | None = None,
 ) -> ValidationSummary:
     """Main entry point for PDF validation.
 
@@ -612,6 +664,9 @@ def main(
         Path to config directory containing parameters.yaml.
         Used to load enabled_rules if not explicitly provided.
         If not provided, uses default location (config/parameters.yaml in project root).
+    client_metadata_map : dict[str, dict], optional
+        Additional metadata (PHIX validation scope, school name, etc.) to inject
+        into per-PDF measurements for downstream auditing.
 
     Returns
     -------
@@ -632,11 +687,16 @@ def main(
 
     if client_id_map is None:
         client_id_map = {}
+    if client_metadata_map is None:
+        client_metadata_map = {}
 
     files = discover_pdfs(target)
     filtered = filter_by_language(files, language)
     summary = validate_pdfs(
-        filtered, enabled_rules=enabled_rules, client_id_map=client_id_map
+        filtered,
+        enabled_rules=enabled_rules,
+        client_id_map=client_id_map,
+        client_metadata_map=client_metadata_map,
     )
     summary.language = language
 

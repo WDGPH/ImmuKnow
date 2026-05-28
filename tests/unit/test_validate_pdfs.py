@@ -769,3 +769,69 @@ class TestClientIdValidation:
 
         # Should have no warnings because all rules are disabled
         assert len(result.warnings) == 0
+
+
+@pytest.mark.unit
+class TestPhixMetadataLogging:
+    """Tests for PHIX metadata measurements in PDF validation."""
+
+    def test_measurements_include_phix_scope(self, tmp_path: Path) -> None:
+        """PHIX metadata is propagated into validation measurements."""
+        pdf_path = tmp_path / "en_notice_00001_1009876543.pdf"
+        writer = PdfWriter()
+        writer.add_blank_page(width=612, height=792)
+        with open(pdf_path, "wb") as f:
+            writer.write(f)
+
+        metadata_map = {
+            pdf_path.name: {
+                "phix_validation": {
+                    "phu_code": "test_phu_1",
+                    "phu_name": "Test PHU 1",
+                    "match_type": "exact",
+                    "confidence": 100,
+                },
+                "phix_target_phu_code": "test_phu_1",
+                "phix_target_phu_label": "Test PHU 1",
+                "school_name": "Lincoln Elementary School",
+            }
+        }
+
+        result = validate_pdfs.validate_pdf_structure(
+            pdf_path,
+            enabled_rules={"exactly_two_pages": "disabled"},
+            client_metadata_map=metadata_map,
+        )
+
+        assert result.measurements["phix_target_phu_code"] == "test_phu_1"
+        assert result.measurements["phix_matched_phu_code"] == "test_phu_1"
+        assert "phix_target_phu" not in "".join(result.warnings)
+
+    def test_mismatch_emits_warning(self, tmp_path: Path) -> None:
+        """PHU mismatch triggers per-PDF warning."""
+        pdf_path = tmp_path / "en_notice_00001_1009876543.pdf"
+        writer = PdfWriter()
+        writer.add_blank_page(width=612, height=792)
+        with open(pdf_path, "wb") as f:
+            writer.write(f)
+
+        metadata_map = {
+            pdf_path.name: {
+                "phix_validation": {
+                    "phu_code": "test_phu_2",
+                    "phu_name": "Test PHU 2",
+                    "match_type": "exact",
+                    "confidence": 100,
+                },
+                "phix_target_phu_code": "test_phu_1",
+                "phix_target_phu_label": "Test PHU 1",
+            }
+        }
+
+        result = validate_pdfs.validate_pdf_structure(
+            pdf_path,
+            enabled_rules={"exactly_two_pages": "disabled"},
+            client_metadata_map=metadata_map,
+        )
+
+        assert any("phix_target_phu" in warning for warning in result.warnings)

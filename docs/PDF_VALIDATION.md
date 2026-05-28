@@ -151,7 +151,8 @@ This markerless approach is also suitable for checks like:
 In step 6 (validation), the orchestrator:
 1. Loads `preprocessed_clients_{run_id}.json` from `output/artifacts/`.
 2. Builds a mapping: `filename -> expected_value` (e.g., client ID, sequence number).
-3. Passes this mapping to `validate_pdfs.main(..., client_id_map=client_id_map)`.
+3. Passes this mapping to `validate_pdfs.main(..., client_id_map=client_id_map, client_metadata_map=client_metadata_map)`.
+4. `client_metadata_map` currently carries PHIX validation context (target PHU, matched PHU, school name) so every per-PDF log records which facility/PHU was validated upstream.
 
 Rules then validate against the mapping using artifact data as the source of truth.
 
@@ -164,6 +165,22 @@ Current rule: Searches for any 10-digit number in the PDF text and compares to t
 - Validation: If found ≠ expected, emit warning.
 
 This ensures every generated PDF contains the correct client ID, catching generation errors or data drift early.
+
+### Example: PHIX facility scope tracking
+
+- Preprocessing stores PHIX validation metadata (`phix_validation`) in each client's artifact entry.
+- The orchestrator passes this data via `client_metadata_map`.
+- `validate_pdf_layout` records `phix_target_phu_code`, `phix_matched_phu_code`, and `phix_match_confidence` in each PDF's `measurements`.
+- If a PDF's matched PHU does not align with the template's target PHU, the validator emits a `phix_target_phu` warning per file.
+
+This gives auditors a traceable link from every generated PDF back to the PHIX reference data used during preprocessing.
+
+### PHIX reference workbook is BYO
+
+- The official PHIX reference workbook is licensed and cannot be redistributed in this repository.
+- `.gitignore` explicitly ignores `PHIX Reference*.xls*` so accidental copies never enter history.
+- `config/parameters.yaml` ships with the placeholder `BYO_PHIX_REFERENCE.xlsx`; operators must point it at their local copy before running Step 2.
+- Document the location internally (outside git) and ensure CI/CD environments mount the workbook securely (e.g., secrets storage or mounted volume).
 
 ## Why we prefer template‑emitted measurements over PDF distance math
 
