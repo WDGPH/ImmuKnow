@@ -23,9 +23,6 @@ from typing import Mapping
 TEMPLATE_PREFIX = """// --- CCEYA NOTICE TEMPLATE (TEST VERSION) --- //
 // Description: A typst template that dynamically generates CCEYA templates.
 // NOTE: All contact details are placeholders for testing purposes only.
-// Author: Kassy Raymond
-// Date Created: 2025-06-25
-// Date Last Updated: 2025-09-16
 // ----------------------------------------- //
 
 #import "/templates/conf.typ"

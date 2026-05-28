@@ -20,10 +20,8 @@ Please find attached:
 - **Base Template:** Quick deployment, limited customization  
 - **Custom Template:** Flexible layout and messaging (requires more time)
 
-**WDGPH Contacts:**
-- **Kassy Raymond** – Data Engineer & Primary developer  
-- **Justin Angevaare** – Data Scientist & Technical Manager  
-- **Mai Miner** – Data Analyst, Panorama & PEAR SME
+**PHU Contacts:**
+- [TO BE FILLED]
 
 We look forward to connecting over Microsoft Teams to get started.
 

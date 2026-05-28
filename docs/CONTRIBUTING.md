@@ -95,7 +95,7 @@ Even if not merged, branches contribute to team learning and future iteration!
 
 For guidance or clarification: 
 
-* Tag @kassyray or @jangevaare in PR or issue
+* Tag our team in PR or issue
 * Use our GitHub or Teams for conceptual proposals 
 
 ## Closing Thought
