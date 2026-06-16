@@ -208,7 +208,7 @@ class TestPipelineSteps:
             )
             assert result is False
 
-    def test_run_step_2_preprocess(self, tmp_test_dir: Path, tmp_output_structure: dict) -> None:
+    def test_run_step_2_preprocess(self, tmp_test_dir: Path, tmp_output_structure: dict, config_file: Path) -> None:
         """Verify Step 2: preprocess returns client count."""
         mock_df = MagicMock()
         mock_mapped_df = MagicMock()
@@ -236,6 +236,7 @@ class TestPipelineSteps:
                 output_dir=tmp_output_structure["root"],
                 language="en",
                 run_id="test_20250101_120000",
+                config_dir=config_file.parent,
             )
 
         assert total == 2

@@ -665,63 +665,69 @@ def enrich_grouped_records(
     vaccine_reference: Dict[str, Any],
     language: str,
     chart_diseases_header: List[str] | None = None,
+    ignore_diseases: List[str] | None = None,
 ) -> List[Dict[str, Any]]:
-    """Enrich grouped vaccine records with disease information.
 
-    If chart_diseases_header is provided, diseases not in the list are
-    collapsed into the "Other" category.
+    enriched = []
+    ignore_set = set(ignore_diseases or [])
 
-    Parameters
-    ----------
-    grouped : List[Dict[str, Any]]
-        Grouped vaccine records with date_given and vaccine list.
-    vaccine_reference : Dict[str, Any]
-        Map of vaccine codes to disease names.
-    language : str
-        Language code for logging.
-    chart_diseases_header : List[str], optional
-        List of diseases to include in chart. Diseases not in this list
-        are mapped to "Other".
-
-    Returns
-    -------
-    List[Dict[str, Any]]
-        Enriched records with date_given, vaccine, and diseases fields.
-    """
-    enriched: List[Dict[str, Any]] = []
     for item in grouped:
-        vaccines = [
-            v.replace("-unspecified", "*").replace(" unspecified", "*")
-            for v in item["vaccine"]
-        ]
-        diseases: List[str] = []
-        for vaccine in vaccines:
-            ref = vaccine_reference.get(vaccine, vaccine)
-            if isinstance(ref, list):
-                diseases.extend(ref)
-            else:
-                diseases.append(ref)
 
-        # Collapse diseases not in chart to "Other"
+        # Rule 1 — If ANY vaccine does not exist, drop entire row
+        if any(v not in vaccine_reference for v in item["vaccine"]):
+            continue
+
+        final_vaccines = []
+        final_diseases = []
+
+        for vaccine in item["vaccine"]:
+
+            disease_mapping = vaccine_reference.get(vaccine)
+
+            # Rule 2 — If mapping is "Other", skip this vaccine entirely
+            if disease_mapping == ["Other"] or disease_mapping == "Other":
+                continue
+
+            # Add vaccine to valid list
+            final_vaccines.append(vaccine)
+
+            # Add disease mapping
+            if isinstance(disease_mapping, list):
+                final_diseases.extend(disease_mapping)
+
+                # Rule 3 — HepB or HPV → also append "Other"
+                if any(d in ["Hepatitis B", "HPV"] for d in disease_mapping):
+                    final_diseases.append("Other")
+
+        # If no vaccines remain, drop entire row
+        if not final_vaccines:
+            continue
+
+        # Rule 4 — Remove ignored diseases
+        final_diseases = [d for d in final_diseases if d not in ignore_set]
+
+        # Rule 5 — Collapse diseases not in header → "Other"
         if chart_diseases_header:
-            filtered_diseases: List[str] = []
-            has_unmapped = False
-            for disease in diseases:
-                if disease in chart_diseases_header:
-                    filtered_diseases.append(disease)
-                else:
-                    has_unmapped = True
-            if has_unmapped and "Other" not in filtered_diseases:
-                filtered_diseases.append("Other")
-            diseases = filtered_diseases
+            allowed = set(chart_diseases_header)
+            final_diseases = [
+                d if d in allowed else "Other"
+                for d in final_diseases
+            ]
+        
+        vaccines_normalized = [
+        v.replace("-unspecified", "*").replace(" unspecified", "*")
+        for v in final_vaccines
+        ]
+
 
         enriched.append(
             {
                 "date_given": item["date_given"],
-                "vaccine": vaccines,
-                "diseases": diseases,
+                "vaccine": vaccines_normalized,
+                "diseases": final_diseases,
             }
         )
+
     return enriched
 
 
@@ -730,6 +736,7 @@ def build_preprocess_result(
     language: str,
     vaccine_reference: Dict[str, Any],
     replace_unspecified: List[str],
+    ignore_diseases
 ) -> PreprocessResult:
     """Process and normalize client data into structured artifact.
 
@@ -803,7 +810,7 @@ def build_preprocess_result(
         ]
         received_grouped = process_received_agents(row.IMMS_GIVEN, replace_unspecified)  # type: ignore[attr-defined]
         received = enrich_grouped_records(
-            received_grouped, vaccine_reference, language, chart_diseases_header
+            received_grouped, vaccine_reference, language, chart_diseases_header, ignore_diseases=None
         )
 
         postal_code = row.POSTAL_CODE if row.POSTAL_CODE else "Not provided"  # type: ignore[attr-defined]

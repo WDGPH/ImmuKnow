@@ -1,6 +1,6 @@
 bundling:
   bundle_size: 100
-  group_by: null
+  group_by: school
 chart_diseases_header:
 - Diphtheria
 - Tetanus
@@ -21,6 +21,8 @@ encryption:
   enabled: false
   password:
     template: '{date_of_birth_iso_compact}'
+ignore_diseases: 
+- Other
 ignore_agents:
 - RSVAb
 - VarIg
