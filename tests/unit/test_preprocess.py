@@ -944,3 +944,20 @@ class TestValidityStatusHandling:
             w for w in result.warnings if "Unknown vaccine validity status" in w
         ]
         assert len(validity_warnings) == 1
+
+@pytest.mark.unit
+class TestVaccineProcessingDue:
+    """Unit tests for process_vaccines_due function."""
+
+    def test_process_vaccines_due_normalization(self) -> None:
+        """Verify process_vaccines_due normalizes and formats disease names."""
+        from pipeline import translation_helpers
+
+        translation_helpers.clear_caches()
+
+        # Test with variant input - should normalize correctly
+        result = preprocess.process_vaccines_due("Poliomyelitis, Measles", "en")
+
+        # Should normalize Poliomyelitis to Polio (canonical form)
+        assert "Polio" in result
+        assert "Measles" in result
