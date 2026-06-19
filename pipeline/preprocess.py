@@ -47,7 +47,7 @@ from datetime import datetime, timezone
 from hashlib import sha1
 from pathlib import Path
 from string import Formatter
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, overload
 import pandas as pd
 import yaml
 from babel.dates import format_date
@@ -463,9 +463,21 @@ def map_columns(df: pd.DataFrame, required_columns=REQUIRED_COLUMNS):
     return df.rename(columns=col_map), col_map
 
 
+@overload
 def filter_columns(
     df: pd.DataFrame, required_columns: list[str] = REQUIRED_COLUMNS
-) -> pd.DataFrame:
+) -> pd.DataFrame: ...
+
+
+@overload
+def filter_columns(
+    df: None, required_columns: list[str] = REQUIRED_COLUMNS
+) -> None: ...
+
+
+def filter_columns(
+    df: pd.DataFrame | None, required_columns: list[str] = REQUIRED_COLUMNS
+) -> pd.DataFrame | None:
     """Filter dataframe to only include required columns."""
     if df is None or df.empty:
         return df

@@ -144,7 +144,7 @@ class TestFilterColumns:
 
     def test_handles_empty_dataframe(self):
         """Verify that an empty DataFrame is returned unchanged."""
-        df = pd.DataFrame(columns=["child_first_name", "child_last_name"])  # type: ignore[arg-type]
+        df = pd.DataFrame(columns=pd.Index(["child_first_name", "child_last_name"]))
         result = preprocess.filter_columns(df, ["child_first_name"])
         assert result.empty
 
