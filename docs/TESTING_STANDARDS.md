@@ -41,15 +41,16 @@ tests/
 │   └── test_orchestrator.py       # Merged lang failure paths
 │
 ├── integration/                   # Integration tests (step interactions)
+│   ├── test_pipeline_contracts.py # Artifact round-trip and step handoff contracts
 │   ├── test_custom_templates.py
-│   ├── test_error_propagation.py  # Philosophy/Fail-fast contract
+│   ├── test_error_propagation.py  # Fail-fast and per-item recovery contracts
 │   └── test_translation_integration.py
 │
 ├── e2e/                           # End-to-end tests (full pipeline)
 │   └── test_full_pipeline.py      # EN and FR paths (smoke tests)
 │
+├── conftest.py                    # Pytest fixtures (shared across all layers)
 ├── fixtures/                      # Shared test utilities
-│   ├── conftest.py               # Pytest fixtures
 │   └── sample_input.py            # Mock data generators
 │
 └── tmp_test_dir/                 # Test temporary files
