@@ -146,6 +146,9 @@ class TestFullPipelineExecution:
         pdfs = list((output_dir / "pdf_individual").glob("en_notice_*.pdf"))
         assert len(pdfs) == 3, f"Expected 3 PDFs but found {len(pdfs)}"
 
+        # Bundling runs by default (bundle_size: 100 in parameters.yaml)
+        assert (output_dir / "pdf_combined").exists()
+
     def test_full_pipeline_french(
         self, pipeline_input_file: Path, project_root: Path, e2e_workdir: Path
     ) -> None:
@@ -167,3 +170,32 @@ class TestFullPipelineExecution:
         # Verify PDFs exist with French prefix
         pdfs = list((output_dir / "pdf_individual").glob("fr_notice_*.pdf"))
         assert len(pdfs) == 3, f"Expected 3 French PDFs but found {len(pdfs)}"
+
+    def test_full_pipeline_with_encryption(
+        self, pipeline_input_file: Path, project_root: Path, e2e_workdir: Path
+    ) -> None:
+        """Test complete pipeline execution with encryption enabled (Steps 7 + 9).
+
+        Real-world significance:
+        - Encryption is a core optional feature used in production deliveries
+        - Steps 7 and 9 are never exercised by the baseline smoke tests
+        - Verifies that encrypted PDFs are created alongside unencrypted originals
+
+        Assertion: One _encrypted.pdf exists per client in pdf_individual/
+        """
+        config_overrides = {"encryption": {"enabled": True}}
+        result = self.run_pipeline(
+            pipeline_input_file, "en", project_root, e2e_workdir, config_overrides
+        )
+
+        assert result.returncode == 0, f"Pipeline failed: {result.stderr}"
+        assert "Pipeline completed successfully" in result.stdout
+
+        output_dir = e2e_workdir / "output"
+        encrypted_pdfs = list(
+            (output_dir / "pdf_individual").glob("*_encrypted.pdf")
+        )
+        assert len(encrypted_pdfs) == 3, (
+            f"Expected 3 encrypted PDFs but found {len(encrypted_pdfs)}"
+        )
+
