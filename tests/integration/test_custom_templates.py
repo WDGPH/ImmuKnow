@@ -14,7 +14,6 @@ Real-world significance:
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
@@ -59,7 +58,10 @@ class TestCustomTemplateDirectory:
         assert callable(renderers["fr"])
 
     def test_generate_notices_with_custom_templates(
-        self, tmp_path: Path, custom_templates: Path
+        self,
+        tmp_path: Path,
+        custom_templates: Path,
+        sample_artifact_payload: ArtifactPayload,
     ) -> None:
         """Verify notice generation works with custom template directory.
 
@@ -68,63 +70,24 @@ class TestCustomTemplateDirectory:
         - Pipeline must generate notices using custom templates
         - Custom assets (logo, signature) must be used
         """
-        # Create test artifact
-        client = create_test_client_record(language="en", sequence="00001")
-        payload = ArtifactPayload(
-            run_id="test123",
-            language="en",
-            clients=[client],
-            warnings=[],
-            created_at="2025-01-01T00:00:00Z",
-            total_clients=1,
-        )
-
-        artifact_path = tmp_path / "artifact.json"
-        artifact_path.write_text(
-            json.dumps(
-                {
-                    "run_id": payload.run_id,
-                    "language": payload.language,
-                    "clients": [client.__dict__],
-                    "warnings": payload.warnings,
-                    "created_at": payload.created_at,
-                    "total_clients": payload.total_clients,
-                }
-            ),
-            encoding="utf-8",
-        )
-
         output_dir = tmp_path / "output"
+        output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Copy assets to output directory (simulating orchestrator behavior)
-        assets_dir = output_dir / "assets"
-        assets_dir.mkdir(parents=True, exist_ok=True)
-
-        import shutil
-
-        logo_src = custom_templates / "assets" / "logo.png"
-        signature_src = custom_templates / "assets" / "signature.png"
-        logo_path = assets_dir / "logo.png"
-        signature_path = assets_dir / "signature.png"
-
-        shutil.copy2(logo_src, logo_path)
-        shutil.copy2(signature_src, signature_path)
-
-        # Verify custom assets exist
-        assert logo_path.exists(), f"Logo not found at {logo_path}"
-        assert signature_path.exists(), f"Signature not found at {signature_path}"
+        # Use assets from custom_templates
+        logo_path = custom_templates / "assets" / "logo.png"
+        signature_path = custom_templates / "assets" / "signature.png"
 
         # Generate with custom templates
         files = generate_notices.generate_typst_files(
-            payload,
+            sample_artifact_payload,
             output_dir,
             logo_path,
             signature_path,
             custom_templates,  # Use custom template directory
         )
 
-        assert len(files) == 1
-        assert files[0].exists()
+        assert len(files) == sample_artifact_payload.total_clients
+        assert all(f.exists() for f in files)
 
         # Verify content contains conf import (absolute from project root)
         content = files[0].read_text(encoding="utf-8")
