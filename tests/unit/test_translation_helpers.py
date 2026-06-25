@@ -327,6 +327,38 @@ class TestMultiLanguageSupport:
                 # These should have accented French versions
                 pass
 
+    def test_normalize_then_translate_polio_english(self) -> None:
+        """Verify Poliomyelitis -> Polio -> Polio (English)."""
+        translation_helpers.clear_caches()
+        normalized = translation_helpers.normalize_disease("Poliomyelitis")
+        assert normalized == "Polio"
+
+        translated = translation_helpers.display_label(
+            "diseases_overdue", normalized, "en"
+        )
+        assert translated == "Polio"
+
+    def test_normalize_then_translate_polio_french(self) -> None:
+        """Verify Poliomyelitis -> Polio -> Poliomyélite (French)."""
+        translation_helpers.clear_caches()
+        normalized = translation_helpers.normalize_disease("Poliomyelitis")
+        assert normalized == "Polio"
+
+        translated = translation_helpers.display_label(
+            "diseases_overdue", normalized, "fr"
+        )
+        assert translated == "Poliomyélite"
+
+    def test_multiple_languages_independent(self) -> None:
+        """Verify translations for different languages are independent."""
+        translation_helpers.clear_caches()
+        en_polio = translation_helpers.display_label("diseases_overdue", "Polio", "en")
+        fr_polio = translation_helpers.display_label("diseases_overdue", "Polio", "fr")
+
+        assert en_polio != fr_polio
+        assert en_polio == "Polio"
+        assert fr_polio == "Poliomyélite"
+
 
 @pytest.fixture
 def tmp_test_dir(tmp_path: Path) -> Path:

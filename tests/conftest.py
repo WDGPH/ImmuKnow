@@ -16,6 +16,8 @@ from typing import Any, Dict, Generator
 import pytest
 import yaml
 
+from pipeline import data_models
+
 
 @pytest.fixture
 def tmp_test_dir() -> Generator[Path, None, None]:
@@ -293,3 +295,48 @@ def custom_templates(tmp_test_dir: Path) -> Generator[Path, None, None]:
 
     yield custom_dir
     # Cleanup handled automatically by tmp_test_dir fixture
+
+
+@pytest.fixture
+def sample_client_record() -> data_models.ClientRecord:
+    """Provide a standard ClientRecord for testing.
+
+    Real-world significance:
+    - Provides a consistent starting point for downstream tests
+    - Reduces duplication of manual record creation
+    """
+    from tests.fixtures.sample_input import create_test_client_record
+
+    return create_test_client_record()
+
+
+@pytest.fixture
+def sample_artifact_payload(run_id: str) -> data_models.ArtifactPayload:
+    """Provide a standard ArtifactPayload for testing.
+
+    Real-world significance:
+    - Reduces duplication of manual artifact creation
+    - Ensures consistency across integration tests
+    """
+    from tests.fixtures.sample_input import create_test_artifact_payload
+
+    return create_test_artifact_payload(run_id=run_id)
+
+
+@pytest.fixture
+def sample_assets(tmp_path: Path) -> tuple[Path, Path]:
+    """Provide paths to real logo and signature assets.
+
+    Real-world significance:
+    - Tests requiring real image files can use these
+    - Fails gracefully if assets are missing
+    """
+    project_root = Path(__file__).parent.parent
+    assets_dir = project_root / "templates" / "assets"
+    logo = assets_dir / "logo.png"
+    signature = assets_dir / "signature.png"
+
+    if not logo.exists() or not signature.exists():
+        pytest.skip("Logo or signature assets not found")
+
+    return logo, signature
