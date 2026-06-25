@@ -12,7 +12,7 @@ jobs:
     env:
       typst_ver: 0.14.2
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 2
       - name: Set up Python
