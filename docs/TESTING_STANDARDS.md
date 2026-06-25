@@ -6,6 +6,15 @@ This document defines the testing strategy and organizational standards for the 
 
 Tests are organized in three layers to provide different types of validation at different speeds.
 
+## Strategic Principles (Pre-1.0 Refinement)
+
+As part of the pre-1.0 release strategy, the following principles guide the test suite:
+
+1. **Contracts over Defensiveness:** Focus on validating the boundaries between steps (inputs/outputs on disk) rather than repetitive internal logic checks in every module.
+2. **Minimal E2E Smoke Tests:** Preserve exactly one full pipeline path per language (English and French) to ensure end-to-end viability without overwhelming the suite with redundant E2E variants.
+3. **Consolidated Units:** Merge tests for tightly coupled modules (e.g., config loading and validation) to reduce file overhead and improve maintainability.
+4. **Deterministic and Isolated:** Tests must not rely on shared global state or external services. All PDF compilation must satisfy project-root path constraints.
+
 ## Frameworks and Metrics Used
 
 `pytest` is the framework used to write and run tests for the codebase. As a metric to determine the percentage of source code that is executed during testing, code coverage is used. `pytest-cov` is used to determine whether there are areas in the codebase that are not executed during testing, which may contribute to bugs. Code coverage is integrated in our GitHub actions when a pull request is made to ensure that new additions to the main code base are tested. 
@@ -16,36 +25,32 @@ Tests are organized in three layers to provide different types of validation at 
 
 ```
 tests/
-├── unit/                          # Unit tests (one per module)
-│   ├── test_config_loader.py
+├── unit/                          # Unit tests (one per module/contract)
+│   ├── test_config_loader.py      # Merged loader + validation
 │   ├── test_preprocess.py
-│   ├── test_generate_notices.py
+│   ├── test_generate_notices.py   # Merged template loading
 │   ├── test_generate_qr_codes.py
 │   ├── test_compile_notices.py
-│   ├── test_count_pdfs.py
+│   ├── test_validate_pdfs.py
 │   ├── test_encrypt_notice.py
-│   ├── test_batch_pdfs.py
+│   ├── test_bundle_pdfs.py
 │   ├── test_cleanup.py
 │   ├── test_prepare_output.py
-│   ├── test_enums.py
-│   ├── test_data_models.py
+│   ├── test_data_models.py        # Trimmed to custom logic
 │   ├── test_utils.py
-│   └── test_run_pipeline.py
+│   └── test_orchestrator.py       # Merged lang failure paths
 │
 ├── integration/                   # Integration tests (step interactions)
-│   ├── test_pipeline_preprocess_to_qr.py
-│   ├── test_pipeline_notices_to_compile.py
-│   ├── test_pipeline_pdf_validation.py
-│   ├── test_artifact_schema.py
-│   └── test_config_driven_behavior.py
+│   ├── test_pipeline_contracts.py # Artifact round-trip and step handoff contracts
+│   ├── test_custom_templates.py
+│   ├── test_error_propagation.py  # Fail-fast and per-item recovery contracts
+│   └── test_translation_integration.py
 │
 ├── e2e/                           # End-to-end tests (full pipeline)
-│   ├── test_full_pipeline_en.py
-│   ├── test_full_pipeline_fr.py
-│   └── test_pipeline_edge_cases.py
+│   └── test_full_pipeline.py      # EN and FR paths (smoke tests)
 │
+├── conftest.py                    # Pytest fixtures (shared across all layers)
 ├── fixtures/                      # Shared test utilities
-│   ├── conftest.py               # Pytest fixtures
 │   └── sample_input.py            # Mock data generators
 │
 └── tmp_test_dir/                 # Test temporary files
@@ -166,106 +171,45 @@ def project_root() -> Path:
     return Path(__file__).parent.parent.parent  # tests/e2e/... → project root
 
 @pytest.mark.e2e
-def test_full_pipeline_english(project_root: Path) -> None:
-    """E2E: Complete pipeline generates PDF output for English input.
+class TestFullPipelineExecution:
+    """E2E: Complete pipeline generates PDF output for multiple languages."""
 
-    Real-world significance:
-    - Verifies full 9-step pipeline works end-to-end
-    - Ensures PDF files are created with correct names and counts
-    - Tests English language variant (French tested separately)
+    @pytest.fixture
+    def project_root(self) -> Path:
+        """Fixture providing absolute path to project root."""
+        return Path(__file__).resolve().parent.parent.parent
 
-    Parameters
-    ----------
-    project_root : Path
-        Fixture providing absolute path to project root
+    @pytest.fixture
+    def e2e_workdir(self, project_root: Path, tmp_path_factory: pytest.TempPathFactory) -> Path:
+        """Create a temporary workdir within project root for path resolution."""
+        workdir = project_root / f"tmp_e2e_{tmp_path_factory.mktemp('e2e').name}"
+        workdir.mkdir(parents=True, exist_ok=True)
+        # Prepare subdirs...
+        return workdir
 
-    Raises
-    ------
-    AssertionError
-        If pipeline exit code is non-zero or PDF count incorrect
-
-    Assertion: Pipeline succeeds and generates correct number of PDFs
-    """
-    input_dir = project_root / "input"
-    output_dir = project_root / "output"
-    
-    input_file = input_dir / "e2e_test_clients.xlsx"
-    # Create test Excel file...
-    
-    # Run pipeline with project_root as CWD (not tmp_path)
-    result = subprocess.run(
-        ["uv", "run", "viper", input_file.name, "en"],
-        cwd=str(project_root),
-        capture_output=True,
-        text=True
-    )
-    
-    assert result.returncode == 0
-    pdfs = list((output_dir / "pdf_individual").glob("*.pdf"))
-    assert len(pdfs) == 3
+    def test_full_pipeline_english(self, project_root: Path, e2e_workdir: Path) -> None:
+        """Verifies full 9-step pipeline works end-to-end for English."""
+        # Run pipeline using 'uv run viper' in project_root...
+        pass
 ```
 
-### Configuration Override Pattern for Feature Testing
+### Feature Toggle Testing (Config Overrides)
 
-**Solution:**
+While E2E tests are reserved for full smoke paths, feature toggles (e.g., QR enabled/disabled) should primarily be tested at the **Integration** level. This avoids the overhead of full PDF compilation for every configuration variant.
+
+**Preferred Pattern:**
+In `tests/integration/test_pipeline_contracts.py`, use a modular approach to verify that configuration flags correctly skip or include specific step logic.
+
 ```python
-import yaml
-from pathlib import Path
-
-@pytest.mark.e2e
-def test_pipeline_with_qr_disabled(project_root: Path) -> None:
-    """E2E: QR code generation can be disabled via config.
+@pytest.mark.integration
+def test_pipeline_skips_qr_when_disabled(tmp_path: Path):
+    """Integration: verify that 'qr.enabled=False' skips Step 3.
 
     Real-world significance:
-    - Verifies feature flags in config actually control pipeline behavior
-    - Tests that disabled QR generation doesn't crash pipeline
-    - Ensures config-driven behavior is deterministic and testable
-
-    Parameters
-    ----------
-    project_root : Path
-        Fixture providing absolute path to project root
-
-    Raises
-    ------
-    AssertionError
-        If QR code generation is not skipped when disabled
-
-    Notes
-    -----
-    Always restores original config in finally block to prevent test pollution.
+    - Feature flags must be deterministic and respected
+    - Avoids unnecessary processing time when features aren't needed
     """
-    config_path = project_root / "config" / "parameters.yaml"
-    
-    # Load original config
-    with open(config_path) as f:
-        original_config = yaml.safe_load(f)
-    
-    try:
-        # Modify config
-        original_config["qr"]["enabled"] = False
-        with open(config_path, "w") as f:
-            yaml.dump(original_config, f)
-        
-        # Run pipeline
-        result = subprocess.run(
-            ["uv", "run", "viper", "test_input.xlsx", "en"],
-            cwd=str(project_root),
-            capture_output=True,
-            text=True
-        )
-        
-        # Verify QR generation was skipped
-        assert result.returncode == 0
-        assert "Step 3: Generating QR codes" not in result.stdout
-        qr_dir = project_root / "output" / "artifacts" / "qr_codes"
-        assert not qr_dir.exists() or len(list(qr_dir.glob("*.png"))) == 0
-    
-    finally:
-        # Restore original config
-        original_config["qr"]["enabled"] = True
-        with open(config_path, "w") as f:
-            yaml.dump(original_config, f)
+    # Logic to verify step bypass or artifact omission
 ```
 
 ### Input/Output Fixture Pattern
@@ -633,14 +577,14 @@ def test_preprocess_sorts_clients_deterministically():
 
 ## Test Coverage Goals
 
-- **scripts/**: >80% code coverage
-- **Pipeline orchestration**: >60% coverage (harder to test due to I/O)
+- **pipeline/**: >80% code coverage
+- **Pipeline orchestration**: >60% coverage (verified via combination of unit and integration tests)
 - **Critical path (Steps 1–6)**: >90% coverage
 - **Optional features (Steps 7–9)**: >70% coverage
 
 Run coverage reports with:
 ```bash
-uv run pytest --cov=scripts --cov-report=html
+uv run pytest --cov=pipeline --cov-report=html
 ```
 
 View results in `htmlcov/index.html`.

@@ -20,6 +20,7 @@ from pipeline import generate_notices, generate_qr_codes
 from pipeline.data_models import ArtifactPayload, ClientRecord
 
 
+@pytest.mark.integration
 class TestCriticalStepErrorPropagation:
     """Critical steps must halt pipeline on any error.
 
@@ -165,6 +166,7 @@ class TestCriticalStepErrorPropagation:
             assert path.exists(), f"Generated file should exist: {path}"
 
 
+@pytest.mark.integration
 class TestOptionalStepErrorRecovery:
     """Optional steps must recover per-item and continue processing.
 
@@ -304,6 +306,7 @@ class TestOptionalStepErrorRecovery:
         assert generated == [], "QR generation should return empty list when disabled"
 
 
+@pytest.mark.integration
 class TestInfrastructureErrorsAlwaysFail:
     """Infrastructure errors (missing files, bad config) must always fail-fast."""
 

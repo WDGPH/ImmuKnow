@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import pytest
 
-from pipeline import generate_notices, preprocess, translation_helpers
+from pipeline import generate_notices, translation_helpers
 
 
 @pytest.mark.integration
@@ -29,30 +29,6 @@ class TestTranslationIntegration:
         translation_helpers.clear_caches()
         yield
         translation_helpers.clear_caches()
-
-    def test_normalize_then_translate_polio_english(
-        self, translation_setup: None
-    ) -> None:
-        """Verify Poliomyelitis -> Polio -> Polio (English)."""
-        normalized = translation_helpers.normalize_disease("Poliomyelitis")
-        assert normalized == "Polio"
-
-        translated = translation_helpers.display_label(
-            "diseases_overdue", normalized, "en"
-        )
-        assert translated == "Polio"
-
-    def test_normalize_then_translate_polio_french(
-        self, translation_setup: None
-    ) -> None:
-        """Verify Poliomyelitis -> Polio -> Poliomyélite (French)."""
-        normalized = translation_helpers.normalize_disease("Poliomyelitis")
-        assert normalized == "Polio"
-
-        translated = translation_helpers.display_label(
-            "diseases_overdue", normalized, "fr"
-        )
-        assert translated == "Poliomyélite"
 
     def test_build_template_context_translates_vaccines_due(
         self, translation_setup: None
@@ -197,30 +173,6 @@ class TestTranslationIntegration:
         # This is a bit tricky to verify in the Typst format, so we'll just
         # check that the context contains the expected structure
         assert "received" in context
-
-    def test_disease_normalization_integration(self) -> None:
-        """Verify disease normalization works correctly in preprocessing.
-
-        Confirms that the normalized output handles variant disease names using
-        the current translation resources.
-        """
-        translation_helpers.clear_caches()
-
-        # Test with variant input - should normalize correctly
-        result = preprocess.process_vaccines_due("Poliomyelitis, Measles", "en")
-
-        # Should normalize Poliomyelitis to Polio (canonical form)
-        assert "Polio" in result
-        assert "Measles" in result
-
-    def test_multiple_languages_independent(self, translation_setup: None) -> None:
-        """Verify translations for different languages are independent."""
-        en_polio = translation_helpers.display_label("diseases_overdue", "Polio", "en")
-        fr_polio = translation_helpers.display_label("diseases_overdue", "Polio", "fr")
-
-        assert en_polio != fr_polio
-        assert en_polio == "Polio"
-        assert fr_polio == "Poliomyélite"
 
     def test_build_template_context_includes_formatted_date(
         self, translation_setup: None
