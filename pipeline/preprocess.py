@@ -418,7 +418,7 @@ def format_vaccine_due_list(vaccine_due_list: list[str]) -> list[str]:
         else:
             # Ensure separated section is an integer within vaccine series range
             try:
-                if int(second_part.strip()) < 5:
+                if int(second_part.strip()) < 10:
                     formatted.append(f"{first_part.strip()} ({second_part.strip()}th dose)")
                 else:
                     LOG.warning(
@@ -660,7 +660,7 @@ def process_vaccines_due(vaccines_due: Any, language: str) -> str:
         return ""
 
     items: List[str] = []
-    for token in vaccines_due.split(","):
+    for token in vaccines_due.split(";"):
         # Normalize: raw input -> canonical disease name
         normalized = normalize_disease(token.strip())
         items.append(normalized)
@@ -720,27 +720,24 @@ def process_received_agents(
     if not isinstance(received_agents, str) or not received_agents.strip():
         return []
 
-    pattern = re.compile(r"\w{3} \d{1,2}, \d{4} - [^,]+")
-    matches = pattern.findall(received_agents)
-    rows: List[Dict[str, Any]] = []
+    pattern = re.compile(
+        r"(\w{3} \d{1,2}, \d{4}) - (.*?) - (Valid|Invalid)(?=;|$)"
+    )
 
-    for match in matches:
-        date_str, part_two = match.split(" - ", maxsplit=1)
-        if " - " in part_two:
-            vaccine, raw_valid = part_two.rsplit(" - ", maxsplit=1)
-        else:
-            vaccine, raw_valid = part_two, None
+    rows = []
+    for date_str, vaccine, raw_valid in pattern.findall(received_agents):
         vaccine = vaccine.strip()
+
         if vaccine in replace_unspecified:
             continue
+
         date_iso = convert_date_iso(date_str.strip())
-        rows.append(
-            {
-                "date_given": date_iso,
-                "vaccine": vaccine,
-                "valid": normalize_validity_status(raw_valid),
-            }
-        )
+
+        rows.append({
+            "date_given": date_iso,
+            "vaccine": vaccine,
+            "valid": normalize_validity_status(raw_valid),
+        })
 
     rows.sort(key=lambda item: item["date_given"])
     grouped: List[Dict[str, Any]] = []
@@ -794,59 +791,56 @@ def enrich_grouped_records(
             v.replace("-unspecified", "*").replace(" unspecified", "*")
             for v in item["vaccine"]
         ]
-
         source_valid = [normalize_validity_status(v) for v in item.get("valid", [])]
 
         diseases: List[str] = []
         valid: List[Any] = []
 
+        if chart_diseases_header:
+            disease_statuses: dict[str, list[str]] = {}
+            unmapped_by_vaccine: dict[str, list[str]] = {}
+
         for i, vaccine in enumerate(vaccines):
             vaccine_valid = source_valid[i] if i < len(source_valid) else "unknown"
             ref = vaccine_reference.get(vaccine, vaccine)
             mapped = ref if isinstance(ref, list) else [ref]
-
             for disease in mapped:
-                diseases.append(disease)
-                valid.append(vaccine_valid)
+                if chart_diseases_header:
+                    if disease in chart_diseases_header:
+                        disease_statuses.setdefault(disease, []).append(vaccine_valid)
+                    else:
+                        unmapped_by_vaccine.setdefault(vaccine, []).append(vaccine_valid)
+                else:
+                    diseases.append(disease)
+                    valid.append(vaccine_valid)
 
-        # Collapse diseases not in chart to "Other"
         if chart_diseases_header:
-            filtered_diseases: List[str] = []
-            filtered_valid: List[Any] = []
-            unmapped_valid: List[Any] = []
-            other_idx: int | None = None
+            if unmapped_by_vaccine:
+                per_vaccine_valid = [
+                    "valid" if any(normalize_validity_status(s) == "valid" for s in statuses) else "invalid"
+                    for statuses in unmapped_by_vaccine.values()
+                ]
+                disease_statuses.setdefault("Other", []).extend(per_vaccine_valid)
 
-            for disease, disease_valid in zip(diseases, valid):
-                if disease in chart_diseases_header:
-                    filtered_diseases.append(disease)
-                    filtered_valid.append(disease_valid)
-                    if disease == "Other":
-                        other_idx = len(filtered_diseases) - 1
+            diseases = list(disease_statuses)
+            valid = []
+            for disease, statuses in disease_statuses.items():
+                if disease == "Other":
+                    valid.append(collapse_validity_statuses(statuses))
                 else:
-                    unmapped_valid.append(disease_valid)
-
-            if unmapped_valid:
-                collapsed_other_valid = collapse_validity_statuses(unmapped_valid)
-
-                if other_idx is None:
-                    filtered_diseases.append("Other")
-                    filtered_valid.append(collapsed_other_valid)
-                else:
-                    filtered_valid[other_idx] = collapse_validity_statuses(
-                        [filtered_valid[other_idx], collapsed_other_valid]
+                    valid.append(
+                        "valid" if any(normalize_validity_status(s) == "valid" for s in statuses) else "invalid"
                     )
-
-            diseases = filtered_diseases
-            valid = filtered_valid
 
         enriched.append(
             {
                 "date_given": item["date_given"],
                 "valid": valid,
-                "vaccine": vaccines,
+                "vaccine": list(dict.fromkeys(vaccines)),
                 "diseases": diseases,
             }
         )
+
     return enriched
 
 
