@@ -510,15 +510,14 @@ def normalize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     """
     working = df.copy()
 
-    # Normalize and validate column names
-    working.columns = [col.strip().upper() for col in working.columns]
-    working.rename(columns=lambda x: x.replace(" ", "_"), inplace=True)
-    working.rename(columns={"PROVINCE/TERRITORY": "PROVINCE"}, inplace=True)
+    # Normalize and validate column names in a single pass
+    def _normalize_col(col: str) -> str:
+        col = col.strip().upper().replace(" ", "_")
+        return "PROVINCE" if col == "PROVINCE/TERRITORY" else col
 
-    _required_normalized = {
-        "PROVINCE" if col == "PROVINCE/TERRITORY" else col.replace(" ", "_")
-        for col in REQUIRED_COLUMNS
-    }
+    working.columns = [_normalize_col(col) for col in working.columns]
+
+    _required_normalized = {_normalize_col(col) for col in REQUIRED_COLUMNS}
     missing = [col for col in _required_normalized if col not in working.columns]
     if missing:
         raise ValueError(
@@ -529,12 +528,7 @@ def normalize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     # Required string columns are derived from REQUIRED_COLUMNS; optional
     # supplemental columns are listed separately.
     _non_string_required = {"CLIENT_ID", "DATE_OF_BIRTH", "OVERDUE_DISEASE", "IMMS_GIVEN"}
-    required_string_cols = [
-        "PROVINCE" if col == "PROVINCE/TERRITORY" else col.replace(" ", "_")
-        for col in REQUIRED_COLUMNS
-        if col.replace(" ", "_") not in _non_string_required
-        and col not in _non_string_required
-    ]
+    required_string_cols = [col for col in _required_normalized if col not in _non_string_required]
     optional_string_cols = ["SCHOOL_TYPE", "BOARD_NAME", "BOARD_ID", "SCHOOL_ID", "UNIQUE_ID"]
 
     for column in required_string_cols + optional_string_cols:
