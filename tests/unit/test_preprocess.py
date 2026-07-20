@@ -231,10 +231,10 @@ class TestReadInput:
 
 
 @pytest.mark.unit
-class TestEnsureRequiredColumns:
-    """Unit tests for ensure_required_columns function."""
+class TestNormalizeDataFrame:
+    """Unit tests for normalize_dataframe function."""
 
-    def test_ensure_required_columns_passes_valid_dataframe(self) -> None:
+    def test_normalize_dataframe_passes_valid_dataframe(self) -> None:
         """Verify valid DataFrame passes validation.
 
         Real-world significance:
@@ -242,12 +242,12 @@ class TestEnsureRequiredColumns:
         """
         df = sample_input.create_test_input_dataframe(num_clients=3)
 
-        result = preprocess.ensure_required_columns(df)
+        result = preprocess.normalize_dataframe(df)
 
         assert result is not None
         assert len(result) == 3
 
-    def test_ensure_required_columns_normalizes_whitespace(self) -> None:
+    def test_normalize_dataframe_normalizes_column_whitespace(self) -> None:
         """Verify column names are normalized (whitespace, case).
 
         Real-world significance:
@@ -271,12 +271,12 @@ class TestEnsureRequiredColumns:
             }
         )
 
-        result = preprocess.ensure_required_columns(df)
+        result = preprocess.normalize_dataframe(df)
 
         # Should not raise error and column names should be normalized
         assert len(result) == 1
 
-    def test_ensure_required_columns_missing_required_raises_error(self) -> None:
+    def test_normalize_dataframe_missing_required_raises_error(self) -> None:
         """Verify error when required columns are missing.
 
         Real-world significance:
@@ -292,12 +292,7 @@ class TestEnsureRequiredColumns:
         )
 
         with pytest.raises(ValueError, match="Missing required columns"):
-            preprocess.ensure_required_columns(df)
-
-
-@pytest.mark.unit
-class TestNormalizeDataFrame:
-    """Unit tests for normalize_dataframe function."""
+            preprocess.normalize_dataframe(df)
 
     def test_normalize_dataframe_handles_missing_values(self) -> None:
         """Verify NaN/None values are converted to empty strings.
@@ -307,11 +302,12 @@ class TestNormalizeDataFrame:
         - Must normalize to empty strings for consistent processing
         """
         df = sample_input.create_test_input_dataframe(num_clients=3)
-        normalized = preprocess.ensure_required_columns(df)
-        normalized.loc[0, "STREET_ADDRESS_LINE_2"] = None
-        normalized.loc[1, "POSTAL_CODE"] = float("nan")
+        # Normalize column names first, then inject NaN to test fill behavior
+        working = preprocess.normalize_dataframe(df)
+        working.loc[0, "STREET_ADDRESS_LINE_2"] = None
+        working.loc[1, "POSTAL_CODE"] = float("nan")
 
-        result = preprocess.normalize_dataframe(normalized)
+        result = preprocess.normalize_dataframe(working)
 
         assert result["STREET_ADDRESS_LINE_2"].iloc[0] == ""
         assert result["POSTAL_CODE"].iloc[1] == ""
@@ -325,9 +321,8 @@ class TestNormalizeDataFrame:
         """
         df = sample_input.create_test_input_dataframe(num_clients=2)
         df["DATE OF BIRTH"] = ["2015-01-02", "2014-05-06"]
-        normalized = preprocess.ensure_required_columns(df)
 
-        result = preprocess.normalize_dataframe(normalized)
+        result = preprocess.normalize_dataframe(df)
 
         assert pd.api.types.is_datetime64_any_dtype(result["DATE_OF_BIRTH"])
 
@@ -341,9 +336,8 @@ class TestNormalizeDataFrame:
         df = sample_input.create_test_input_dataframe(num_clients=1)
         df["FIRST NAME"] = ["  Alice  "]
         df["LAST NAME"] = ["  Zephyr  "]
-        normalized = preprocess.ensure_required_columns(df)
 
-        result = preprocess.normalize_dataframe(normalized)
+        result = preprocess.normalize_dataframe(df)
 
         assert result["FIRST_NAME"].iloc[0] == "Alice"
         assert result["LAST_NAME"].iloc[0] == "Zephyr"
@@ -492,10 +486,9 @@ class TestBuildPreprocessResult:
         - Must be deterministic: same input → same sequences
         """
         df = sample_input.create_test_input_dataframe(num_clients=3)
-        normalized = preprocess.ensure_required_columns(df)
 
         result = preprocess.build_preprocess_result(
-            normalized,
+            df,
             language="en",
             vaccine_reference=default_vaccine_reference,
             replace_unspecified=[],
@@ -517,17 +510,16 @@ class TestBuildPreprocessResult:
         - Enables batching by school to work correctly
         """
         df = sample_input.create_test_input_dataframe(num_clients=3)
-        normalized = preprocess.ensure_required_columns(df)
 
         result1 = preprocess.build_preprocess_result(
-            normalized,
+            df,
             language="en",
             vaccine_reference=default_vaccine_reference,
             replace_unspecified=[],
         )
 
         result2 = preprocess.build_preprocess_result(
-            normalized,
+            df,
             language="en",
             vaccine_reference=default_vaccine_reference,
             replace_unspecified=[],
@@ -578,10 +570,8 @@ class TestBuildPreprocessResult:
                 "STREET ADDRESS LINE 2": ["", "", "", ""],
             }
         )
-        normalized = preprocess.ensure_required_columns(df)
-
         result = preprocess.build_preprocess_result(
-            normalized,
+            df,
             language="en",
             vaccine_reference=default_vaccine_reference,
             replace_unspecified=[],
@@ -604,10 +594,9 @@ class TestBuildPreprocessResult:
         """
         df = sample_input.create_test_input_dataframe(num_clients=1)
         df["IMMS GIVEN"] = ["May 1, 2020 - DTaP"]
-        normalized = preprocess.ensure_required_columns(df)
 
         result = preprocess.build_preprocess_result(
-            normalized,
+            df,
             language="en",
             vaccine_reference=default_vaccine_reference,
             replace_unspecified=[],
@@ -646,10 +635,8 @@ class TestBuildPreprocessResult:
                 "STREET ADDRESS LINE 2": [""],
             }
         )
-        normalized = preprocess.ensure_required_columns(df)
-
         result = preprocess.build_preprocess_result(
-            normalized,
+            df,
             language="en",
             vaccine_reference=default_vaccine_reference,
             replace_unspecified=[],
@@ -669,10 +656,9 @@ class TestBuildPreprocessResult:
         - Dates must convert to French format for display
         """
         df = sample_input.create_test_input_dataframe(num_clients=1, language="fr")
-        normalized = preprocess.ensure_required_columns(df)
 
         result = preprocess.build_preprocess_result(
-            normalized,
+            df,
             language="fr",
             vaccine_reference=default_vaccine_reference,
             replace_unspecified=[],
@@ -691,10 +677,9 @@ class TestBuildPreprocessResult:
         - Pipeline should filter these out to avoid confusing notices
         """
         df = sample_input.create_test_input_dataframe(num_clients=1)
-        normalized = preprocess.ensure_required_columns(df)
 
         result = preprocess.build_preprocess_result(
-            normalized,
+            df,
             language="en",
             vaccine_reference=default_vaccine_reference,
             replace_unspecified=["Not Specified", "unspecified"],
@@ -717,10 +702,8 @@ class TestBuildPreprocessResult:
         df.loc[0, "CLIENT ID"] = "C123456789"
         df.loc[1, "CLIENT ID"] = "C123456789"
 
-        normalized = preprocess.ensure_required_columns(df)
-
         result = preprocess.build_preprocess_result(
-            normalized,
+            df,
             language="en",
             vaccine_reference=default_vaccine_reference,
             replace_unspecified=[],
@@ -753,10 +736,8 @@ class TestBuildPreprocessResult:
         df.loc[3, "CLIENT ID"] = "C222222222"
         df.loc[4, "CLIENT ID"] = "C222222222"
 
-        normalized = preprocess.ensure_required_columns(df)
-
         result = preprocess.build_preprocess_result(
-            normalized,
+            df,
             language="en",
             vaccine_reference=default_vaccine_reference,
             replace_unspecified=[],
@@ -785,10 +766,9 @@ class TestBuildPreprocessResult:
         - Normal case with clean data should not produce duplicate warnings
         """
         df = sample_input.create_test_input_dataframe(num_clients=3)
-        normalized = preprocess.ensure_required_columns(df)
 
         result = preprocess.build_preprocess_result(
-            normalized,
+            df,
             language="en",
             vaccine_reference=default_vaccine_reference,
             replace_unspecified=[],

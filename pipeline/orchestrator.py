@@ -225,7 +225,7 @@ def run_step_2_preprocess(
     df_raw = preprocess.read_input(input_path)
     mapped_df, column_mapping = preprocess.map_columns(df_raw)
     df_filtered = preprocess.filter_columns(mapped_df)
-    df = preprocess.ensure_required_columns(df_filtered)
+    df = preprocess.normalize_dataframe(df_filtered)
 
     # Check that addresses are complete, return only complete rows
     df = preprocess.check_addresses_complete(df)
