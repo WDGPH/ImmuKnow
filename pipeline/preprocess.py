@@ -531,80 +531,53 @@ def filter_columns(
     return df[[col for col in df.columns if col in required_columns]]
 
 
-def ensure_required_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """Normalize column names and validate that all required columns are present.
+def normalize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """Validate, rename, and normalize the input DataFrame.
 
-    Standardizes column names to uppercase and underscores, then validates that
-    the DataFrame contains all required columns for immunization processing.
+    Combines column validation with type normalization. Standardizes column
+    names to uppercase with underscores, validates all required columns are
+    present, then normalizes data types and fills missing values.
 
     Parameters
     ----------
     df : pd.DataFrame
-        Input DataFrame with client data (column names may have mixed case/spacing).
+        Input DataFrame with raw client data (column names may have mixed
+        case/spacing).
 
     Returns
     -------
     pd.DataFrame
-        Copy of input DataFrame with normalized column names.
+        Copy of DataFrame with validated, renamed, and normalized columns.
 
     Raises
     ------
     ValueError
         If any required columns are missing from the DataFrame.
     """
-    df = df.copy()
-    df.columns = [col.strip().upper() for col in df.columns]
-    missing = [col for col in REQUIRED_COLUMNS if col not in df.columns]
+    working = df.copy()
+
+    # Normalize and validate column names in a single pass
+    def _normalize_col(col: str) -> str:
+        col = col.strip().upper().replace(" ", "_")
+        return "PROVINCE" if col == "PROVINCE/TERRITORY" else col
+
+    working.columns = [_normalize_col(col) for col in working.columns]
+
+    _required_normalized = {_normalize_col(col) for col in REQUIRED_COLUMNS}
+    missing = [col for col in _required_normalized if col not in working.columns]
     if missing:
         raise ValueError(
-            f"Missing required columns: {missing} \n Found columns: {list(df.columns)} "
+            f"Missing required columns: {missing} \n Found columns: {list(working.columns)} "
         )
 
-    df.rename(columns=lambda x: x.replace(" ", "_"), inplace=True)
-    df.rename(columns={"PROVINCE/TERRITORY": "PROVINCE"}, inplace=True)
-    return df
+    # Normalize data types and fill missing values.
+    # Required string columns are derived from REQUIRED_COLUMNS; optional
+    # supplemental columns are listed separately.
+    _non_string_required = {"CLIENT_ID", "DATE_OF_BIRTH", "OVERDUE_DISEASE", "IMMS_GIVEN"}
+    required_string_cols = [col for col in _required_normalized if col not in _non_string_required]
+    optional_string_cols = ["SCHOOL_TYPE", "BOARD_NAME", "BOARD_ID", "SCHOOL_ID", "UNIQUE_ID"]
 
-
-def normalize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    """Standardize data types and fill missing values in the input DataFrame.
-
-    Ensures consistent data types across all columns:
-    - String columns are filled with empty strings and trimmed
-    - DATE_OF_BIRTH is converted to datetime
-    - AGE is converted to numeric (if present)
-    - Missing board/school data is initialized with empty dicts
-
-    This normalization is critical for downstream processing as it ensures
-    every client record has the expected structure.
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Input DataFrame with raw client data.
-
-    Returns
-    -------
-    pd.DataFrame
-        Copy of DataFrame with normalized types and filled values.
-    """
-    working = df.copy()
-    string_columns = [
-        "SCHOOL_NAME",
-        "FIRST_NAME",
-        "LAST_NAME",
-        "CITY",
-        "PROVINCE",
-        "POSTAL_CODE",
-        "STREET_ADDRESS_LINE_1",
-        "STREET_ADDRESS_LINE_2",
-        "SCHOOL_TYPE",
-        "BOARD_NAME",
-        "BOARD_ID",
-        "SCHOOL_ID",
-        "UNIQUE_ID",
-    ]
-
-    for column in string_columns:
+    for column in required_string_cols + optional_string_cols:
         if column not in working.columns:
             working[column] = ""
         working[column] = working[column].fillna(" ").astype(str).str.strip()
@@ -614,13 +587,6 @@ def normalize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         working["AGE"] = pd.to_numeric(working["AGE"], errors="coerce")
     else:
         working["AGE"] = pd.NA
-
-    if "BOARD_NAME" not in working.columns:
-        working["BOARD_NAME"] = ""
-    if "BOARD_ID" not in working.columns:
-        working["BOARD_ID"] = ""
-    if "SCHOOL_TYPE" not in working.columns:
-        working["SCHOOL_TYPE"] = ""
 
     return working
 
