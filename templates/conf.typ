@@ -1,4 +1,25 @@
-#let vax = ("⬤")
+#let vax_valid = ("⬤")
+#let vax_invalid = ("○")
+#let vax_mixed = ("◐")
+#let vax_other = ("①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨", "⑩")
+#let vax_other_1 = ("①")
+#let vax_other_2 = ("②")
+#let vax_other_3 = ("③")
+#let vax_other_4 = ("④")
+#let vax_other_5 = ("⑤")
+
+#let validity-dot(status, show-validity-markers: false) = {
+  if not show-validity-markers {
+    vax_valid
+  } else if status == "invalid" or status == "Invalid" or status == false {
+    vax_invalid
+  } else if "mixed" in status {
+    vax_mixed
+  } else {
+    vax_valid
+  }
+}
+
 
 // Custom colours
 #let wdgteal = rgb(0, 85, 104)
@@ -210,7 +231,8 @@
   data, 
   diseases,
   font_size,
-  lang
+  lang,
+  show_validity_markers,
 ) = {
 
   let num_padded = min_rows - num_rows
@@ -232,9 +254,14 @@
     for disease_name in diseases {
 
       let cell_content = ""
-      for record_disease in record.diseases {
-        if record_disease == disease_name { 
-          cell_content = vax
+      for i in range(record.diseases.len()) {
+        if record.diseases.at(i) == disease_name { 
+          let status = if "valid" in record and i < record.valid.len() {
+            record.valid.at(i)
+          } else {
+            "unknown"
+          }
+          cell_content = validity-dot(status, show-validity-markers: show_validity_markers)
           // Found a match, no need to check other diseases for this cell
           break 
         }

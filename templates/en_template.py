@@ -129,6 +129,7 @@ DYNAMIC_BLOCK = """
 #let received = __RECEIVED__
 #let num_rows = __NUM_ROWS__
 #let diseases = __CHART_DISEASES_TRANSLATED__
+#let show_validity_markers = __SHOW_VALIDITY_MARKERS__
 #let date = data.date_data_cutoff
 
 #set page(
@@ -139,7 +140,7 @@ DYNAMIC_BLOCK = """
 #immunization_notice(data, client_row, vaccines_due_array, date, 11pt)
 #pagebreak()
 #vaccine_table_page(client_row.at(0))
-#conf.immunization-table(5, num_rows, received, diseases, 11pt, "en")
+#conf.immunization-table(5, num_rows, received, diseases, 11pt, "en", show_validity_markers)
 #end_of_immunization_notice()
 """
 
@@ -188,6 +189,7 @@ def render_notice(
         "num_rows",
         "chart_diseases_translated",
     )
+
     missing = [key for key in required_keys if key not in context]
     if missing:
         missing_keys = ", ".join(missing)
@@ -205,5 +207,6 @@ def render_notice(
         .replace("__RECEIVED__", context["received"])
         .replace("__NUM_ROWS__", context["num_rows"])
         .replace("__CHART_DISEASES_TRANSLATED__", context["chart_diseases_translated"])
+        .replace("__SHOW_VALIDITY_MARKERS__", context.get("show_validity_markers", "false"))
     )
     return prefix + dynamic

@@ -18,7 +18,7 @@ chart_diseases_header:
 date_data_cutoff: '2025-08-31'
 date_notice_delivery: '2025-04-08'
 encryption:
-  enabled: false
+  enabled: true
   password:
     template: '{date_of_birth_iso_compact}'
 ignore_agents:
@@ -39,6 +39,9 @@ pipeline:
     remove_unencrypted_pdfs: false
   before_run:
     clear_output_directory: true
+preprocess:
+  include_dose: false
+  show_validity_markers: false
 qr:
   enabled: false
   payload_template: https://www.test-immunization.ca/update?client_id={client_id}&dob={date_of_birth_iso}&lang={language_code}
