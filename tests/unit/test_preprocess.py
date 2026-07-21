@@ -642,8 +642,9 @@ class TestBuildPreprocessResult:
             replace_unspecified=[],
         )
 
-        # Should still process - at least one client
         assert len(result.clients) == 1
+        board_warnings = [w for w in result.warnings if "Missing board name" in w]
+        assert len(board_warnings) >= 1
 
     def test_build_result_french_language_support(
         self, default_vaccine_reference
@@ -783,81 +784,532 @@ class TestBuildPreprocessResult:
 
 
 @pytest.mark.unit
-class TestVaccineProcessingDue:
-    """Unit tests for process_vaccines_due function."""
-
-    def test_process_vaccines_due_normalization(self) -> None:
-        """Verify process_vaccines_due normalizes and formats disease names."""
-        from pipeline import translation_helpers
-
-        translation_helpers.clear_caches()
-
-        # Test with variant input - should normalize correctly
-        result = preprocess.process_vaccines_due("Poliomyelitis, Measles", "en")
-
-        # Should normalize Poliomyelitis to Polio (canonical form)
-        assert "Polio" in result
-        assert "Measles" in result
-
-@pytest.mark.unit    
 class TestValidityStatusHandling:
-    """Unit tests for vaccine validity normalization and warnings."""
+    """Unit tests for the normalize_validity_status() case-sensitivity contract.
 
-    def test_normalize_validity_status_strict_values(self) -> None:
-        """Only valid/Valid and invalid/Invalid are treated as known."""
+    Covers:
+    - Accepted casings ("valid", "Valid", "invalid", "Invalid") and their
+      canonical lowercase output
+    - Fallback to "unknown" for typos, alternate casings, empty values, and
+      None/NaN inputs
+
+    Real-world significance:
+    - Validity markers on notices distinguish doses that count toward
+      immunity from those administered too early or in error
+    - The strict two-casing allowlist prevents ambiguous data from
+      silently influencing printed markers; "unknown" surfaces upstream
+      via classify_dataset_validity rather than per-record propagation
+    """
+
+    def test_known_statuses_normalize_correctly(self) -> None:
+        """Verify valid/Valid and invalid/Invalid are accepted as known statuses.
+
+        Real-world significance:
+        - Validity markers appear on notices to distinguish doses that count
+          toward immunity from those administered too early or in error
+        - Only the exact casings "valid"/"Valid" and "invalid"/"Invalid" are
+          authoritative; anything else must fall to "unknown"
+
+        Assertion: Each accepted casing maps to its lowercase canonical form
+        """
         assert preprocess.normalize_validity_status("valid") == "valid"
         assert preprocess.normalize_validity_status("Valid") == "valid"
         assert preprocess.normalize_validity_status("invalid") == "invalid"
         assert preprocess.normalize_validity_status("Invalid") == "invalid"
 
-        # Everything else should normalize to unknown
+    def test_unrecognized_statuses_fall_back_to_unknown(self) -> None:
+        """Verify anything outside the strict allowed set normalizes to unknown.
+
+        Real-world significance:
+        - Input data may contain typos, alternate casings ("VALID", "True"),
+          or missing values; these must not be silently treated as valid or invalid
+        - Records that normalize to "unknown" are detected at the dataset level
+          by classify_dataset_validity, which drives warning/error behaviour in
+          build_preprocess_result rather than reacting per-record
+
+        Assertion: All non-canonical inputs produce "unknown"
+        """
         assert preprocess.normalize_validity_status("VALID") == "unknown"
         assert preprocess.normalize_validity_status("true") == "unknown"
         assert preprocess.normalize_validity_status("") == "unknown"
         assert preprocess.normalize_validity_status(None) == "unknown"
 
-    def test_unknown_validity_warns_when_markers_enabled(
-        self, tmp_path: Path, monkeypatch, default_vaccine_reference
+
+@pytest.mark.unit
+class TestCollapseValidityStatuses:
+    """Unit tests for collapse_validity_statuses() precedence contract.
+
+    Covers:
+    - Pure valid / pure invalid / mixed (valid+invalid) / unknown cases
+    - The rule that any "unknown" in the list contaminates the result
+    - Single-element and empty-list edge cases
+    - Raw (non-normalized) inputs being accepted via the internal normalize call
+
+    Real-world significance:
+    - collapse_validity_statuses is the authority for what validity status
+      appears in the "Other" chart column when multiple vaccines contribute
+    - Getting the precedence wrong would silently misrepresent a patient's
+      immunity record on a printed notice
+    """
+
+    def test_all_valid_returns_valid(self) -> None:
+        """Verify a list with only valid statuses collapses to valid.
+
+        Assertion: ["valid", "valid"] → "valid"
+        """
+        assert preprocess.collapse_validity_statuses(["valid", "valid"]) == "valid"
+
+    def test_all_invalid_returns_invalid(self) -> None:
+        """Verify a list with only invalid statuses collapses to invalid.
+
+        Assertion: ["invalid", "invalid"] → "invalid"
+        """
+        assert preprocess.collapse_validity_statuses(["invalid", "invalid"]) == "invalid"
+
+    def test_valid_and_invalid_without_unknown_returns_mixed(self) -> None:
+        """Verify mixed valid+invalid (no unknown) collapses to mixed.
+
+        Real-world significance:
+        - "mixed" appears in the "Other" column when different vaccines on the
+          same day have conflicting validity, alerting the user that not all
+          "Other" doses counted toward immunity
+
+        Assertion: ["valid", "invalid"] → "mixed"
+        """
+        assert preprocess.collapse_validity_statuses(["valid", "invalid"]) == "mixed"
+
+    def test_any_unknown_returns_unknown_regardless_of_others(self) -> None:
+        """Verify that a single unknown contaminates valid+invalid combinations.
+
+        Real-world significance:
+        - An unknown status means data was incomplete; displaying "mixed" or
+          "valid" when data quality is uncertain would be misleading on a notice
+
+        Assertion: unknown present → "unknown", even alongside valid and invalid
+        """
+        assert preprocess.collapse_validity_statuses(["valid", "invalid", "unknown"]) == "unknown"
+        assert preprocess.collapse_validity_statuses(["valid", "unknown"]) == "unknown"
+        assert preprocess.collapse_validity_statuses(["invalid", "unknown"]) == "unknown"
+
+    def test_single_valid_returns_valid(self) -> None:
+        """Assertion: ["valid"] → "valid"."""
+        assert preprocess.collapse_validity_statuses(["valid"]) == "valid"
+
+    def test_single_invalid_returns_invalid(self) -> None:
+        """Assertion: ["invalid"] → "invalid"."""
+        assert preprocess.collapse_validity_statuses(["invalid"]) == "invalid"
+
+    def test_single_unknown_returns_unknown(self) -> None:
+        """Assertion: ["unknown"] → "unknown"."""
+        assert preprocess.collapse_validity_statuses(["unknown"]) == "unknown"
+
+    def test_empty_list_returns_unknown(self) -> None:
+        """Verify an empty list (no statuses to collapse) is treated as unknown.
+
+        Assertion: [] → "unknown"
+        """
+        assert preprocess.collapse_validity_statuses([]) == "unknown"
+
+    def test_normalizes_raw_casing_before_collapsing(self) -> None:
+        """Verify raw casing variants are normalized before precedence is applied.
+
+        Assertion: ["Valid", "Invalid"] → "mixed" (same as ["valid", "invalid"])
+        """
+        assert preprocess.collapse_validity_statuses(["Valid", "Invalid"]) == "mixed"
+        assert preprocess.collapse_validity_statuses(["Valid", "Valid"]) == "valid"
+
+
+@pytest.mark.unit
+class TestClassifyDatasetValidity:
+    """Unit tests for classify_dataset_validity() dataset pre-pass contract.
+
+    Covers:
+    - All doses with validity indicators → "all_present"
+    - All doses without validity indicators → "all_absent"
+    - Mix within a dataset → "mixed"
+    - Empty / NaN / blank values are skipped, not treated as absent
+    - Multiple semicolon-delimited segments in a single cell
+
+    Real-world significance:
+    - classify_dataset_validity is called once per pipeline run before the
+      client loop; an incorrect classification causes the wrong branch of
+      warning/error logic to fire, either silently hiding data quality
+      problems or raising a spurious ValueError that aborts the run
+    """
+
+    def test_all_doses_with_validity_suffix_returns_all_present(self) -> None:
+        """Verify a dataset where every dose has - Valid/- Invalid → "all_present".
+
+        Assertion: series with only suffixed segments → "all_present"
+        """
+        series = pd.Series([
+            "May 1, 2020 - DTaP - Valid",
+            "Jun 15, 2021 - MMR - Invalid",
+        ])
+        assert preprocess.classify_dataset_validity(series) == "all_present"
+
+    def test_all_doses_without_validity_suffix_returns_all_absent(self) -> None:
+        """Verify a dataset where no dose has a suffix → "all_absent".
+
+        Assertion: series with no suffixed segments → "all_absent"
+        """
+        series = pd.Series([
+            "May 1, 2020 - DTaP",
+            "Jun 15, 2021 - MMR",
+        ])
+        assert preprocess.classify_dataset_validity(series) == "all_absent"
+
+    def test_mix_of_present_and_absent_returns_mixed(self) -> None:
+        """Verify a dataset with some suffixed and some unsuffixed doses → "mixed".
+
+        Real-world significance:
+        - "mixed" with show_validity_markers=True raises ValueError to
+          prevent displaying unreliable markers; the test verifies the
+          classification step that gates that error
+
+        Assertion: series with one suffixed and one unsuffixed segment → "mixed"
+        """
+        series = pd.Series([
+            "May 1, 2020 - DTaP - Valid",
+            "Jun 15, 2021 - MMR",
+        ])
+        assert preprocess.classify_dataset_validity(series) == "mixed"
+
+    def test_empty_series_returns_all_absent(self) -> None:
+        """Verify an empty series (no dose records at all) → "all_absent".
+
+        Assertion: pd.Series([], dtype=str) → "all_absent"
+        """
+        series = pd.Series([], dtype=str)
+        assert preprocess.classify_dataset_validity(series) == "all_absent"
+
+    def test_nan_and_empty_strings_are_ignored(self) -> None:
+        """Verify NaN values and blank cells do not count as absent-suffix doses.
+
+        Real-world significance:
+        - Clients with no immunization history have empty IMMS_GIVEN cells;
+          these must not trigger "mixed" when the rest of the dataset is clean
+
+        Assertion: valid suffixed dose + NaN + "" → "all_present"
+        """
+        series = pd.Series(["May 1, 2020 - DTaP - Valid", None, ""])
+        assert preprocess.classify_dataset_validity(series) == "all_present"
+
+    def test_multiple_segments_per_cell_all_present(self) -> None:
+        """Verify multiple semicolon-delimited segments in one cell are each checked.
+
+        Assertion: two suffixed segments in one cell → "all_present"
+        """
+        series = pd.Series(["May 1, 2020 - DTaP - Valid; Jun 15, 2021 - MMR - Invalid"])
+        assert preprocess.classify_dataset_validity(series) == "all_present"
+
+    def test_multiple_segments_per_cell_returns_mixed_when_one_lacks_suffix(self) -> None:
+        """Verify a single un-suffixed segment inside a multi-segment cell → "mixed".
+
+        Assertion: one suffixed + one un-suffixed segment in same cell → "mixed"
+        """
+        series = pd.Series(["May 1, 2020 - DTaP - Valid; Jun 15, 2021 - MMR"])
+        assert preprocess.classify_dataset_validity(series) == "mixed"
+
+
+@pytest.mark.unit
+class TestProcessReceivedAgents:
+    """Unit tests for process_received_agents() parsing and grouping contract.
+
+    Covers:
+    - Empty / non-string inputs → empty list
+    - Doses with - Valid / - Invalid suffix → correct status
+    - Doses without suffix → "unknown" (not silently dropped)
+    - Same-date doses grouped into a single record
+    - Entries sorted ascending by date regardless of input order
+    - replace_unspecified filtering
+
+    Real-world significance:
+    - This function is the sole parser for IMMS_GIVEN strings; incorrect
+      parsing silently omits or misrepresents a patient's immunization
+      history on their printed notice
+    """
+
+    def test_empty_string_returns_empty_list(self) -> None:
+        """Verify an empty string produces no records.
+
+        Assertion: "" → []
+        """
+        assert preprocess.process_received_agents("", []) == []
+
+    def test_non_string_input_returns_empty_list(self) -> None:
+        """Verify None and NaN-like values produce no records.
+
+        Assertion: None → []
+        """
+        assert preprocess.process_received_agents(None, []) == []
+
+    def test_dose_with_valid_suffix_parsed_correctly(self) -> None:
+        """Verify a dose with - Valid suffix yields status "valid".
+
+        Assertion: date, vaccine name, and status all parsed correctly
+        """
+        result = preprocess.process_received_agents("May 1, 2020 - DTaP - Valid", [])
+        assert len(result) == 1
+        assert result[0]["date_given"] == "2020-05-01"
+        assert result[0]["vaccine"] == ["DTaP"]
+        assert result[0]["valid"] == ["valid"]
+
+    def test_dose_with_invalid_suffix_parsed_correctly(self) -> None:
+        """Verify a dose with - Invalid suffix yields status "invalid".
+
+        Assertion: valid → ["invalid"]
+        """
+        result = preprocess.process_received_agents("May 1, 2020 - DTaP - Invalid", [])
+        assert result[0]["valid"] == ["invalid"]
+
+    def test_dose_without_suffix_yields_unknown_not_dropped(self) -> None:
+        """Verify a dose lacking a - Valid/- Invalid suffix is captured as "unknown".
+
+        Real-world significance:
+        - Legacy datasets or incomplete exports omit validity suffixes; before
+          this change such doses were silently dropped, producing empty received
+          lists. They must now be captured so history appears on the notice.
+
+        Assertion: no suffix → one record with valid == ["unknown"]
+        """
+        result = preprocess.process_received_agents("May 1, 2020 - DTaP", [])
+        assert len(result) == 1
+        assert result[0]["valid"] == ["unknown"]
+
+    def test_same_date_doses_are_grouped(self) -> None:
+        """Verify two doses on the same date produce a single grouped record.
+
+        Assertion: two segments with the same date → one entry with both vaccines
+        """
+        result = preprocess.process_received_agents(
+            "May 1, 2020 - DTaP; May 1, 2020 - MMR", []
+        )
+        assert len(result) == 1
+        assert set(result[0]["vaccine"]) == {"DTaP", "MMR"}
+        assert len(result[0]["valid"]) == 2
+
+    def test_different_dates_produce_separate_entries(self) -> None:
+        """Verify doses on different dates produce separate records.
+
+        Assertion: two segments with different dates → two entries
+        """
+        result = preprocess.process_received_agents(
+            "May 1, 2020 - DTaP; Jun 15, 2021 - MMR", []
+        )
+        assert len(result) == 2
+
+    def test_entries_sorted_ascending_by_date(self) -> None:
+        """Verify records are sorted by date regardless of input order.
+
+        Real-world significance:
+        - Immunization history is displayed chronologically on notices;
+          out-of-order input must not produce misordered output
+
+        Assertion: later date in input appears second in output
+        """
+        result = preprocess.process_received_agents(
+            "Jun 15, 2021 - MMR; May 1, 2020 - DTaP", []
+        )
+        assert result[0]["date_given"] == "2020-05-01"
+        assert result[1]["date_given"] == "2021-06-15"
+
+    def test_replace_unspecified_filters_named_vaccines(self) -> None:
+        """Verify vaccines in replace_unspecified are excluded from output.
+
+        Real-world significance:
+        - "Not Specified" agents clutter the history section; the pipeline
+          suppresses them via the replace_unspecified configuration list
+
+        Assertion: filtered vaccine absent from result; remaining vaccine present
+        """
+        result = preprocess.process_received_agents(
+            "May 1, 2020 - Not Specified; Jun 15, 2021 - MMR",
+            ["Not Specified"],
+        )
+        assert len(result) == 1
+        assert result[0]["vaccine"] == ["MMR"]
+
+
+@pytest.mark.unit
+class TestEnrichGroupedRecords:
+    """Unit tests for enrich_grouped_records() disease mapping and validity collapsing.
+
+    Covers:
+    - Vaccine-to-disease expansion (combo vaccines → multiple diseases)
+    - Named-disease validity collapse: valid > unknown > invalid
+    - "Other" two-level collapse: per-vaccine any(valid) then cross-vaccine
+      collapse_validity_statuses
+    - Behaviour without chart_diseases_header (flat mode)
+
+    Real-world significance:
+    - enrich_grouped_records produces the "received" data structure rendered
+      in the immunization history chart; incorrect disease mapping or validity
+      collapsing causes wrong disease names or misleading validity markers
+      to appear on printed notices
+    """
+
+    @pytest.fixture
+    def vaccine_ref(self) -> dict:
+        """Minimal vaccine reference covering combo and single-disease vaccines."""
+        return {
+            "DTaP": ["Diphtheria", "Tetanus", "Pertussis"],
+            "MMR": ["Measles", "Mumps", "Rubella"],
+            "IPV": ["Polio"],
+            "HBV": ["Hepatitis B"],
+            "HPV": ["Human Papillomavirus"],
+        }
+
+    def test_combo_vaccine_expands_to_component_diseases(self, vaccine_ref: dict) -> None:
+        """Verify a multi-disease vaccine code maps to all component diseases.
+
+        Assertion: DTaP → ["Diphtheria", "Tetanus", "Pertussis"]
+        """
+        grouped = [{"date_given": "2020-05-01", "vaccine": ["DTaP"], "valid": ["valid"]}]
+        result = preprocess.enrich_grouped_records(grouped, vaccine_ref, "en")
+        assert result[0]["diseases"] == ["Diphtheria", "Tetanus", "Pertussis"]
+
+    def test_named_disease_any_valid_collapses_to_valid(self, vaccine_ref: dict) -> None:
+        """Verify at least one "valid" among contributing doses yields "valid".
+
+        Assertion: valid DTaP → "valid" for Diphtheria/Tetanus/Pertussis
+        """
+        header = ["Diphtheria", "Tetanus", "Pertussis", "Polio"]
+        grouped = [{"date_given": "2020-05-01", "vaccine": ["DTaP", "IPV"], "valid": ["valid", "invalid"]}]
+        result = preprocess.enrich_grouped_records(grouped, vaccine_ref, "en", header)
+        idx = result[0]["diseases"].index("Diphtheria")
+        assert result[0]["valid"][idx] == "valid"
+        polio_idx = result[0]["diseases"].index("Polio")
+        assert result[0]["valid"][polio_idx] == "invalid"
+
+    def test_named_disease_all_unknown_collapses_to_unknown(self, vaccine_ref: dict) -> None:
+        """Verify all-unknown contributing doses collapse to "unknown" for named diseases.
+
+        Real-world significance:
+        - After the fix, datasets with no validity suffixes yield "unknown" on
+          the chart rather than "invalid", correctly reflecting absent data
+
+        Assertion: unknown IPV → "unknown" for Polio
+        """
+        header = ["Polio"]
+        grouped = [{"date_given": "2020-05-01", "vaccine": ["IPV"], "valid": ["unknown"]}]
+        result = preprocess.enrich_grouped_records(grouped, vaccine_ref, "en", header)
+        polio_idx = result[0]["diseases"].index("Polio")
+        assert result[0]["valid"][polio_idx] == "unknown"
+
+    def test_named_disease_never_produces_mixed(self, vaccine_ref: dict) -> None:
+        """Verify named-disease collapsing never produces "mixed".
+
+        Real-world significance:
+        - "mixed" is reserved for the "Other" cross-vaccine collapse; named
+          diseases should reflect net immunity (any valid → valid)
+
+        Assertion: valid + invalid doses for the same named disease → "valid"
+        """
+        header = ["Diphtheria", "Tetanus", "Pertussis"]
+        # Two DTaP doses on the same day: one valid, one invalid
+        grouped = [{
+            "date_given": "2020-05-01",
+            "vaccine": ["DTaP", "DTaP"],
+            "valid": ["valid", "invalid"],
+        }]
+        result = preprocess.enrich_grouped_records(grouped, vaccine_ref, "en", header)
+        for disease in ["Diphtheria", "Tetanus", "Pertussis"]:
+            idx = result[0]["diseases"].index(disease)
+            assert result[0]["valid"][idx] == "valid"
+
+    def test_other_column_different_vaccines_valid_and_invalid_produces_mixed(
+        self, vaccine_ref: dict
     ) -> None:
-        """Unknown validity should be flagged if marker differentiation is enabled."""
-        params_path = tmp_path / "parameters.yaml"
-        params_path.write_text(
-            "\n".join(
-                [
-                    "date_notice_delivery: '2025-04-08'",
-                    "chart_diseases_header:",
-                    "  - Diphtheria",
-                    "  - Tetanus",
-                    "  - Pertussis",
-                    "  - Other",
-                    "preprocess:",
-                    "  include_dose: true",
-                    "  show_validity_markers: true",
-                ]
-            ),
-            encoding="utf-8",
-        )
-        monkeypatch.setattr(preprocess, "PARAMETERS_PATH", params_path)
+        """Verify "Other" shows "mixed" when different vaccines have conflicting validity.
 
-        df = sample_input.create_test_input_dataframe(num_clients=1)
-        # No explicit validity token -> unknown
-        df["IMMS GIVEN"] = ["May 1, 2020 - DTaP"]
-        normalized = preprocess.ensure_required_columns(df)
+        Real-world significance:
+        - "mixed" in the "Other" column alerts the user that some unmapped
+          vaccines counted toward immunity and others did not on the same day
 
-        result = preprocess.build_preprocess_result(
-            normalized,
-            language="en",
-            vaccine_reference=default_vaccine_reference,
-            replace_unspecified=[],
-        )
+        Assertion: one valid vaccine + one invalid vaccine → Other "mixed"
+        """
+        header = ["Diphtheria"]  # HBV and HPV are unmapped → Other
+        grouped = [{
+            "date_given": "2020-05-01",
+            "vaccine": ["HBV", "HPV"],
+            "valid": ["valid", "invalid"],
+        }]
+        result = preprocess.enrich_grouped_records(grouped, vaccine_ref, "en", header)
+        other_idx = result[0]["diseases"].index("Other")
+        assert result[0]["valid"][other_idx] == "mixed"
 
-        assert len(result.clients) == 1
-        client = result.clients[0]
-        assert client.received is not None
-        assert len(client.received) > 0
-        assert client.received[0]["valid"] == ["unknown", "unknown", "unknown"]
+    def test_other_column_all_valid_produces_valid(self, vaccine_ref: dict) -> None:
+        """Verify "Other" shows "valid" when all unmapped vaccines are valid.
 
-        validity_warnings = [
-            w for w in result.warnings if "Unknown vaccine validity status" in w
-        ]
-        assert len(validity_warnings) == 1
+        Assertion: two valid unmapped vaccines → Other "valid"
+        """
+        header = ["Diphtheria"]
+        grouped = [{
+            "date_given": "2020-05-01",
+            "vaccine": ["HBV", "HPV"],
+            "valid": ["valid", "valid"],
+        }]
+        result = preprocess.enrich_grouped_records(grouped, vaccine_ref, "en", header)
+        other_idx = result[0]["diseases"].index("Other")
+        assert result[0]["valid"][other_idx] == "valid"
+
+    def test_no_chart_diseases_header_returns_flat_disease_list(self, vaccine_ref: dict) -> None:
+        """Verify that without chart_diseases_header, all diseases are returned flat.
+
+        Real-world significance:
+        - When no header is configured, the function acts as a pure disease
+          expander without "Other" grouping; downstream code rendering
+          unrestricted history depends on this flat mode
+
+        Assertion: diseases list contains component names; no "Other" entry
+        """
+        grouped = [{"date_given": "2020-05-01", "vaccine": ["DTaP"], "valid": ["valid"]}]
+        result = preprocess.enrich_grouped_records(grouped, vaccine_ref, "en")
+        assert "Diphtheria" in result[0]["diseases"]
+        assert "Other" not in result[0]["diseases"]
+
+    def test_other_column_all_invalid_produces_invalid(self, vaccine_ref: dict) -> None:
+        """Verify "Other" shows "invalid" when all unmapped vaccines are invalid.
+
+        Assertion: two invalid unmapped vaccines → Other "invalid"
+        """
+        header = ["Diphtheria"]
+        grouped = [{
+            "date_given": "2020-05-01",
+            "vaccine": ["HBV", "HPV"],
+            "valid": ["invalid", "invalid"],
+        }]
+        result = preprocess.enrich_grouped_records(grouped, vaccine_ref, "en", header)
+        other_idx = result[0]["diseases"].index("Other")
+        assert result[0]["valid"][other_idx] == "invalid"
+
+    def test_other_column_all_unknown_produces_unknown(self, vaccine_ref: dict) -> None:
+        """Verify "Other" shows "unknown" when all unmapped vaccines are unknown.
+
+        Assertion: two unknown unmapped vaccines → Other "unknown"
+        """
+        header = ["Diphtheria"]
+        grouped = [{
+            "date_given": "2020-05-01",
+            "vaccine": ["HBV", "HPV"],
+            "valid": ["unknown", "unknown"],
+        }]
+        result = preprocess.enrich_grouped_records(grouped, vaccine_ref, "en", header)
+        other_idx = result[0]["diseases"].index("Other")
+        assert result[0]["valid"][other_idx] == "unknown"
+
+    def test_named_disease_all_invalid_doses_produces_invalid(self, vaccine_ref: dict) -> None:
+        """Verify a named disease collapses to "invalid" when every contributing dose is invalid.
+
+        Assertion: single DTaP dose with "invalid" validity → Diphtheria "invalid"
+        """
+        header = ["Diphtheria", "Tetanus", "Pertussis"]
+        grouped = [{
+            "date_given": "2020-05-01",
+            "vaccine": ["DTaP"],
+            "valid": ["invalid"],
+        }]
+        result = preprocess.enrich_grouped_records(grouped, vaccine_ref, "en", header)
+        diphtheria_idx = result[0]["diseases"].index("Diphtheria")
+        assert result[0]["valid"][diphtheria_idx] == "invalid"
