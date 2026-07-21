@@ -1313,3 +1313,19 @@ class TestEnrichGroupedRecords:
         result = preprocess.enrich_grouped_records(grouped, vaccine_ref, "en", header)
         diphtheria_idx = result[0]["diseases"].index("Diphtheria")
         assert result[0]["valid"][diphtheria_idx] == "invalid"
+        
+        
+@pytest.mark.unit
+class TestProcessVaccinesDue:
+    """Unit tests for process_vaccines_due."""
+
+    def test_normalizes_disease_names(self) -> None:
+        result = preprocess.process_vaccines_due("Poliomyelitis;Measles", "en")
+        assert "Polio" in result
+        assert "Measles" in result
+
+    def test_empty_input_returns_empty_string(self) -> None:
+        assert preprocess.process_vaccines_due("", "en") == ""
+
+    def test_non_string_input_returns_empty_string(self) -> None:
+        assert preprocess.process_vaccines_due(None, "en") == ""
