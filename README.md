@@ -299,6 +299,8 @@ The preprocessed artifact contains:
 - PHIX school validation: see [PHIX School Validation](./config/README.md#phix-school-validation)
 - QR Code settings: see [QR Code Configuration](./config/README.md#qr-code-configuration)
 - PDF Encryption settings: see [PDF Encryption Configuration](./config/README.md#pdf-encryption-configuration)
+- Notice versioning and A/B testing: see the [design exploration](./docs/NOTICE_VERSIONING_PLAN.md)
+
 ## Changelog
 
 See [CHANGELOG.md](./CHANGELOG.md) for details of each release.
