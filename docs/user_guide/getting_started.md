@@ -57,7 +57,7 @@ The following columns are **optional** and will be used when present:
 | `School Id` |
 | `Unique Id` |
 
-The full schema is defined in [`config/input_schema.yaml`](../../config/input_schema.yaml). If the file is missing any required column, the pipeline will stop immediately with a clear error message listing the missing columns.
+The full schema is defined in `config/input_schema.yaml`. If the file is missing any required column, the pipeline will stop immediately with a clear error message listing the missing columns.
 
 Place input files in the `input/` subdirectory (not tracked by Git):
 
