@@ -49,64 +49,72 @@ def create_test_input_dataframe(
         DataFrame with columns matching expected Excel input format
     """
     data: Dict[str, List[Any]] = {
-        "SCHOOL NAME": [
+        "School Type": ["Public", "Public", "Catholic", "Catholic", "Public"][:num_clients],
+        "School Name": [
             "Tunnel Academy",
             "Cheese Wheel Academy",
             "Mountain Heights Public School",
             "River Valley Elementary",
             "Downtown Collegiate",
         ][:num_clients],
-        "CLIENT ID": [f"{i:010d}" for i in range(1, num_clients + 1)],
-        "FIRST NAME": ["Alice", "Benoit", "Chloe", "Diana", "Ethan"][:num_clients],
-        "LAST NAME": ["Zephyr", "Arnaud", "Brown", "Davis", "Evans"][:num_clients],
-        "DATE OF BIRTH": [
+        "Client Id": [f"{i:010d}" for i in range(1, num_clients + 1)],
+        "First Name": ["Alice", "Benoit", "Chloe", "Diana", "Ethan"][:num_clients],
+        "Last Name": ["Zephyr", "Arnaud", "Brown", "Davis", "Evans"][:num_clients],
+        "Age": ["10", "11", "12", "10", "11"][:num_clients],
+        "Date of Birth": [
             "2015-01-02",
             "2014-05-06",
             "2013-08-15",
             "2015-03-22",
             "2014-11-10",
         ][:num_clients],
-        "SCHOOL BOARD NAME": [
+        "Board Name": [
             "Guelph Board of Education",
             "Guelph Board of Education",
             "Wellington Board of Education",
             "Wellington Board of Education",
             "Ontario Public Schools",
         ][:num_clients],
-        "CITY": ["Guelph", "Guelph", "Wellington", "Wellington", "Toronto"][
-            :num_clients
-        ],
-        "POSTAL CODE": ["N1H 2T2", "N1H 2T3", "N1K 1B2", "N1K 1B3", "M5V 3A8"][
-            :num_clients
-        ],
-        "PROVINCE/TERRITORY": ["ON", "ON", "ON", "ON", "ON"][:num_clients],
-        "STREET ADDRESS LINE 1": [
+        "Street Address Line 1": [
             "123 Main St",
             "456 Side Rd",
             "789 Oak Ave",
             "321 Elm St",
             "654 Maple Dr",
         ][:num_clients],
-        "STREET ADDRESS LINE 2": ["", "Suite 5", "", "Apt 12", ""][:num_clients],
+        "Street Address Line 2": ["", "Suite 5", "", "Apt 12", ""][:num_clients],
+        "City": ["Guelph", "Guelph", "Wellington", "Wellington", "Toronto"][:num_clients],
+        "Province/Territory": ["ON", "ON", "ON", "ON", "ON"][:num_clients],
+        "Postal Code": ["N1H 2T2", "N1H 2T3", "N1K 1B2", "N1K 1B3", "M5V 3A8"][:num_clients],
+        "Overdue Disease": (
+            [
+                "Measles/Mumps/Rubella",
+                "Haemophilus influenzae infection, invasive",
+                "Diphtheria/Tetanus/Pertussis",
+                "Polio",
+                "Pneumococcal infection, invasive",
+            ][:num_clients]
+            if include_overdue
+            else [""] * num_clients
+        ),
+        "Overdue Agent": (
+            ["MMR", "Hib", "DTaP", "IPV", "PCV13"][:num_clients]
+            if include_overdue
+            else [""] * num_clients
+        ),
+        "Imms Given": (
+            [
+                "May 01, 2020 - DTaP; Jun 15, 2021 - MMR",
+                "Apr 10, 2019 - IPV",
+                "Sep 05, 2020 - Varicella",
+                "",
+                "Jan 20, 2022 - DTaP; Feb 28, 2022 - IPV",
+            ][:num_clients]
+            if include_immunization_history
+            else [""] * num_clients
+        ),
+        "Birth Year": ["2015", "2014", "2013", "2015", "2014"][:num_clients],
     }
-
-    if include_overdue:
-        data["OVERDUE DISEASE"] = [
-            "Measles/Mumps/Rubella",
-            "Haemophilus influenzae infection, invasive",
-            "Diphtheria/Tetanus/Pertussis",
-            "Polio",
-            "Pneumococcal infection, invasive",
-        ][:num_clients]
-
-    if include_immunization_history:
-        data["IMMS GIVEN"] = [
-            "May 01, 2020 - DTaP; Jun 15, 2021 - MMR",
-            "Apr 10, 2019 - IPV",
-            "Sep 05, 2020 - Varicella",
-            "",
-            "Jan 20, 2022 - DTaP; Feb 28, 2022 - IPV",
-        ][:num_clients]
 
     return pd.DataFrame(data)
 

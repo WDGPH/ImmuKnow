@@ -1,0 +1,37 @@
+fields:
+  - name: School Type
+    type: string
+  - name: School Name
+    type: string
+  - name: Client Id
+    type: string
+    constraints:
+      pattern: '^\d{10}$'
+  - name: First Name
+    type: string
+  - name: Last Name
+    type: string
+  - name: Age
+    type: integer
+  - name: Date of Birth
+    type: date
+  - name: Street Address Line 1
+    type: string
+  - name: Street Address Line 2
+    type: string
+  - name: City
+    type: string
+  - name: Province/Territory
+    type: string
+  - name: Postal Code
+    type: string
+  - name: Overdue Disease
+    type: string
+  - name: Overdue Agent
+    type: string
+  - name: Imms Given
+    type: string
+  - name: Birth Year
+    type: string
+missingValues:
+  - ''

@@ -228,12 +228,9 @@ class TestPipelineSteps:
                 "pipeline.orchestrator.preprocess.read_input",
                 return_value=MagicMock(),
             ),
+            patch("pipeline.orchestrator.preprocess.validate_input"),
             patch(
                 "pipeline.orchestrator.preprocess.map_columns",
-                return_value=(MagicMock(), {}),
-            ),
-            patch(
-                "pipeline.orchestrator.preprocess.filter_columns",
                 return_value=MagicMock(),
             ),
             patch(
