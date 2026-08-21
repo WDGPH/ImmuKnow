@@ -249,6 +249,7 @@ uv run pytest -m "not e2e"
 - Use data extracts from [Panorama PEAR](https://accessonehealth.ca/)
 - Place input files in the `input/` subfolder (not tracked by Git)
 - Files must be `.xlsx` format with a **single worksheet** per file
+  - Column names must match the required schema exactly - see [Getting Started](docs/user_guide/getting_started.md#preparing-input-data) for the full column list
 
 ## Preprocessing
 

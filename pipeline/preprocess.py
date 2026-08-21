@@ -52,11 +52,11 @@ from datetime import datetime, timezone
 from hashlib import sha1
 from pathlib import Path
 from string import Formatter
-from typing import Any, Dict, List, Literal, Optional, overload
+from typing import Any, Dict, List, Literal, Optional
 import pandas as pd
 import yaml
 from babel.dates import format_date
-from rapidfuzz import fuzz, process
+from frictionless import Detector, Schema, validate as fl_validate
 
 from .data_models import (
     ArtifactPayload,
@@ -83,22 +83,33 @@ REPLACE_UNSPECIFIED = [
     "Not Specified-unspecified",
 ]
 
-REQUIRED_COLUMNS = [
-    "SCHOOL NAME",
-    "CLIENT ID",
-    "FIRST NAME",
-    "LAST NAME",
-    "DATE OF BIRTH",
-    "CITY",
-    "POSTAL CODE",
-    "PROVINCE/TERRITORY",
-    "OVERDUE DISEASE",
-    "IMMS GIVEN",
-    "STREET ADDRESS LINE 1",
-    "STREET ADDRESS LINE 2",
-]
+INPUT_SCHEMA_PATH = CONFIG_DIR / "input_schema.yaml"
 
-THRESHOLD = 80
+REQUIRED_COLUMN_MAP: dict[str, str] = {
+    "School Type":            "SCHOOL_TYPE",
+    "School Name":            "SCHOOL_NAME",
+    "Client Id":              "CLIENT_ID",
+    "First Name":             "FIRST_NAME",
+    "Last Name":              "LAST_NAME",
+    "Age":                    "AGE",
+    "Date of Birth":          "DATE_OF_BIRTH",
+    "Street Address Line 1":  "STREET_ADDRESS_LINE_1",
+    "Street Address Line 2":  "STREET_ADDRESS_LINE_2",
+    "City":                   "CITY",
+    "Province/Territory":     "PROVINCE",
+    "Postal Code":            "POSTAL_CODE",
+    "Overdue Disease":        "OVERDUE_DISEASE",
+    "Overdue Agent":          "OVERDUE_AGENT",
+    "Imms Given":             "IMMS_GIVEN",
+    "Birth Year":             "BIRTH_YEAR",
+}
+
+OPTIONAL_COLUMN_MAP: dict[str, str] = {
+    "Board Name":  "BOARD_NAME",
+    "Board Id":    "BOARD_ID",
+    "School Id":   "SCHOOL_ID",
+    "Unique Id":   "UNIQUE_ID",
+}
 
 
 def convert_date_string(
@@ -367,7 +378,7 @@ def read_input(file_path: Path) -> pd.DataFrame:
 
     try:
         if ext in [".xlsx", ".xls"]:
-            df = pd.read_excel(file_path, engine="openpyxl", dtype={"CLIENT ID": str})
+            df = pd.read_excel(file_path, engine="openpyxl", dtype={"Client Id": str})
         elif ext == ".csv":
             # Try common encodings
             for enc in ["utf-8-sig", "latin-1", "cp1252"]:
@@ -392,16 +403,69 @@ def read_input(file_path: Path) -> pd.DataFrame:
         raise
 
 
-def normalize(col: str) -> str:
-    """Normalize formatting prior to matching."""
+def validate_input(file_path: Path) -> None:
+    """Validate that the input file conforms to the expected column schema.
 
-    # Trim whitespaces
-    col_normalized = col.lower().strip().replace("_", " ").replace("-", " ")
+    Parameters
+    ----------
+    file_path : Path
+        Path to the input file (.xlsx or .csv).
 
-    # Check to see if double whitespace
-    col_normalized = re.sub(r"\s+", " ", col_normalized)
+    Raises
+    ------
+    ValueError
+        If the file does not conform to the schema defined in
+        ``config/input_schema.yaml``.
+    """
+    descriptor = yaml.safe_load(INPUT_SCHEMA_PATH.read_text(encoding="utf-8"))
+    schema = Schema.from_descriptor(descriptor)
+    report = fl_validate(
+        file_path.name,
+        basepath=str(file_path.parent),
+        schema=schema,
+        detector=Detector(schema_sync=True),
+    )
 
-    return col_normalized
+    if not report.valid:
+        errors = report.flatten(["message"])
+        raise ValueError(
+            "Input file does not conform to expected schema:\n"
+            + "\n".join(f"  - {e[0]}" for e in errors)
+        )
+
+
+def map_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Rename input columns to internal UPPER_SNAKE_CASE keys.
+
+    Required columns are validated for presence; optional columns are renamed
+    only when present. Columns outside both maps are dropped.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Raw input DataFrame with source column names as loaded from the input file.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with columns renamed to the internal keys defined in
+        ``REQUIRED_COLUMN_MAP`` and ``OPTIONAL_COLUMN_MAP``. Unrecognised
+        columns are dropped.
+
+    Raises
+    ------
+    ValueError
+        If any required column is missing from the DataFrame.
+    """
+    missing = [col for col in REQUIRED_COLUMN_MAP if col not in df.columns]
+    if missing:
+        raise ValueError(f"Input is missing required columns: {missing}")
+
+    present_optional = {k: v for k, v in OPTIONAL_COLUMN_MAP.items() if k in df.columns}
+    full_map = {**REQUIRED_COLUMN_MAP, **present_optional}
+    renamed = df.rename(columns=full_map)
+    known = set(full_map.values())
+    return renamed[[col for col in renamed.columns if col in known]]
 
 
 def split_vaccine_due_entry(item: str) -> tuple[str, str | None]:
@@ -458,161 +522,28 @@ def format_vaccine_due_list(vaccine_due_list: list[str]) -> list[str]:
     return formatted
 
 
-def map_columns(df: pd.DataFrame, required_columns=REQUIRED_COLUMNS):
-    """
-    Map dataframe columns to a set of required column names using fuzzy matching.
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        Input dataframe whose columns will be matched and optionally renamed.
-    required_columns : Sequence[str], optional
-        Sequence of expected/required column names to match against. Defaults to REQUIRED_COLUMNS.
-    Returns
-    -------
-    tuple[pandas.DataFrame, dict]
-        A tuple (renamed_df, col_map) where `renamed_df` is `df` with columns renamed according to successful matches,
-        and `col_map` is a dict mapping original column names (keys) to matched required column names (values).
-    Behavior
-    --------
-    - Normalizes input column names and required column names using `normalize(...)` before matching.
-    - For each normalized input column, finds the best fuzzy match among normalized `required_columns` using
-      `process.extractOne(..., scorer=fuzz.partial_ratio)`.
-    - If the best match score is >= 80 (threshold in the implementation), the original input column name is mapped to the
-      corresponding required column name; the mapping is recorded and the dataframe is renamed accordingly.
-    - A debug line is printed for each accepted match: "Matching '<normalized_input>' to '<best_match>' with score <score>".
-    - Columns with a best match score < 80 are ignored (not included in `col_map`); matches with score 0 are effectively dropped.
-    - The code resolves the original column name by locating the first column whose normalized form equals the normalized input.
-      If multiple original columns normalize to the same value, the first encountered is used.
-    Notes
-    -----
-    - The function depends on external helpers: `normalize`, `process.extractOne`, and `fuzz.partial_ratio`.
-    - The match threshold (80) is adjustable; lowering it makes matching more permissive, raising it makes it stricter.
-    - A `StopIteration` may occur if a normalized input column cannot be resolved back to an original column name.
-    - `required_columns` should be an iterable of strings; `df.columns` are expected to be convertible to strings.
-    Examples
-    --------
-    # Example usage (illustrative only):
-    # renamed_df, mapping = map_columns(df, required_columns=['state', 'date', 'count'])
-    """
-    input_cols = df.columns
-    col_map = {}
-    normalized_required = [normalize(req) for req in required_columns]
-    best_matches = {}
-
-    # Check each input column against required columns
-    for actual_in_col in input_cols:
-        input_col = normalize(actual_in_col)
-        result = process.extractOne(
-            query=input_col,
-            choices=normalized_required,
-            scorer=fuzz.partial_ratio,
-        )
-        if result is None:
-            continue
-
-        _, score, index = result
-        if score < THRESHOLD:
-            continue
-
-        best_match = required_columns[index]
-        print(f"Matching '{input_col}' to '{best_match}' with score {score}")
-
-        prior = best_matches.get(best_match)
-        if prior is None:
-            print(
-                f"The value {best_match} does not exist in the dictionary - adding value."
-            )
-            col_map[actual_in_col] = best_match
-            best_matches[best_match] = {"actual_in_col": actual_in_col, "score": score}
-        elif score > prior["score"]:
-            print(
-                f"{input_col} has a higher score than current best match in the dictionary - replacing value."
-            )
-            col_map.pop(prior["actual_in_col"], None)
-            col_map[actual_in_col] = best_match
-            best_matches[best_match] = {"actual_in_col": actual_in_col, "score": score}
-
-    return df.rename(columns=col_map), col_map
-
-
-@overload
-def filter_columns(
-    df: pd.DataFrame, required_columns: list[str] = REQUIRED_COLUMNS
-) -> pd.DataFrame: ...
-
-
-@overload
-def filter_columns(
-    df: None, required_columns: list[str] = REQUIRED_COLUMNS
-) -> None: ...
-
-
-def filter_columns(
-    df: pd.DataFrame | None, required_columns: list[str] = REQUIRED_COLUMNS
-) -> pd.DataFrame | None:
-    """Filter dataframe to only include required columns."""
-    if df is None or df.empty:
-        return df
-
-    return df[[col for col in df.columns if col in required_columns]]
-
-
 def normalize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    """Validate, rename, and normalize the input DataFrame.
+    """Normalize data types on a column-mapped DataFrame.
 
-    Combines column validation with type normalization. Standardizes column
-    names to uppercase with underscores, validates all required columns are
-    present, then normalizes data types and fills missing values.
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Input DataFrame with raw client data (column names may have mixed
-        case/spacing).
-
-    Returns
-    -------
-    pd.DataFrame
-        Copy of DataFrame with validated, renamed, and normalized columns.
-
-    Raises
-    ------
-    ValueError
-        If any required columns are missing from the DataFrame.
+    Expects columns already renamed to UPPER_SNAKE_CASE by map_columns().
+    Applies string normalization, date parsing, and numeric coercion.
     """
     working = df.copy()
 
-    # Normalize and validate column names in a single pass
-    def _normalize_col(col: str) -> str:
-        col = col.strip().upper().replace(" ", "_")
-        return "PROVINCE" if col == "PROVINCE/TERRITORY" else col
+    _skip = {"CLIENT_ID", "DATE_OF_BIRTH", "OVERDUE_DISEASE", "IMMS_GIVEN", "AGE"}
+    string_required = [v for v in REQUIRED_COLUMN_MAP.values() if v not in _skip]
 
-    working.columns = [_normalize_col(col) for col in working.columns]
+    for col in string_required:
+        working[col] = working[col].fillna(" ").astype(str).str.strip()
 
-    _required_normalized = {_normalize_col(col) for col in REQUIRED_COLUMNS}
-    missing = [col for col in _required_normalized if col not in working.columns]
-    if missing:
-        raise ValueError(
-            f"Missing required columns: {missing} \n Found columns: {list(working.columns)} "
-        )
-
-    # Normalize data types and fill missing values.
-    # Required string columns are derived from REQUIRED_COLUMNS; optional
-    # supplemental columns are listed separately.
-    _non_string_required = {"CLIENT_ID", "DATE_OF_BIRTH", "OVERDUE_DISEASE", "IMMS_GIVEN"}
-    required_string_cols = [col for col in _required_normalized if col not in _non_string_required]
-    optional_string_cols = ["SCHOOL_TYPE", "BOARD_NAME", "BOARD_ID", "SCHOOL_ID", "UNIQUE_ID"]
-
-    for column in required_string_cols + optional_string_cols:
-        if column not in working.columns:
-            working[column] = ""
-        working[column] = working[column].fillna(" ").astype(str).str.strip()
+    for col in OPTIONAL_COLUMN_MAP.values():
+        if col not in working.columns:
+            working[col] = ""
+        else:
+            working[col] = working[col].fillna(" ").astype(str).str.strip()
 
     working["DATE_OF_BIRTH"] = pd.to_datetime(working["DATE_OF_BIRTH"], errors="coerce")
-    if "AGE" in working.columns:
-        working["AGE"] = pd.to_numeric(working["AGE"], errors="coerce")
-    else:
-        working["AGE"] = pd.NA
+    working["AGE"] = pd.to_numeric(working["AGE"], errors="coerce")
 
     return working
 
@@ -1011,6 +942,7 @@ def build_received_rows(
     replace_unspecified: List[str],
     vaccine_reference: Dict[str, Any],
     chart_diseases_header: List[str],
+    show_validity_markers: bool = False,
 ) -> List[Dict[str, Any]]:
     """Parse IMMS_GIVEN into display rows with pre-computed per-column validity.
 
@@ -1058,7 +990,11 @@ def build_received_rows(
     rows: List[Dict[str, Any]] = []
     for date, doses in by_date.items():
         vaccines = _deduplicate_vaccines_for_date(doses, vaccine_reference)
-        date_rows = _split_into_rows(vaccines, chart_diseases_header)
+        if show_validity_markers:
+            date_rows = _split_into_rows(vaccines, chart_diseases_header)
+        else:
+            columns = compute_column_statuses(vaccines, chart_diseases_header)
+            date_rows = [{"vaccines": vaccines, "columns": columns}]
         n = len(date_rows)
         for i, row in enumerate(date_rows):
             rows.append({
@@ -1090,8 +1026,8 @@ def build_preprocess_result(
     ----------
     df : pd.DataFrame
         Raw input DataFrame, typically loaded from an Excel or CSV file.
-        Must contain all columns listed in ``REQUIRED_COLUMNS`` (column
-        names are fuzzy-matched, so spacing and case variants are accepted).
+        Must have columns already renamed via map_columns() to the internal
+        UPPER_SNAKE_CASE keys defined in ``REQUIRED_COLUMN_MAP``.
     language : str
         Language code for this batch (``"en"`` or ``"fr"``). Stored on
         every ``ClientRecord`` and used to format display dates.
@@ -1234,6 +1170,7 @@ def build_preprocess_result(
             replace_unspecified,
             vaccine_reference,
             chart_diseases_header,
+            show_validity_markers,
         )
         postal_code = row.POSTAL_CODE if row.POSTAL_CODE else "Not provided"  # type: ignore[attr-defined]
         address_line = " ".join(

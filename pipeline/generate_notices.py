@@ -293,6 +293,9 @@ def read_artifact(path: Path) -> ArtifactPayload:
     )
 
 
+_TYP_IDENT_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_-]*$")
+
+
 def escape_string(value: str) -> str:
     """Escape special characters in a string for Typst template output.
 
@@ -359,7 +362,9 @@ def to_typ_value(value) -> str:
             inner = ", ".join(items)
         return f"({inner})"
     if isinstance(value, Mapping):
-        items = ", ".join(f"{key}: {to_typ_value(val)}" for key, val in value.items())
+        def _typ_key(k: str) -> str:
+            return k if _TYP_IDENT_RE.match(k) else f'"{escape_string(k)}"'
+        items = ", ".join(f"{_typ_key(key)}: {to_typ_value(val)}" for key, val in value.items())
         return f"({items})"
     raise TypeError(f"Unsupported value type for Typst conversion: {type(value)!r}")
 
