@@ -29,28 +29,6 @@ from pipeline import preprocess
 from tests.fixtures import sample_input
 
 
-def _make_conforming_df(**overrides) -> pd.DataFrame:
-    """Build a minimal DataFrame with all required input columns."""
-    row = {
-        "school_name": ["Test School"],
-        "client_id": ["C001"],
-        "first_name": ["Alice"],
-        "last_name": ["Zephyr"],
-        "date_of_birth": ["2015-01-01"],
-        "street_address_line_1": ["123 Main St"],
-        "street_address_line_2": [""],
-        "city": ["Guelph"],
-        "province": ["ON"],
-        "postal_code": ["N1H 2T2"],
-        "overdue_disease": ["Measles"],
-        "overdue_agent": ["MMR"],
-        "imms_given": [""],
-    }
-    row.update(overrides)
-    return pd.DataFrame(row)
-
-
-
 @pytest.mark.unit
 class TestFormatVaccineDueList:
     """Unit tests for overdue-vaccine dose formatting."""
@@ -349,7 +327,7 @@ class TestBuildPreprocessResult:
         """
         df = sample_input.create_test_input_dataframe(num_clients=3)
 
-        result = preprocess.build_preprocess_result(
+        result, _ = preprocess.build_preprocess_result(
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
@@ -373,14 +351,14 @@ class TestBuildPreprocessResult:
         """
         df = sample_input.create_test_input_dataframe(num_clients=3)
 
-        result1 = preprocess.build_preprocess_result(
+        result1, _ = preprocess.build_preprocess_result(
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
             replace_unspecified=[],
         )
 
-        result2 = preprocess.build_preprocess_result(
+        result2, _ = preprocess.build_preprocess_result(
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
@@ -418,7 +396,7 @@ class TestBuildPreprocessResult:
                 "imms_given": ["", "", "", ""],
             }
         )
-        result = preprocess.build_preprocess_result(
+        result, _ = preprocess.build_preprocess_result(
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
@@ -443,7 +421,7 @@ class TestBuildPreprocessResult:
         df = sample_input.create_test_input_dataframe(num_clients=1)
         df["imms_given"] = ["May 1, 2020 - DTaP"]
 
-        result = preprocess.build_preprocess_result(
+        result, _ = preprocess.build_preprocess_result(
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
@@ -484,7 +462,7 @@ class TestBuildPreprocessResult:
         df["overdue_disease"] = ["DTaP - 2"]
         df["imms_given"] = ["May 1, 2020 - DTaP"]
 
-        result = preprocess.build_preprocess_result(
+        result, _ = preprocess.build_preprocess_result(
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
@@ -525,7 +503,7 @@ class TestBuildPreprocessResult:
                 "imms_given": [""],
             }
         )
-        result = preprocess.build_preprocess_result(
+        result, _ = preprocess.build_preprocess_result(
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
@@ -548,7 +526,7 @@ class TestBuildPreprocessResult:
         """
         df = sample_input.create_test_input_dataframe(num_clients=1, language="fr")
 
-        result = preprocess.build_preprocess_result(
+        result, _ = preprocess.build_preprocess_result(
             df,
             language="fr",
             vaccine_reference=default_vaccine_reference,
@@ -569,7 +547,7 @@ class TestBuildPreprocessResult:
         """
         df = sample_input.create_test_input_dataframe(num_clients=1)
 
-        result = preprocess.build_preprocess_result(
+        result, _ = preprocess.build_preprocess_result(
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
@@ -593,7 +571,7 @@ class TestBuildPreprocessResult:
         df.loc[0, "client_id"] = "C123456789"
         df.loc[1, "client_id"] = "C123456789"
 
-        result = preprocess.build_preprocess_result(
+        result, _ = preprocess.build_preprocess_result(
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
@@ -627,7 +605,7 @@ class TestBuildPreprocessResult:
         df.loc[3, "client_id"] = "C222222222"
         df.loc[4, "client_id"] = "C222222222"
 
-        result = preprocess.build_preprocess_result(
+        result, _ = preprocess.build_preprocess_result(
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
@@ -658,7 +636,7 @@ class TestBuildPreprocessResult:
         """
         df = sample_input.create_test_input_dataframe(num_clients=3)
 
-        result = preprocess.build_preprocess_result(
+        result, _ = preprocess.build_preprocess_result(
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
@@ -1242,7 +1220,7 @@ class TestBuildReceivedRows:
         df = sample_input.create_test_input_dataframe(num_clients=1)
         df["imms_given"] = ["May 1, 2020 - DTaP"]
 
-        result = preprocess.build_preprocess_result(
+        result, _ = preprocess.build_preprocess_result(
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
@@ -1261,12 +1239,221 @@ class TestProcessVaccinesDue:
     """Unit tests for process_vaccines_due."""
 
     def test_normalizes_disease_names(self) -> None:
-        result = preprocess.process_vaccines_due("Poliomyelitis;Measles", "en")
+        result = preprocess.process_vaccines_due("Poliomyelitis;Measles", "disease")
         assert "Polio" in result
         assert "Measles" in result
 
     def test_empty_input_returns_empty_string(self) -> None:
-        assert preprocess.process_vaccines_due("", "en") == ""
+        assert preprocess.process_vaccines_due("", "disease") == ""
 
     def test_non_string_input_returns_empty_string(self) -> None:
-        assert preprocess.process_vaccines_due(None, "en") == ""
+        assert preprocess.process_vaccines_due(None, "disease") == ""
+
+
+# ---------------------------------------------------------------------------
+# Manifest-mode tests for build_preprocess_result
+# ---------------------------------------------------------------------------
+
+def _make_catalog():
+    from pipeline.notice_versioning import NoticeKind, NoticeVersion, NoticeVersionCatalog
+    return NoticeVersionCatalog(
+        schema_version=1,
+        default_version="overdue_standard_v1",
+        default_language="en",
+        versions={
+            "overdue_standard_v1": NoticeVersion(
+                version_id="overdue_standard_v1", kind=NoticeKind.OVERDUE, requires="has_overdue"
+            ),
+            "affirmative_schedule_v1": NoticeVersion(
+                version_id="affirmative_schedule_v1", kind=NoticeKind.AFFIRMATIVE, requires="no_overdue"
+            ),
+        },
+    )
+
+
+def _make_manifest(*rows):
+    from pipeline.assignment_manifest import ManifestRow
+    return {r["client_id"]: ManifestRow(**r) for r in rows}
+
+
+def _simple_df(num=2, with_overdue=True):
+    """Minimal DataFrame for build_preprocess_result tests."""
+    data = {
+        "school_name": ["School A"] * num,
+        "client_id": [f"C{i:03d}" for i in range(1, num + 1)],
+        "first_name": ["Alice"] * num,
+        "last_name": ["Smith"] * num,
+        "date_of_birth": ["2015-01-01"] * num,
+        "city": ["Guelph"] * num,
+        "postal_code": ["N1H 2T2"] * num,
+        "province": ["ON"] * num,
+        "overdue_disease": (["Measles;Polio"] * num if with_overdue else [""] * num),
+        "overdue_agent": (["MMR;IPV"] * num if with_overdue else [""] * num),
+        "imms_given": [""] * num,
+        "street_address_line_1": ["123 Main St"] * num,
+        "street_address_line_2": [""] * num,
+    }
+    import pandas as pd
+    return pd.DataFrame(data)
+
+
+@pytest.mark.unit
+class TestBuildPreprocessResultFixedMode:
+    """Fixed-mode: metadata empty, returns None as second element."""
+
+    def test_fixed_mode_returns_tuple_with_none_result(self, tmp_path) -> None:
+        result, reconciliation_result = preprocess.build_preprocess_result(
+            _simple_df(2), "en", {}, preprocess.REPLACE_UNSPECIFIED
+        )
+        assert reconciliation_result is None
+
+    def test_fixed_mode_metadata_empty_for_all_clients(self, tmp_path) -> None:
+        result, _ = preprocess.build_preprocess_result(
+            _simple_df(2), "en", {}, preprocess.REPLACE_UNSPECIFIED
+        )
+        for client in result.clients:
+            assert "resolved_notice" not in client.metadata
+
+
+@pytest.mark.unit
+class TestBuildPreprocessResultManifestMode:
+    """Manifest-mode: metadata resolved_notice present, language set from manifest."""
+
+    def test_manifest_mode_returns_reconciliation_result(self, tmp_path) -> None:
+        catalog = _make_catalog()
+        manifest = _make_manifest(
+            {"client_id": "C001", "notice_version": "overdue_standard_v1", "language": "en", "experiment_id": None, "experiment_arm": None},
+            {"client_id": "C002", "notice_version": "overdue_standard_v1", "language": "fr", "experiment_id": None, "experiment_arm": None},
+        )
+        result, reconciliation_result = preprocess.build_preprocess_result(
+            _simple_df(2), None, {}, preprocess.REPLACE_UNSPECIFIED, catalog=catalog, manifest=manifest
+        )
+        assert reconciliation_result is not None
+
+    def test_manifest_mode_resolved_notice_in_metadata(self, tmp_path) -> None:
+        catalog = _make_catalog()
+        manifest = _make_manifest(
+            {"client_id": "C001", "notice_version": "overdue_standard_v1", "language": "en", "experiment_id": None, "experiment_arm": None},
+            {"client_id": "C002", "notice_version": "overdue_standard_v1", "language": "en", "experiment_id": None, "experiment_arm": None},
+        )
+        result, _ = preprocess.build_preprocess_result(
+            _simple_df(2), None, {}, preprocess.REPLACE_UNSPECIFIED, catalog=catalog, manifest=manifest
+        )
+        for client in result.clients:
+            assert "resolved_notice" in client.metadata
+
+    def test_manifest_mode_language_from_manifest_not_cli(self, tmp_path) -> None:
+        catalog = _make_catalog()
+        manifest = _make_manifest(
+            {"client_id": "C001", "notice_version": "overdue_standard_v1", "language": "en", "experiment_id": None, "experiment_arm": None},
+            {"client_id": "C002", "notice_version": "overdue_standard_v1", "language": "fr", "experiment_id": None, "experiment_arm": None},
+        )
+        result, _ = preprocess.build_preprocess_result(
+            _simple_df(2), None, {}, preprocess.REPLACE_UNSPECIFIED, catalog=catalog, manifest=manifest
+        )
+        langs = {c.client_id: c.language for c in result.clients}
+        assert langs["C001"] == "en"
+        assert langs["C002"] == "fr"
+
+    def test_manifest_mode_eligibility_conflict_halts(self, tmp_path) -> None:
+        """Affirmative assigned to client with vaccines_due → raises before artifact write."""
+        catalog = _make_catalog()
+        # Assign affirmative to a client that has vaccines due
+        manifest = _make_manifest(
+            {"client_id": "C001", "notice_version": "affirmative_schedule_v1", "language": "en", "experiment_id": None, "experiment_arm": None},
+            {"client_id": "C002", "notice_version": "affirmative_schedule_v1", "language": "en", "experiment_id": None, "experiment_arm": None},
+        )
+        with pytest.raises(ValueError, match="[Pp]reflight"):
+            preprocess.build_preprocess_result(
+                _simple_df(2, with_overdue=True), None, {}, preprocess.REPLACE_UNSPECIFIED, catalog=catalog, manifest=manifest
+            )
+
+    def test_manifest_mode_allow_unassigned_true_uses_defaults(self, tmp_path) -> None:
+        """allow_unassigned=True: client missing from manifest uses catalog defaults."""
+        catalog = _make_catalog()
+        # Only assign C001; C002 is missing from manifest
+        manifest = _make_manifest(
+            {"client_id": "C001", "notice_version": "overdue_standard_v1", "language": "en", "experiment_id": None, "experiment_arm": None},
+        )
+        # Write config with allow_unassigned=true
+        config_path = tmp_path / "parameters.yaml"
+        config_path.write_text(
+            "notice_versioning:\n  allow_unassigned: true\n  extra_manifest_rows: error\n",
+            encoding="utf-8",
+        )
+        result, reconciliation_result = preprocess.build_preprocess_result(
+            _simple_df(2), None, {}, preprocess.REPLACE_UNSPECIFIED,
+            config_path=config_path, catalog=catalog, manifest=manifest
+        )
+        # C002 should be resolved with catalog defaults, not missing
+        assert reconciliation_result is not None
+        assert "C002" not in reconciliation_result.missing_clients
+        c002 = next(c for c in result.clients if c.client_id == "C002")
+        assert c002.language == catalog.default_language
+
+    def test_manifest_mode_allow_unassigned_false_raises(self, tmp_path) -> None:
+        """allow_unassigned=False: missing client causes preflight failure."""
+        catalog = _make_catalog()
+        manifest = _make_manifest(
+            {"client_id": "C001", "notice_version": "overdue_standard_v1", "language": "en", "experiment_id": None, "experiment_arm": None},
+        )
+        # allow_unassigned defaults to False
+        with pytest.raises(ValueError, match="[Pp]reflight"):
+            preprocess.build_preprocess_result(
+                _simple_df(2), None, {}, preprocess.REPLACE_UNSPECIFIED,
+                catalog=catalog, manifest=manifest
+            )
+
+    def test_manifest_mode_extra_rows_error_raises(self, tmp_path) -> None:
+        catalog = _make_catalog()
+        # EXTRA_CLIENT is in manifest but not in cohort
+        manifest = _make_manifest(
+            {"client_id": "C001", "notice_version": "overdue_standard_v1", "language": "en", "experiment_id": None, "experiment_arm": None},
+            {"client_id": "C002", "notice_version": "overdue_standard_v1", "language": "en", "experiment_id": None, "experiment_arm": None},
+            {"client_id": "EXTRA_CLIENT", "notice_version": "overdue_standard_v1", "language": "en", "experiment_id": None, "experiment_arm": None},
+        )
+        config_path = tmp_path / "parameters.yaml"
+        config_path.write_text(
+            "notice_versioning:\n  allow_unassigned: false\n  extra_manifest_rows: error\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(ValueError, match="[Pp]reflight"):
+            preprocess.build_preprocess_result(
+                _simple_df(2), None, {}, preprocess.REPLACE_UNSPECIFIED,
+                config_path=config_path, catalog=catalog, manifest=manifest
+            )
+
+    def test_manifest_mode_extra_rows_warn_continues(self, tmp_path) -> None:
+        catalog = _make_catalog()
+        manifest = _make_manifest(
+            {"client_id": "C001", "notice_version": "overdue_standard_v1", "language": "en", "experiment_id": None, "experiment_arm": None},
+            {"client_id": "C002", "notice_version": "overdue_standard_v1", "language": "en", "experiment_id": None, "experiment_arm": None},
+            {"client_id": "EXTRA_CLIENT", "notice_version": "overdue_standard_v1", "language": "en", "experiment_id": None, "experiment_arm": None},
+        )
+        config_path = tmp_path / "parameters.yaml"
+        config_path.write_text(
+            "notice_versioning:\n  allow_unassigned: false\n  extra_manifest_rows: warn\n",
+            encoding="utf-8",
+        )
+        # Should NOT raise because extra_manifest_rows=warn
+        result, reconciliation_result = preprocess.build_preprocess_result(
+            _simple_df(2), None, {}, preprocess.REPLACE_UNSPECIFIED,
+            config_path=config_path, catalog=catalog, manifest=manifest
+        )
+        assert reconciliation_result is not None
+        assert "EXTRA_CLIENT" in reconciliation_result.extra_rows
+
+    def test_manifest_mode_missing_language_falls_back_to_default(self, tmp_path) -> None:
+        catalog = _make_catalog()
+        # C001 has no language in manifest row
+        manifest = _make_manifest(
+            {"client_id": "C001", "notice_version": "overdue_standard_v1", "language": None, "experiment_id": None, "experiment_arm": None},
+            {"client_id": "C002", "notice_version": "overdue_standard_v1", "language": "fr", "experiment_id": None, "experiment_arm": None},
+        )
+        result, reconciliation_result = preprocess.build_preprocess_result(
+            _simple_df(2), None, {}, preprocess.REPLACE_UNSPECIFIED, catalog=catalog, manifest=manifest
+        )
+        assert reconciliation_result is not None
+        assert "C001" in reconciliation_result.missing_language_clients
+        c001 = next(c for c in result.clients if c.client_id == "C001")
+        assert c001.language == catalog.default_language

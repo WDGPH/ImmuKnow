@@ -255,7 +255,7 @@ class TestPreprocessOutputContracts:
         df = sample_input.create_test_input_dataframe(num_clients=1)
         df["overdue_disease"] = ["Poliomyelitis"]
 
-        result = preprocess.build_preprocess_result(
+        result, _ = preprocess.build_preprocess_result(
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
@@ -303,7 +303,7 @@ class TestPreprocessOutputContracts:
         df = sample_input.create_test_input_dataframe(num_clients=1)
         df["imms_given"] = ["May 1, 2020 - DTaP"]
 
-        result = preprocess.build_preprocess_result(
+        result, _ = preprocess.build_preprocess_result(
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
@@ -403,7 +403,7 @@ class TestPreprocessOutputContracts:
             "Jun 15, 2021 - MMR",
         ]
 
-        result = preprocess.build_preprocess_result(
+        result, _ = preprocess.build_preprocess_result(
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
@@ -451,7 +451,7 @@ class TestPreprocessOutputContracts:
         df = sample_input.create_test_input_dataframe(num_clients=1)
         df["overdue_disease"] = ["DTaP - 2"]
 
-        result = preprocess.build_preprocess_result(
+        result, _ = preprocess.build_preprocess_result(
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
@@ -510,7 +510,7 @@ class TestPreprocessOutputContracts:
         df = sample_input.create_test_input_dataframe(num_clients=1)
         df["overdue_disease"] = ["Polio - "]
 
-        result = preprocess.build_preprocess_result(
+        result, _ = preprocess.build_preprocess_result(
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
@@ -595,7 +595,7 @@ class TestPhixStep2Contract:
             output_dir=tmp_path,
         )
 
-        result = preprocess.build_preprocess_result(
+        result, _ = preprocess.build_preprocess_result(
             enriched_df,
             language="en",
             vaccine_reference=default_vaccine_reference,
@@ -636,7 +636,7 @@ class TestPhixStep2Contract:
         Assertion: artifact from a non-enriched DataFrame has the same required
         keys and client count as the PHIX-enabled path.
         """
-        result = preprocess.build_preprocess_result(
+        result, _ = preprocess.build_preprocess_result(
             normalized_test_df,
             language="en",
             vaccine_reference=default_vaccine_reference,

@@ -38,6 +38,7 @@ class TestClientRecord:
             contact={},
             vaccines_due=None,
             vaccines_due_list=None,
+            vaccines_due_agent_list=None,
             received=None,
             metadata={},
         )
@@ -55,6 +56,7 @@ class TestClientRecord:
             contact={},
             vaccines_due=None,
             vaccines_due_list=None,
+            vaccines_due_agent_list=None,
             received=None,
             metadata={},
         )
@@ -90,6 +92,7 @@ class TestClientRecord:
             contact={},
             vaccines_due=None,
             vaccines_due_list=None,
+            vaccines_due_agent_list=None,
             received=None,
             metadata={},
         )

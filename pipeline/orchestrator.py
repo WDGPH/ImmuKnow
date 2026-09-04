@@ -40,6 +40,7 @@ import time
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
 # Import pipeline steps
 from . import bundle_pdfs, cleanup, compile_notices, validate_pdfs
@@ -50,8 +51,15 @@ from . import (
     prepare_output,
     preprocess,
 )
+from .assignment_manifest import (
+    ReconciliationResult,
+    has_errors,
+    load_manifest,
+    print_preflight_summary,
+)
 from .config_loader import load_config
 from .enums import Language
+from .notice_versioning import NoticeVersionCatalog, load_catalog
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 ROOT_DIR = SCRIPT_DIR.parent
@@ -71,6 +79,7 @@ def parse_args() -> argparse.Namespace:
 Examples:
   %(prog)s students.xlsx en
   %(prog)s students.xlsx fr
+  %(prog)s students.xlsx --notice-assignments assignments.json
         """,
     )
 
@@ -81,8 +90,11 @@ Examples:
     )
     parser.add_argument(
         "language",
+        nargs="?",
         choices=sorted(Language.all_codes()),
-        help=f"Language for output ({', '.join(sorted(Language.all_codes()))})",
+        default=None,
+        help=f"Language for output ({', '.join(sorted(Language.all_codes()))}). "
+        "Required unless --notice-assignments is provided.",
     )
     parser.add_argument(
         "--input",
@@ -113,24 +125,54 @@ Examples:
         help="PHU template name within phu_templates/ (e.g., 'wdgph'). "
         "If not specified, pipeline is run in testing mode, defaulting to the templates/ directory.",
     )
+    parser.add_argument(
+        "--notice-assignments",
+        type=Path,
+        default=None,
+        dest="notice_assignments",
+        help="Path to JSON assignment manifest for notice versioning.",
+    )
 
     return parser.parse_args()
 
 
 def validate_args(args: argparse.Namespace) -> None:
     """Validate command-line arguments and raise errors if invalid."""
+    # --- Language / manifest mutual validation ---
+    if args.notice_assignments is None and args.language is None:
+        raise ValueError(
+            "language is required when not using --notice-assignments"
+        )
+
+    if args.notice_assignments is not None and args.language is not None:
+        print(
+            f"Warning: CLI language argument '{args.language}' is ignored in manifest "
+            "mode. Language is governed by the manifest and catalog default_language."
+        )
+        args.language = None
+
+    if args.notice_assignments is not None:
+        if not args.notice_assignments.exists():
+            raise FileNotFoundError(
+                f"Assignment manifest not found: {args.notice_assignments}"
+            )
+        catalog_path = args.config_dir / "notice_versions.yaml"
+        if not catalog_path.exists():
+            raise ValueError(
+                "--notice-assignments requires notice_versions.yaml in the config "
+                f"directory ({args.config_dir})"
+            )
+
+    # --- Input file ---
     if args.input_file and not (args.input_dir / args.input_file).exists():
         raise FileNotFoundError(
             f"Input file not found: {args.input_dir / args.input_file}"
         )
 
-    # Resolve template directory
+    # --- Resolve template directory ---
     if args.template_dir is None:
-        # No custom template specified; use default
         args.template_dir = DEFAULT_TEMPLATES_DIR
     else:
-        # Custom PHU template specified; resolve within phu_templates/
-        # Validate no path separators (prevent nested directories)
         if "/" in args.template_dir or "\\" in args.template_dir:
             raise ValueError(
                 f"Template name cannot contain path separators: {args.template_dir}\n"
@@ -148,10 +190,8 @@ def validate_args(args: argparse.Namespace) -> None:
             raise NotADirectoryError(
                 f"PHU template path is not a directory: {phu_template_path}"
             )
-        # Update args.template_dir to resolved Path
         args.template_dir = phu_template_path
 
-    # Validate template directory contents
     if not args.template_dir.is_dir():
         raise NotADirectoryError(
             f"Template path is not a directory: {args.template_dir}"
@@ -198,7 +238,6 @@ def run_step_1_prepare_output(
     )
 
     if not success:
-        # User cancelled - exit with code 2 to match shell script
         return False
 
     return True
@@ -208,63 +247,84 @@ def run_step_2_preprocess(
     input_dir: Path,
     input_file: str,
     output_dir: Path,
-    language: str,
+    language: Optional[str],
     run_id: str,
     config_dir: Path,
-) -> int:
+    catalog: Optional[NoticeVersionCatalog] = None,
+    manifest: Optional[dict] = None,
+) -> tuple[int, Optional[ReconciliationResult]]:
     """Step 2: Preprocessing.
 
     Returns:
-        Total number of clients processed.
+        Tuple of (total_clients, reconciliation_result).
+        reconciliation_result is None in fixed mode.
     """
     print_step(2, "Preprocessing")
 
-    # Configure logging
     log_path = preprocess.configure_logging(output_dir, run_id)
 
-    # Load and process input data
     input_path = input_dir / input_file
     df_raw = preprocess.read_input(input_path)
     preprocess.validate_input(input_path)
     df = preprocess.normalize_dataframe(df_raw)
 
+    assignment_mode = "manifest" if catalog is not None else "fixed"
+    default_version = catalog.default_version if catalog is not None else None
+
     # Check that addresses are complete, return only complete rows
     df = preprocess.check_addresses_complete(df, drop_incomplete=True)
-    df = preprocess.check_client_info_complete(df, drop_incomplete=True)
+    df = preprocess.check_client_info_complete(df, assignment_mode, drop_incomplete=True)
 
-    # Validate schools against PHIX mapping
     df, phix_warnings = preprocess.run_phix_validation(df, output_dir)
 
-    # Load configuration
     vaccine_reference_path = preprocess.VACCINE_REFERENCE_PATH
     vaccine_reference = json.loads(vaccine_reference_path.read_text(encoding="utf-8"))
 
-    # Build preprocessing result
-    result = preprocess.build_preprocess_result(
+    preprocess_result, reconciliation_result = preprocess.build_preprocess_result(
         df,
         language,
         vaccine_reference,
         preprocess.REPLACE_UNSPECIFIED,
         config_path=config_dir / "parameters.yaml",
+        catalog=catalog,
+        manifest=manifest,
     )
 
-    # Write artifact
-    artifact_path = preprocess.write_artifact(
-        output_dir / "artifacts", language, run_id, result
+    # Determine effective language for the artifact header
+    effective_language = language or (
+        catalog.default_language if catalog is not None else "en"
     )
+
+    artifact_path = preprocess.write_artifact(
+        output_dir / "artifacts",
+        effective_language,
+        run_id,
+        preprocess_result,
+        assignment_mode=assignment_mode,
+        default_version=default_version,
+    )
+
+    # Write per-client assignment metadata file in manifest mode
+    if catalog is not None and reconciliation_result is not None:
+        preprocess.write_assignment_metadata(
+            output_dir / "metadata",
+            run_id,
+            catalog,
+            reconciliation_result,
+            preprocess_result.clients,
+        )
 
     print(f"📄 Preprocessed artifact: {artifact_path}")
     print(f"Preprocess log written to {log_path}")
-    all_warnings = phix_warnings + result.warnings
+    all_warnings = phix_warnings + preprocess_result.warnings
     if all_warnings:
         print("Warnings detected during preprocessing:")
         for warning in all_warnings:
             print(f" - {warning}")
 
-    # Summarize the preprocessed clients
-    total_clients = len(result.clients)
+    total_clients = len(preprocess_result.clients)
     print(f"👥 Clients normalized: {total_clients}")
-    return total_clients
+    return total_clients, reconciliation_result
 
 
 def run_step_3_generate_qr_codes(
@@ -292,7 +352,6 @@ def run_step_3_generate_qr_codes(
     artifacts_dir = output_dir / "artifacts"
     parameters_path = config_dir / "parameters.yaml"
 
-    # Generate QR codes
     generated = generate_qr_codes.generate_qr_codes(
         artifact_path,
         artifacts_dir,
@@ -335,15 +394,9 @@ def run_step_4_generate_notices(
     artifact_path = output_dir / "artifacts" / f"preprocessed_clients_{run_id}.json"
     artifacts_dir = output_dir / "artifacts"
 
-    # Assets now come from template directory (optional)
     logo_path = template_dir / "assets" / "logo.png"
     signature_path = template_dir / "assets" / "signature.png"
 
-    # Note: Assets are NOT validated here. If a template references an asset
-    # that doesn't exist, the template rendering will fail with a clear error.
-    # This allows templates without assets to work without requiring dummy files.
-
-    # Generate Typst files using main function
     generated = generate_notices.main(
         artifact_path,
         artifacts_dir,
@@ -373,14 +426,12 @@ def run_step_5_compile_notices(
     """
     print_step(5, "Compiling Typst templates")
 
-    # Load and validate configuration (fail-fast if invalid)
     load_config(config_dir / "parameters.yaml")
 
     artifacts_dir = output_dir / "artifacts"
     pdf_dir = output_dir / "pdf_individual"
     parameters_path = config_dir / "parameters.yaml"
 
-    # Compile Typst files using config-driven function
     compiled = compile_notices.compile_with_config(
         artifacts_dir,
         pdf_dir,
@@ -406,24 +457,19 @@ def run_step_6_validate_pdfs(
     artifacts_dir = output_dir / "artifacts"
     preprocessed_json = artifacts_dir / f"preprocessed_clients_{run_id}.json"
 
-    # Load preprocessed clients to build client ID mapping
     client_id_map = {}
     import json
 
     with open(preprocessed_json, "r", encoding="utf-8") as f:
         preprocessed = json.load(f)
         clients = preprocessed.get("clients", [])
-        # Build map: filename -> client_id
-        # Filename format: {language}_notice_{sequence:05d}_{client_id}.pdf
         for idx, client in enumerate(clients, start=1):
             client_id = str(client.get("client_id", ""))
-            # Try to match any expected filename format
             for ext in [".pdf"]:
                 for lang_prefix in ["en", "fr"]:
                     filename = f"{lang_prefix}_notice_{idx:05d}_{client_id}{ext}"
                     client_id_map[filename] = client_id
 
-    # Validate PDFs (module loads validation rules from config_dir)
     validate_pdfs.main(
         pdf_dir,
         language=language,
@@ -445,7 +491,6 @@ def run_step_7_encrypt_pdfs(
     artifacts_dir = output_dir / "artifacts"
     json_file = artifacts_dir / f"preprocessed_clients_{run_id}.json"
 
-    # Encrypt PDFs using the combined preprocessed clients JSON
     encrypt_notice.encrypt_pdfs_in_directory(
         pdf_directory=pdf_dir,
         json_file=json_file,
@@ -466,12 +511,10 @@ def run_step_8_bundle_pdfs(
     """
     print_step(8, "Bundling PDFs")
 
-    # Load and validate configuration (fail-fast if invalid)
     config = load_config(config_dir / "parameters.yaml")
 
     parameters_path = config_dir / "parameters.yaml"
 
-    # Bundle PDFs using config-driven function
     results = bundle_pdfs.bundle_pdfs_with_config(
         output_dir,
         language,
@@ -481,7 +524,6 @@ def run_step_8_bundle_pdfs(
     if results:
         print(f"Created {len(results)} bundles in {output_dir / 'pdf_combined'}")
 
-        # Display bundle information
         bundling_config = config.get("bundling", {})
         bundle_size = bundling_config.get("bundle_size", 0)
         group_by = bundling_config.get("group_by")
@@ -494,7 +536,6 @@ def run_step_8_bundle_pdfs(
         else:
             print("🏷️  Bundle scope:            Sequential")
 
-        # Display manifest paths
         if results:
             print("📋 Bundle manifests:")
             for result in results:
@@ -546,21 +587,33 @@ def main() -> int:
             return 1
         raise
 
-    # Setup paths and load configuration
     output_dir = args.output_dir.resolve()
     config_dir = args.config_dir.resolve()
     log_dir = output_dir / "logs"
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
 
-    # Load configuration
     try:
         config = load_config(config_dir / "parameters.yaml")
     except FileNotFoundError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 
-    # Extract config settings
     encryption_enabled = config.get("encryption", {}).get("enabled", False)
+    notice_versioning_cfg = config.get("notice_versioning", {})
+    extra_manifest_rows_policy = notice_versioning_cfg.get("extra_manifest_rows", "error")
+
+    # Load catalog and manifest before Step 1 so infrastructure errors fail fast.
+    catalog: Optional[NoticeVersionCatalog] = None
+    manifest: Optional[dict] = None
+    if args.notice_assignments:
+        catalog = load_catalog(config_dir)
+        manifest = load_manifest(args.notice_assignments)
+
+    # Effective language for steps 3/6/7/8 that need a single language tag.
+    # In manifest mode args.language is None; fall back to catalog default.
+    effective_language: str = args.language or (
+        catalog.default_language if catalog is not None else "en"
+    )
 
     print_header(args.input_file)
 
@@ -572,24 +625,36 @@ def main() -> int:
         # Step 1: Prepare output directory
         step_start = time.time()
         if not run_step_1_prepare_output(output_dir, log_dir, config_dir):
-            return 2  # User cancelled
+            return 2
         step_duration = time.time() - step_start
         step_times.append(("Output Preparation", step_duration))
         print_step_complete(1, "Output directory prepared", step_duration)
 
         # Step 2: Preprocessing
         step_start = time.time()
-        total_clients = run_step_2_preprocess(
+        total_clients, reconciliation_result = run_step_2_preprocess(
             args.input_dir,
             args.input_file,
             output_dir,
             args.language,
             run_id,
             config_dir,
+            catalog=catalog,
+            manifest=manifest,
         )
         step_duration = time.time() - step_start
         step_times.append(("Preprocessing", step_duration))
         print_step_complete(2, "Preprocessing", step_duration)
+
+        # Preflight gate (manifest mode only)
+        if reconciliation_result is not None:
+            print_preflight_summary(reconciliation_result)
+            if has_errors(reconciliation_result, extra_manifest_rows_policy):
+                print(
+                    "\n❌ Manifest preflight failed. Correct the errors above and retry.",
+                    file=sys.stderr,
+                )
+                return 1
 
         # Step 3: Generating QR Codes (optional)
         step_start = time.time()
@@ -630,7 +695,9 @@ def main() -> int:
 
         # Step 6: Validating PDFs
         step_start = time.time()
-        run_step_6_validate_pdfs(output_dir, args.language, run_id, config_dir)
+        run_step_6_validate_pdfs(
+            output_dir, effective_language, run_id, config_dir
+        )
         step_duration = time.time() - step_start
         step_times.append(("PDF Validation", step_duration))
         print_step_complete(6, "PDF validation", step_duration)
@@ -638,7 +705,7 @@ def main() -> int:
         # Step 7: Encrypting PDFs (optional)
         if encryption_enabled:
             step_start = time.time()
-            run_step_7_encrypt_pdfs(output_dir, args.language, run_id)
+            run_step_7_encrypt_pdfs(output_dir, effective_language, run_id)
             step_duration = time.time() - step_start
             step_times.append(("PDF Encryption", step_duration))
             print_step_complete(7, "Encryption", step_duration)
@@ -651,7 +718,7 @@ def main() -> int:
             step_start = time.time()
             run_step_8_bundle_pdfs(
                 output_dir,
-                args.language,
+                effective_language,
                 run_id,
                 config_dir,
             )
@@ -665,7 +732,6 @@ def main() -> int:
         # Step 9: Cleanup
         run_step_9_cleanup(output_dir, config_dir)
 
-        # Print summary
         total_duration = time.time() - total_start
 
         print_summary(

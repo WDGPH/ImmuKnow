@@ -241,3 +241,23 @@ def validate_config(config: Dict[str, Any]) -> None:
             f"cleanup.delete_unencrypted_pdfs must be a boolean, "
             f"got {type(delete_unencrypted).__name__}"
         )
+
+    # Validate optional notice_versioning config
+    notice_versioning_config = config.get("notice_versioning", {})
+    if notice_versioning_config:
+        allow_unassigned = notice_versioning_config.get("allow_unassigned")
+        if allow_unassigned is not None and not isinstance(allow_unassigned, bool):
+            raise ValueError(
+                f"notice_versioning.allow_unassigned must be a boolean, "
+                f"got {type(allow_unassigned).__name__}"
+            )
+
+        extra_manifest_rows = notice_versioning_config.get("extra_manifest_rows")
+        if extra_manifest_rows is not None and extra_manifest_rows not in (
+            "error",
+            "warn",
+        ):
+            raise ValueError(
+                f"notice_versioning.extra_manifest_rows must be 'error' or 'warn', "
+                f"got {extra_manifest_rows!r}"
+            )

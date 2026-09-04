@@ -45,6 +45,8 @@ Reads the raw Excel input, validates the schema, normalizes all client and vacci
 | `phix_validation.unmatched_behavior` | str | Action on unmatched schools: `warn`, `error`, or `skip` |
 | `date_notice_delivery` | ISO 8601 | Reference date for age-based eligibility (16+ threshold) |
 | `date_data_cutoff` | ISO 8601 | Date the source data was extracted from Panorama |
+| `notice_versioning.allow_unassigned` | bool | When `true`, clients absent from the manifest receive catalog defaults (manifest mode only) |
+| `notice_versioning.extra_manifest_rows` | str | How to treat manifest rows with no matching client: `"error"` or `"warn"` (manifest mode only) |
 
 **Inputs:**
 
@@ -52,6 +54,8 @@ Reads the raw Excel input, validates the schema, normalizes all client and vacci
 - `config/vaccine_reference.json` — maps vaccine codes to disease names
 - `config/disease_normalization.json` — normalizes raw disease name variants
 - `config/phix_mapping.json` — PHU-keyed school name → PHIX facility ID mapping (when PHIX validation enabled)
+- `config/notice_versions.yaml` — notice version catalog (manifest mode only; feature is off when absent)
+- Assignment manifest JSON (`--notice-assignments`) — per-client version and language assignments (manifest mode only)
 
 **Outputs:**
 
@@ -60,6 +64,7 @@ Reads the raw Excel input, validates the schema, normalizes all client and vacci
 - `output/incomplete_addresses.csv` — records dropped due to missing address fields (written when any are found)
 - `output/incomplete_clients.csv` — records with missing required client fields, retained in processing (written when any are found)
 - `phix_exact.csv`, `phix_inexact.csv`, `phix_no_match.csv` — school match audit CSVs (when PHIX validation enabled)
+- `output/metadata/notice_assignments_<run_id>.json` — per-client assignment record, no PII (manifest mode only)
 
 **Processing:**
 
@@ -75,6 +80,16 @@ Reads the raw Excel input, validates the schema, normalizes all client and vacci
 10. Assigns stable sequence numbers (`00001`, `00002`, …)
 11. Synthesizes missing school/board identifiers where needed
 12. Writes the canonical JSON artifact
+13. *(Manifest mode only)* Reconciles the assignment manifest against the client list; runs preflight checks (missing clients, unknown version IDs, eligibility conflicts); halts pipeline if any fatal issues are found; writes the assignment metadata file
+
+**Manifest preflight checks** (manifest mode only — all checked before any PDF is generated):
+
+| Check | Fatal? | Description |
+|-------|--------|-------------|
+| Missing clients | Always | Clients in the input with no manifest row (when `allow_unassigned: false`) |
+| Unknown versions | Always | Manifest rows referencing a version ID not in `notice_versions.yaml` |
+| Eligibility conflicts | Always | e.g., affirmative notice assigned to a client with vaccines due |
+| Extra manifest rows | Configurable | Manifest rows with no matching client (`extra_manifest_rows: error` or `warn`) |
 
 ---
 
@@ -124,6 +139,23 @@ Renders Typst source files (`.typ`) for each client by combining the preprocesse
 Templates are loaded dynamically at runtime. The `--template` CLI argument selects a directory under `phu_templates/`. When omitted, the built-in `templates/` directory is used. Each template module must define a `render_notice()` function.
 
 Disease names are translated into the target language in Python before being passed to Typst — no runtime lookups occur in the Typst templates themselves.
+
+**Manifest mode template layout**
+
+When running in manifest mode, each notice version requires its own template subdirectory:
+
+```
+phu_templates/my_phu/
+├── overdue_standard_v1/
+│   ├── en_template.py
+│   └── fr_template.py
+├── affirmative_schedule_v1/
+│   ├── en_template.py
+│   └── fr_template.py
+└── conf.typ
+```
+
+The pipeline builds a registry of all `(version_id, language)` pairs needed by the client list, verifies every required template exists before generating any file, and then dispatches each client to its resolved template. Missing templates are reported as a single error listing all absent paths.
 
 ---
 

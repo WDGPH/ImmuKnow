@@ -19,6 +19,7 @@ This directory contains all configuration files for the immunization pipeline. E
 - [QR Code Configuration](#qr-code-configuration)
 - [PDF Validation Configuration](#pdf-validation-configuration)
 - [PDF Encryption Configuration](#pdf-encryption-configuration)
+- [Notice Versioning](#notice-versioning)
 - [🏷️ Template Field Reference](#template-field-reference)
 - [Adding New Configurations](#adding-new-configurations)
 
@@ -32,7 +33,9 @@ Raw Input (from CSV/Excel)
     ├─ disease_normalization.json → normalize variants
     ├─ vaccine_reference.json → expand vaccines to diseases
     ├─ parameters.yaml.chart_diseases_header → filter diseases not in chart → "Other"
-    └─ Emit artifact with filtered disease names
+    ├─ notice_versions.yaml (optional) → load notice version catalog
+    ├─ assignment manifest (optional) → reconcile per-client version/language assignments
+    └─ Emit artifact with filtered disease names (+ resolved_notice per client in manifest mode)
     ↓
 Artifact JSON (canonical English disease names, filtered by chart config)
     ↓
@@ -40,6 +43,7 @@ Artifact JSON (canonical English disease names, filtered by chart config)
     ├─ parameters.yaml.chart_diseases_header → load chart disease list
     ├─ translations/{lang}_diseases_chart.json → translate each disease name
     ├─ translations/{lang}_diseases_overdue.json → translate vaccines_due list
+    ├─ (manifest mode) build template registry from per-version subdirectories
     └─ Inject translated diseases into Typst template
     ↓
 Typst Files (with localized, filtered disease names)
@@ -449,6 +453,119 @@ encryption:
 ```
 
 All templates are validated at runtime to catch configuration errors early and provide clear, allowed-field guidance.
+
+---
+
+## Notice Versioning
+
+The notice versioning feature allows a single pipeline run to send different notice types (overdue, affirmative, informational) in different languages, by mapping each client to a specific notice version via a JSON assignment manifest. The feature is entirely **opt-in**: it is disabled when `config/notice_versions.yaml` is absent, and the pipeline behaves byte-for-byte identically to the fixed-mode default.
+
+### `notice_versions.yaml`
+
+**Purpose**: Catalog of notice version IDs and their eligibility kinds.
+
+**Location**: `config/notice_versions.yaml`
+
+**Format**:
+
+```yaml
+schema_version: 1
+default_version: overdue_standard_v1
+default_language: en
+
+versions:
+  overdue_standard_v1:
+    kind: overdue
+  affirmative_schedule_v1:
+    kind: affirmative
+  informational_v1:
+    kind: informational
+```
+
+**Fields**:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `schema_version` | int | Must be `1` |
+| `default_version` | str | Version ID used for clients absent from the manifest when `allow_unassigned: true` |
+| `default_language` | str | Language used for unassigned clients and as a fallback when a manifest row omits `language` |
+| `versions` | map | Version ID → `{kind}` definition |
+
+**Notice kinds**:
+
+| Kind | Description | Eligibility rule |
+|------|-------------|-----------------|
+| `overdue` | Standard overdue notice | Client must have at least one vaccine due |
+| `affirmative` | Notice for up-to-date clients | Client must have no vaccines due |
+| `informational` | General informational notice | No eligibility constraint |
+
+Eligibility conflicts (e.g., assigning an `affirmative` notice to a client with vaccines due) are caught at preflight and halt the pipeline before any PDF is generated.
+
+### Assignment manifest format
+
+The assignment manifest is a JSON array passed via `--notice-assignments`. Each entry maps a client ID to a version and language:
+
+```json
+[
+  {"client_id": "1009876545", "notice_version": "overdue_standard_v1", "language": "en"},
+  {"client_id": "2001234567", "notice_version": "affirmative_schedule_v1", "language": "fr"},
+  {"client_id": "3009876543", "notice_version": "overdue_standard_v1"}
+]
+```
+
+**Fields**:
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `client_id` | Yes | Must match a client ID in the input file |
+| `notice_version` | Yes | Must match a version ID in `notice_versions.yaml` |
+| `language` | No | ISO 639-1 language code; falls back to `default_language` when omitted |
+| `experiment_id` | No | Optional experiment identifier (passed through to assignment metadata) |
+| `experiment_arm` | No | Optional experiment arm (passed through to assignment metadata) |
+
+### `parameters.yaml` — `notice_versioning` section
+
+Optional behavior controls for manifest mode:
+
+```yaml
+notice_versioning:
+  allow_unassigned: false       # true: unassigned clients use catalog defaults; false: error (default)
+  extra_manifest_rows: error    # "error" or "warn" for manifest rows with no matching client
+```
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `allow_unassigned` | bool | `false` | When `true`, clients with no manifest row receive the catalog's `default_version` and `default_language` |
+| `extra_manifest_rows` | str | `"error"` | When `"error"`, manifest rows for clients not in the input file halt the pipeline; when `"warn"`, they are logged and skipped |
+
+### CLI usage
+
+```bash
+# Manifest mode — omit language, provide assignment file and catalog
+uv run viper students.xlsx --notice-assignments assignments.json --template my_phu
+
+# If --template is omitted in manifest mode, built-in templates/ is used
+# (requires a subdirectory per version ID in templates/)
+```
+
+The `language` argument is **not required** in manifest mode. If supplied alongside `--notice-assignments`, it is ignored with a warning.
+
+### Template directory layout for manifest mode
+
+Each notice version must have its own subdirectory within the template directory:
+
+```
+phu_templates/my_phu/
+├── overdue_standard_v1/
+│   ├── en_template.py
+│   └── fr_template.py
+├── affirmative_schedule_v1/
+│   ├── en_template.py
+│   └── fr_template.py
+└── conf.typ
+```
+
+The pipeline validates all required `(version_id, language)` pairs exist before rendering any client. Missing template paths are reported together so all gaps can be fixed in one pass.
 
 ---
 

@@ -815,3 +815,72 @@ class TestLanguageSupport:
             generate_notices.Language.FRENCH, renderers
         )
         assert french_renderer is not None
+
+
+# ---------------------------------------------------------------------------
+# build_template_registry (manifest mode)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.unit
+class TestBuildTemplateRegistry:
+    """Unit tests for build_template_registry()."""
+
+    def _make_template(self, directory: Path, lang: str) -> None:
+        directory.mkdir(parents=True, exist_ok=True)
+        src = Path(__file__).parent.parent.parent / "templates" / f"{lang}_template.py"
+        import shutil
+        shutil.copy2(src, directory / f"{lang}_template.py")
+
+    def test_builds_registry_for_needed_pairs(self, tmp_path: Path) -> None:
+        version_dir = tmp_path / "overdue_standard_v1"
+        self._make_template(version_dir, "en")
+        registry = generate_notices.build_template_registry(
+            tmp_path, {("overdue_standard_v1", "en")}
+        )
+        assert ("overdue_standard_v1", "en") in registry
+        assert callable(registry[("overdue_standard_v1", "en")])
+
+    def test_raises_for_missing_template_path(self, tmp_path: Path) -> None:
+        """Fails at preflight listing all missing paths — not a per-client error."""
+        # Create one but not the other
+        version_dir = tmp_path / "overdue_standard_v1"
+        self._make_template(version_dir, "en")
+        needed = {
+            ("overdue_standard_v1", "en"),
+            ("affirmative_schedule_v1", "en"),  # missing
+        }
+        with pytest.raises(FileNotFoundError, match="affirmative_schedule_v1"):
+            generate_notices.build_template_registry(tmp_path, needed)
+
+    def test_raises_listing_all_missing_not_just_first(self, tmp_path: Path) -> None:
+        needed = {
+            ("overdue_standard_v1", "en"),   # missing
+            ("affirmative_schedule_v1", "fr"),  # also missing
+        }
+        with pytest.raises(FileNotFoundError) as exc_info:
+            generate_notices.build_template_registry(tmp_path, needed)
+        msg = str(exc_info.value)
+        assert "overdue_standard_v1" in msg
+        assert "affirmative_schedule_v1" in msg
+
+    def test_no_fallback_when_template_dir_set(self, tmp_path: Path) -> None:
+        """PHU dir specified: no fallback to templates/ for missing version subdir."""
+        phu_dir = tmp_path / "phu"
+        phu_dir.mkdir()
+        # Only en available in phu dir; fr is NOT available
+        phu_version_dir = phu_dir / "overdue_standard_v1"
+        self._make_template(phu_version_dir, "en")
+
+        # Request fr — should fail even though templates/ might have it
+        with pytest.raises(FileNotFoundError):
+            generate_notices.build_template_registry(
+                phu_dir, {("overdue_standard_v1", "fr")}
+            )
+
+    def test_fixed_mode_uses_flat_layout_no_regression(self, tmp_path: Path) -> None:
+        """Fixed mode (build_language_renderers) still works flat — no regression."""
+        templates_dir = Path(__file__).parent.parent.parent / "templates"
+        renderers = generate_notices.build_language_renderers(templates_dir)
+        assert "en" in renderers
+        assert "fr" in renderers
+        assert callable(renderers["en"])

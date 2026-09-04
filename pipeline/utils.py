@@ -293,6 +293,7 @@ def deserialize_client_record(client_dict: dict) -> ClientRecord:
             contact=client_dict.get("contact", {}),
             vaccines_due=client_dict.get("vaccines_due"),
             vaccines_due_list=client_dict.get("vaccines_due_list"),
+            vaccines_due_agent_list=client_dict.get("vaccines_due_agent_list"),
             received=client_dict.get("received"),
             metadata=client_dict.get("metadata", {}),
             qr=client_dict.get("qr"),
