@@ -884,3 +884,145 @@ class TestBuildTemplateRegistry:
         assert "en" in renderers
         assert "fr" in renderers
         assert callable(renderers["en"])
+
+
+# ---------------------------------------------------------------------------
+# generate_typst_files — manifest mode branch
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestGenerateTypstFilesManifestMode:
+    """Unit tests for the manifest-mode branch of generate_typst_files().
+
+    Manifest mode is triggered when at least one client has
+    ``metadata["resolved_notice"]`` set.  It uses build_template_registry()
+    for a preflight check and then dispatches each client to the renderer
+    identified by its (notice_version, language) pair.
+
+    Fixed mode is already covered by integration tests; these tests focus
+    exclusively on the manifest branch.
+    """
+
+    _ASSETS = Path(__file__).parent.parent.parent / "templates" / "assets"
+    _LOGO = _ASSETS / "logo.png"
+    _SIG = _ASSETS / "signature.png"
+
+    def _make_template(self, directory: Path, lang: str) -> None:
+        """Copy a real template into a versioned subdirectory."""
+        import shutil
+
+        directory.mkdir(parents=True, exist_ok=True)
+        src = Path(__file__).parent.parent.parent / "templates" / f"{lang}_template.py"
+        shutil.copy2(src, directory / f"{lang}_template.py")
+
+    def _make_manifest_payload(
+        self,
+        clients: list,
+    ) -> "generate_notices.ArtifactPayload":
+        """Wrap a client list in a minimal ArtifactPayload."""
+        from pipeline import data_models
+
+        return data_models.ArtifactPayload(
+            run_id="test_manifest_run",
+            language="en",
+            clients=clients,
+            warnings=[],
+            created_at="2025-01-01T00:00:00Z",
+            total_clients=len(clients),
+            assignment_mode="manifest",
+        )
+
+    def _make_client(
+        self,
+        sequence: str,
+        client_id: str,
+        notice_version: str,
+        lang: str = "en",
+    ) -> "generate_notices.ClientRecord":
+        """Create a ClientRecord with resolved_notice metadata."""
+        from dataclasses import replace
+
+        base = sample_input.create_test_client_record(
+            sequence=sequence, client_id=client_id, language=lang
+        )
+        return replace(
+            base,
+            metadata={
+                "resolved_notice": {
+                    "notice_version": notice_version,
+                    "language": lang,
+                }
+            },
+        )
+
+    def test_manifest_mode_writes_typ_files_for_each_client(
+        self, tmp_path: Path
+    ) -> None:
+        """Happy path: manifest clients produce correctly named .typ files.
+
+        Real-world significance:
+        - generate_typst_files must enter manifest mode when resolved_notice is
+          present and dispatch each client through the registry renderer
+        - Filename convention (``{lang}_notice_{seq}_{id}.typ``) is consumed by
+          compile_notices; a mismatch silently drops PDFs
+
+        Assertion: one .typ file per client, named with the manifest convention
+        """
+        if not self._LOGO.exists() or not self._SIG.exists():
+            pytest.skip("Template assets not available")
+
+        version_dir = tmp_path / "overdue_standard_v1"
+        self._make_template(version_dir, "en")
+
+        clients = [
+            self._make_client("00001", "C001", "overdue_standard_v1"),
+            self._make_client("00002", "C002", "overdue_standard_v1"),
+        ]
+        payload = self._make_manifest_payload(clients)
+
+        files = generate_notices.generate_typst_files(
+            payload, tmp_path, self._LOGO, self._SIG, tmp_path
+        )
+
+        assert len(files) == 2
+        names = {f.name for f in files}
+        assert "en_notice_00001_C001.typ" in names
+        assert "en_notice_00002_C002.typ" in names
+        for f in files:
+            assert f.exists()
+
+    def test_manifest_mode_preflight_raises_before_writing_any_file(
+        self, tmp_path: Path
+    ) -> None:
+        """Missing template version raises FileNotFoundError before any output is written.
+
+        Real-world significance:
+        - Preflight failure must be all-or-nothing: if one version is missing the
+          run should abort cleanly rather than producing a partial batch of notices
+        - This protects against silently generating the wrong template for some
+          clients while skipping others
+
+        Assertion: FileNotFoundError raised; typst output directory is empty
+        """
+        if not self._LOGO.exists() or not self._SIG.exists():
+            pytest.skip("Template assets not available")
+
+        # Only provide one version; client references a second that doesn't exist
+        good_dir = tmp_path / "overdue_standard_v1"
+        self._make_template(good_dir, "en")
+
+        clients = [
+            self._make_client("00001", "C001", "overdue_standard_v1"),
+            self._make_client("00002", "C002", "missing_version_v1"),
+        ]
+        payload = self._make_manifest_payload(clients)
+
+        with pytest.raises(FileNotFoundError, match="missing_version_v1"):
+            generate_notices.generate_typst_files(
+                payload, tmp_path, self._LOGO, self._SIG, tmp_path
+            )
+
+        typst_dir = tmp_path / "typst"
+        written = list(typst_dir.glob("*.typ")) if typst_dir.exists() else []
+        assert written == [], "No .typ files should be written when preflight fails"

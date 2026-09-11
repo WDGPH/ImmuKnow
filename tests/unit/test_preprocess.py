@@ -1235,6 +1235,481 @@ class TestBuildReceivedRows:
         
         
 @pytest.mark.unit
+class TestCheckAddressesComplete:
+    """Unit tests for check_addresses_complete().
+
+    Covers:
+    - All addresses complete → all rows returned, no warning
+    - Some addresses incomplete → warning logged, incomplete rows dropped by default
+    - drop_incomplete=False → all rows returned regardless of completeness
+    - Incomplete rows written to CSV side-effect
+    - Blank strings and whitespace-only values treated as missing
+
+    Real-world significance:
+    - check_addresses_complete gates which clients receive a mailed notice;
+      dropping a client with a missing postal code is correct; silently keeping
+      one with no street address would produce an undeliverable envelope.
+    """
+
+    @pytest.fixture
+    def output_dir(self, tmp_path, monkeypatch) -> Path:
+        """Redirect the hardcoded output path to tmp_path and return it.
+
+        The function writes incomplete_addresses.csv to SCRIPT_DIR.parent/output.
+        Patching SCRIPT_DIR keeps test I/O isolated from the real output/ folder.
+        Returns the output directory path so CSV-checking tests can use it directly.
+        """
+        out = tmp_path / "output"
+        out.mkdir(parents=True)
+        monkeypatch.setattr(preprocess, "SCRIPT_DIR", tmp_path / "pipeline")
+        return out
+
+    @pytest.fixture
+    def complete_df(self) -> pd.DataFrame:
+        """Three rows with fully populated address fields."""
+        return pd.DataFrame(
+            {
+                "street_address_line_1": ["123 Main St", "456 Side Rd", "789 Oak Ave"],
+                "street_address_line_2": ["", "Suite 5", ""],
+                "city": ["Guelph", "Guelph", "Wellington"],
+                "province": ["ON", "ON", "ON"],
+                "postal_code": ["N1H 2T2", "N1H 2T3", "N1K 1B2"],
+            }
+        )
+
+    @pytest.fixture
+    def mixed_df(self) -> pd.DataFrame:
+        """Two complete rows and one row with missing city and postal_code.
+
+        Uses float("nan") so the normalisation step (.astype(str) → "nan" →
+        replaced with pd.NA) correctly detects the values as absent.
+        Plain Python None becomes the string "None" and would not be caught.
+        """
+        return pd.DataFrame(
+            {
+                "street_address_line_1": ["123 Main St", "456 Side Rd", "789 Oak Ave"],
+                "street_address_line_2": ["", "", ""],
+                "city": ["Guelph", "Guelph", float("nan")],
+                "province": ["ON", "ON", "ON"],
+                "postal_code": ["N1H 2T2", "N1H 2T3", float("nan")],
+            }
+        )
+
+    def test_all_complete_returns_all_rows(self, complete_df) -> None:
+        """Verify all rows are returned when every address is fully populated.
+
+        Real-world significance:
+        - Clean input must not accidentally drop any clients.
+
+        Assertion: Output has the same row count as input
+        """
+        result = preprocess.check_addresses_complete(complete_df)
+
+        assert len(result) == len(complete_df)
+
+    def test_all_complete_no_warning(
+        self, complete_df, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Verify no warning is logged when all addresses are complete.
+
+        Assertion: No warning message is emitted
+        """
+        with caplog.at_level("WARNING"):
+            preprocess.check_addresses_complete(complete_df)
+
+        assert "incomplete address" not in caplog.text.lower()
+
+    def test_incomplete_rows_dropped_by_default(self, mixed_df, output_dir) -> None:
+        """Verify incomplete rows are excluded from the return value by default.
+
+        Real-world significance:
+        - Clients without a deliverable address must be excluded so the mailer
+          does not attempt to print an undeliverable envelope.
+
+        Assertion: Only the two complete rows are returned
+        """
+        result = preprocess.check_addresses_complete(mixed_df)
+
+        assert len(result) == 2
+
+    def test_incomplete_rows_logged_as_warning(
+        self, mixed_df, output_dir, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Verify a warning is logged reporting how many records are incomplete.
+
+        Real-world significance:
+        - Operators must be alerted when clients are silently excluded so they
+          can investigate the source data and resubmit corrected records.
+
+        Assertion: Warning message contains the count of incomplete records
+        """
+        with caplog.at_level("WARNING"):
+            preprocess.check_addresses_complete(mixed_df)
+
+        assert "There are 1 records with incomplete address information" in caplog.text
+
+    def test_incomplete_rows_written_to_csv(self, mixed_df, output_dir) -> None:
+        """Verify incomplete records are written to incomplete_addresses.csv.
+
+        Real-world significance:
+        - The CSV gives operators a machine-readable list of excluded clients
+          so they can fix addresses and rerun without manually identifying gaps.
+
+        Assertion: CSV exists and contains exactly the incomplete rows
+        """
+        preprocess.check_addresses_complete(mixed_df)
+
+        csv_path = output_dir / "incomplete_addresses.csv"
+        assert csv_path.exists()
+        written = pd.read_csv(csv_path)
+        assert len(written) == 1
+
+    def test_drop_incomplete_false_returns_all_rows(self, mixed_df, output_dir) -> None:
+        """Verify drop_incomplete=False keeps all rows regardless of completeness.
+
+        Real-world significance:
+        - Some callers (e.g. inspection or dry-run modes) need to see the full
+          dataset including incomplete records to audit what would be excluded.
+
+        Assertion: All rows are returned when drop_incomplete is False
+        """
+        result = preprocess.check_addresses_complete(mixed_df, drop_incomplete=False)
+
+        assert len(result) == len(mixed_df)
+
+    def test_whitespace_only_fields_treated_as_missing(self, output_dir) -> None:
+        """Verify whitespace-only strings are normalised to NA and trigger incompleteness.
+
+        Real-world significance:
+        - Source exports sometimes contain cells filled with spaces rather than
+          a true empty value; these must not pass the completeness check.
+
+        Assertion: Row with whitespace-only city is dropped
+        """
+        df = pd.DataFrame(
+            {
+                "street_address_line_1": ["123 Main St"],
+                "street_address_line_2": [""],
+                "city": ["   "],
+                "province": ["ON"],
+                "postal_code": ["N1H 2T2"],
+            }
+        )
+
+        result = preprocess.check_addresses_complete(df)
+
+        assert len(result) == 0
+
+    def test_address_complete_column_not_in_output(self, complete_df) -> None:
+        """Verify the temporary address_complete column is not present in output.
+
+        Real-world significance:
+        - Downstream steps depend on a stable column schema; leaking an
+          internal boolean column would break downstream consumers.
+
+        Assertion: 'address_complete' is absent from the returned DataFrame
+        """
+        result = preprocess.check_addresses_complete(complete_df)
+
+        assert "address_complete" not in result.columns
+
+
+@pytest.mark.unit
+class TestCheckClientInfoComplete:
+    """Unit tests for check_client_info_complete().
+
+    Covers:
+    - All client fields present → all rows returned, no warning
+    - Missing required field → warning logged, incomplete rows dropped by default
+    - drop_incomplete=False → all rows returned regardless of completeness
+    - assignment_mode="fixed" requires overdue_disease and overdue_agent
+    - assignment_mode="manifest" does not require overdue columns
+    - Incomplete rows written to CSV side-effect
+    - Blank strings and whitespace-only values treated as missing
+
+    Real-world significance:
+    - check_client_info_complete is the gate before client records enter the
+      pipeline proper; a record with a missing name or date of birth cannot
+      produce a correct notice and must be excluded and reported.
+    """
+
+    @pytest.fixture
+    def output_dir(self, tmp_path, monkeypatch) -> Path:
+        """Redirect the hardcoded output path to tmp_path and return it.
+
+        The function writes incomplete_clients.csv to SCRIPT_DIR.parent/output.
+        Patching SCRIPT_DIR keeps test I/O isolated from the real output/ folder.
+        Returns the output directory path so CSV-checking tests can use it directly.
+        """
+        out = tmp_path / "output"
+        out.mkdir(parents=True)
+        monkeypatch.setattr(preprocess, "SCRIPT_DIR", tmp_path / "pipeline")
+        return out
+
+    @pytest.fixture
+    def complete_fixed_df(self) -> pd.DataFrame:
+        """Two rows with all fields required by fixed-mode assignment.
+
+        imms_given must be non-empty; the normalisation step converts "" to pd.NA,
+        which would flag the row as incomplete.
+        """
+        return pd.DataFrame(
+            {
+                "school_name": ["Tunnel Academy", "River School"],
+                "client_id": ["C001", "C002"],
+                "first_name": ["Alice", "Bob"],
+                "last_name": ["Zephyr", "Smith"],
+                "date_of_birth": ["2015-01-01", "2014-06-15"],
+                "imms_given": ["May 1, 2020 - DTaP", "Apr 10, 2019 - IPV"],
+                "overdue_disease": ["Measles", "Polio"],
+                "overdue_agent": ["MMR", "IPV"],
+            }
+        )
+
+    @pytest.fixture
+    def complete_manifest_df(self) -> pd.DataFrame:
+        """Two rows sufficient for manifest-mode (overdue columns may be empty).
+
+        In manifest mode overdue_disease and overdue_agent are not required,
+        so they can be absent or empty without flagging a row as incomplete.
+        imms_given must still be non-empty.
+        """
+        return pd.DataFrame(
+            {
+                "school_name": ["Tunnel Academy", "River School"],
+                "client_id": ["C001", "C002"],
+                "first_name": ["Alice", "Bob"],
+                "last_name": ["Zephyr", "Smith"],
+                "date_of_birth": ["2015-01-01", "2014-06-15"],
+                "imms_given": ["May 1, 2020 - DTaP", "Apr 10, 2019 - IPV"],
+                "overdue_disease": ["", ""],
+                "overdue_agent": ["", ""],
+            }
+        )
+
+    def test_all_complete_fixed_returns_all_rows(self, complete_fixed_df) -> None:
+        """Verify all rows are returned when every required field is present (fixed mode).
+
+        Assertion: Output has the same row count as input
+        """
+        result = preprocess.check_client_info_complete(complete_fixed_df, assignment_mode="fixed")
+
+        assert len(result) == len(complete_fixed_df)
+
+    def test_all_complete_fixed_no_warning(
+        self, complete_fixed_df, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Verify no warning is logged when all client info is present.
+
+        Assertion: No warning message is emitted
+        """
+        with caplog.at_level("WARNING"):
+            preprocess.check_client_info_complete(complete_fixed_df, assignment_mode="fixed")
+
+        assert "incomplete" not in caplog.text.lower()
+
+    def test_missing_required_field_drops_row_fixed(self, output_dir) -> None:
+        """Verify rows with a missing required field are excluded (fixed mode).
+
+        Real-world significance:
+        - A notice without a last name cannot be addressed and must not be
+          generated; dropping the row and reporting it is the correct response.
+
+        Assertion: Only the one complete row is returned; the incomplete row's
+        client ID does not appear in the output
+        """
+        df = pd.DataFrame(
+            {
+                "school_name": ["Tunnel Academy", "River School"],
+                "client_id": ["C001", "C002"],
+                "first_name": ["Alice", "Bob"],
+                "last_name": ["Zephyr", float("nan")],
+                "date_of_birth": ["2015-01-01", "2014-06-15"],
+                "imms_given": ["May 1, 2020 - DTaP", "Apr 10, 2019 - IPV"],
+                "overdue_disease": ["Measles", "Polio"],
+                "overdue_agent": ["MMR", "IPV"],
+            }
+        )
+
+        result = preprocess.check_client_info_complete(df, assignment_mode="fixed")
+
+        assert len(result) == 1
+        assert result.iloc[0]["client_id"] == "C001"
+
+    def test_missing_required_field_logs_warning(
+        self, output_dir, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Verify a warning is logged when incomplete client records are found.
+
+        Real-world significance:
+        - Operators must be alerted so they can correct the source data;
+          silent exclusion would cause unnoticed gaps in delivered notices.
+
+        Assertion: Warning message contains the count of incomplete records
+        """
+        df = pd.DataFrame(
+            {
+                "school_name": ["Tunnel Academy", "River School"],
+                "client_id": ["C001", "C002"],
+                "first_name": ["Alice", float("nan")],
+                "last_name": ["Zephyr", "Smith"],
+                "date_of_birth": ["2015-01-01", "2014-06-15"],
+                "imms_given": ["May 1, 2020 - DTaP", "Apr 10, 2019 - IPV"],
+                "overdue_disease": ["Measles", "Polio"],
+                "overdue_agent": ["MMR", "IPV"],
+            }
+        )
+
+        with caplog.at_level("WARNING"):
+            preprocess.check_client_info_complete(df, assignment_mode="fixed")
+
+        assert "There are 1 records with incomplete/invalid client information" in caplog.text
+
+    def test_incomplete_rows_written_to_csv(self, output_dir) -> None:
+        """Verify incomplete client records are written to incomplete_clients.csv.
+
+        Real-world significance:
+        - The CSV gives operators a targeted list of records that need to be
+          corrected, without requiring manual inspection of the full dataset.
+
+        Assertion: CSV exists and contains exactly the incomplete rows
+        """
+        df = pd.DataFrame(
+            {
+                "school_name": ["Tunnel Academy", "River School"],
+                "client_id": ["C001", "C002"],
+                "first_name": ["Alice", "Bob"],
+                "last_name": ["Zephyr", float("nan")],
+                "date_of_birth": ["2015-01-01", "2014-06-15"],
+                "imms_given": ["May 1, 2020 - DTaP", "Apr 10, 2019 - IPV"],
+                "overdue_disease": ["Measles", "Polio"],
+                "overdue_agent": ["MMR", "IPV"],
+            }
+        )
+
+        preprocess.check_client_info_complete(df, assignment_mode="fixed")
+
+        csv_path = output_dir / "incomplete_clients.csv"
+        assert csv_path.exists()
+        written = pd.read_csv(csv_path)
+        assert len(written) == 1
+
+    def test_drop_incomplete_false_returns_all_rows(self, output_dir) -> None:
+        """Verify drop_incomplete=False retains all rows regardless of completeness.
+
+        Real-world significance:
+        - Inspection or dry-run modes need to see what would be excluded before
+          committing to dropping records.
+
+        Assertion: All rows returned when drop_incomplete is False
+        """
+        df = pd.DataFrame(
+            {
+                "school_name": ["Tunnel Academy", "River School"],
+                "client_id": ["C001", "C002"],
+                "first_name": ["Alice", float("nan")],
+                "last_name": ["Zephyr", "Smith"],
+                "date_of_birth": ["2015-01-01", "2014-06-15"],
+                "imms_given": ["May 1, 2020 - DTaP", "Apr 10, 2019 - IPV"],
+                "overdue_disease": ["Measles", "Polio"],
+                "overdue_agent": ["MMR", "IPV"],
+            }
+        )
+
+        result = preprocess.check_client_info_complete(
+            df, assignment_mode="fixed", drop_incomplete=False
+        )
+
+        assert len(result) == 2
+
+    def test_fixed_mode_requires_overdue_columns(self, output_dir) -> None:
+        """Verify fixed mode treats empty overdue fields as incomplete.
+
+        Real-world significance:
+        - In fixed mode every client must have an overdue disease and agent;
+          a record without them cannot produce a valid overdue notice.
+
+        Assertion: Row with empty overdue_disease and overdue_agent is dropped
+        """
+        df = pd.DataFrame(
+            {
+                "school_name": ["Tunnel Academy", "River School"],
+                "client_id": ["C001", "C002"],
+                "first_name": ["Alice", "Bob"],
+                "last_name": ["Zephyr", "Smith"],
+                "date_of_birth": ["2015-01-01", "2014-06-15"],
+                "imms_given": ["May 1, 2020 - DTaP", "Apr 10, 2019 - IPV"],
+                "overdue_disease": ["Measles", ""],
+                "overdue_agent": ["MMR", ""],
+            }
+        )
+
+        result = preprocess.check_client_info_complete(df, assignment_mode="fixed")
+
+        assert len(result) == 1
+        assert result.iloc[0]["client_id"] == "C001"
+
+    def test_manifest_mode_does_not_require_overdue_columns(
+        self, complete_manifest_df
+    ) -> None:
+        """Verify manifest mode accepts records with empty overdue fields.
+
+        Real-world significance:
+        - In manifest mode the notice version is assigned externally; overdue
+          columns may legitimately be empty for affirmative-schedule notices.
+
+        Assertion: All rows are returned even when overdue columns are empty
+        """
+        result = preprocess.check_client_info_complete(
+            complete_manifest_df, assignment_mode="manifest"
+        )
+
+        assert len(result) == len(complete_manifest_df)
+
+    def test_whitespace_only_field_treated_as_missing(self, output_dir) -> None:
+        """Verify whitespace-only strings are normalised to NA and flag a record incomplete.
+
+        Real-world significance:
+        - Source exports may contain cells filled with spaces; these must not
+          pass the completeness check as if they held real values.
+
+        Assertion: Row with whitespace-only first_name is dropped; CSV is written
+        """
+        df = pd.DataFrame(
+            {
+                "school_name": ["Tunnel Academy"],
+                "client_id": ["C001"],
+                "first_name": ["   "],
+                "last_name": ["Zephyr"],
+                "date_of_birth": ["2015-01-01"],
+                "imms_given": ["May 1, 2020 - DTaP"],
+                "overdue_disease": ["Measles"],
+                "overdue_agent": ["MMR"],
+            }
+        )
+
+        result = preprocess.check_client_info_complete(df, assignment_mode="fixed")
+
+        assert len(result) == 0
+
+
+    def test_client_info_complete_column_not_in_output(self, complete_fixed_df) -> None:
+        """Verify the temporary client_info_complete column is not present in output.
+
+        Real-world significance:
+        - Downstream steps depend on a stable column schema; leaking an
+          internal boolean column would break downstream consumers.
+
+        Assertion: 'client_info_complete' is absent from the returned DataFrame
+        """
+        result = preprocess.check_client_info_complete(
+            complete_fixed_df, assignment_mode="fixed"
+        )
+
+        assert "client_info_complete" not in result.columns
+
+
+@pytest.mark.unit
 class TestProcessVaccinesDue:
     """Unit tests for process_vaccines_due."""
 
@@ -1457,3 +1932,37 @@ class TestBuildPreprocessResultManifestMode:
         assert "C001" in reconciliation_result.missing_language_clients
         c001 = next(c for c in result.clients if c.client_id == "C001")
         assert c001.language == catalog.default_language
+
+
+@pytest.mark.unit
+class TestWriteAssignmentMetadata:
+    """write_assignment_metadata: file creation and count aggregation."""
+
+    def _clients_with_resolved(self, result):
+        return [c for c in result.clients if "resolved_notice" in c.metadata]
+
+    def test_writes_file_with_correct_counts(self, tmp_path) -> None:
+        """Verify the metadata file is written and per-version/language counts are correct.
+
+        Real-world significance:
+        - The file is the only machine-readable audit record of which notice version
+          each client received for a given run; incorrect counts would mislead auditors.
+
+        Assertion: counts_by_version and counts_by_language match the manifest assignments
+        """
+        catalog = _make_catalog()
+        manifest = _make_manifest(
+            {"client_id": "C001", "notice_version": "overdue_standard_v1", "language": "en", "experiment_id": None, "experiment_arm": None},
+            {"client_id": "C002", "notice_version": "overdue_standard_v1", "language": "fr", "experiment_id": None, "experiment_arm": None},
+        )
+        result, reconciliation_result = preprocess.build_preprocess_result(
+            _simple_df(2), None, {}, preprocess.REPLACE_UNSPECIFIED, catalog=catalog, manifest=manifest
+        )
+        assert reconciliation_result is not None
+        import json
+        out_path = preprocess.write_assignment_metadata(tmp_path, "run123", catalog, reconciliation_result, result.clients)
+        assert out_path.exists()
+        payload = json.loads(out_path.read_text())
+        assert payload["counts_by_version"] == {"overdue_standard_v1": 2}
+        assert payload["counts_by_language"] == {"en": 1, "fr": 1}
+        assert payload["total_clients"] == 2
