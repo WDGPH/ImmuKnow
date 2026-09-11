@@ -25,7 +25,7 @@ dev = [
     "pytest",
     "pytest-cov",
     "pre-commit",
-    "ty>=0.0.73",
+    "ty>=0.0.74",
     "git-changelog>=2.9.7",
     "pypandoc>=1.15",
 ]
@@ -34,7 +34,7 @@ docs = [
     "pygments>=2.21.0",
     "mkdocs>=1.6.0",
     "mkdocs-material>=9.5.15",
-    "pymdown-extensions>=10.21.2",
+    "pymdown-extensions>=11.0.2",
     "mkdocstrings>=1.0.4",
     "mkdocstrings-python>=2.0.7",
 ]
