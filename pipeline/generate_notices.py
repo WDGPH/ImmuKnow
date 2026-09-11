@@ -51,7 +51,7 @@ import logging
 import re
 import sys
 from pathlib import Path
-from typing import Dict, List, Mapping, Sequence
+from typing import Callable, Dict, List, Mapping, Sequence, Set, Tuple
 
 from .config_loader import load_config
 from .data_models import (
@@ -141,6 +141,54 @@ def load_template_module(template_dir: Path, language_code: str):
         )
 
     return module
+
+
+def build_template_registry(
+    template_dir: Path,
+    needed: Set[Tuple[str, str]],
+) -> Dict[Tuple[str, str], Callable]:
+    """Build a (version_id, language_code) → renderer mapping for manifest mode.
+
+    Fails at preflight (before any rendering) if any required template path is
+    missing. No fallback to templates/ when a PHU template_dir is set.
+
+    Parameters
+    ----------
+    template_dir : Path
+        Root template directory (templates/ or phu_templates/<name>/).
+    needed : Set[Tuple[str, str]]
+        Set of (version_id, language_code) pairs required for this run.
+
+    Returns
+    -------
+    Dict[Tuple[str, str], Callable]
+        Complete registry mapping each pair to its render_notice function.
+
+    Raises
+    ------
+    FileNotFoundError
+        If any required template path is missing, listing all missing paths.
+    """
+    missing: List[str] = []
+    registry: Dict[Tuple[str, str], Callable] = {}
+
+    for version_id, lang_code in sorted(needed):
+        version_dir = template_dir / version_id
+        module_path = version_dir / f"{lang_code}_template.py"
+        if not module_path.exists():
+            missing.append(str(module_path))
+        else:
+            module = load_template_module(version_dir, lang_code)
+            registry[(version_id, lang_code)] = module.render_notice
+
+    if missing:
+        raise FileNotFoundError(
+            "Missing template files for manifest mode. "
+            "The following paths are required but absent:\n"
+            + "\n".join(f"  {p}" for p in missing)
+        )
+
+    return registry
 
 
 def build_language_renderers(template_dir: Path) -> dict:
@@ -290,6 +338,8 @@ def read_artifact(path: Path) -> ArtifactPayload:
         warnings=payload_dict.get("warnings", []),
         created_at=payload_dict.get("created_at", ""),
         total_clients=payload_dict.get("total_clients", len(clients)),
+        assignment_mode=payload_dict.get("assignment_mode", "fixed"),
+        default_version=payload_dict.get("default_version"),
     )
 
 
@@ -528,6 +578,10 @@ def build_template_context(
         else ""
     )
 
+    # Agent list requires no translation — pass through as-is
+    vaccines_due_agents_array = client.vaccines_due_agent_list or []
+    vaccines_due_agents_str = ", ".join(vaccines_due_agents_array)
+
     # Translate received records' column keys
     received_translated: List[Dict[str, object]] = []
     if client.received:
@@ -549,6 +603,8 @@ def build_template_context(
         "client_data": to_typ_value(client_data),
         "vaccines_due_str": to_typ_value(vaccines_due_str_translated),
         "vaccines_due_array": to_typ_value(vaccines_due_array_translated),
+        "vaccines_due_agents_str": to_typ_value(vaccines_due_agents_str),
+        "vaccines_due_agents_array": to_typ_value(vaccines_due_agents_array),
         "received": to_typ_value(received_translated),
         "num_rows": str(len(received_translated)),
         "chart_diseases_translated": to_typ_value(chart_diseases_translated),
@@ -663,34 +719,69 @@ def generate_typst_files(
     List[Path]
         List of generated .typ file paths
     """
-    # Build renderers from specified template directory
-    renderers = build_language_renderers(template_dir)
-
     output_dir.mkdir(parents=True, exist_ok=True)
     qr_output_dir = output_dir / "qr_codes"
     typst_output_dir = output_dir / "typst"
     typst_output_dir.mkdir(parents=True, exist_ok=True)
     files: List[Path] = []
-    language = payload.language
-    for client in payload.clients:
-        if client.language != language:
-            raise ValueError(
-                f"Client {client.client_id} language {client.language!r} does not match artifact language {language!r}."
+
+    # Detect manifest mode: any client with a resolved_notice in metadata.
+    manifest_mode = any(
+        isinstance(c.metadata, dict) and "resolved_notice" in c.metadata
+        for c in payload.clients
+    )
+
+    if manifest_mode:
+        # Collect all (version_id, language) pairs needed for this run and
+        # build the complete registry before touching any client (preflight).
+        needed: Set[Tuple[str, str]] = set()
+        for client in payload.clients:
+            resolved = client.metadata["resolved_notice"]  # type: ignore[index]
+            needed.add((resolved["notice_version"], resolved["language"]))  # type: ignore[index]
+
+        registry = build_template_registry(template_dir, needed)
+
+        for client in payload.clients:
+            resolved = client.metadata["resolved_notice"]  # type: ignore[index]
+            version_id = resolved["notice_version"]  # type: ignore[index]
+            lang = resolved["language"]  # type: ignore[index]
+            renderer = registry[(version_id, lang)]
+            context = build_template_context(client, qr_output_dir, config_path)
+            typst_content = renderer(
+                context,
+                logo_path=to_root_relative(logo_path),
+                signature_path=to_root_relative(signature_path),
             )
-        typst_content = render_notice(
-            client,
-            output_dir=output_dir,
-            logo=logo_path,
-            signature=signature_path,
-            renderers=renderers,
-            qr_output_dir=qr_output_dir,
-            config_path=config_path,
-        )
-        filename = f"{language}_notice_{client.sequence}_{client.client_id}.typ"
-        file_path = typst_output_dir / filename
-        file_path.write_text(typst_content, encoding="utf-8")
-        files.append(file_path)
-        LOG.info("Wrote %s", file_path)
+            filename = f"{lang}_notice_{client.sequence}_{client.client_id}.typ"
+            file_path = typst_output_dir / filename
+            file_path.write_text(typst_content, encoding="utf-8")
+            files.append(file_path)
+            LOG.info("Wrote %s", file_path)
+    else:
+        # Fixed mode: single language, flat {lang}_template.py layout.
+        renderers = build_language_renderers(template_dir)
+        language = payload.language
+        for client in payload.clients:
+            if client.language != language:
+                raise ValueError(
+                    f"Client {client.client_id} language {client.language!r} "
+                    f"does not match artifact language {language!r}."
+                )
+            typst_content = render_notice(
+                client,
+                output_dir=output_dir,
+                logo=logo_path,
+                signature=signature_path,
+                renderers=renderers,
+                qr_output_dir=qr_output_dir,
+                config_path=config_path,
+            )
+            filename = f"{language}_notice_{client.sequence}_{client.client_id}.typ"
+            file_path = typst_output_dir / filename
+            file_path.write_text(typst_content, encoding="utf-8")
+            files.append(file_path)
+            LOG.info("Wrote %s", file_path)
+
     return files
 
 

@@ -26,6 +26,24 @@ Auto-generated from NumPy-format docstrings in the `pipeline/` package.
 
 ---
 
+## Notice Versioning
+
+::: pipeline.notice_versioning
+    options:
+      show_root_heading: true
+      show_root_full_path: true
+
+---
+
+## Assignment Manifest
+
+::: pipeline.assignment_manifest
+    options:
+      show_root_heading: true
+      show_root_full_path: true
+
+---
+
 ## Data Models
 
 ::: pipeline.data_models

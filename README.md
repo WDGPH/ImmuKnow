@@ -64,7 +64,7 @@ The `pipeline/` package is organized by pipeline function, not by layer. Each st
 | 8 | `bundle_pdfs.py` | PDF bundling & grouping (optional) |
 | 9 | `cleanup.py` | Intermediate file cleanup |
 
-**Supporting modules:** `orchestrator.py` (orchestrator), `config_loader.py`, `data_models.py`, `enums.py`, `utils.py`. 
+**Supporting modules:** `orchestrator.py` (orchestrator), `config_loader.py`, `data_models.py`, `enums.py`, `utils.py`, `notice_versioning.py`, `assignment_manifest.py`. 
 
 **Template modules** (in `templates/` package): `en_template.py`, `fr_template.py` (Typst template rendering). For module structure questions, see `docs/CODE_ANALYSIS_STANDARDS.md`.
 
@@ -115,13 +115,13 @@ The main pipeline orchestrator (`orchestrator.py`) automates the end-to-end work
    Prepares the output directory, optionally removing existing contents while preserving logs.
 
 2. **Preprocessing** (`preprocess.py`)  
-   Cleans, validates, and structures input data into a normalized JSON artifact (`preprocessed_clients_<run_id>.json`). Optionally validates school/daycare names against the PHIX reference mapping (see [PHIX School Validation](./config/README.md#phix-school-validation)).
+   Cleans, validates, and structures input data into a normalized JSON artifact (`preprocessed_clients_<run_id>.json`). Optionally validates school/daycare names against the PHIX reference mapping (see [PHIX School Validation](./config/README.md#phix-school-validation)). In manifest mode, also reconciles the assignment manifest against the client list and runs a preflight gate before any PDF is generated.
 
 3. **Generating QR Codes** (`generate_qr_codes.py`, optional)  
    Generates QR code PNG files from templated payloads. Skipped if `qr.enabled: false` in `parameters.yaml`.
 
 4. **Generating Notices** (`generate_notices.py`)  
-   Renders Typst templates (`.typ` files) for each client from the preprocessed artifact, with QR code references.
+   Renders Typst templates (`.typ` files) for each client from the preprocessed artifact, with QR code references. In manifest mode, dispatches each client to the template specified by their assigned notice version and language.
 
 5. **Compiling Notices** (`compile_notices.py`)  
    Compiles Typst templates into individual PDF notices using the `typst` command-line tool.
@@ -143,18 +143,19 @@ The main pipeline orchestrator (`orchestrator.py`) automates the end-to-end work
 
 **Usage Example:**
 ```bash
-uv run viper <input_file> <language> [--output PATH]
+uv run viper <input_file> [language] [--output PATH]
 ```
 
 **Required Arguments:**
 - `<input_file>`: Name of the input file (e.g., `students.xlsx`)
-- `<language>`: Language code (`en` or `fr`)
+- `[language]`: Language code (`en` or `fr`). Required in fixed mode; omit when using `--notice-assignments`.
 
 **Optional Arguments:**
 - `--input PATH`: Input directory (default: ../input)
 - `--output PATH`: Output directory (default: ../output)
 - `--config PATH`: Configuration directory (default: ../config)
 - `--template NAME`: PHU template name within `phu_templates/` (e.g., `wdgph`); defaults to built-in `templates/` when omitted
+- `--notice-assignments PATH`: JSON file mapping client IDs to notice versions (enables manifest mode; requires `config/notice_versions.yaml`)
 
 **Configuration:**
 See the complete configuration reference and examples in `config/README.md`:
@@ -163,12 +164,13 @@ See the complete configuration reference and examples in `config/README.md`:
 - PDF Validation settings (rule-based quality checks)
 - PDF encryption settings (password templating)
 - Disease/chart/translation files
+- Notice versioning catalog and assignment manifest
 
 Direct link: [Configuration Reference](./config/README.md)
 
 **Examples:**
 ```bash
-# Basic usage
+# Basic usage (fixed mode — all clients get the same language and template)
 uv run viper students.xlsx en
 
 # Override output directory
@@ -176,6 +178,9 @@ uv run viper students.xlsx en --output /tmp/output
 
 # Use a PHU-specific template (from phu_templates/my_phu/)
 uv run viper students.xlsx en --template my_phu
+
+# Manifest mode — per-client notice version and language from assignment file
+uv run viper students.xlsx --notice-assignments assignments.json --template my_phu
 ```
 
 ### Using PHU-Specific Templates
@@ -303,11 +308,43 @@ The preprocessed artifact contains:
 }
 ```
 
+In manifest mode, `assignment_mode` is `"manifest"`, `default_version` holds the catalog default version ID, and each client's `metadata` includes a `resolved_notice` object:
+
+```json
+{
+  "run_id": "20251023T200355",
+  "language": "en",
+  "assignment_mode": "manifest",
+  "default_version": "overdue_standard_v1",
+  "total_clients": 5,
+  "clients": [
+    {
+      "sequence": "00001",
+      "client_id": "1009876545",
+      "language": "fr",
+      "metadata": {
+        "recipient": "...",
+        "over_16": false,
+        "resolved_notice": {
+          "notice_version": "overdue_standard_v1",
+          "notice_kind": "overdue",
+          "language": "fr",
+          "experiment_id": null,
+          "experiment_arm": null,
+          "assignment_source": "manifest"
+        }
+      }
+    }
+  ]
+}
+```
+
 ## Configuration quick links
 
 - PHIX school validation: see [PHIX School Validation](./config/README.md#phix-school-validation)
 - QR Code settings: see [QR Code Configuration](./config/README.md#qr-code-configuration)
 - PDF Encryption settings: see [PDF Encryption Configuration](./config/README.md#pdf-encryption-configuration)
+- Notice versioning catalog: see [Notice Versioning](./config/README.md#notice-versioning)
 ## Changelog
 
 See [CHANGELOG.md](./CHANGELOG.md) for details of each release.

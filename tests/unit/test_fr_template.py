@@ -126,15 +126,7 @@ class TestRenderNotice:
         - Logo path must match actual file location
         - Output Typst must reference correct logo path
         """
-        context = {
-            "client_row": "()",
-            "client_data": "{}",
-            "vaccines_due_str": '""',
-            "vaccines_due_array": "()",
-            "received": "()",
-            "num_rows": "0",
-            "chart_diseases_translated": '("Diphtérie", "Tétanos", "Coqueluche")',
-        }
+        context = _valid_context()
 
         logo_path = "/custom/logo/path.png"
         result = render_notice(
@@ -152,15 +144,7 @@ class TestRenderNotice:
         - Signature path must match actual file location
         - Output Typst must reference correct signature path
         """
-        context = {
-            "client_row": "()",
-            "client_data": "{}",
-            "vaccines_due_str": '""',
-            "vaccines_due_array": "()",
-            "received": "()",
-            "num_rows": "0",
-            "chart_diseases_translated": '("Diphtérie", "Tétanos", "Coqueluche")',
-        }
+        context = _valid_context()
 
         signature_path = "/custom/signature.png"
         result = render_notice(
@@ -178,15 +162,7 @@ class TestRenderNotice:
         - Typst setup code must be included
         - Import statement for conf.typ is required
         """
-        context = {
-            "client_row": "()",
-            "client_data": "{}",
-            "vaccines_due_str": '""',
-            "vaccines_due_array": "()",
-            "received": "()",
-            "num_rows": "0",
-            "chart_diseases_translated": '("Diphtérie", "Tétanos", "Coqueluche")',
-        }
+        context = _valid_context()
 
         result = render_notice(
             context,
@@ -260,15 +236,7 @@ class TestRenderNotice:
         - Child might have all required vaccines
         - Template must handle empty vaccines_due_array
         """
-        context = {
-            "client_row": "()",
-            "client_data": "{}",
-            "vaccines_due_str": '""',
-            "vaccines_due_array": "()",
-            "received": "()",
-            "num_rows": "0",
-            "chart_diseases_translated": '("Diphtérie", "Tétanos", "Coqueluche")',
-        }
+        context = _valid_context()
 
         result = render_notice(
             context,
@@ -287,15 +255,7 @@ class TestRenderNotice:
         - Output must be in French for French-language processing
         - Key terms like "Dossier d'immunisation" must appear
         """
-        context = {
-            "client_row": "()",
-            "client_data": "{}",
-            "vaccines_due_str": '""',
-            "vaccines_due_array": "()",
-            "received": "()",
-            "num_rows": "0",
-            "chart_diseases_translated": '("Diphtérie", "Tétanos", "Coqueluche")',
-        }
+        context = _valid_context()
 
         result = render_notice(
             context,

@@ -95,6 +95,52 @@ If an asset referenced by your template is missing:
 FileNotFoundError: Logo not found: /path/to/phu_templates/my_phu/assets/logo.png
 ```
 
+## Notice Versioning (Manifest Mode) Templates
+
+When running in manifest mode (`--notice-assignments`), each notice version requires its own subdirectory inside the PHU template directory. The directory name must match the `version_id` from `config/notice_versions.yaml`.
+
+### Directory structure
+
+```
+phu_templates/my_phu/
+├── overdue_standard_v1/
+│   ├── en_template.py       (required if any client gets overdue_standard_v1 in English)
+│   └── fr_template.py       (required if any client gets overdue_standard_v1 in French)
+├── affirmative_schedule_v1/
+│   ├── en_template.py
+│   └── fr_template.py
+├── conf.typ                 (shared Typst configuration — still at the top level)
+└── assets/                  (optional — shared across all versions)
+    ├── logo.png
+    └── signature.png
+```
+
+Each language template within a version subdirectory must define the same `render_notice()` function as fixed-mode templates.
+
+### Preflight template validation
+
+Before rendering any client, the pipeline checks that every `(version_id, language)` pair needed by the assignment manifest has a corresponding template file. All missing paths are reported in a single error so you can fix all gaps in one pass:
+
+```
+FileNotFoundError: Missing notice templates:
+  phu_templates/my_phu/affirmative_schedule_v1/fr_template.py
+  phu_templates/my_phu/informational_v1/en_template.py
+```
+
+### Fixed mode is unchanged
+
+Existing templates at the top level of the PHU directory (`en_template.py`, `fr_template.py`) continue to work for fixed-mode runs. No migration is needed unless you want to adopt manifest mode.
+
+### Example: adding a new version template
+
+```bash
+mkdir -p phu_templates/my_phu/affirmative_schedule_v1
+cp phu_templates/my_phu/en_template.py phu_templates/my_phu/affirmative_schedule_v1/en_template.py
+# Customize the template for the affirmative notice layout
+```
+
+---
+
 ## Git Considerations
 
 **Important:** PHU-specific templates are excluded from version control via `.gitignore`.
