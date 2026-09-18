@@ -1,6 +1,9 @@
 # 🩺 ImmuKnow
-
-**Current version:** v1.0.0  
+[![Run Pytest](https://github.com/WDGPH/ImmuKnow/actions/workflows/test.yml/badge.svg)](https://github.com/WDGPH/ImmuKnow/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/WDGPH/ImmuKnow/graph/badge.svg?token=J7BSABDO9M)](https://codecov.io/gh/WDGPH/ImmuKnow)
+[![Docs](https://img.shields.io/badge/docs-wdgph.github.io%2FImmuKnow-blue)](https://wdgph.github.io/ImmuKnow/)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/WDGPH/ImmuKnow)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ## 📘 Introduction
 
