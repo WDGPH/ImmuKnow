@@ -33,9 +33,9 @@ Steps shown with dashed borders are optional — they are skipped when disabled 
 | Step | Module | Key Inputs | Key Outputs |
 |------|--------|-----------|-------------|
 | 1 | `prepare_output.py` | Config flags | Clean `output/` directory |
-| 2 | `preprocess.py` | Excel file, `vaccine_reference.json`, `disease_normalization.json` | `preprocessed_clients_<run_id>.json` |
+| 2 | `preprocess.py` | Excel file, `vaccine_reference.json`, `disease_normalization.json`, optional `notice_versions.yaml` + assignment manifest | `preprocessed_clients_<run_id>.json`; `notice_assignments_<run_id>.json` (manifest mode) |
 | 3 | `generate_qr_codes.py` | Preprocessed JSON, QR config | PNG files in `output/artifacts/qr_codes/` |
-| 4 | `generate_notices.py` | Preprocessed JSON, Typst templates | `.typ` files in `output/artifacts/typst/` |
+| 4 | `generate_notices.py` | Preprocessed JSON, Typst templates (per-version subdirectories in manifest mode) | `.typ` files in `output/artifacts/typst/` |
 | 5 | `compile_notices.py` | `.typ` files | PDF files in `output/pdf_individual/` |
 | 6 | `validate_pdfs.py` | PDFs, artifact JSON | Console summary, `output/metadata/<lang>_validation_<run_id>.json` |
 | 7 | `encrypt_notice.py` | Individual PDFs, encryption config | Encrypted PDFs in `output/pdf_individual/` |
@@ -51,7 +51,10 @@ Each step reads its inputs from disk and writes outputs to disk. The orchestrato
 Preprocessing produces a single `preprocessed_clients_<run_id>.json` artifact that serves as the canonical source of truth for all downstream steps. Client records are deterministically ordered by school → last name → first name → client ID, and each client receives a stable sequence number (`00001`, `00002`, etc.) that persists through all downstream operations.
 
 **Bilingual support**
-Both English and French are first-class concerns. Disease names, notice text, and date formatting are all localized before being passed to Typst. The `language` argument selects the full rendering path; both languages share the same pipeline steps and configuration file.
+Both English and French are first-class concerns. Disease names, notice text, and date formatting are all localized before being passed to Typst. In fixed mode the `language` argument selects a single rendering path shared by all clients. In manifest mode each client carries its own resolved language from the assignment manifest, enabling mixed-language runs.
+
+**Notice versioning (manifest mode)**
+When `config/notice_versions.yaml` is present and `--notice-assignments` is supplied, the pipeline enters manifest mode. Each client is mapped to a specific notice version (e.g., `overdue_standard_v1`, `affirmative_schedule_v1`) and language. A preflight gate after preprocessing catches missing clients, unknown version IDs, and eligibility conflicts before any PDF is generated. When the catalog file is absent, the pipeline behaves identically to fixed mode.
 
 **Fail-fast vs. per-item recovery**
 Critical steps (Preprocessing, Notice Generation, Compilation, PDF Validation) implement fail-fast: any error halts the pipeline immediately. Optional steps (QR Codes, Encryption, Bundling) implement per-item recovery: individual item failures are logged and skipped, and the pipeline continues processing remaining items.
@@ -75,6 +78,8 @@ pipeline/
 ├── enums.py                # Language, BundleStrategy, TemplateField enums
 ├── translation_helpers.py  # Disease name normalization and translation
 ├── validate_phix.py        # PHIX school name validation (called from preprocess)
+├── notice_versioning.py    # Notice version catalog loader and eligibility validation
+├── assignment_manifest.py  # Assignment manifest loader, reconciliation, and preflight summary
 └── utils.py                # Template rendering and context building utilities
 
 templates/                  # Built-in Typst templates (EN/FR)

@@ -45,24 +45,27 @@ Note: This is the primary validation step. Downstream steps trust preprocessing 
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import logging
 import re
 from datetime import datetime, timezone
 from hashlib import sha1
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Tuple
 import pandas as pd
 import yaml
 from babel.dates import format_date
 from frictionless import Detector, Schema, validate as fl_validate
 
+from .assignment_manifest import ManifestRow, ReconciliationResult, has_errors, reconcile
 from .data_models import (
     ArtifactPayload,
     ClientRecord,
     PreprocessResult,
 )
 from .enums import Language
+from .notice_versioning import NoticeVersionCatalog, ResolvedNotice, validate_eligibility
 from .translation_helpers import normalize_disease
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -209,7 +212,7 @@ def check_addresses_complete(df: pd.DataFrame, drop_incomplete=True) -> pd.DataF
 
         incomplete_records = df.loc[~df["address_complete"]]
 
-        incomplete_path = Path("output/incomplete_addresses.csv")
+        incomplete_path = SCRIPT_DIR.parent / "output" / "incomplete_addresses.csv"
         incomplete_records.to_csv(incomplete_path, index=False)
         LOG.info("Incomplete address records written to %s", incomplete_path)
 
@@ -220,7 +223,7 @@ def check_addresses_complete(df: pd.DataFrame, drop_incomplete=True) -> pd.DataF
         return df.drop(columns=["address_complete"])
 
 
-def check_client_info_complete(df: pd.DataFrame, drop_incomplete=True) -> pd.DataFrame:
+def check_client_info_complete(df: pd.DataFrame, assignment_mode, drop_incomplete=True) -> pd.DataFrame:
     """
     Check if client fields are complete in the DataFrame.
 
@@ -237,22 +240,21 @@ def check_client_info_complete(df: pd.DataFrame, drop_incomplete=True) -> pd.Dat
         "first_name",
         "last_name",
         "date_of_birth",
-        "overdue_disease",
         "imms_given",
     ]
+
+    # Default fixed mode should require non-empty overdue list
+    if assignment_mode == "fixed":
+        client_info_cols.extend([
+            "overdue_disease",
+            "overdue_agent",
+        ])
 
     for col in client_info_cols:
         df[col] = df[col].astype(str).str.strip().replace({"": pd.NA, "nan": pd.NA})
 
     # Check completeness
-    df["client_info_complete"] = (
-        df["first_name"].notna()
-        & df["last_name"].notna()
-        & df["client_id"].notna()
-        & df["date_of_birth"].notna()
-        & df["overdue_disease"].notna()
-        & df["imms_given"].notna()
-    )
+    df["client_info_complete"] = df[client_info_cols].notna().all(axis=1)
 
     if not df["client_info_complete"].all():
         incomplete_count = (~df["client_info_complete"]).sum()
@@ -266,7 +268,7 @@ def check_client_info_complete(df: pd.DataFrame, drop_incomplete=True) -> pd.Dat
 
         incomplete_records = df.loc[~df["client_info_complete"]]
 
-        incomplete_path = Path("output/incomplete_clients.csv")
+        incomplete_path = SCRIPT_DIR.parent / "output" / "incomplete_clients.csv"
         incomplete_records.to_csv(incomplete_path, index=False)
         LOG.info("Incomplete client records written to %s", incomplete_path)
         print(f"Incomplete client records written to {incomplete_path}")
@@ -568,7 +570,7 @@ def synthesize_identifier(existing: str, source: str, prefix: str) -> str:
     return f"{prefix}_{digest}"
 
 
-def process_vaccines_due(vaccines_due: Any, language: str) -> str:
+def process_vaccines_due(vaccines_due: Any, mode: str) -> str:
     """Map overdue diseases to canonical disease names.
 
     Normalizes raw input disease strings to canonical disease names using
@@ -579,8 +581,8 @@ def process_vaccines_due(vaccines_due: Any, language: str) -> str:
     ----------
     vaccines_due : Any
         Raw string of comma-separated disease names from input.
-    language : str
-        Language code (e.g., "en", "fr"). Used for logging.
+    mode : str
+        Code for whether vaccine due list contains overdue "agent" or "disease".
 
     Returns
     -------
@@ -593,9 +595,17 @@ def process_vaccines_due(vaccines_due: Any, language: str) -> str:
 
     items: List[str] = []
     for token in vaccines_due.split(";"):
-        # Normalize: raw input -> canonical disease name
-        normalized = normalize_disease(token.strip())
-        items.append(normalized)
+        token = token.strip()
+
+        # If list ends with ';', do not create enmpty entry in items
+        if not token:
+            continue
+
+        if mode == "disease":
+            # Normalize: raw input -> canonical disease name
+            token: str = normalize_disease(token)
+        
+        items.append(token)
 
     # Filter empty items and clean quotes
     return ", ".join(
@@ -1018,11 +1028,13 @@ def build_received_rows(
 
 def build_preprocess_result(
     df: pd.DataFrame,
-    language: str,
+    language: str | None,
     vaccine_reference: Dict[str, Any],
     replace_unspecified: List[str],
     config_path: Path | None = None,
-) -> PreprocessResult:
+    catalog: Optional[NoticeVersionCatalog] = None,
+    manifest: Optional[Dict[str, ManifestRow]] = None,
+) -> Tuple[PreprocessResult, Optional[ReconciliationResult]]:
     """Normalize client data and produce the structured preprocessing artifact.
 
     Orchestrates all per-dataset and per-client normalization: column
@@ -1093,6 +1105,11 @@ def build_preprocess_result(
     include_dose: bool = preprocess_cfg.get("include_dose", False)
     show_validity_markers: bool = preprocess_cfg.get("show_validity_markers", False)
 
+    # Manifest-mode versioning settings
+    notice_versioning_cfg: Dict[str, Any] = params.get("notice_versioning", {})
+    allow_unassigned: bool = notice_versioning_cfg.get("allow_unassigned", False)
+    extra_manifest_rows: str = notice_versioning_cfg.get("extra_manifest_rows", "error")
+
     working["school_id"] = working.apply(
         lambda row: synthesize_identifier(
             row.get("school_id", ""), row["school_name"], "sch"
@@ -1140,6 +1157,12 @@ def build_preprocess_result(
             "Default indicators will be used."
         )
 
+    # Determine first-pass language: in manifest mode language arg is None,
+    # so fall back to catalog default for DOB formatting on the first pass.
+    first_pass_language: str = language or (
+        catalog.default_language if catalog is not None else "en"
+    )
+
     clients: List[ClientRecord] = []
     for row in sorted_df.itertuples(index=False):
         client_id = str(row.client_id)  # type: ignore[attr-defined]
@@ -1152,16 +1175,23 @@ def build_preprocess_result(
         if dob_iso is None:
             warnings.add(f"Missing date of birth for client {client_id}")
 
-        language_enum = Language.from_string(language)
+        language_enum = Language.from_string(first_pass_language)
         formatted_dob = (
             convert_date_string(dob_iso, locale="fr")
             if language_enum == Language.FRENCH and dob_iso
             else (convert_date_string(dob_iso, locale="en") if dob_iso else None)
         )
-        vaccines_due = process_vaccines_due(row.overdue_disease, language)  # type: ignore[attr-defined]
+        vaccines_due = process_vaccines_due(row.overdue_disease, "disease")  # type: ignore[attr-defined]
+        vaccines_due_agent = process_vaccines_due(row.overdue_agent, "agent")  # type: ignore[attr-defined]
+        
         vaccines_due_list = [
             item.strip() for item in vaccines_due.split(",") if item.strip()
         ]
+
+        vaccines_due_agent_list = [
+            item.strip() for item in vaccines_due_agent.split(",") if item.strip()
+        ]
+
         for item in vaccines_due_list:
             disease, dose = split_vaccine_due_entry(item)
             if dose == "":
@@ -1169,10 +1199,13 @@ def build_preprocess_result(
                     f"Blank overdue dose number for client {client_id}: {disease}. "
                     "Displaying disease without a dose number."
                 )
+
         if include_dose:
             vaccines_due_list = format_vaccine_due_list(vaccines_due_list)
         else:
             vaccines_due_list = hide_vaccine_due_doses(vaccines_due_list)
+
+            
         received = build_received_rows(
             row.imms_given,  # type: ignore[attr-defined]
             replace_unspecified,
@@ -1180,6 +1213,7 @@ def build_preprocess_result(
             chart_diseases_header,
             show_validity_markers,
         )
+
         postal_code = row.postal_code if row.postal_code else "Not provided"  # type: ignore[attr-defined]
         address_line = " ".join(
             filter(None, [row.street_address_line_1, row.street_address_line_2])  # type: ignore[attr-defined]
@@ -1222,13 +1256,14 @@ def build_preprocess_result(
         client = ClientRecord(
             sequence=sequence,
             client_id=client_id,
-            language=language,
+            language=first_pass_language,
             person=person,
             school=school,
             board=board,
             contact=contact,
             vaccines_due=vaccines_due if vaccines_due else None,
             vaccines_due_list=vaccines_due_list if vaccines_due_list else None,
+            vaccines_due_agent_list=vaccines_due_agent_list if vaccines_due_agent_list else None,
             received=received if received else None,
             metadata={
                 "version_id": row.version_id or None,  # type: ignore[attr-defined]
@@ -1252,9 +1287,73 @@ def build_preprocess_result(
                 "Later records will overwrite earlier ones in generated notices."
             )
 
-    return PreprocessResult(
-        clients=clients,
-        warnings=list(warnings),
+    # --- Fixed mode (no manifest) ---
+    if catalog is None or manifest is None:
+        return (
+            PreprocessResult(clients=clients, warnings=list(warnings)),
+            None,
+        )
+
+    # --- Manifest mode ---
+    reconciliation_result = reconcile(
+        clients, manifest, catalog, allow_unassigned, extra_manifest_rows
+    )
+
+    if has_errors(reconciliation_result, extra_manifest_rows):
+        # Build a summary string for the error message (no PII).
+        lines = [
+            "Manifest preflight failed:",
+            f"  Missing clients (no manifest row): {len(reconciliation_result.missing_clients)}",
+            f"  Unknown versions: {len(reconciliation_result.unknown_versions)}",
+            f"  Eligibility conflicts: {len(reconciliation_result.eligibility_conflicts)}",
+            f"  Extra manifest rows: {len(reconciliation_result.extra_rows)} "
+            f"(policy: {extra_manifest_rows})",
+        ]
+        raise ValueError("\n".join(lines))
+
+    # Rebuild each ClientRecord with resolved notice values.
+    rebuilt: List[ClientRecord] = []
+    for first_pass_client in clients:
+        cid = first_pass_client.client_id
+        row_m = manifest.get(cid)
+
+        if row_m is not None:
+            resolved_lang = row_m.language or catalog.default_language
+            resolved_version = row_m.notice_version
+            exp_id = row_m.experiment_id
+            exp_arm = row_m.experiment_arm
+            source = "manifest"
+        else:
+            # allow_unassigned=True (has_errors would have caught False case)
+            resolved_lang = catalog.default_language
+            resolved_version = catalog.default_version
+            exp_id = None
+            exp_arm = None
+            source = "default"
+
+        catalog_version = catalog.versions[resolved_version]
+        resolved = ResolvedNotice(
+            notice_version=resolved_version,
+            notice_kind=catalog_version.kind.value,
+            language=resolved_lang,
+            experiment_id=exp_id,
+            experiment_arm=exp_arm,
+            assignment_source=source,
+        )
+
+        # Safety net — reconcile already caught conflicts before we reach here.
+        validate_eligibility(first_pass_client, resolved, catalog)
+
+        rebuilt_client = dataclasses.replace(
+            first_pass_client,
+            language=resolved_lang,
+            metadata={"resolved_notice": dataclasses.asdict(resolved)},
+        )
+        rebuilt.append(rebuilt_client)
+
+    return (
+        PreprocessResult(clients=rebuilt, warnings=list(warnings)),
+        reconciliation_result,
     )
 
 
@@ -1313,12 +1412,16 @@ def run_phix_validation(
 
 
 def write_artifact(
-    output_dir: Path, language: str, run_id: str, result: PreprocessResult
+    output_dir: Path,
+    language: str,
+    run_id: str,
+    result: PreprocessResult,
+    assignment_mode: str = "fixed",
+    default_version: Optional[str] = None,
 ) -> Path:
     """Write preprocessed result to JSON artifact file."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Create ArtifactPayload with rich metadata
     artifact_payload = ArtifactPayload(
         run_id=run_id,
         language=language,
@@ -1326,14 +1429,17 @@ def write_artifact(
         warnings=result.warnings,
         created_at=datetime.now(timezone.utc).isoformat(),
         total_clients=len(result.clients),
+        assignment_mode=assignment_mode,
+        default_version=default_version,
     )
 
-    # Serialize to JSON (clients are dataclasses, so convert to dict)
     payload_dict = {
         "run_id": artifact_payload.run_id,
         "language": artifact_payload.language,
         "created_at": artifact_payload.created_at,
         "total_clients": artifact_payload.total_clients,
+        "assignment_mode": artifact_payload.assignment_mode,
+        "default_version": artifact_payload.default_version,
         "warnings": artifact_payload.warnings,
         "clients": [
             {
@@ -1365,6 +1471,7 @@ def write_artifact(
                 },
                 "vaccines_due": client.vaccines_due,
                 "vaccines_due_list": client.vaccines_due_list or [],
+                "vaccines_due_agent_list": client.vaccines_due_agent_list or [],
                 "received": client.received or [],
                 "metadata": client.metadata,
             }
@@ -1376,6 +1483,60 @@ def write_artifact(
     artifact_path.write_text(json.dumps(payload_dict, indent=2), encoding="utf-8")
     LOG.info("Wrote normalized artifact to %s", artifact_path)
     return artifact_path
+
+
+def write_assignment_metadata(
+    metadata_dir: Path,
+    run_id: str,
+    catalog: "NoticeVersionCatalog",
+    reconciliation_result: "ReconciliationResult",
+    clients: List[ClientRecord],
+) -> Path:
+    """Write per-client assignment metadata to a JSON file (manifest mode only).
+
+    Records contain only client_id, sequence, and resolved notice fields.
+    No name, date_of_birth, address, school name, or balancing attributes.
+    """
+    metadata_dir.mkdir(parents=True, exist_ok=True)
+
+    # Compute simple per-version and per-language totals from clients.
+    counts_by_version: Dict[str, int] = {}
+    counts_by_language: Dict[str, int] = {}
+    records = []
+    for client in clients:
+        resolved = client.metadata.get("resolved_notice", {})
+        version = resolved.get("notice_version", "")
+        lang = resolved.get("language", "")
+        counts_by_version[version] = counts_by_version.get(version, 0) + 1
+        counts_by_language[lang] = counts_by_language.get(lang, 0) + 1
+        records.append({
+            "client_id": client.client_id,
+            "sequence": client.sequence,
+            "notice_version": version,
+            "notice_kind": resolved.get("notice_kind", ""),
+            "language": lang,
+            "experiment_id": resolved.get("experiment_id"),
+            "experiment_arm": resolved.get("experiment_arm"),
+            "assignment_source": resolved.get("assignment_source", ""),
+        })
+
+    payload = {
+        "schema_version": 1,
+        "run_id": run_id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "assignment_mode": "manifest",
+        "default_version": catalog.default_version,
+        "default_language": catalog.default_language,
+        "total_clients": len(clients),
+        "counts_by_version": counts_by_version,
+        "counts_by_language": counts_by_language,
+        "records": records,
+    }
+
+    out_path = metadata_dir / f"notice_assignments_{run_id}.json"
+    out_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    LOG.info("Wrote assignment metadata to %s", out_path)
+    return out_path
 
 
 if __name__ == "__main__":

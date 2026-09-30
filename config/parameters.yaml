@@ -54,3 +54,6 @@ qr:
 typst:
   bin: typst
   font_path: /usr/share/fonts/truetype/freefont/
+notice_versioning:
+  extra_manifest_rows: warn
+  allow_unassigned: False

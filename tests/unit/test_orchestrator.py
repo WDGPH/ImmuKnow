@@ -127,10 +127,87 @@ class TestValidateArgs:
         args = MagicMock()
         args.input_file = "students.xlsx"
         args.input_dir = tmp_test_dir
+        args.notice_assignments = None
+        args.language = "en"
         args.template_dir = None  # Use default templates
 
         # Should not raise
         orchestrator.validate_args(args)
+
+    def test_language_required_in_fixed_mode(self, tmp_test_dir: Path) -> None:
+        """language is required when --notice-assignments is not provided."""
+        test_file = tmp_test_dir / "students.xlsx"
+        test_file.write_text("test")
+
+        args = MagicMock()
+        args.input_file = "students.xlsx"
+        args.input_dir = tmp_test_dir
+        args.notice_assignments = None
+        args.language = None
+
+        with pytest.raises(ValueError, match="language is required"):
+            orchestrator.validate_args(args)
+
+    def test_language_warned_and_cleared_in_manifest_mode(self, tmp_path: Path) -> None:
+        """When both language and --notice-assignments are provided, language is cleared."""
+        xlsx = tmp_path / "students.xlsx"
+        xlsx.write_text("test")
+        manifest = tmp_path / "assignments.json"
+        manifest.write_text("[]")
+        catalog = tmp_path / "notice_versions.yaml"
+        catalog.write_text("schema_version: 1\n")
+
+        args = MagicMock()
+        args.input_file = "students.xlsx"
+        args.input_dir = tmp_path
+        args.notice_assignments = manifest
+        args.language = "en"
+        args.config_dir = tmp_path
+        args.template_dir = None
+
+        import io
+        with patch("builtins.print") as mock_print:
+            orchestrator.validate_args(args)
+
+        assert args.language is None
+        # Warning must have been printed
+        printed = " ".join(str(c) for call in mock_print.call_args_list for c in call.args)
+        assert "Warning" in printed or "ignored" in printed.lower()
+
+    def test_notice_assignments_missing_manifest_file(self, tmp_path: Path) -> None:
+        """Missing manifest file raises FileNotFoundError before Step 1."""
+        xlsx = tmp_path / "students.xlsx"
+        xlsx.write_text("test")
+        (tmp_path / "notice_versions.yaml").write_text("schema_version: 1\n")
+
+        args = MagicMock()
+        args.input_file = "students.xlsx"
+        args.input_dir = tmp_path
+        args.notice_assignments = tmp_path / "missing_manifest.json"
+        args.language = None
+        args.config_dir = tmp_path
+        args.template_dir = None
+
+        with pytest.raises(FileNotFoundError, match="manifest"):
+            orchestrator.validate_args(args)
+
+    def test_notice_assignments_missing_catalog_raises(self, tmp_path: Path) -> None:
+        """Missing notice_versions.yaml raises ValueError before Step 1."""
+        xlsx = tmp_path / "students.xlsx"
+        xlsx.write_text("test")
+        manifest = tmp_path / "assignments.json"
+        manifest.write_text("[]")
+
+        args = MagicMock()
+        args.input_file = "students.xlsx"
+        args.input_dir = tmp_path
+        args.notice_assignments = manifest
+        args.language = None
+        args.config_dir = tmp_path  # no notice_versions.yaml here
+        args.template_dir = None
+
+        with pytest.raises(ValueError, match="notice_versions.yaml"):
+            orchestrator.validate_args(args)
 
 
 @pytest.mark.unit
@@ -216,7 +293,7 @@ class TestPipelineSteps:
         - The --config option must control include_dose and validity handling
         - Step 2 remains independently rerunnable from its disk inputs
         """
-        result = MagicMock(clients=[], warnings=[])
+        preprocess_result = MagicMock(clients=[], warnings=[])
         config_dir = tmp_path / "selected-config"
 
         with (
@@ -243,7 +320,8 @@ class TestPipelineSteps:
             ) as mock_check_client_info,
             patch(
                 "pipeline.orchestrator.preprocess.build_preprocess_result",
-                return_value=result,
+                # build_preprocess_result now returns (PreprocessResult, Optional[ReconciliationResult])
+                return_value=(preprocess_result, None),
             ) as mock_build_result,
             patch(
                 "pipeline.orchestrator.preprocess.write_artifact",
@@ -251,7 +329,7 @@ class TestPipelineSteps:
             ),
             patch("builtins.print"),
         ):
-            total_clients = orchestrator.run_step_2_preprocess(
+            total_clients, reconciliation_result = orchestrator.run_step_2_preprocess(
                 input_dir=tmp_path,
                 input_file="students.xlsx",
                 output_dir=tmp_path / "output",
@@ -261,6 +339,7 @@ class TestPipelineSteps:
             )
 
         assert total_clients == 0
+        assert reconciliation_result is None
         assert mock_build_result.call_args.args[0] is mock_check_client_info.return_value
         
         assert mock_build_result.call_args.kwargs["config_path"] == (
@@ -428,6 +507,7 @@ class TestErrorHandling:
                 output_dir=tmp_path / "output",
                 config_dir=tmp_path / "config",
                 template_dir=None,
+                notice_assignments=None,
             )
 
             exit_code = orchestrator.main()

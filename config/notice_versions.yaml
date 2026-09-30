@@ -1,0 +1,11 @@
+schema_version: 1
+default_version: overdue_standard_v1
+default_language: en
+
+versions:
+  overdue_standard_v1:
+    kind: overdue
+    requires: has_overdue
+  affirmative_schedule_v1:
+    kind: affirmative
+    requires: no_overdue

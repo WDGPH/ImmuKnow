@@ -17,6 +17,7 @@ class ClientRecord:
 
     This dataclass represents a single client (student) record passed through
     the entire pipeline. It contains all necessary information for:
+    
     - Generating personalized notices
     - Creating QR codes
     - Encrypting PDFs
@@ -61,7 +62,10 @@ class ClientRecord:
         Comma-separated string of vaccines due (display format).
 
     vaccines_due_list : Optional[List[str]]
-        List of vaccine names/codes due.
+        List of canonical disease names due.
+
+    vaccines_due_agent_list : Optional[List[str]]
+        List of vaccine agent names due.
 
     received : Optional[Sequence[Dict[str, object]]]
         List of vaccine records already received (structured data).
@@ -86,6 +90,7 @@ class ClientRecord:
     contact: Dict[str, Any]
     vaccines_due: Optional[str]
     vaccines_due_list: Optional[List[str]]
+    vaccines_due_agent_list: Optional[List[str]]
     received: Optional[Sequence[Dict[str, object]]]
     metadata: Dict[str, object]
     qr: Optional[Dict[str, Any]] = None
@@ -146,6 +151,8 @@ class ArtifactPayload:
     created_at: str
     input_file: Optional[str] = None
     total_clients: int = 0
+    assignment_mode: str = "fixed"       # "fixed" | "manifest"
+    default_version: Optional[str] = None
 
 
 @dataclass(frozen=True)

@@ -66,6 +66,7 @@ class TestTranslationIntegration:
             },
             vaccines_due="Polio, Measles",
             vaccines_due_list=["Polio", "Measles"],
+            vaccines_due_agent_list=None,
             received=None,
             metadata={},
         )
@@ -113,6 +114,7 @@ class TestTranslationIntegration:
             },
             vaccines_due="Polio, Measles",
             vaccines_due_list=["Polio", "Measles"],
+            vaccines_due_agent_list=None,
             received=None,
             metadata={},
         )
@@ -160,6 +162,7 @@ class TestTranslationIntegration:
             },
             vaccines_due=None,
             vaccines_due_list=None,
+            vaccines_due_agent_list=None,
             received=[
                 {"date_given": "2010-06-01", "vaccine": ["Polio", "Measles"]},
                 {"date_given": "2011-01-15", "vaccine": ["Tetanus"]},
@@ -217,6 +220,7 @@ class TestTranslationIntegration:
             },
             vaccines_due=None,
             vaccines_due_list=None,
+            vaccines_due_agent_list=None,
             received=None,
             metadata={},
         )
@@ -260,6 +264,7 @@ class TestTranslationIntegration:
             },
             vaccines_due=None,
             vaccines_due_list=None,
+            vaccines_due_agent_list=None,
             received=None,
             metadata={},
         )

@@ -86,19 +86,13 @@
       "name": "overdue_disease",
       "description": "Comma-separated list of overdue diseases for client",
       "type": "string",
-      "stripWhitespace": true,
-      "constraints": {
-        "required": true
-      }
+      "stripWhitespace": true
     },
     {
       "name": "overdue_agent",
       "description": "Comma-separated list of overdue agents for client",
       "type": "string",
-      "stripWhitespace": true,
-      "constraints": {
-        "required": true
-      }
+      "stripWhitespace": true
     },
     {
       "name": "imms_given",

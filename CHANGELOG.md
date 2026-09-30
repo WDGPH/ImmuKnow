@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 <small>[Compare with v1.0.0](https://github.com/WDGPH/ImmuKnow/compare/v1.0.0...v1.1.0)</small>
 
+### Added
+
+- Notice versioning (assignment manifest mode): a new optional mode that maps each client to a specific notice version and language via a JSON assignment manifest. When `--notice-assignments <file>` is provided and `config/notice_versions.yaml` exists, the pipeline dispatches each client to the correct template and language individually - enabling a single run to produce overdue, affirmative, and informational notices in mixed languages. When the catalog file is absent, the pipeline behaves identically to before.
+- Example `config/notice_versions.yaml` with `overdue_standard_v1` and `affirmative_schedule_v1`.
+
 ### Changed
 
 - Switch input schema from fuzzy matching / data normalization to enforced Frictionless schema validation. Add schema page to mkdocs.
