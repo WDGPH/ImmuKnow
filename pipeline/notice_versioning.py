@@ -8,11 +8,14 @@ from load_catalog(), leaving fixed-mode behaviour unchanged.
 from __future__ import annotations
 
 import dataclasses
+import re
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Dict, Optional
 
 import yaml
+
+from .enums import Language
 
 if TYPE_CHECKING:
     from .data_models import ClientRecord
@@ -28,14 +31,14 @@ EligibilityRule = Callable[["ClientRecord"], bool]
 
 ELIGIBILITY_RULES: Dict[str, EligibilityRule] = {
     "has_overdue": lambda c: bool(c.vaccines_due_list),
-    "no_overdue":  lambda c: not c.vaccines_due_list,
-    "any":         lambda _: True,
+    "no_overdue": lambda c: not c.vaccines_due_list,
+    "any": lambda _: True,
 }
 
 # Fallback rule used when a version entry omits the `requires` field.
 _KIND_DEFAULT_RULE: Dict[NoticeKind, str] = {
-    NoticeKind.OVERDUE:       "has_overdue",
-    NoticeKind.AFFIRMATIVE:   "no_overdue",
+    NoticeKind.OVERDUE: "has_overdue",
+    NoticeKind.AFFIRMATIVE: "no_overdue",
     NoticeKind.INFORMATIONAL: "any",
 }
 
@@ -57,12 +60,35 @@ class NoticeVersionCatalog:
 
 @dataclasses.dataclass(frozen=True)
 class ResolvedNotice:
-    notice_version: str
+    version_id: str
     notice_kind: str  # NoticeKind.value
     language: str
     experiment_id: Optional[str]
     experiment_arm: Optional[str]
     assignment_source: str  # "manifest" | "default"
+
+
+def validate_version_id(version_id: str) -> None:
+    """Reject version identifiers that cannot safely name a template directory."""
+    if not isinstance(version_id, str) or not re.fullmatch(
+        r"[A-Za-z0-9][A-Za-z0-9_-]*", version_id
+    ):
+        raise ValueError(f"Unsafe notice version identifier: {version_id!r}")
+
+
+def attach_notice(client: "ClientRecord", resolved: ResolvedNotice) -> "ClientRecord":
+    """Attach one resolved notice while preserving unrelated client metadata."""
+    Language.from_string(resolved.language)
+    validate_version_id(resolved.version_id)
+    return dataclasses.replace(
+        client,
+        language=resolved.language,
+        metadata={
+            **client.metadata,
+            "version_id": resolved.version_id,
+            "resolved_notice": dataclasses.asdict(resolved),
+        },
+    )
 
 
 def load_catalog(config_dir: Path) -> Optional[NoticeVersionCatalog]:
@@ -95,6 +121,7 @@ def load_catalog(config_dir: Path) -> Optional[NoticeVersionCatalog]:
         raise ValueError(
             "notice_versions.yaml: default_language must be a non-empty string"
         )
+    Language.from_string(default_language)
 
     raw_versions = raw.get("versions", {})
     if not isinstance(raw_versions, dict):
@@ -107,9 +134,8 @@ def load_catalog(config_dir: Path) -> Optional[NoticeVersionCatalog]:
                 f"notice_versions.yaml: version ID must be a non-empty string, "
                 f"got {version_id!r}"
             )
-        kind_raw = (
-            version_data.get("kind") if isinstance(version_data, dict) else None
-        )
+        validate_version_id(version_id)
+        kind_raw = version_data.get("kind") if isinstance(version_data, dict) else None
         try:
             kind = NoticeKind(kind_raw)
         except (ValueError, KeyError):
@@ -161,12 +187,12 @@ def validate_eligibility(
 
     Raises ValueError containing client_id (no name or DOB) if the rule is not met.
     """
-    version = catalog.versions[resolved.notice_version]
+    version = catalog.versions[resolved.version_id]
     rule = ELIGIBILITY_RULES[version.requires]
     if not rule(client_record):
         raise ValueError(
             f"Eligibility conflict for client {client_record.client_id}: "
-            f"assigned notice version '{resolved.notice_version}' "
+            f"assigned notice version '{resolved.version_id}' "
             f"(rule: '{version.requires}') but client does not satisfy it. "
             "Check the manifest assignment or the client's overdue disease data."
         )

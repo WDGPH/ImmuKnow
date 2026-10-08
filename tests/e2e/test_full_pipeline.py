@@ -136,9 +136,7 @@ class TestFullPipelineExecution:
 
         Assertion: All notices pass validation and contain exactly two pages
         """
-        validation_files = list(
-            (output_dir / "metadata").glob(f"{language}_validation_*.json")
-        )
+        validation_files = list((output_dir / "metadata").glob("validation_*.json"))
         assert len(validation_files) == 1
 
         validation = json.loads(validation_files[0].read_text(encoding="utf-8"))
@@ -230,9 +228,7 @@ class TestFullPipelineExecution:
         assert "Pipeline completed successfully" in result.stdout
 
         output_dir = e2e_workdir / "output"
-        encrypted_pdfs = list(
-            (output_dir / "pdf_individual").glob("*_encrypted.pdf")
-        )
+        encrypted_pdfs = list((output_dir / "pdf_individual").glob("*_encrypted.pdf"))
         assert len(encrypted_pdfs) == 3, (
             f"Expected 3 encrypted PDFs but found {len(encrypted_pdfs)}"
         )

@@ -40,6 +40,7 @@ import time
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
+from importlib.resources import files
 from typing import Optional
 
 # Import pipeline steps
@@ -63,11 +64,11 @@ from .notice_versioning import NoticeVersionCatalog, load_catalog
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 ROOT_DIR = SCRIPT_DIR.parent
-DEFAULT_INPUT_DIR = ROOT_DIR / "input"
-DEFAULT_OUTPUT_DIR = ROOT_DIR / "output"
-DEFAULT_TEMPLATES_DIR = ROOT_DIR / "templates"
-DEFAULT_PHU_TEMPLATES_DIR = ROOT_DIR / "phu_templates"
-DEFAULT_CONFIG_DIR = ROOT_DIR / "config"
+DEFAULT_INPUT_DIR = Path.cwd() / "input"
+DEFAULT_OUTPUT_DIR = Path.cwd() / "output"
+DEFAULT_TEMPLATES_DIR = Path(str(files("templates")))
+DEFAULT_PHU_TEMPLATES_DIR = Path.cwd() / "phu_templates"
+DEFAULT_CONFIG_DIR = Path(str(files("config")))
 
 
 def parse_args() -> argparse.Namespace:
@@ -126,6 +127,13 @@ Examples:
         "If not specified, pipeline is run in testing mode, defaulting to the templates/ directory.",
     )
     parser.add_argument(
+        "--templates",
+        type=Path,
+        default=None,
+        dest="custom_templates",
+        help="Path to an external directory of native Typst templates and assets.",
+    )
+    parser.add_argument(
         "--notice-assignments",
         type=Path,
         default=None,
@@ -140,9 +148,7 @@ def validate_args(args: argparse.Namespace) -> None:
     """Validate command-line arguments and raise errors if invalid."""
     # --- Language / manifest mutual validation ---
     if args.notice_assignments is None and args.language is None:
-        raise ValueError(
-            "language is required when not using --notice-assignments"
-        )
+        raise ValueError("language is required when not using --notice-assignments")
 
     if args.notice_assignments is not None and args.language is not None:
         print(
@@ -170,10 +176,19 @@ def validate_args(args: argparse.Namespace) -> None:
         )
 
     # --- Resolve template directory ---
-    if args.template_dir is None:
+    custom_templates = getattr(args, "custom_templates", None)
+    if custom_templates is not None:
+        if args.template_dir is not None:
+            raise ValueError("Choose either --template NAME or --templates PATH")
+        args.template_dir = custom_templates.resolve()
+    elif args.template_dir is None:
         args.template_dir = DEFAULT_TEMPLATES_DIR
     else:
-        if "/" in args.template_dir or "\\" in args.template_dir:
+        if (
+            args.template_dir in (".", "..")
+            or "/" in args.template_dir
+            or "\\" in args.template_dir
+        ):
             raise ValueError(
                 f"Template name cannot contain path separators: {args.template_dir}\n"
                 f"Expected a simple name like 'wdgph' or 'my_phu', not a path."
@@ -265,19 +280,28 @@ def run_step_2_preprocess(
 
     input_path = input_dir / input_file
     df_raw = preprocess.read_input(input_path)
-    preprocess.validate_input(input_path)
+    schema_path = config_dir / "input_schema.json"
+    preprocess.validate_input(input_path, schema_path if schema_path.exists() else None)
     df = preprocess.normalize_dataframe(df_raw)
 
     assignment_mode = "manifest" if catalog is not None else "fixed"
     default_version = catalog.default_version if catalog is not None else None
 
     # Check that addresses are complete, return only complete rows
-    df = preprocess.check_addresses_complete(df, drop_incomplete=True)
-    df = preprocess.check_client_info_complete(df, assignment_mode, drop_incomplete=True)
+    df = preprocess.check_addresses_complete(
+        df, drop_incomplete=True, output_dir=output_dir
+    )
+    df = preprocess.check_client_info_complete(
+        df, assignment_mode, drop_incomplete=True, output_dir=output_dir
+    )
 
-    df, phix_warnings = preprocess.run_phix_validation(df, output_dir)
+    df, phix_warnings = preprocess.run_phix_validation(
+        df, output_dir, config_dir / "parameters.yaml"
+    )
 
-    vaccine_reference_path = preprocess.VACCINE_REFERENCE_PATH
+    vaccine_reference_path = config_dir / "vaccine_reference.json"
+    if not vaccine_reference_path.exists():
+        vaccine_reference_path = preprocess.VACCINE_REFERENCE_PATH
     vaccine_reference = json.loads(vaccine_reference_path.read_text(encoding="utf-8"))
 
     preprocess_result, reconciliation_result = preprocess.build_preprocess_result(
@@ -290,14 +314,14 @@ def run_step_2_preprocess(
         manifest=manifest,
     )
 
-    # Determine effective language for the artifact header
-    effective_language = language or (
-        catalog.default_language if catalog is not None else "en"
+    cohort_languages = {client.language for client in preprocess_result.clients}
+    cohort_language = (
+        next(iter(cohort_languages)) if len(cohort_languages) == 1 else None
     )
 
     artifact_path = preprocess.write_artifact(
         output_dir / "artifacts",
-        effective_language,
+        cohort_language,
         run_id,
         preprocess_result,
         assignment_mode=assignment_mode,
@@ -389,23 +413,18 @@ def run_step_4_generate_notices(
     the template actually references them. If a template references an asset
     that doesn't exist, generation will fail with a clear error message.
     """
-    print_step(4, "Generating Typst templates")
+    print_step(4, "Preparing notice data")
 
     artifact_path = output_dir / "artifacts" / f"preprocessed_clients_{run_id}.json"
     artifacts_dir = output_dir / "artifacts"
 
-    logo_path = template_dir / "assets" / "logo.png"
-    signature_path = template_dir / "assets" / "signature.png"
-
-    generated = generate_notices.main(
+    jobs = generate_notices.prepare_render_jobs(
         artifact_path,
         artifacts_dir,
-        logo_path,
-        signature_path,
         template_dir,
         config_path=config_dir / "parameters.yaml",
     )
-    print(f"Generated {len(generated)} Typst files in {artifacts_dir}")
+    print(f"Prepared {len(jobs)} notice payloads and render jobs in {artifacts_dir}")
 
 
 def run_step_5_compile_notices(
@@ -444,7 +463,6 @@ def run_step_5_compile_notices(
 
 def run_step_6_validate_pdfs(
     output_dir: Path,
-    language: str,
     run_id: str,
     config_dir: Path,
 ) -> None:
@@ -453,54 +471,40 @@ def run_step_6_validate_pdfs(
 
     pdf_dir = output_dir / "pdf_individual"
     metadata_dir = output_dir / "metadata"
-    validation_json = metadata_dir / f"{language}_validation_{run_id}.json"
+    validation_json = metadata_dir / f"validation_{run_id}.json"
     artifacts_dir = output_dir / "artifacts"
-    preprocessed_json = artifacts_dir / f"preprocessed_clients_{run_id}.json"
-
-    client_id_map = {}
-    import json
-
-    with open(preprocessed_json, "r", encoding="utf-8") as f:
-        preprocessed = json.load(f)
-        clients = preprocessed.get("clients", [])
-        for idx, client in enumerate(clients, start=1):
-            client_id = str(client.get("client_id", ""))
-            for ext in [".pdf"]:
-                for lang_prefix in ["en", "fr"]:
-                    filename = f"{lang_prefix}_notice_{idx:05d}_{client_id}{ext}"
-                    client_id_map[filename] = client_id
+    jobs = generate_notices.read_render_jobs(artifacts_dir, require_compiled=True)
+    client_id_map = {job.pdf.name: job.client_id for job in jobs}
 
     validate_pdfs.main(
         pdf_dir,
-        language=language,
         json_output=validation_json,
         client_id_map=client_id_map,
         config_dir=config_dir,
+        expected_pdfs=[job.pdf for job in jobs],
     )
 
 
 def run_step_7_encrypt_pdfs(
     output_dir: Path,
-    language: str,
     run_id: str,
+    config_dir: Path,
 ) -> None:
     """Step 7: Encrypting PDF notices (optional)."""
     print_step(7, "Encrypting PDF notices")
 
-    pdf_dir = output_dir / "pdf_individual"
     artifacts_dir = output_dir / "artifacts"
     json_file = artifacts_dir / f"preprocessed_clients_{run_id}.json"
 
-    encrypt_notice.encrypt_pdfs_in_directory(
-        pdf_directory=pdf_dir,
-        json_file=json_file,
-        language=language,
+    encrypt_notice.encrypt_expected_notices(
+        json_file,
+        artifacts_dir,
+        config_dir / "parameters.yaml",
     )
 
 
 def run_step_8_bundle_pdfs(
     output_dir: Path,
-    language: str,
     run_id: str,
     config_dir: Path,
 ) -> list:
@@ -517,7 +521,7 @@ def run_step_8_bundle_pdfs(
 
     results = bundle_pdfs.bundle_pdfs_with_config(
         output_dir,
-        language,
+        None,
         run_id,
         parameters_path,
     )
@@ -600,7 +604,9 @@ def main() -> int:
 
     encryption_enabled = config.get("encryption", {}).get("enabled", False)
     notice_versioning_cfg = config.get("notice_versioning", {})
-    extra_manifest_rows_policy = notice_versioning_cfg.get("extra_manifest_rows", "error")
+    extra_manifest_rows_policy = notice_versioning_cfg.get(
+        "extra_manifest_rows", "error"
+    )
 
     # Load catalog and manifest before Step 1 so infrastructure errors fail fast.
     catalog: Optional[NoticeVersionCatalog] = None
@@ -611,9 +617,6 @@ def main() -> int:
 
     # Effective language for steps 3/6/7/8 that need a single language tag.
     # In manifest mode args.language is None; fall back to catalog default.
-    effective_language: str = args.language or (
-        catalog.default_language if catalog is not None else "en"
-    )
 
     print_header(args.input_file)
 
@@ -679,8 +682,8 @@ def main() -> int:
             config_dir,
         )
         step_duration = time.time() - step_start
-        step_times.append(("Template Generation", step_duration))
-        print_step_complete(4, "Template generation", step_duration)
+        step_times.append(("Notice Data Preparation", step_duration))
+        print_step_complete(4, "Notice data preparation", step_duration)
 
         # Step 5: Compiling Notices
         step_start = time.time()
@@ -695,9 +698,7 @@ def main() -> int:
 
         # Step 6: Validating PDFs
         step_start = time.time()
-        run_step_6_validate_pdfs(
-            output_dir, effective_language, run_id, config_dir
-        )
+        run_step_6_validate_pdfs(output_dir, run_id, config_dir)
         step_duration = time.time() - step_start
         step_times.append(("PDF Validation", step_duration))
         print_step_complete(6, "PDF validation", step_duration)
@@ -705,7 +706,7 @@ def main() -> int:
         # Step 7: Encrypting PDFs (optional)
         if encryption_enabled:
             step_start = time.time()
-            run_step_7_encrypt_pdfs(output_dir, effective_language, run_id)
+            run_step_7_encrypt_pdfs(output_dir, run_id, config_dir)
             step_duration = time.time() - step_start
             step_times.append(("PDF Encryption", step_duration))
             print_step_complete(7, "Encryption", step_duration)
@@ -718,7 +719,6 @@ def main() -> int:
             step_start = time.time()
             run_step_8_bundle_pdfs(
                 output_dir,
-                effective_language,
                 run_id,
                 config_dir,
             )

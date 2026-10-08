@@ -5,7 +5,9 @@ from __future__ import annotations
 import json
 import io
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
+from dataclasses import replace
+from typing import Any
 
 import pytest
 
@@ -18,11 +20,41 @@ from pipeline.assignment_manifest import (
     reconcile,
 )
 from pipeline.notice_versioning import NoticeKind, NoticeVersion, NoticeVersionCatalog
+from pipeline.data_models import ClientRecord
+from tests.fixtures.sample_input import create_test_client_record
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("input_version", [None, "overdue_standard_v1"])
+def test_input_alias_agrees_with_manifest(input_version: str | None) -> None:
+    """Both spellings resolve to one version while preserving experiment provenance."""
+    client = _client("C001", ["Measles"])
+    client.metadata["version_id"] = input_version
+    row = ManifestRow("C001", "overdue_standard_v1", None, "study", "A")
+    result = reconcile([client], {"C001": row}, _catalog(), False, "error")
+    resolved = result.resolved_notices["C001"]
+    assert resolved.version_id == "overdue_standard_v1"
+    assert resolved.language == "en"
+    assert resolved.experiment_id == "study"
+    assert resolved.assignment_source == "manifest"
+
+
+@pytest.mark.unit
+def test_input_alias_conflict_is_rejected() -> None:
+    """An explicit input version cannot be silently overwritten by the manifest."""
+    client = _client("C001", ["Measles"])
+    client.metadata["version_id"] = "affirmative_schedule_v1"
+    row = ManifestRow("C001", "overdue_standard_v1", "en", None, None)
+    with pytest.raises(
+        ValueError, match="Conflicting version_id and manifest notice_version"
+    ):
+        reconcile([client], {"C001": row}, _catalog(), False, "error")
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _write_manifest(tmp_path: Path, rows: list) -> Path:
     p = tmp_path / "assignments.json"
@@ -37,23 +69,28 @@ def _catalog(default_version: str = "overdue_standard_v1") -> NoticeVersionCatal
         default_language="en",
         versions={
             "overdue_standard_v1": NoticeVersion(
-                version_id="overdue_standard_v1", kind=NoticeKind.OVERDUE, requires="has_overdue"
+                version_id="overdue_standard_v1",
+                kind=NoticeKind.OVERDUE,
+                requires="has_overdue",
             ),
             "affirmative_schedule_v1": NoticeVersion(
-                version_id="affirmative_schedule_v1", kind=NoticeKind.AFFIRMATIVE, requires="no_overdue"
+                version_id="affirmative_schedule_v1",
+                kind=NoticeKind.AFFIRMATIVE,
+                requires="no_overdue",
             ),
         },
     )
 
 
-def _client(client_id: str, vaccines_due=None) -> MagicMock:
-    m = MagicMock()
-    m.client_id = client_id
-    m.vaccines_due_list = vaccines_due
-    return m
+def _client(client_id: str, vaccines_due=None) -> ClientRecord:
+    return replace(
+        create_test_client_record(client_id=client_id), vaccines_due_list=vaccines_due
+    )
 
 
-def _row(client_id: str, version: str = "overdue_standard_v1", language: str | None = "en") -> dict:
+def _row(
+    client_id: str, version: str = "overdue_standard_v1", language: str | None = "en"
+) -> dict:
     return {
         "client_id": client_id,
         "notice_version": version,
@@ -62,7 +99,7 @@ def _row(client_id: str, version: str = "overdue_standard_v1", language: str | N
 
 
 def _empty_result(**overrides) -> ReconciliationResult:
-    defaults = dict(
+    defaults: dict[str, Any] = dict(
         counts_by_version={},
         counts_by_language={},
         missing_clients=[],
@@ -81,6 +118,7 @@ def _empty_result(**overrides) -> ReconciliationResult:
 # load_manifest
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.unit
 class TestLoadManifest:
     def test_loads_valid_manifest(self, tmp_path: Path) -> None:
@@ -88,7 +126,7 @@ class TestLoadManifest:
         result = load_manifest(p)
         assert "C001" in result
         assert "C002" in result
-        assert result["C001"].notice_version == "overdue_standard_v1"
+        assert result["C001"].version_id == "overdue_standard_v1"
 
     def test_raises_on_non_list_json(self, tmp_path: Path) -> None:
         p = tmp_path / "assignments.json"
@@ -119,12 +157,14 @@ class TestLoadManifest:
         assert result["C001"].experiment_arm is None
 
     def test_preserves_experiment_fields(self, tmp_path: Path) -> None:
-        rows = [{
-            "client_id": "C001",
-            "notice_version": "v1",
-            "experiment_id": "exp_a",
-            "experiment_arm": "treatment",
-        }]
+        rows = [
+            {
+                "client_id": "C001",
+                "notice_version": "v1",
+                "experiment_id": "exp_a",
+                "experiment_arm": "treatment",
+            }
+        ]
         p = _write_manifest(tmp_path, rows)
         result = load_manifest(p)
         assert result["C001"].experiment_id == "exp_a"
@@ -140,6 +180,7 @@ class TestLoadManifest:
 # ---------------------------------------------------------------------------
 # reconcile
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.unit
 class TestReconcile:
@@ -162,7 +203,13 @@ class TestReconcile:
         manifest = {
             "C001": ManifestRow("C001", "overdue_standard_v1", "en", None, None),
         }
-        result = reconcile(clients, manifest, _catalog(), allow_unassigned=False, extra_manifest_rows="error")
+        result = reconcile(
+            clients,
+            manifest,
+            _catalog(),
+            allow_unassigned=False,
+            extra_manifest_rows="error",
+        )
         assert "C002" in result.missing_clients
 
     def test_allow_unassigned_uses_defaults(self) -> None:
@@ -170,7 +217,13 @@ class TestReconcile:
         manifest = {
             "C001": ManifestRow("C001", "overdue_standard_v1", "en", None, None),
         }
-        result = reconcile(clients, manifest, _catalog(), allow_unassigned=True, extra_manifest_rows="error")
+        result = reconcile(
+            clients,
+            manifest,
+            _catalog(),
+            allow_unassigned=True,
+            extra_manifest_rows="error",
+        )
         assert result.missing_clients == []
         # C002 resolved with catalog defaults (overdue_standard_v1, en)
         assert result.counts_by_version.get("overdue_standard_v1 (en)", 0) >= 1
@@ -237,6 +290,7 @@ class TestReconcile:
 # has_errors
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.unit
 class TestHasErrors:
     def test_no_errors_returns_false(self) -> None:
@@ -271,12 +325,17 @@ class TestHasErrors:
 # print_preflight_summary
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.unit
 class TestPrintPreflightSummary:
     def _capture(self, result: ReconciliationResult) -> str:
-        import io
         buf = io.StringIO()
-        with patch("builtins.print", side_effect=lambda *args, **kw: buf.write(" ".join(str(a) for a in args) + "\n")):
+        with patch(
+            "builtins.print",
+            side_effect=lambda *args, **kw: buf.write(
+                " ".join(str(a) for a in args) + "\n"
+            ),
+        ):
             print_preflight_summary(result)
         return buf.getvalue()
 

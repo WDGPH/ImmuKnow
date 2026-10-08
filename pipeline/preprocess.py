@@ -45,31 +45,35 @@ Note: This is the primary validation step. Downstream steps trust preprocessing 
 
 from __future__ import annotations
 
-import dataclasses
 import json
 import logging
 import re
 from datetime import datetime, timezone
 from hashlib import sha1
 from pathlib import Path
+from importlib.resources import files
 from typing import Any, Dict, List, Literal, Optional, Tuple
 import pandas as pd
 import yaml
 from babel.dates import format_date
 from frictionless import Detector, Schema, validate as fl_validate
 
-from .assignment_manifest import ManifestRow, ReconciliationResult, has_errors, reconcile
+from .assignment_manifest import (
+    ManifestRow,
+    ReconciliationResult,
+    has_errors,
+    reconcile,
+)
 from .data_models import (
     ArtifactPayload,
     ClientRecord,
     PreprocessResult,
 )
-from .enums import Language
-from .notice_versioning import NoticeVersionCatalog, ResolvedNotice, validate_eligibility
+from .notice_versioning import NoticeVersionCatalog, ResolvedNotice, attach_notice
 from .translation_helpers import normalize_disease
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-CONFIG_DIR = SCRIPT_DIR.parent / "config"
+CONFIG_DIR = Path(str(files("config")))
 VACCINE_REFERENCE_PATH = CONFIG_DIR / "vaccine_reference.json"
 PARAMETERS_PATH = CONFIG_DIR / "parameters.yaml"
 
@@ -164,7 +168,9 @@ def format_iso_date_for_language(iso_date: str, language: str) -> str:
     return format_date(date_obj, format="long", locale=locale)
 
 
-def check_addresses_complete(df: pd.DataFrame, drop_incomplete=True) -> pd.DataFrame:
+def check_addresses_complete(
+    df: pd.DataFrame, drop_incomplete=True, output_dir: Path | None = None
+) -> pd.DataFrame:
     """
     Check if address fields are complete in the DataFrame.
 
@@ -212,7 +218,10 @@ def check_addresses_complete(df: pd.DataFrame, drop_incomplete=True) -> pd.DataF
 
         incomplete_records = df.loc[~df["address_complete"]]
 
-        incomplete_path = SCRIPT_DIR.parent / "output" / "incomplete_addresses.csv"
+        incomplete_path = (
+            output_dir or Path.cwd() / "output"
+        ) / "incomplete_addresses.csv"
+        incomplete_path.parent.mkdir(parents=True, exist_ok=True)
         incomplete_records.to_csv(incomplete_path, index=False)
         LOG.info("Incomplete address records written to %s", incomplete_path)
 
@@ -223,7 +232,12 @@ def check_addresses_complete(df: pd.DataFrame, drop_incomplete=True) -> pd.DataF
         return df.drop(columns=["address_complete"])
 
 
-def check_client_info_complete(df: pd.DataFrame, assignment_mode, drop_incomplete=True) -> pd.DataFrame:
+def check_client_info_complete(
+    df: pd.DataFrame,
+    assignment_mode,
+    drop_incomplete=True,
+    output_dir: Path | None = None,
+) -> pd.DataFrame:
     """
     Check if client fields are complete in the DataFrame.
 
@@ -245,10 +259,12 @@ def check_client_info_complete(df: pd.DataFrame, assignment_mode, drop_incomplet
 
     # Default fixed mode should require non-empty overdue list
     if assignment_mode == "fixed":
-        client_info_cols.extend([
-            "overdue_disease",
-            "overdue_agent",
-        ])
+        client_info_cols.extend(
+            [
+                "overdue_disease",
+                "overdue_agent",
+            ]
+        )
 
     for col in client_info_cols:
         df[col] = df[col].astype(str).str.strip().replace({"": pd.NA, "nan": pd.NA})
@@ -268,7 +284,10 @@ def check_client_info_complete(df: pd.DataFrame, assignment_mode, drop_incomplet
 
         incomplete_records = df.loc[~df["client_info_complete"]]
 
-        incomplete_path = SCRIPT_DIR.parent / "output" / "incomplete_clients.csv"
+        incomplete_path = (
+            output_dir or Path.cwd() / "output"
+        ) / "incomplete_clients.csv"
+        incomplete_path.parent.mkdir(parents=True, exist_ok=True)
         incomplete_records.to_csv(incomplete_path, index=False)
         LOG.info("Incomplete client records written to %s", incomplete_path)
         print(f"Incomplete client records written to {incomplete_path}")
@@ -437,7 +456,7 @@ def read_input(file_path: Path) -> pd.DataFrame:
         raise
 
 
-def validate_input(file_path: Path) -> None:
+def validate_input(file_path: Path, schema_path: Path | None = None) -> None:
     """Validate that the input file conforms to the expected column schema.
 
     Parameters
@@ -451,7 +470,9 @@ def validate_input(file_path: Path) -> None:
         If the file does not conform to the schema defined in
         ``config/input_schema.json``.
     """
-    descriptor = json.loads(INPUT_SCHEMA_PATH.read_text(encoding="utf-8"))
+    descriptor = json.loads(
+        (schema_path or INPUT_SCHEMA_PATH).read_text(encoding="utf-8")
+    )
     schema = Schema.from_descriptor(descriptor)
     report = fl_validate(
         file_path.name,
@@ -466,7 +487,6 @@ def validate_input(file_path: Path) -> None:
             "Input file does not conform to expected schema:\n"
             + "\n".join(f"  - {e[0]}" for e in errors)
         )
-
 
 
 def split_vaccine_due_entry(item: str) -> tuple[str, str | None]:
@@ -604,7 +624,7 @@ def process_vaccines_due(vaccines_due: Any, mode: str) -> str:
         if mode == "disease":
             # Normalize: raw input -> canonical disease name
             token: str = normalize_disease(token)
-        
+
         items.append(token)
 
     # Filter empty items and clean quotes
@@ -654,14 +674,14 @@ def collapse_validity_statuses(statuses: List[Any]) -> str:
     """Collapse multiple validity statuses using strict precedence.
 
     Precedence:
-    
+
     1. mixed (if both valid and invalid are present and no unknown)
     2. valid (if at least one valid is present and no unknown)
     3. invalid (if invalid is present and no unknown)
     4. unknown (otherwise)
     """
     normalized = [normalize_validity_status(s) for s in statuses]
-    
+
     has_valid = "valid" in normalized
     has_invalid = "invalid" in normalized
     has_unknown = "unknown" in normalized
@@ -712,7 +732,7 @@ def classify_dataset_validity(
         ``"all_absent"``
             No dose segment carries a validity suffix, or the series
             contains no recognisable dose entries at all.
-            
+
         ``"mixed"``
             At least one segment has a suffix and at least one does not.
             This state causes a ``ValueError`` when
@@ -791,11 +811,13 @@ def parse_dose_segments(
         vaccine = vaccine.replace("-unspecified", "*").replace(" unspecified", "*")
         if vaccine in replace_unspecified:
             continue
-        rows.append({
-            "date_given": convert_date_iso(date_str.strip()),
-            "vaccine": vaccine,
-            "validity": normalize_validity_status(raw_valid),
-        })
+        rows.append(
+            {
+                "date_given": convert_date_iso(date_str.strip()),
+                "vaccine": vaccine,
+                "validity": normalize_validity_status(raw_valid),
+            }
+        )
 
     rows.sort(key=lambda item: item["date_given"])
     return rows
@@ -1009,6 +1031,7 @@ def build_received_rows(
     rows: List[Dict[str, Any]] = []
     for date, doses in by_date.items():
         vaccines = _deduplicate_vaccines_for_date(doses, vaccine_reference)
+        date_rows: List[Dict[str, Any]]
         if show_validity_markers:
             date_rows = _split_into_rows(vaccines, chart_diseases_header)
         else:
@@ -1016,12 +1039,14 @@ def build_received_rows(
             date_rows = [{"vaccines": vaccines, "columns": columns}]
         n = len(date_rows)
         for i, row in enumerate(date_rows):
-            rows.append({
-                "date_given": date,
-                "date_rowspan": n if i == 0 else 0,
-                "vaccines": [v["vaccine"] for v in row["vaccines"]],
-                "columns": row["columns"],
-            })
+            rows.append(
+                {
+                    "date_given": date,
+                    "date_rowspan": n if i == 0 else 0,
+                    "vaccines": [v["vaccine"] for v in row["vaccines"]],
+                    "columns": row["columns"],
+                }
+            )
 
     return rows
 
@@ -1157,33 +1182,24 @@ def build_preprocess_result(
             "Default indicators will be used."
         )
 
-    # Determine first-pass language: in manifest mode language arg is None,
-    # so fall back to catalog default for DOB formatting on the first pass.
-    first_pass_language: str = language or (
-        catalog.default_language if catalog is not None else "en"
-    )
+    # Canonical records are normalized before assignment or localization.
+    source_language = language or ""
 
     clients: List[ClientRecord] = []
-    for row in sorted_df.itertuples(index=False):
-        client_id = str(row.client_id)  # type: ignore[attr-defined]
-        sequence = row.sequence  # type: ignore[attr-defined]
+    for row in sorted_df.to_dict(orient="records"):
+        client_id = str(row["client_id"])
+        sequence = row["sequence"]
         dob_iso = (
-            row.date_of_birth.strftime("%Y-%m-%d")  # type: ignore[attr-defined]
-            if pd.notna(row.date_of_birth)  # type: ignore[attr-defined]
+            row["date_of_birth"].strftime("%Y-%m-%d")
+            if pd.notna(row["date_of_birth"])
             else None
         )
         if dob_iso is None:
             warnings.add(f"Missing date of birth for client {client_id}")
 
-        language_enum = Language.from_string(first_pass_language)
-        formatted_dob = (
-            convert_date_string(dob_iso, locale="fr")
-            if language_enum == Language.FRENCH and dob_iso
-            else (convert_date_string(dob_iso, locale="en") if dob_iso else None)
-        )
-        vaccines_due = process_vaccines_due(row.overdue_disease, "disease")  # type: ignore[attr-defined]
-        vaccines_due_agent = process_vaccines_due(row.overdue_agent, "agent")  # type: ignore[attr-defined]
-        
+        vaccines_due = process_vaccines_due(row["overdue_disease"], "disease")
+        vaccines_due_agent = process_vaccines_due(row["overdue_agent"], "agent")
+
         vaccines_due_list = [
             item.strip() for item in vaccines_due.split(",") if item.strip()
         ]
@@ -1205,18 +1221,17 @@ def build_preprocess_result(
         else:
             vaccines_due_list = hide_vaccine_due_doses(vaccines_due_list)
 
-            
         received = build_received_rows(
-            row.imms_given,  # type: ignore[attr-defined]
+            row["imms_given"],
             replace_unspecified,
             vaccine_reference,
             chart_diseases_header,
             show_validity_markers,
         )
 
-        postal_code = row.postal_code if row.postal_code else "Not provided"  # type: ignore[attr-defined]
+        postal_code = row["postal_code"] if row["postal_code"] else "Not provided"
         address_line = " ".join(
-            filter(None, [row.street_address_line_1, row.street_address_line_2])  # type: ignore[attr-defined]
+            filter(None, [row["street_address_line_1"], row["street_address_line_2"]])
         ).strip()
 
         if dob_iso and date_notice_delivery:
@@ -1227,46 +1242,47 @@ def build_preprocess_result(
             over_16 = False
 
         person = {
-            "first_name": row.first_name or "",  # type: ignore[attr-defined]
-            "last_name": row.last_name or "",  # type: ignore[attr-defined]
+            "first_name": row["first_name"] or "",
+            "last_name": row["last_name"] or "",
             "date_of_birth": dob_iso or "",
-            "date_of_birth_display": formatted_dob or "",
             "date_of_birth_iso": dob_iso or "",
-            "age": str(age) or "",  # type: ignore[attr-defined]
+            "age": str(age) or "",
             "over_16": over_16,
         }
 
         school = {
-            "name": row.school_name,  # type: ignore[attr-defined]
-            "id": row.school_id,  # type: ignore[attr-defined]
+            "name": row["school_name"],
+            "id": row["school_id"],
         }
 
         board = {
-            "name": row.board_name or "",  # type: ignore[attr-defined]
-            "id": row.board_id,  # type: ignore[attr-defined]
+            "name": row["board_name"] or "",
+            "id": row["board_id"],
         }
 
         contact = {
             "street": address_line,
-            "city": row.city,  # type: ignore[attr-defined]
-            "province": row.province,  # type: ignore[attr-defined]
+            "city": row["city"],
+            "province": row["province"],
             "postal_code": postal_code,
         }
 
         client = ClientRecord(
             sequence=sequence,
             client_id=client_id,
-            language=first_pass_language,
+            language=source_language,
             person=person,
             school=school,
             board=board,
             contact=contact,
             vaccines_due=vaccines_due if vaccines_due else None,
             vaccines_due_list=vaccines_due_list if vaccines_due_list else None,
-            vaccines_due_agent_list=vaccines_due_agent_list if vaccines_due_agent_list else None,
+            vaccines_due_agent_list=vaccines_due_agent_list
+            if vaccines_due_agent_list
+            else None,
             received=received if received else None,
             metadata={
-                "version_id": row.version_id or None,  # type: ignore[attr-defined]
+                "version_id": row["version_id"] or None,
             },
         )
 
@@ -1289,8 +1305,26 @@ def build_preprocess_result(
 
     # --- Fixed mode (no manifest) ---
     if catalog is None or manifest is None:
+        fixed_clients = []
+        for client in clients:
+            input_version = client.metadata.get("version_id")
+            if input_version and input_version != "legacy_fixed_v1":
+                raise ValueError(
+                    f"Client {client.client_id} specifies version_id {input_version!r}. "
+                    "Use an assignment manifest and catalog for versioned notices. "
+                    "Fixed mode uses legacy_fixed_v1."
+                )
+            resolved = ResolvedNotice(
+                version_id="legacy_fixed_v1",
+                notice_kind="overdue",
+                language=source_language,
+                experiment_id=None,
+                experiment_arm=None,
+                assignment_source="fixed",
+            )
+            fixed_clients.append(attach_notice(client, resolved))
         return (
-            PreprocessResult(clients=clients, warnings=list(warnings)),
+            PreprocessResult(clients=fixed_clients, warnings=list(warnings)),
             None,
         )
 
@@ -1311,45 +1345,10 @@ def build_preprocess_result(
         ]
         raise ValueError("\n".join(lines))
 
-    # Rebuild each ClientRecord with resolved notice values.
-    rebuilt: List[ClientRecord] = []
-    for first_pass_client in clients:
-        cid = first_pass_client.client_id
-        row_m = manifest.get(cid)
-
-        if row_m is not None:
-            resolved_lang = row_m.language or catalog.default_language
-            resolved_version = row_m.notice_version
-            exp_id = row_m.experiment_id
-            exp_arm = row_m.experiment_arm
-            source = "manifest"
-        else:
-            # allow_unassigned=True (has_errors would have caught False case)
-            resolved_lang = catalog.default_language
-            resolved_version = catalog.default_version
-            exp_id = None
-            exp_arm = None
-            source = "default"
-
-        catalog_version = catalog.versions[resolved_version]
-        resolved = ResolvedNotice(
-            notice_version=resolved_version,
-            notice_kind=catalog_version.kind.value,
-            language=resolved_lang,
-            experiment_id=exp_id,
-            experiment_arm=exp_arm,
-            assignment_source=source,
-        )
-
-        # Safety net — reconcile already caught conflicts before we reach here.
-        validate_eligibility(first_pass_client, resolved, catalog)
-
-        rebuilt_client = dataclasses.replace(
-            first_pass_client,
-            language=resolved_lang,
-            metadata={"resolved_notice": dataclasses.asdict(resolved)},
-        )
-        rebuilt.append(rebuilt_client)
+    rebuilt = [
+        attach_notice(client, reconciliation_result.resolved_notices[client.client_id])
+        for client in clients
+    ]
 
     return (
         PreprocessResult(clients=rebuilt, warnings=list(warnings)),
@@ -1360,6 +1359,7 @@ def build_preprocess_result(
 def run_phix_validation(
     df: pd.DataFrame,
     output_dir: Path,
+    config_path: Path | None = None,
 ) -> tuple[pd.DataFrame, list[str]]:
     """Validate school names against the PHIX mapping file.
 
@@ -1379,7 +1379,8 @@ def run_phix_validation(
     tuple[DataFrame, list[str]]
         Enriched DataFrame and a (possibly empty) list of warning strings.
     """
-    config = yaml.safe_load(PARAMETERS_PATH.read_text(encoding="utf-8")) or {}
+    parameters_path = config_path or PARAMETERS_PATH
+    config = yaml.safe_load(parameters_path.read_text(encoding="utf-8")) or {}
     phix_config = config.get("phix_validation", {})
 
     if not phix_config.get("enabled", False):
@@ -1395,11 +1396,16 @@ def run_phix_validation(
         LOG.warning("phix_validation.target_phu is not set — skipping PHIX validation.")
         return df, []
 
-    from . import validate_phix  # local import avoids circular dependency at module load
+    from . import (
+        validate_phix,
+    )  # local import avoids circular dependency at module load
 
     mapping_path = Path(mapping_file)
     if not mapping_path.is_absolute():
-        mapping_path = (SCRIPT_DIR.parent / mapping_file).resolve()
+        # Accept the old config/ prefix without tying it to the checkout.
+        if mapping_path.parts[0] == "config":
+            mapping_path = Path(*mapping_path.parts[1:])
+        mapping_path = (parameters_path.parent / mapping_path).resolve()
 
     return validate_phix.validate_schools(
         df=df,
@@ -1413,7 +1419,7 @@ def run_phix_validation(
 
 def write_artifact(
     output_dir: Path,
-    language: str,
+    language: str | None,
     run_id: str,
     result: PreprocessResult,
     assignment_mode: str = "fixed",
@@ -1450,7 +1456,6 @@ def write_artifact(
                     "first_name": client.person["first_name"],
                     "last_name": client.person["last_name"],
                     "date_of_birth": client.person["date_of_birth"],
-                    "date_of_birth_display": client.person["date_of_birth_display"],
                     "date_of_birth_iso": client.person["date_of_birth_iso"],
                     "age": client.person["age"],
                     "over_16": client.person["over_16"],
@@ -1505,20 +1510,22 @@ def write_assignment_metadata(
     records = []
     for client in clients:
         resolved = client.metadata.get("resolved_notice", {})
-        version = resolved.get("notice_version", "")
+        version = resolved.get("version_id", "")
         lang = resolved.get("language", "")
         counts_by_version[version] = counts_by_version.get(version, 0) + 1
         counts_by_language[lang] = counts_by_language.get(lang, 0) + 1
-        records.append({
-            "client_id": client.client_id,
-            "sequence": client.sequence,
-            "notice_version": version,
-            "notice_kind": resolved.get("notice_kind", ""),
-            "language": lang,
-            "experiment_id": resolved.get("experiment_id"),
-            "experiment_arm": resolved.get("experiment_arm"),
-            "assignment_source": resolved.get("assignment_source", ""),
-        })
+        records.append(
+            {
+                "client_id": client.client_id,
+                "sequence": client.sequence,
+                "version_id": version,
+                "notice_kind": resolved.get("notice_kind", ""),
+                "language": lang,
+                "experiment_id": resolved.get("experiment_id"),
+                "experiment_arm": resolved.get("experiment_arm"),
+                "assignment_source": resolved.get("assignment_source", ""),
+            }
+        )
 
     payload = {
         "schema_version": 1,

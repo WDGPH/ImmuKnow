@@ -1,291 +1,249 @@
-"""Generate per-client Typst notices from the normalized preprocessing artifact.
+"""Prepare localized notice JSON and stage maintained Typst templates once per run.
 
-This module consumes the JSON artifact emitted by ``preprocess.py`` and generates
-per-client Typst templates for notice rendering.
-
-**Input Contract:**
-
-- Reads preprocessed artifact JSON (created by preprocess step)
-- Assumes artifact contains valid client records with all required fields
-- Assumes language validation already occurred at CLI entry point
-
-**Output Contract:**
-
-- Writes per-client Typst template files to output/artifacts/typst/
-- Returns list of successfully generated .typ file paths
-- All clients must succeed; fails immediately on first error (critical feature)
-
-**Error Handling:**
-
-- Client data errors raise immediately (cannot produce incomplete output)
-- Infrastructure errors (missing paths) raise immediately
-- Invalid language enum raises immediately (should never occur if upstream validates)
-- No per-client recovery; fail-fast approach ensures deterministic output
-
-**Validation Contract:**
-
-What this module validates:
-
-- Artifact language matches all client languages (fail-fast if mismatch)
-
-What this module assumes (validated upstream):
-
-- Artifact file exists and is valid JSON (validated by read_artifact())
-- Language code is valid (validated at CLI by argparse choices)
-- Client records have all required fields (validated by preprocessing step)
-- File paths exist (output_dir, logo_path, signature_path)
-
-Functions with special validation notes:
-
-- render_notice(): Calls Language.from_string() on client.language to convert
-  string to enum; this adds a second validation layer (redundant but safe)
-- get_language_renderer(): Assumes language enum is valid; no defensive check
-  (language validated upstream via CLI choices + Language.from_string())
+The canonical cohort supplies every resolved version and language. The render-job
+manifest maps each client to its unchanged template, JSON input, and expected PDF.
+All writes stay in the caller's output directory. Document source belongs to Typst.
 """
 
 from __future__ import annotations
 
-import importlib.util
 import json
 import logging
 import re
 import sys
+import shutil
+from dataclasses import asdict
+from importlib.resources import files
 from pathlib import Path
-from typing import Callable, Dict, List, Mapping, Sequence, Set, Tuple
+from typing import Dict, List
 
 from .config_loader import load_config
 from .data_models import (
     ArtifactPayload,
     ClientRecord,
+    RenderJob,
 )
 from .enums import Language
+from .notice_versioning import validate_version_id
 from .preprocess import format_iso_date_for_language
 from .translation_helpers import display_label
 from .utils import deserialize_client_record
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-ROOT_DIR = SCRIPT_DIR.parent
-
 LOG = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 _DOSE_LABEL_PATTERN = re.compile(
     r"^(?P<disease>.+) \((?P<dose_label>(?P<number>\d+)(?:st|nd|rd|th) dose)\)$"
 )
 
+LEGACY_VERSION = "legacy_fixed_v1"
 
-def load_template_module(template_dir: Path, language_code: str):
-    """Dynamically load a template module from specified directory.
 
-    Loads a language-specific template module at runtime from a custom directory.
-    This enables PHU-specific template customization without code changes.
-
-    **Validation Contract:**
-
-    - Template file must exist at {template_dir}/{language_code}_template.py
-    - Module must define render_notice() function
-    - Raises immediately if file missing or render_notice() not found
+def select_template(template_dir: Path, version_id: str, language: str) -> Path:
+    """Select a native entry point without language or PHU fallback.
 
     Parameters
     ----------
     template_dir : Path
-        Directory containing template modules (e.g., templates/ or phu_templates/my_phu/)
-    language_code : str
-        Two-character ISO language code (e.g., "en", "fr")
+        Selected built-in or custom template directory.
+    version_id : str
+        Resolved notice identity; legacy fixed notices use ``legacy_fixed_v1``.
+    language : str
+        Resolved notice language.
 
     Returns
     -------
-    module
-        Loaded Python module with render_notice() function
+    Path
+        Existing maintained entry point.
 
     Raises
     ------
+    ValueError
+        If language or version cannot safely identify a template.
     FileNotFoundError
-        If template file doesn't exist at expected path
-    ImportError
-        If module cannot be loaded
-    AttributeError
-        If module doesn't define render_notice() function
-
-    Examples
-    --------
-    >>> module = load_template_module(Path("templates"), "en")
-    >>> module.render_notice(context, logo_path="/logo.png", signature_path="/sig.png")
+        If the selected template has not been authored or migrated.
     """
-    module_name = f"{language_code}_template"
-    module_path = template_dir / f"{module_name}.py"
-
-    # Validate file exists
-    if not module_path.exists():
-        raise FileNotFoundError(
-            f"Template module not found: {module_path}. "
-            f"Expected {module_name}.py in {template_dir}"
+    Language.from_string(language)
+    validate_version_id(version_id)
+    directory = (
+        template_dir if version_id == LEGACY_VERSION else template_dir / version_id
+    )
+    template = directory / f"{language}.typ"
+    if not template.is_file():
+        legacy = directory / f"{language}_template.py"
+        migration = (
+            f" Migrate {legacy.name} to a static .typ template using the template authoring guide."
+            if legacy.exists()
+            else " No language or PHU fallback is applied."
         )
-
-    # Load module dynamically
-    spec = importlib.util.spec_from_file_location(module_name, module_path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Could not load template module: {module_path}")
-
-    module = importlib.util.module_from_spec(spec)
-
-    # Register in sys.modules to prevent duplicate loads
-    sys.modules[f"_dynamic_{module_name}"] = module
-    spec.loader.exec_module(module)
-
-    # Validate render_notice() exists
-    if not hasattr(module, "render_notice"):
-        raise AttributeError(
-            f"Template module {module_name} must define render_notice() function. "
-            f"Check {module_path} and ensure it implements the required interface."
-        )
-
-    return module
+        raise FileNotFoundError(f"Notice template not found: {template}.{migration}")
+    return template
 
 
-def build_template_registry(
-    template_dir: Path,
-    needed: Set[Tuple[str, str]],
-) -> Dict[Tuple[str, str], Callable]:
-    """Build a (version_id, language_code) → renderer mapping for manifest mode.
-
-    Fails at preflight (before any rendering) if any required template path is
-    missing. No fallback to templates/ when a PHU template_dir is set.
+def prepare_render_jobs(
+    artifact_path: Path,
+    artifact_dir: Path,
+    template_dir: Path | None = None,
+    config_path: Path | None = None,
+    pdf_dir: Path | None = None,
+) -> list[RenderJob]:
+    """Write notice JSON and a job manifest under the caller's output directory.
 
     Parameters
     ----------
-    template_dir : Path
-        Root template directory (templates/ or phu_templates/<name>/).
-    needed : Set[Tuple[str, str]]
-        Set of (version_id, language_code) pairs required for this run.
+    artifact_path : Path
+        Canonical preprocessed cohort.
+    artifact_dir : Path
+        Writable output directory for the bounded render workspace and manifest.
+    template_dir : Path, optional
+        Isolated custom template directory, or packaged templates when omitted.
+    config_path : Path, optional
+        Caller-selected parameters used to prepare display data.
+    pdf_dir : Path, optional
+        Expected PDF directory; defaults to a sibling ``pdf_individual`` directory.
 
     Returns
     -------
-    Dict[Tuple[str, str], Callable]
-        Complete registry mapping each pair to its render_notice function.
-
-    Raises
-    ------
-    FileNotFoundError
-        If any required template path is missing, listing all missing paths.
+    list[RenderJob]
+        One job per client in canonical sequence order. No Typst source is generated.
     """
-    missing: List[str] = []
-    registry: Dict[Tuple[str, str], Callable] = {}
+    payload = read_artifact(artifact_path)
+    artifact_dir = artifact_dir.resolve()
+    template_dir = (template_dir or Path(str(files("templates")))).resolve()
+    pdf_dir = (pdf_dir or artifact_dir.parent / "pdf_individual").resolve()
+    workspace = artifact_dir / "render"
+    manifest_path = artifact_dir / "render_jobs.json"
+    manifest_path.unlink(missing_ok=True)
+    (artifact_dir / "compilation.json").unlink(missing_ok=True)
 
-    for version_id, lang_code in sorted(needed):
-        version_dir = template_dir / version_id
-        module_path = version_dir / f"{lang_code}_template.py"
-        if not module_path.exists():
-            missing.append(str(module_path))
-        else:
-            module = load_template_module(version_dir, lang_code)
-            registry[(version_id, lang_code)] = module.render_notice
+    # Resolve every entry point before writing any notice payload.
+    selections = []
+    for client in payload.clients:
+        resolved = client.metadata["resolved_notice"]
+        version_id = resolved["version_id"]
+        if resolved["language"] != client.language:
+            raise ValueError(
+                f"Conflicting resolved language for client {client.client_id}"
+            )
+        template = select_template(template_dir, version_id, client.language)
+        for label, value in (
+            ("sequence", client.sequence),
+            ("client ID", client.client_id),
+        ):
+            if not re.fullmatch(r"[A-Za-z0-9_-]+", value):
+                raise ValueError(f"Unsafe {label} for notice filename: {value!r}")
+        selections.append((client, version_id, template.relative_to(template_dir)))
 
-    if missing:
-        raise FileNotFoundError(
-            "Missing template files for manifest mode. "
-            "The following paths are required but absent:\n"
-            + "\n".join(f"  {p}" for p in missing)
+    # Copy once per run. Private template sets remain isolated from built-ins.
+    if workspace.exists():
+        shutil.rmtree(workspace)
+    shutil.copytree(
+        template_dir,
+        workspace / "templates",
+        ignore=shutil.ignore_patterns("*.py", "__pycache__"),
+        copy_function=shutil.copyfile,
+    )
+    # Installed resources can be read-only; run-local copies must remain removable.
+    for directory in [workspace / "templates", *(workspace / "templates").rglob("*")]:
+        if directory.is_dir():
+            directory.chmod(0o755)
+    (workspace / "data").mkdir()
+    (workspace / "qr_codes").mkdir()
+    qr_enabled = load_config(config_path).get("qr", {}).get("enabled", False)
+    jobs = []
+    for client, version_id, relative_template in selections:
+        notice = build_notice_data(client, config_path=config_path)
+        notice.update(
+            version_id=version_id,
+            logo_path="/templates/assets/logo.png",
+            signature_path="/templates/assets/signature.png",
         )
+        if qr_enabled:
+            qr_name = f"qr_code_{client.sequence}_{client.client_id}.png"
+            qr_source = artifact_dir / "qr_codes" / qr_name
+            if not qr_source.is_file():
+                raise FileNotFoundError(f"Expected QR image is missing: {qr_source}")
+            shutil.copy2(qr_source, workspace / "qr_codes" / qr_name)
+            notice["client_data"]["qr_img"] = f"/qr_codes/{qr_name}"
+        name = f"{client.language}_notice_{client.sequence}_{client.client_id}"
+        data_path = workspace / "data" / f"{name}.json"
+        data_path.write_text(
+            json.dumps(notice, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        jobs.append(
+            RenderJob(
+                sequence=client.sequence,
+                client_id=client.client_id,
+                language=client.language,
+                version_id=version_id,
+                workspace=workspace,
+                template=workspace / "templates" / relative_template,
+                data=data_path,
+                pdf=pdf_dir / f"{name}.pdf",
+            )
+        )
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "run_id": payload.run_id,
+                "total_clients": len(payload.clients),
+                "jobs": [asdict(job) for job in jobs],
+            },
+            default=str,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    return jobs
 
-    return registry
 
-
-def build_language_renderers(template_dir: Path) -> dict:
-    """Build renderer dictionary from templates in specified directory.
-
-    Discovers and loads all available language template modules from the given directory,
-    building a mapping of language codes to their render_notice functions.
-
-    **Validation Contract:**
-
-    - Only languages with corresponding template files are included
-    - Each available template must have valid render_notice() function
-    - Raises immediately if any template file exists but is invalid
-    - Does NOT require all Language enum values to be present
-    - Later validation ensures requested language is available when needed
+def read_render_jobs(
+    artifact_dir: Path, *, require_compiled: bool = False
+) -> list[RenderJob]:
+    """Read the explicit job list and, when requested, require all compiled outputs.
 
     Parameters
     ----------
-    template_dir : Path
-        Directory containing language template modules
+    artifact_dir : Path
+        Directory holding ``render_jobs.json``.
+    require_compiled : bool
+        Require successful completion of the whole compilation stage and every PDF.
 
     Returns
     -------
-    dict
-        Mapping of language codes (str) to render_notice functions (callable)
-        Format: {"en": <function>, "fr": <function>, ...}
-        May contain subset of all languages; only includes available templates
+    list[RenderJob]
+        Jobs in the recorded canonical order.
 
     Raises
     ------
-    AttributeError
-        If a template file exists but doesn't define render_notice()
-
-    Examples
-    --------
-    >>> renderers = build_language_renderers(Path("templates"))
-    >>> renderers["en"](context, logo_path="/logo.png", signature_path="/sig.png")
-
-    >>> # PHU providing only English
-    >>> renderers = build_language_renderers(Path("phu_templates/my_phu"))
-    >>> renderers  # May only contain {"en": <function>}
-    """
-    renderers = {}
-    for lang in Language:
-        module_path = template_dir / f"{lang.value}_template.py"
-        # Only load if template file exists
-        if module_path.exists():
-            module = load_template_module(template_dir, lang.value)
-            renderers[lang.value] = module.render_notice
-    return renderers
-
-
-def get_language_renderer(language: Language, renderers: dict):
-    """Get template renderer for given language from provided renderer dict.
-
-    Maps Language enum values to their corresponding template rendering functions
-    from a dynamically-built renderer dictionary. This provides a single dispatch
-    point for template selection with runtime-configurable template sources.
-
-    **Validation Contract:** Assumes language is a valid Language enum (validated
-    upstream at CLI entry point via argparse choices, and again by Language.from_string()
-    before calling this function). Checks that language is available in renderers dict;
-    raises with helpful error if template for requested language is not available.
-
-    Parameters
-    ----------
-    language : Language
-        Language enum value (guaranteed to be valid from Language enum).
-    renderers : dict
-        Mapping of language codes to render_notice functions, built by
-        build_language_renderers(). May only contain subset of all languages.
-
-    Returns
-    -------
-    callable
-        Template rendering function for the language.
-
-    Raises
-    ------
+    ValueError
+        If the manifest loses or repeats an expected notice.
     FileNotFoundError
-        If requested language template is not available in renderers dict.
-        Provides helpful message listing available languages.
-
-    Examples
-    --------
-    >>> renderers = build_language_renderers(Path("templates"))
-    >>> renderer = get_language_renderer(Language.ENGLISH, renderers)
-    >>> # renderer is now the render_notice function from en_template
+        If compilation evidence or an expected PDF is absent.
     """
-    if language.value not in renderers:
-        available = ", ".join(sorted(renderers.keys())) if renderers else "none"
-        raise FileNotFoundError(
-            f"Template not available for language: {language.value}\n"
-            f"Available languages: {available}\n"
-            f"Ensure your template directory contains {language.value}_template.py"
+    manifest = json.loads(
+        (artifact_dir / "render_jobs.json").read_text(encoding="utf-8")
+    )
+    jobs = []
+    for raw in manifest["jobs"]:
+        for field in ("workspace", "template", "data", "pdf"):
+            raw[field] = Path(raw[field])
+        jobs.append(RenderJob(**raw))
+    if len(jobs) != manifest["total_clients"] or len({job.pdf for job in jobs}) != len(
+        jobs
+    ):
+        raise ValueError(
+            "Render jobs must account for every expected notice exactly once"
         )
-    return renderers[language.value]
+    if require_compiled:
+        evidence = json.loads(
+            (artifact_dir / "compilation.json").read_text(encoding="utf-8")
+        )
+        if evidence["outputs"] != [str(job.pdf) for job in jobs]:
+            raise ValueError("Compilation evidence does not match the expected notices")
+        for job in jobs:
+            if not job.pdf.is_file():
+                raise FileNotFoundError(f"Expected notice PDF is missing: {job.pdf}")
+    return jobs
 
 
 def read_artifact(path: Path) -> ArtifactPayload:
@@ -343,86 +301,6 @@ def read_artifact(path: Path) -> ArtifactPayload:
     )
 
 
-_TYP_IDENT_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_-]*$")
-
-
-def escape_string(value: str) -> str:
-    """Escape special characters in a string for Typst template output.
-
-    Module-internal helper for to_typ_value(). Escapes backslashes, quotes,
-    and newlines to ensure the string can be safely embedded in a Typst template.
-
-    Parameters
-    ----------
-    value : str
-        String to escape.
-
-    Returns
-    -------
-    str
-        Escaped string safe for Typst embedding.
-    """
-    return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
-
-
-def to_typ_value(value) -> str:
-    """Convert a Python value to its Typst template representation.
-
-    Module-internal helper for building template contexts. Handles strings
-    (with escaping), booleans, None, numbers, sequences (tuples), and mappings
-    (dicts) by converting them to Typst syntax.
-
-    Parameters
-    ----------
-    value : Any
-        Python value to convert.
-
-    Returns
-    -------
-    str
-        Typst-compatible representation of the value.
-
-    Raises
-    ------
-    TypeError
-        If value type is not supported.
-
-    Examples
-    --------
-    >>> to_typ_value("hello")
-    '"hello"'
-    >>> to_typ_value(True)
-    'true'
-    >>> to_typ_value([1, 2, 3])
-    '(1, 2, 3)'
-    """
-    if isinstance(value, str):
-        return f'"{escape_string(value)}"'
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if value is None:
-        return "none"
-    if isinstance(value, (int, float)):
-        return str(value)
-    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
-        items = [to_typ_value(item) for item in value]
-        if len(items) == 1:
-            inner = f"{items[0]},"
-        else:
-            inner = ", ".join(items)
-        return f"({inner})"
-    if isinstance(value, Mapping):
-
-        def _typ_key(k: str) -> str:
-            return k if _TYP_IDENT_RE.match(k) else f'"{escape_string(k)}"'
-
-        items = ", ".join(
-            f"{_typ_key(key)}: {to_typ_value(val)}" for key, val in value.items()
-        )
-        return f"({items})"
-    raise TypeError(f"Unsupported value type for Typst conversion: {type(value)!r}")
-
-
 def load_and_translate_chart_diseases(
     language: str, config_path: Path | None = None
 ) -> List[str]:
@@ -450,13 +328,21 @@ def load_and_translate_chart_diseases(
 
     translated_diseases: List[str] = []
     for disease in chart_diseases_header:
-        label = display_label("diseases_chart", disease, language, strict=False)
+        label = display_label(
+            "diseases_chart",
+            disease,
+            language,
+            strict=False,
+            config_dir=config_path.parent if config_path else None,
+        )
         translated_diseases.append(label)
 
     return translated_diseases
 
 
-def _localize_vaccine_due_label(label: str, language: str) -> str:
+def _localize_vaccine_due_label(
+    label: str, language: str, config_dir: Path | None = None
+) -> str:
     """Localize a canonical overdue disease label and optional dose suffix.
 
     Preprocessing stores dose-specific entries in the stable English form
@@ -478,10 +364,16 @@ def _localize_vaccine_due_label(label: str, language: str) -> str:
     """
     match = _DOSE_LABEL_PATTERN.fullmatch(label)
     if match is None:
-        return display_label("diseases_overdue", label, language, strict=False)
+        return display_label(
+            "diseases_overdue", label, language, strict=False, config_dir=config_dir
+        )
 
     disease = display_label(
-        "diseases_overdue", match.group("disease"), language, strict=False
+        "diseases_overdue",
+        match.group("disease"),
+        language,
+        strict=False,
+        config_dir=config_dir,
     )
     number = match.group("number")
     if language == "fr":
@@ -495,7 +387,6 @@ def _localize_vaccine_due_label(label: str, language: str) -> str:
 
 def build_notice_data(
     client: ClientRecord,
-    qr_output_dir: Path | None = None,
     config_path: Path | None = None,
 ) -> dict:
     """Prepare ordinary JSON values for a notice in its resolved language.
@@ -509,15 +400,13 @@ def build_notice_data(
     ----------
     client : ClientRecord
         Client record with all required fields.
-    qr_output_dir : Path, optional
-        Directory containing QR code PNG files.
     config_path : Path, optional
         Path to ``parameters.yaml``. Defaults to the repository configuration.
 
     Returns
     -------
-    Dict[str, str]
-        Template context with translated disease names and formatted date.
+    dict
+        Ordinary JSON values with canonical ISO dates and localized display text.
     """
     config = load_config(config_path)
     preprocess_cfg: Dict[str, object] = config.get("preprocess", {})
@@ -550,20 +439,7 @@ def build_notice_data(
         "over_16": client.person["over_16"],
     }
 
-    # Check if QR code PNG exists from prior generation step
-    if qr_output_dir:
-        qr_filename = f"qr_code_{client.sequence}_{client.client_id}.png"
-        qr_path = qr_output_dir / qr_filename
-        if qr_path.exists():
-            client_data["qr_img"] = to_root_relative(qr_path)
-
-            # Also include QR URL (payload) if available
-            if client.qr and client.qr.get("payload"):
-                client_data["qr_url"] = client.qr["payload"]
-
-    # If qr payload is present but no qr_output_dir, still include it
-    # (may occur if QR generation is disabled but qr payload exists in artifact)
-    if client.qr and client.qr.get("payload") and "qr_url" not in client_data:
+    if client.qr and client.qr.get("payload"):
         client_data["qr_url"] = client.qr["payload"]
 
     # Load and translate chart disease header
@@ -575,7 +451,9 @@ def build_notice_data(
     vaccines_due_array_translated: List[str] = []
     if client.vaccines_due_list:
         for disease in client.vaccines_due_list:
-            label = _localize_vaccine_due_label(disease, client.language)
+            label = _localize_vaccine_due_label(
+                disease, client.language, config_path.parent if config_path else None
+            )
             vaccines_due_array_translated.append(label)
 
     # Translate vaccines_due string
@@ -599,7 +477,11 @@ def build_notice_data(
             ):
                 translated_record["columns"] = {
                     display_label(
-                        "diseases_chart", disease, client.language, strict=False
+                        "diseases_chart",
+                        disease,
+                        client.language,
+                        strict=False,
+                        config_dir=config_path.parent if config_path else None,
                     ): status
                     for disease, status in translated_record["columns"].items()
                 }
@@ -619,236 +501,6 @@ def build_notice_data(
         "chart_diseases_translated": chart_diseases_translated,
         "show_validity_markers": show_validity_markers,
     }
-
-
-def build_template_context(
-    client: ClientRecord,
-    qr_output_dir: Path | None = None,
-    config_path: Path | None = None,
-) -> Dict[str, str]:
-    """Adapt display data for the legacy renderer until its callers migrate."""
-    return {
-        key: to_typ_value(value)
-        for key, value in build_notice_data(client, qr_output_dir, config_path).items()
-    }
-
-
-def to_root_relative(path: Path) -> str:
-    """Convert absolute path to project-root-relative Typst path reference.
-
-    Module-internal helper for template rendering. Converts absolute file paths
-    to paths relative to the project root, formatted for Typst's import resolution.
-    If path is outside project root (e.g., custom assets), returns absolute path.
-
-    Parameters
-    ----------
-    path : Path
-        Absolute path to convert.
-
-    Returns
-    -------
-    str
-        Path string like "/artifacts/qr_codes/code.png" (relative to project root)
-        or absolute path if outside project root.
-
-    Raises
-    ------
-    ValueError
-        If path cannot be resolved (defensive guard, should not occur in practice).
-    """
-    absolute = path.resolve()
-    try:
-        relative = absolute.relative_to(ROOT_DIR)
-        return "/" + relative.as_posix()
-    except ValueError:
-        # Path is outside project root (e.g., custom template assets)
-        # Return as absolute path string for Typst
-        return str(absolute)
-
-
-def render_notice(
-    client: ClientRecord,
-    *,
-    output_dir: Path,
-    logo: Path,
-    signature: Path,
-    renderers: dict,
-    qr_output_dir: Path | None = None,
-    config_path: Path | None = None,
-) -> str:
-    """Render a Typst notice for a single client using provided renderers.
-
-    Parameters
-    ----------
-    client : ClientRecord
-        Client record with all required fields
-    output_dir : Path
-        Output directory (used for path resolution)
-    logo : Path
-        Path to logo image file
-    signature : Path
-        Path to signature image file
-    renderers : dict
-        Language code to render_notice function mapping from build_language_renderers()
-    qr_output_dir : Path, optional
-        Directory containing QR code PNG files
-    config_path : Path, optional
-        Path to ``parameters.yaml``. Defaults to the repository configuration.
-
-    Returns
-    -------
-    str
-        Rendered Typst template content
-    """
-    language = Language.from_string(client.language)
-    renderer = get_language_renderer(language, renderers)
-    context = build_template_context(client, qr_output_dir, config_path)
-    return renderer(
-        context,
-        logo_path=to_root_relative(logo),
-        signature_path=to_root_relative(signature),
-    )
-
-
-def generate_typst_files(
-    payload: ArtifactPayload,
-    output_dir: Path,
-    logo_path: Path,
-    signature_path: Path,
-    template_dir: Path,
-    config_path: Path | None = None,
-) -> List[Path]:
-    """Generate Typst template files for all clients in payload.
-
-    Parameters
-    ----------
-    payload : ArtifactPayload
-        Preprocessed client data with metadata
-    output_dir : Path
-        Directory to write Typst files
-    logo_path : Path
-        Path to logo image
-    signature_path : Path
-        Path to signature image
-    template_dir : Path
-        Directory containing language template modules
-    config_path : Path, optional
-        Path to ``parameters.yaml``. Defaults to the repository configuration.
-
-    Returns
-    -------
-    List[Path]
-        List of generated .typ file paths
-    """
-    output_dir.mkdir(parents=True, exist_ok=True)
-    qr_output_dir = output_dir / "qr_codes"
-    typst_output_dir = output_dir / "typst"
-    typst_output_dir.mkdir(parents=True, exist_ok=True)
-    files: List[Path] = []
-
-    # Detect manifest mode: any client with a resolved_notice in metadata.
-    manifest_mode = any(
-        isinstance(c.metadata, dict) and "resolved_notice" in c.metadata
-        for c in payload.clients
-    )
-
-    if manifest_mode:
-        # Collect all (version_id, language) pairs needed for this run and
-        # build the complete registry before touching any client (preflight).
-        needed: Set[Tuple[str, str]] = set()
-        for client in payload.clients:
-            resolved = client.metadata["resolved_notice"]  # type: ignore[index]
-            needed.add((resolved["notice_version"], resolved["language"]))  # type: ignore[index]
-
-        registry = build_template_registry(template_dir, needed)
-
-        for client in payload.clients:
-            resolved = client.metadata["resolved_notice"]  # type: ignore[index]
-            version_id = resolved["notice_version"]  # type: ignore[index]
-            lang = resolved["language"]  # type: ignore[index]
-            renderer = registry[(version_id, lang)]
-            context = build_template_context(client, qr_output_dir, config_path)
-            typst_content = renderer(
-                context,
-                logo_path=to_root_relative(logo_path),
-                signature_path=to_root_relative(signature_path),
-            )
-            filename = f"{lang}_notice_{client.sequence}_{client.client_id}.typ"
-            file_path = typst_output_dir / filename
-            file_path.write_text(typst_content, encoding="utf-8")
-            files.append(file_path)
-            LOG.info("Wrote %s", file_path)
-    else:
-        # Fixed mode: single language, flat {lang}_template.py layout.
-        renderers = build_language_renderers(template_dir)
-        language = payload.language
-        for client in payload.clients:
-            if client.language != language:
-                raise ValueError(
-                    f"Client {client.client_id} language {client.language!r} "
-                    f"does not match artifact language {language!r}."
-                )
-            typst_content = render_notice(
-                client,
-                output_dir=output_dir,
-                logo=logo_path,
-                signature=signature_path,
-                renderers=renderers,
-                qr_output_dir=qr_output_dir,
-                config_path=config_path,
-            )
-            filename = f"{language}_notice_{client.sequence}_{client.client_id}.typ"
-            file_path = typst_output_dir / filename
-            file_path.write_text(typst_content, encoding="utf-8")
-            files.append(file_path)
-            LOG.info("Wrote %s", file_path)
-
-    return files
-
-
-def main(
-    artifact_path: Path,
-    output_dir: Path,
-    logo_path: Path,
-    signature_path: Path,
-    template_dir: Path,
-    config_path: Path | None = None,
-) -> List[Path]:
-    """Main entry point for Typst notice generation.
-
-    Parameters
-    ----------
-    artifact_path : Path
-        Path to the preprocessed JSON artifact.
-    output_dir : Path
-        Directory to write Typst files.
-    logo_path : Path
-        Path to the logo image.
-    signature_path : Path
-        Path to the signature image.
-    template_dir : Path
-        Directory containing language template modules.
-    config_path : Path, optional
-        Path to ``parameters.yaml``. Defaults to the repository configuration.
-
-    Returns
-    -------
-    List[Path]
-        List of generated Typst file paths.
-    """
-    payload = read_artifact(artifact_path)
-    generated = generate_typst_files(
-        payload,
-        output_dir,
-        logo_path,
-        signature_path,
-        template_dir,
-        config_path,
-    )
-    print(
-        f"Generated {len(generated)} Typst files in {output_dir} for language {payload.language}"
-    )
-    return generated
 
 
 if __name__ == "__main__":

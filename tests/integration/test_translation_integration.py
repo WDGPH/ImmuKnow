@@ -30,10 +30,10 @@ class TestTranslationIntegration:
         yield
         translation_helpers.clear_caches()
 
-    def test_build_template_context_translates_vaccines_due(
+    def test_build_notice_data_translates_vaccines_due(
         self, translation_setup: None
     ) -> None:
-        """Verify build_template_context translates vaccines_due list to French."""
+        """Verify build_notice_data translates vaccines_due list to French."""
         # Create a mock client record
         from pipeline.data_models import ClientRecord
 
@@ -71,7 +71,7 @@ class TestTranslationIntegration:
             metadata={},
         )
 
-        context = generate_notices.build_template_context(client)
+        context = generate_notices.build_notice_data(client)
 
         # Check that vaccines_due_array is translated to French
         assert "vaccines_due_array" in context
@@ -79,10 +79,8 @@ class TestTranslationIntegration:
         assert "Poliomyélite" in context["vaccines_due_array"]
         assert "Rougeole" in context["vaccines_due_array"]
 
-    def test_build_template_context_preserves_english(
-        self, translation_setup: None
-    ) -> None:
-        """Verify build_template_context preserves English disease names."""
+    def test_build_notice_data_preserves_english(self, translation_setup: None) -> None:
+        """Verify build_notice_data preserves English disease names."""
         from pipeline.data_models import ClientRecord
 
         client = ClientRecord(
@@ -119,7 +117,7 @@ class TestTranslationIntegration:
             metadata={},
         )
 
-        context = generate_notices.build_template_context(client)
+        context = generate_notices.build_notice_data(client)
 
         # Check that vaccines_due_array is in English
         assert "vaccines_due_array" in context
@@ -127,10 +125,10 @@ class TestTranslationIntegration:
         assert "Polio" in context["vaccines_due_array"]
         assert "Measles" in context["vaccines_due_array"]
 
-    def test_build_template_context_translates_received_vaccines(
+    def test_build_notice_data_translates_received_vaccines(
         self, translation_setup: None
     ) -> None:
-        """Verify build_template_context translates received vaccine records."""
+        """Verify build_notice_data translates received vaccine records."""
         from pipeline.data_models import ClientRecord
 
         client = ClientRecord(
@@ -170,17 +168,17 @@ class TestTranslationIntegration:
             metadata={},
         )
 
-        context = generate_notices.build_template_context(client)
+        context = generate_notices.build_notice_data(client)
 
         # Check that received records have translated disease names
         # This is a bit tricky to verify in the Typst format, so we'll just
         # check that the context contains the expected structure
         assert "received" in context
 
-    def test_build_template_context_includes_formatted_date(
+    def test_build_notice_data_includes_formatted_date(
         self, translation_setup: None
     ) -> None:
-        """Verify build_template_context includes locale-formatted date_today.
+        """Verify build_notice_data includes locale-formatted date_today.
 
         Real-world significance:
         - Notices must display date in reader's language
@@ -225,14 +223,12 @@ class TestTranslationIntegration:
             metadata={},
         )
 
-        context_en = generate_notices.build_template_context(client_en)
+        context_en = generate_notices.build_notice_data(client_en)
 
         # Verify date_today is in context and formatted in English
         assert "client_data" in context_en
         # client_data is a Typst-serialized dict; should contain formatted date
-        assert "August" in context_en["client_data"] or "date_today" in str(
-            context_en["client_data"]
-        )
+        assert "August" in context_en["client_data"]["date_data_cutoff"]
 
         # Create French client
         client_fr = ClientRecord(
@@ -269,11 +265,9 @@ class TestTranslationIntegration:
             metadata={},
         )
 
-        context_fr = generate_notices.build_template_context(client_fr)
+        context_fr = generate_notices.build_notice_data(client_fr)
 
         # Verify date_today is in context and formatted in French
         assert "client_data" in context_fr
         # client_data is a Typst-serialized dict; should contain formatted date
-        assert "août" in context_fr["client_data"] or "date_today" in str(
-            context_fr["client_data"]
-        )
+        assert "août" in context_fr["client_data"]["date_data_cutoff"]

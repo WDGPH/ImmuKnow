@@ -18,10 +18,11 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
+from importlib.resources import files
 from typing import Dict, Literal, Optional
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-CONFIG_DIR = SCRIPT_DIR.parent / "config"
+CONFIG_DIR = Path(str(files("config")))
 NORMALIZATION_PATH = CONFIG_DIR / "disease_normalization.json"
 TRANSLATIONS_DIR = CONFIG_DIR / "translations"
 
@@ -29,7 +30,7 @@ LOG = logging.getLogger(__name__)
 
 # Cache for loaded configs; populated on first use per run
 _NORMALIZATION_CACHE: Optional[Dict[str, str]] = None
-_TRANSLATION_CACHES: Dict[tuple[str, str], Dict[str, str]] = {}
+_TRANSLATION_CACHES: Dict[tuple[str, str, str], Dict[str, str]] = {}
 _LOGGED_MISSING_KEYS: set = set()
 
 
@@ -61,7 +62,9 @@ def load_normalization() -> Dict[str, str]:
 
 
 def load_translations(
-    domain: Literal["diseases_overdue", "diseases_chart"], lang: str
+    domain: Literal["diseases_overdue", "diseases_chart"],
+    lang: str,
+    config_dir: Path | None = None,
 ) -> Dict[str, str]:
     """Load translation map for a domain and language from config.
 
@@ -78,11 +81,16 @@ def load_translations(
         Map from canonical disease names to localized display strings.
         Returns empty dict if file does not exist.
     """
-    cache_key = (domain, lang)
+    directory = (
+        config_dir / "translations" if config_dir is not None else TRANSLATIONS_DIR
+    )
+    cache_key = (str(directory.resolve()), domain, lang)
     if cache_key in _TRANSLATION_CACHES:
         return _TRANSLATION_CACHES[cache_key]
 
-    translation_file = TRANSLATIONS_DIR / f"{lang}_{domain}.json"
+    translation_file = directory / f"{lang}_{domain}.json"
+    if config_dir is not None and not translation_file.exists():
+        translation_file = TRANSLATIONS_DIR / f"{lang}_{domain}.json"
     if not translation_file.exists():
         _TRANSLATION_CACHES[cache_key] = {}
         return _TRANSLATION_CACHES[cache_key]
@@ -132,6 +140,7 @@ def display_label(
     lang: str,
     *,
     strict: bool = False,
+    config_dir: Path | None = None,
 ) -> str:
     """Translate a canonical disease name to a localized display label.
 
@@ -168,7 +177,7 @@ def display_label(
     >>> display_label("diseases_overdue", "Polio", "fr")
     "Poliomyélite"
     """
-    translations = load_translations(domain, lang)
+    translations = load_translations(domain, lang, config_dir)
     if key in translations:
         return translations[key]
 

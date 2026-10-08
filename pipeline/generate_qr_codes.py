@@ -63,7 +63,7 @@ try:
 except ImportError:
     qrcode = None  # type: ignore
     qrcode_constants = None  # type: ignore
-    Image = None  # type: ignore
+    Image = None
 
 from .config_loader import load_config
 from .enums import TemplateField

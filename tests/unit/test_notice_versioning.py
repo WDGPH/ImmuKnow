@@ -19,9 +19,34 @@ from pipeline.notice_versioning import (
 )
 
 
+@pytest.mark.unit
+def test_resolved_notice_preserves_unrelated_metadata() -> None:
+    """Attaching assignment and experiment details must not erase client metadata."""
+    from dataclasses import replace
+    from pipeline.notice_versioning import attach_notice
+    from tests.fixtures.sample_input import create_test_client_record
+
+    client = replace(
+        create_test_client_record(),
+        metadata={"source_batch": "example", "custom": {"flag": True}},
+    )
+    resolved = ResolvedNotice(
+        "overdue_standard_v1", "overdue", "fr", "study", "B", "manifest"
+    )
+    attached = attach_notice(client, resolved)
+    assert attached.metadata["source_batch"] == "example"
+    assert attached.metadata["custom"] == {"flag": True}
+    assert attached.metadata["resolved_notice"]["experiment_id"] == "study"
+    assert attached.metadata["resolved_notice"]["experiment_arm"] == "B"
+    assert attached.metadata["version_id"] == "overdue_standard_v1"
+    assert attached.language == "fr"
+    assert "resolved_notice" not in client.metadata
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _write_catalog(tmp_path: Path, content: dict) -> Path:
     p = tmp_path / "notice_versions.yaml"
@@ -36,10 +61,14 @@ def _make_catalog() -> NoticeVersionCatalog:
         default_language="en",
         versions={
             "overdue_standard_v1": NoticeVersion(
-                version_id="overdue_standard_v1", kind=NoticeKind.OVERDUE, requires="has_overdue"
+                version_id="overdue_standard_v1",
+                kind=NoticeKind.OVERDUE,
+                requires="has_overdue",
             ),
             "affirmative_schedule_v1": NoticeVersion(
-                version_id="affirmative_schedule_v1", kind=NoticeKind.AFFIRMATIVE, requires="no_overdue"
+                version_id="affirmative_schedule_v1",
+                kind=NoticeKind.AFFIRMATIVE,
+                requires="no_overdue",
             ),
             "info_v1": NoticeVersion(
                 version_id="info_v1", kind=NoticeKind.INFORMATIONAL, requires="any"
@@ -50,7 +79,7 @@ def _make_catalog() -> NoticeVersionCatalog:
 
 def _resolved(kind: str, version: str = "overdue_standard_v1") -> ResolvedNotice:
     return ResolvedNotice(
-        notice_version=version,
+        version_id=version,
         notice_kind=kind,
         language="en",
         experiment_id=None,
@@ -70,6 +99,7 @@ def _client(vaccines_due_list):
 # load_catalog
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.unit
 class TestLoadCatalog:
     def test_returns_none_when_file_absent(self, tmp_path: Path) -> None:
@@ -77,15 +107,18 @@ class TestLoadCatalog:
         assert result is None
 
     def test_loads_valid_catalog(self, tmp_path: Path) -> None:
-        _write_catalog(tmp_path, {
-            "schema_version": 1,
-            "default_version": "overdue_standard_v1",
-            "default_language": "en",
-            "versions": {
-                "overdue_standard_v1": {"kind": "overdue"},
-                "affirmative_schedule_v1": {"kind": "affirmative"},
+        _write_catalog(
+            tmp_path,
+            {
+                "schema_version": 1,
+                "default_version": "overdue_standard_v1",
+                "default_language": "en",
+                "versions": {
+                    "overdue_standard_v1": {"kind": "overdue"},
+                    "affirmative_schedule_v1": {"kind": "affirmative"},
+                },
             },
-        })
+        )
         catalog = load_catalog(tmp_path)
         assert catalog is not None
         assert catalog.schema_version == 1
@@ -102,50 +135,65 @@ class TestLoadCatalog:
             load_catalog(tmp_path)
 
     def test_raises_missing_schema_version(self, tmp_path: Path) -> None:
-        _write_catalog(tmp_path, {
-            "default_version": "v1",
-            "default_language": "en",
-            "versions": {"v1": {"kind": "overdue"}},
-        })
+        _write_catalog(
+            tmp_path,
+            {
+                "default_version": "v1",
+                "default_language": "en",
+                "versions": {"v1": {"kind": "overdue"}},
+            },
+        )
         with pytest.raises(ValueError, match="schema_version"):
             load_catalog(tmp_path)
 
     def test_raises_missing_default_version(self, tmp_path: Path) -> None:
-        _write_catalog(tmp_path, {
-            "schema_version": 1,
-            "default_language": "en",
-            "versions": {"v1": {"kind": "overdue"}},
-        })
+        _write_catalog(
+            tmp_path,
+            {
+                "schema_version": 1,
+                "default_language": "en",
+                "versions": {"v1": {"kind": "overdue"}},
+            },
+        )
         with pytest.raises(ValueError, match="default_version"):
             load_catalog(tmp_path)
 
     def test_raises_empty_default_language(self, tmp_path: Path) -> None:
-        _write_catalog(tmp_path, {
-            "schema_version": 1,
-            "default_version": "v1",
-            "default_language": "",
-            "versions": {"v1": {"kind": "overdue"}},
-        })
+        _write_catalog(
+            tmp_path,
+            {
+                "schema_version": 1,
+                "default_version": "v1",
+                "default_language": "",
+                "versions": {"v1": {"kind": "overdue"}},
+            },
+        )
         with pytest.raises(ValueError, match="default_language"):
             load_catalog(tmp_path)
 
     def test_raises_unknown_kind(self, tmp_path: Path) -> None:
-        _write_catalog(tmp_path, {
-            "schema_version": 1,
-            "default_version": "v1",
-            "default_language": "en",
-            "versions": {"v1": {"kind": "unknown_kind"}},
-        })
+        _write_catalog(
+            tmp_path,
+            {
+                "schema_version": 1,
+                "default_version": "v1",
+                "default_language": "en",
+                "versions": {"v1": {"kind": "unknown_kind"}},
+            },
+        )
         with pytest.raises(ValueError, match="invalid kind"):
             load_catalog(tmp_path)
 
     def test_raises_default_version_not_in_versions(self, tmp_path: Path) -> None:
-        _write_catalog(tmp_path, {
-            "schema_version": 1,
-            "default_version": "missing_version",
-            "default_language": "en",
-            "versions": {"v1": {"kind": "overdue"}},
-        })
+        _write_catalog(
+            tmp_path,
+            {
+                "schema_version": 1,
+                "default_version": "missing_version",
+                "default_language": "en",
+                "versions": {"v1": {"kind": "overdue"}},
+            },
+        )
         with pytest.raises(ValueError, match="default_version.*not in versions"):
             load_catalog(tmp_path)
 
@@ -161,16 +209,19 @@ class TestLoadCatalog:
             load_catalog(tmp_path)
 
     def test_all_notice_kinds_accepted(self, tmp_path: Path) -> None:
-        _write_catalog(tmp_path, {
-            "schema_version": 1,
-            "default_version": "overdue_v1",
-            "default_language": "fr",
-            "versions": {
-                "overdue_v1": {"kind": "overdue"},
-                "affirmative_v1": {"kind": "affirmative"},
-                "informational_v1": {"kind": "informational"},
+        _write_catalog(
+            tmp_path,
+            {
+                "schema_version": 1,
+                "default_version": "overdue_v1",
+                "default_language": "fr",
+                "versions": {
+                    "overdue_v1": {"kind": "overdue"},
+                    "affirmative_v1": {"kind": "affirmative"},
+                    "informational_v1": {"kind": "informational"},
+                },
             },
-        })
+        )
         catalog = load_catalog(tmp_path)
         assert catalog is not None
         assert catalog.versions["overdue_v1"].kind == NoticeKind.OVERDUE
@@ -178,27 +229,33 @@ class TestLoadCatalog:
         assert catalog.versions["informational_v1"].kind == NoticeKind.INFORMATIONAL
 
     def test_explicit_requires_field_is_loaded(self, tmp_path: Path) -> None:
-        _write_catalog(tmp_path, {
-            "schema_version": 1,
-            "default_version": "v1",
-            "default_language": "en",
-            "versions": {"v1": {"kind": "overdue", "requires": "any"}},
-        })
+        _write_catalog(
+            tmp_path,
+            {
+                "schema_version": 1,
+                "default_version": "v1",
+                "default_language": "en",
+                "versions": {"v1": {"kind": "overdue", "requires": "any"}},
+            },
+        )
         catalog = load_catalog(tmp_path)
         assert catalog is not None
         assert catalog.versions["v1"].requires == "any"
 
     def test_omitted_requires_falls_back_to_kind_default(self, tmp_path: Path) -> None:
-        _write_catalog(tmp_path, {
-            "schema_version": 1,
-            "default_version": "overdue_v1",
-            "default_language": "en",
-            "versions": {
-                "overdue_v1": {"kind": "overdue"},
-                "affirmative_v1": {"kind": "affirmative"},
-                "info_v1": {"kind": "informational"},
+        _write_catalog(
+            tmp_path,
+            {
+                "schema_version": 1,
+                "default_version": "overdue_v1",
+                "default_language": "en",
+                "versions": {
+                    "overdue_v1": {"kind": "overdue"},
+                    "affirmative_v1": {"kind": "affirmative"},
+                    "info_v1": {"kind": "informational"},
+                },
             },
-        })
+        )
         catalog = load_catalog(tmp_path)
         assert catalog is not None
         assert catalog.versions["overdue_v1"].requires == "has_overdue"
@@ -206,12 +263,15 @@ class TestLoadCatalog:
         assert catalog.versions["info_v1"].requires == "any"
 
     def test_raises_on_unknown_requires_value(self, tmp_path: Path) -> None:
-        _write_catalog(tmp_path, {
-            "schema_version": 1,
-            "default_version": "v1",
-            "default_language": "en",
-            "versions": {"v1": {"kind": "overdue", "requires": "no_such_rule"}},
-        })
+        _write_catalog(
+            tmp_path,
+            {
+                "schema_version": 1,
+                "default_version": "v1",
+                "default_language": "en",
+                "versions": {"v1": {"kind": "overdue", "requires": "no_such_rule"}},
+            },
+        )
         with pytest.raises(ValueError, match="unknown requires"):
             load_catalog(tmp_path)
 
@@ -219,6 +279,7 @@ class TestLoadCatalog:
 # ---------------------------------------------------------------------------
 # validate_eligibility
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.unit
 class TestValidateEligibility:
@@ -286,7 +347,9 @@ class TestValidateEligibility:
             default_language="en",
             versions={
                 "overdue_open_v1": NoticeVersion(
-                    version_id="overdue_open_v1", kind=NoticeKind.OVERDUE, requires="any"
+                    version_id="overdue_open_v1",
+                    kind=NoticeKind.OVERDUE,
+                    requires="any",
                 ),
             },
         )
@@ -298,6 +361,7 @@ class TestValidateEligibility:
 # ---------------------------------------------------------------------------
 # ELIGIBILITY_RULES registry
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.unit
 class TestEligibilityRules:

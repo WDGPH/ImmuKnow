@@ -3,7 +3,11 @@ requires = ["setuptools>=84.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["pipeline", "templates"]
+packages = ["pipeline", "templates", "config"]
+
+[tool.setuptools.package-data]
+templates = ["*.typ", "*/*.typ", "assets/*"]
+config = ["*.json", "*.yaml", "translations/*.json"]
 
 [project]
 name = "ImmuKnow"

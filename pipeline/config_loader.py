@@ -5,6 +5,7 @@ configuration file across all pipeline scripts.
 """
 
 from pathlib import Path
+from importlib.resources import files
 from typing import Any, Dict, Optional
 
 import yaml
@@ -13,7 +14,7 @@ from .enums import TemplateField
 from .utils import extract_template_fields
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-DEFAULT_CONFIG_PATH = SCRIPT_DIR.parent / "config" / "parameters.yaml"
+DEFAULT_CONFIG_PATH = Path(str(files("config"))) / "parameters.yaml"
 
 
 def load_config(config_path: Optional[Path] = None) -> Dict[str, Any]:

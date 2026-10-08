@@ -88,7 +88,6 @@ class TestFormatVaccineDueList:
         assert result == ["Polio", "MMR"]
 
 
-
 @pytest.mark.unit
 class TestReadInput:
     """Unit tests for read_input function."""
@@ -381,12 +380,27 @@ class TestBuildPreprocessResult:
         """
         df = pd.DataFrame(
             {
-                "school_name": ["Zebra School", "Zebra School", "Apple School", "Apple School"],
+                "school_name": [
+                    "Zebra School",
+                    "Zebra School",
+                    "Apple School",
+                    "Apple School",
+                ],
                 "client_id": ["C002", "C001", "C004", "C003"],
                 "first_name": ["Bob", "Alice", "Diana", "Chloe"],
                 "last_name": ["Smith", "Smith", "Jones", "Jones"],
-                "date_of_birth": ["2015-01-01", "2015-01-02", "2015-01-03", "2015-01-04"],
-                "street_address_line_1": ["123 Main", "123 Main", "123 Main", "123 Main"],
+                "date_of_birth": [
+                    "2015-01-01",
+                    "2015-01-02",
+                    "2015-01-03",
+                    "2015-01-04",
+                ],
+                "street_address_line_1": [
+                    "123 Main",
+                    "123 Main",
+                    "123 Main",
+                    "123 Main",
+                ],
                 "street_address_line_2": ["", "", "", ""],
                 "city": ["Town", "Town", "Town", "Town"],
                 "province": ["ON", "ON", "ON", "ON"],
@@ -732,7 +746,9 @@ class TestCollapseValidityStatuses:
 
         Assertion: ["invalid", "invalid"] → "invalid"
         """
-        assert preprocess.collapse_validity_statuses(["invalid", "invalid"]) == "invalid"
+        assert (
+            preprocess.collapse_validity_statuses(["invalid", "invalid"]) == "invalid"
+        )
 
     def test_valid_and_invalid_without_unknown_returns_mixed(self) -> None:
         """Verify mixed valid+invalid (no unknown) collapses to mixed.
@@ -755,9 +771,14 @@ class TestCollapseValidityStatuses:
 
         Assertion: unknown present → "unknown", even alongside valid and invalid
         """
-        assert preprocess.collapse_validity_statuses(["valid", "invalid", "unknown"]) == "unknown"
+        assert (
+            preprocess.collapse_validity_statuses(["valid", "invalid", "unknown"])
+            == "unknown"
+        )
         assert preprocess.collapse_validity_statuses(["valid", "unknown"]) == "unknown"
-        assert preprocess.collapse_validity_statuses(["invalid", "unknown"]) == "unknown"
+        assert (
+            preprocess.collapse_validity_statuses(["invalid", "unknown"]) == "unknown"
+        )
 
     def test_single_valid_returns_valid(self) -> None:
         """Assertion: ["valid"] → "valid"."""
@@ -810,10 +831,12 @@ class TestClassifyDatasetValidity:
 
         Assertion: series with only suffixed segments → "all_present"
         """
-        series = pd.Series([
-            "May 1, 2020 - DTaP - Valid",
-            "Jun 15, 2021 - MMR - Invalid",
-        ])
+        series = pd.Series(
+            [
+                "May 1, 2020 - DTaP - Valid",
+                "Jun 15, 2021 - MMR - Invalid",
+            ]
+        )
         assert preprocess.classify_dataset_validity(series) == "all_present"
 
     @pytest.mark.parametrize("suffix", ["valid", "invalid"])
@@ -847,10 +870,12 @@ class TestClassifyDatasetValidity:
 
         Assertion: series with no suffixed segments → "all_absent"
         """
-        series = pd.Series([
-            "May 1, 2020 - DTaP",
-            "Jun 15, 2021 - MMR",
-        ])
+        series = pd.Series(
+            [
+                "May 1, 2020 - DTaP",
+                "Jun 15, 2021 - MMR",
+            ]
+        )
         assert preprocess.classify_dataset_validity(series) == "all_absent"
 
     def test_mix_of_present_and_absent_returns_mixed(self) -> None:
@@ -863,10 +888,12 @@ class TestClassifyDatasetValidity:
 
         Assertion: series with one suffixed and one unsuffixed segment → "mixed"
         """
-        series = pd.Series([
-            "May 1, 2020 - DTaP - Valid",
-            "Jun 15, 2021 - MMR",
-        ])
+        series = pd.Series(
+            [
+                "May 1, 2020 - DTaP - Valid",
+                "Jun 15, 2021 - MMR",
+            ]
+        )
         assert preprocess.classify_dataset_validity(series) == "mixed"
 
     def test_empty_series_returns_all_absent(self) -> None:
@@ -897,7 +924,9 @@ class TestClassifyDatasetValidity:
         series = pd.Series(["May 1, 2020 - DTaP - Valid; Jun 15, 2021 - MMR - Invalid"])
         assert preprocess.classify_dataset_validity(series) == "all_present"
 
-    def test_multiple_segments_per_cell_returns_mixed_when_one_lacks_suffix(self) -> None:
+    def test_multiple_segments_per_cell_returns_mixed_when_one_lacks_suffix(
+        self,
+    ) -> None:
         """Verify a single un-suffixed segment inside a multi-segment cell → "mixed".
 
         Assertion: one suffixed + one un-suffixed segment in same cell → "mixed"
@@ -1080,7 +1109,9 @@ class TestBuildReceivedRows:
         """Two distinct dates each produce one row; date_rowspan == 1 on both."""
         rows = preprocess.build_received_rows(
             "May 1, 2020 - DTaP - Valid; Jun 15, 2021 - IPV - Invalid",
-            [], vaccine_ref, header,
+            [],
+            vaccine_ref,
+            header,
         )
         assert len(rows) == 2
         assert all(r["date_rowspan"] == 1 for r in rows)
@@ -1091,16 +1122,22 @@ class TestBuildReceivedRows:
         """Two doses of same vaccine: unknown + valid → unknown (data quality signal)."""
         rows = preprocess.build_received_rows(
             "May 1, 2020 - DTaP; May 1, 2020 - DTaP - Valid",
-            [], vaccine_ref, header,
+            [],
+            vaccine_ref,
+            header,
         )
         assert len(rows) == 1
         assert rows[0]["columns"]["Diphtheria"] == "unknown"
 
-    def test_same_vaccine_deduplication_valid_over_invalid(self, vaccine_ref, header) -> None:
+    def test_same_vaccine_deduplication_valid_over_invalid(
+        self, vaccine_ref, header
+    ) -> None:
         """Two doses of same vaccine: valid + invalid → valid."""
         rows = preprocess.build_received_rows(
             "May 1, 2020 - DTaP - Valid; May 1, 2020 - DTaP - Invalid",
-            [], vaccine_ref, header,
+            [],
+            vaccine_ref,
+            header,
         )
         assert len(rows) == 1
         assert rows[0]["columns"]["Diphtheria"] == "valid"
@@ -1109,7 +1146,9 @@ class TestBuildReceivedRows:
         """Two doses of same vaccine: invalid + invalid → invalid."""
         rows = preprocess.build_received_rows(
             "May 1, 2020 - DTaP - Invalid; May 1, 2020 - DTaP - Invalid",
-            [], vaccine_ref, header,
+            [],
+            vaccine_ref,
+            header,
         )
         assert len(rows) == 1
         assert rows[0]["columns"]["Diphtheria"] == "invalid"
@@ -1118,19 +1157,25 @@ class TestBuildReceivedRows:
         """Two vaccines, same date, same validity → single row, no split."""
         rows = preprocess.build_received_rows(
             "May 1, 2020 - DTaP - Valid; May 1, 2020 - IPV - Valid",
-            [], vaccine_ref, header,
+            [],
+            vaccine_ref,
+            header,
         )
         assert len(rows) == 1
         assert rows[0]["date_rowspan"] == 1
         assert rows[0]["columns"]["Diphtheria"] == "valid"
         assert rows[0]["columns"]["Polio"] == "valid"
 
-    def test_mixed_column_triggers_split_into_two_rows(self, vaccine_ref, header) -> None:
+    def test_mixed_column_triggers_split_into_two_rows(
+        self, vaccine_ref, header
+    ) -> None:
         """DTaP(valid) + IPV(invalid) on same date → Diphtheria=valid, Polio=invalid,
         no mixed → single row (different columns, not same column)."""
         rows = preprocess.build_received_rows(
             "May 1, 2020 - DTaP - Valid; May 1, 2020 - IPV - Invalid",
-            [], vaccine_ref, header,
+            [],
+            vaccine_ref,
+            header,
         )
         # DTaP and IPV map to different columns — no mixed, one row
         assert len(rows) == 1
@@ -1147,7 +1192,10 @@ class TestBuildReceivedRows:
         header = ["Diphtheria", "Other"]
         rows = preprocess.build_received_rows(
             "May 1, 2020 - VaxA - Valid; May 1, 2020 - VaxB - Invalid",
-            [], ref, header, show_validity_markers=True,
+            [],
+            ref,
+            header,
+            show_validity_markers=True,
         )
         assert len(rows) == 2
         assert rows[0]["date_rowspan"] == 2
@@ -1163,7 +1211,10 @@ class TestBuildReceivedRows:
         header = ["Diphtheria", "Other"]
         rows = preprocess.build_received_rows(
             "May 1, 2020 - VaxA - Valid; May 1, 2020 - VaxB - Invalid",
-            [], ref, header, show_validity_markers=True,
+            [],
+            ref,
+            header,
+            show_validity_markers=True,
         )
         assert rows[1]["date_rowspan"] == 0
 
@@ -1171,7 +1222,10 @@ class TestBuildReceivedRows:
         """HBV(valid) + HPV(invalid) both map to Other → Other is mixed → split."""
         rows = preprocess.build_received_rows(
             "May 1, 2020 - HBV - Valid; May 1, 2020 - HPV - Invalid",
-            [], vaccine_ref, header, show_validity_markers=True,
+            [],
+            vaccine_ref,
+            header,
+            show_validity_markers=True,
         )
         assert len(rows) == 2
         assert rows[0]["columns"].get("Other") == "valid"
@@ -1181,7 +1235,9 @@ class TestBuildReceivedRows:
         """HBV(valid) + HPV(valid) → Other == valid, single row."""
         rows = preprocess.build_received_rows(
             "May 1, 2020 - HBV - Valid; May 1, 2020 - HPV - Valid",
-            [], vaccine_ref, header,
+            [],
+            vaccine_ref,
+            header,
         )
         assert len(rows) == 1
         assert rows[0]["columns"].get("Other") == "valid"
@@ -1192,7 +1248,9 @@ class TestBuildReceivedRows:
         header = ["Diphtheria", "Other"]
         rows = preprocess.build_received_rows(
             "May 1, 2020 - VaxA - Valid; May 1, 2020 - VaxB",
-            [], ref, header,
+            [],
+            ref,
+            header,
         )
         assert len(rows) == 1
         assert rows[0]["columns"]["Diphtheria"] == "unknown"
@@ -1205,13 +1263,17 @@ class TestBuildReceivedRows:
         """Filtered vaccine absent from output; remaining vaccine present."""
         rows = preprocess.build_received_rows(
             "May 1, 2020 - Not Specified; May 1, 2020 - DTaP - Valid",
-            ["Not Specified"], vaccine_ref, header,
+            ["Not Specified"],
+            vaccine_ref,
+            header,
         )
         assert len(rows) == 1
         assert "DTaP" in rows[0]["vaccines"]
         assert "Not Specified" not in rows[0]["vaccines"]
 
-    def test_build_result_maps_vaccines_correctly(self, default_vaccine_reference) -> None:
+    def test_build_result_maps_vaccines_correctly(
+        self, default_vaccine_reference
+    ) -> None:
         """Verify vaccine codes expand to component diseases in columns dict.
 
         Real-world significance:
@@ -1232,8 +1294,8 @@ class TestBuildReceivedRows:
         assert len(client.received) > 0
         columns = client.received[0].get("columns")
         assert isinstance(columns, dict) and "Diphtheria" in columns
-        
-        
+
+
 @pytest.mark.unit
 class TestCheckAddressesComplete:
     """Unit tests for check_addresses_complete().
@@ -1357,7 +1419,7 @@ class TestCheckAddressesComplete:
 
         Assertion: CSV exists and contains exactly the incomplete rows
         """
-        preprocess.check_addresses_complete(mixed_df)
+        preprocess.check_addresses_complete(mixed_df, output_dir=output_dir)
 
         csv_path = output_dir / "incomplete_addresses.csv"
         assert csv_path.exists()
@@ -1492,7 +1554,9 @@ class TestCheckClientInfoComplete:
 
         Assertion: Output has the same row count as input
         """
-        result = preprocess.check_client_info_complete(complete_fixed_df, assignment_mode="fixed")
+        result = preprocess.check_client_info_complete(
+            complete_fixed_df, assignment_mode="fixed"
+        )
 
         assert len(result) == len(complete_fixed_df)
 
@@ -1504,7 +1568,9 @@ class TestCheckClientInfoComplete:
         Assertion: No warning message is emitted
         """
         with caplog.at_level("WARNING"):
-            preprocess.check_client_info_complete(complete_fixed_df, assignment_mode="fixed")
+            preprocess.check_client_info_complete(
+                complete_fixed_df, assignment_mode="fixed"
+            )
 
         assert "incomplete" not in caplog.text.lower()
 
@@ -1563,7 +1629,10 @@ class TestCheckClientInfoComplete:
         with caplog.at_level("WARNING"):
             preprocess.check_client_info_complete(df, assignment_mode="fixed")
 
-        assert "There are 1 records with incomplete/invalid client information" in caplog.text
+        assert (
+            "There are 1 records with incomplete/invalid client information"
+            in caplog.text
+        )
 
     def test_incomplete_rows_written_to_csv(self, output_dir) -> None:
         """Verify incomplete client records are written to incomplete_clients.csv.
@@ -1587,7 +1656,9 @@ class TestCheckClientInfoComplete:
             }
         )
 
-        preprocess.check_client_info_complete(df, assignment_mode="fixed")
+        preprocess.check_client_info_complete(
+            df, assignment_mode="fixed", output_dir=output_dir
+        )
 
         csv_path = output_dir / "incomplete_clients.csv"
         assert csv_path.exists()
@@ -1692,7 +1763,6 @@ class TestCheckClientInfoComplete:
 
         assert len(result) == 0
 
-
     def test_client_info_complete_column_not_in_output(self, complete_fixed_df) -> None:
         """Verify the temporary client_info_complete column is not present in output.
 
@@ -1729,18 +1799,28 @@ class TestProcessVaccinesDue:
 # Manifest-mode tests for build_preprocess_result
 # ---------------------------------------------------------------------------
 
+
 def _make_catalog():
-    from pipeline.notice_versioning import NoticeKind, NoticeVersion, NoticeVersionCatalog
+    from pipeline.notice_versioning import (
+        NoticeKind,
+        NoticeVersion,
+        NoticeVersionCatalog,
+    )
+
     return NoticeVersionCatalog(
         schema_version=1,
         default_version="overdue_standard_v1",
         default_language="en",
         versions={
             "overdue_standard_v1": NoticeVersion(
-                version_id="overdue_standard_v1", kind=NoticeKind.OVERDUE, requires="has_overdue"
+                version_id="overdue_standard_v1",
+                kind=NoticeKind.OVERDUE,
+                requires="has_overdue",
             ),
             "affirmative_schedule_v1": NoticeVersion(
-                version_id="affirmative_schedule_v1", kind=NoticeKind.AFFIRMATIVE, requires="no_overdue"
+                version_id="affirmative_schedule_v1",
+                kind=NoticeKind.AFFIRMATIVE,
+                requires="no_overdue",
             ),
         },
     )
@@ -1748,7 +1828,13 @@ def _make_catalog():
 
 def _make_manifest(*rows):
     from pipeline.assignment_manifest import ManifestRow
-    return {r["client_id"]: ManifestRow(**r) for r in rows}
+
+    return {
+        r["client_id"]: ManifestRow(
+            **{("version_id" if k == "notice_version" else k): v for k, v in r.items()}
+        )
+        for r in rows
+    }
 
 
 def _simple_df(num=2, with_overdue=True):
@@ -1769,6 +1855,7 @@ def _simple_df(num=2, with_overdue=True):
         "street_address_line_2": [""] * num,
     }
     import pandas as pd
+
     return pd.DataFrame(data)
 
 
@@ -1787,7 +1874,7 @@ class TestBuildPreprocessResultFixedMode:
             _simple_df(2), "en", {}, preprocess.REPLACE_UNSPECIFIED
         )
         for client in result.clients:
-            assert "resolved_notice" not in client.metadata
+            assert client.metadata["resolved_notice"]["version_id"] == "legacy_fixed_v1"
 
 
 @pytest.mark.unit
@@ -1797,22 +1884,56 @@ class TestBuildPreprocessResultManifestMode:
     def test_manifest_mode_returns_reconciliation_result(self, tmp_path) -> None:
         catalog = _make_catalog()
         manifest = _make_manifest(
-            {"client_id": "C001", "notice_version": "overdue_standard_v1", "language": "en", "experiment_id": None, "experiment_arm": None},
-            {"client_id": "C002", "notice_version": "overdue_standard_v1", "language": "fr", "experiment_id": None, "experiment_arm": None},
+            {
+                "client_id": "C001",
+                "notice_version": "overdue_standard_v1",
+                "language": "en",
+                "experiment_id": None,
+                "experiment_arm": None,
+            },
+            {
+                "client_id": "C002",
+                "notice_version": "overdue_standard_v1",
+                "language": "fr",
+                "experiment_id": None,
+                "experiment_arm": None,
+            },
         )
         result, reconciliation_result = preprocess.build_preprocess_result(
-            _simple_df(2), None, {}, preprocess.REPLACE_UNSPECIFIED, catalog=catalog, manifest=manifest
+            _simple_df(2),
+            None,
+            {},
+            preprocess.REPLACE_UNSPECIFIED,
+            catalog=catalog,
+            manifest=manifest,
         )
         assert reconciliation_result is not None
 
     def test_manifest_mode_resolved_notice_in_metadata(self, tmp_path) -> None:
         catalog = _make_catalog()
         manifest = _make_manifest(
-            {"client_id": "C001", "notice_version": "overdue_standard_v1", "language": "en", "experiment_id": None, "experiment_arm": None},
-            {"client_id": "C002", "notice_version": "overdue_standard_v1", "language": "en", "experiment_id": None, "experiment_arm": None},
+            {
+                "client_id": "C001",
+                "notice_version": "overdue_standard_v1",
+                "language": "en",
+                "experiment_id": None,
+                "experiment_arm": None,
+            },
+            {
+                "client_id": "C002",
+                "notice_version": "overdue_standard_v1",
+                "language": "en",
+                "experiment_id": None,
+                "experiment_arm": None,
+            },
         )
         result, _ = preprocess.build_preprocess_result(
-            _simple_df(2), None, {}, preprocess.REPLACE_UNSPECIFIED, catalog=catalog, manifest=manifest
+            _simple_df(2),
+            None,
+            {},
+            preprocess.REPLACE_UNSPECIFIED,
+            catalog=catalog,
+            manifest=manifest,
         )
         for client in result.clients:
             assert "resolved_notice" in client.metadata
@@ -1820,11 +1941,28 @@ class TestBuildPreprocessResultManifestMode:
     def test_manifest_mode_language_from_manifest_not_cli(self, tmp_path) -> None:
         catalog = _make_catalog()
         manifest = _make_manifest(
-            {"client_id": "C001", "notice_version": "overdue_standard_v1", "language": "en", "experiment_id": None, "experiment_arm": None},
-            {"client_id": "C002", "notice_version": "overdue_standard_v1", "language": "fr", "experiment_id": None, "experiment_arm": None},
+            {
+                "client_id": "C001",
+                "notice_version": "overdue_standard_v1",
+                "language": "en",
+                "experiment_id": None,
+                "experiment_arm": None,
+            },
+            {
+                "client_id": "C002",
+                "notice_version": "overdue_standard_v1",
+                "language": "fr",
+                "experiment_id": None,
+                "experiment_arm": None,
+            },
         )
         result, _ = preprocess.build_preprocess_result(
-            _simple_df(2), None, {}, preprocess.REPLACE_UNSPECIFIED, catalog=catalog, manifest=manifest
+            _simple_df(2),
+            None,
+            {},
+            preprocess.REPLACE_UNSPECIFIED,
+            catalog=catalog,
+            manifest=manifest,
         )
         langs = {c.client_id: c.language for c in result.clients}
         assert langs["C001"] == "en"
@@ -1835,12 +1973,29 @@ class TestBuildPreprocessResultManifestMode:
         catalog = _make_catalog()
         # Assign affirmative to a client that has vaccines due
         manifest = _make_manifest(
-            {"client_id": "C001", "notice_version": "affirmative_schedule_v1", "language": "en", "experiment_id": None, "experiment_arm": None},
-            {"client_id": "C002", "notice_version": "affirmative_schedule_v1", "language": "en", "experiment_id": None, "experiment_arm": None},
+            {
+                "client_id": "C001",
+                "notice_version": "affirmative_schedule_v1",
+                "language": "en",
+                "experiment_id": None,
+                "experiment_arm": None,
+            },
+            {
+                "client_id": "C002",
+                "notice_version": "affirmative_schedule_v1",
+                "language": "en",
+                "experiment_id": None,
+                "experiment_arm": None,
+            },
         )
         with pytest.raises(ValueError, match="[Pp]reflight"):
             preprocess.build_preprocess_result(
-                _simple_df(2, with_overdue=True), None, {}, preprocess.REPLACE_UNSPECIFIED, catalog=catalog, manifest=manifest
+                _simple_df(2, with_overdue=True),
+                None,
+                {},
+                preprocess.REPLACE_UNSPECIFIED,
+                catalog=catalog,
+                manifest=manifest,
             )
 
     def test_manifest_mode_allow_unassigned_true_uses_defaults(self, tmp_path) -> None:
@@ -1848,7 +2003,13 @@ class TestBuildPreprocessResultManifestMode:
         catalog = _make_catalog()
         # Only assign C001; C002 is missing from manifest
         manifest = _make_manifest(
-            {"client_id": "C001", "notice_version": "overdue_standard_v1", "language": "en", "experiment_id": None, "experiment_arm": None},
+            {
+                "client_id": "C001",
+                "notice_version": "overdue_standard_v1",
+                "language": "en",
+                "experiment_id": None,
+                "experiment_arm": None,
+            },
         )
         # Write config with allow_unassigned=true
         config_path = tmp_path / "parameters.yaml"
@@ -1857,8 +2018,13 @@ class TestBuildPreprocessResultManifestMode:
             encoding="utf-8",
         )
         result, reconciliation_result = preprocess.build_preprocess_result(
-            _simple_df(2), None, {}, preprocess.REPLACE_UNSPECIFIED,
-            config_path=config_path, catalog=catalog, manifest=manifest
+            _simple_df(2),
+            None,
+            {},
+            preprocess.REPLACE_UNSPECIFIED,
+            config_path=config_path,
+            catalog=catalog,
+            manifest=manifest,
         )
         # C002 should be resolved with catalog defaults, not missing
         assert reconciliation_result is not None
@@ -1870,22 +2036,50 @@ class TestBuildPreprocessResultManifestMode:
         """allow_unassigned=False: missing client causes preflight failure."""
         catalog = _make_catalog()
         manifest = _make_manifest(
-            {"client_id": "C001", "notice_version": "overdue_standard_v1", "language": "en", "experiment_id": None, "experiment_arm": None},
+            {
+                "client_id": "C001",
+                "notice_version": "overdue_standard_v1",
+                "language": "en",
+                "experiment_id": None,
+                "experiment_arm": None,
+            },
         )
         # allow_unassigned defaults to False
         with pytest.raises(ValueError, match="[Pp]reflight"):
             preprocess.build_preprocess_result(
-                _simple_df(2), None, {}, preprocess.REPLACE_UNSPECIFIED,
-                catalog=catalog, manifest=manifest
+                _simple_df(2),
+                None,
+                {},
+                preprocess.REPLACE_UNSPECIFIED,
+                catalog=catalog,
+                manifest=manifest,
             )
 
     def test_manifest_mode_extra_rows_error_raises(self, tmp_path) -> None:
         catalog = _make_catalog()
         # EXTRA_CLIENT is in manifest but not in cohort
         manifest = _make_manifest(
-            {"client_id": "C001", "notice_version": "overdue_standard_v1", "language": "en", "experiment_id": None, "experiment_arm": None},
-            {"client_id": "C002", "notice_version": "overdue_standard_v1", "language": "en", "experiment_id": None, "experiment_arm": None},
-            {"client_id": "EXTRA_CLIENT", "notice_version": "overdue_standard_v1", "language": "en", "experiment_id": None, "experiment_arm": None},
+            {
+                "client_id": "C001",
+                "notice_version": "overdue_standard_v1",
+                "language": "en",
+                "experiment_id": None,
+                "experiment_arm": None,
+            },
+            {
+                "client_id": "C002",
+                "notice_version": "overdue_standard_v1",
+                "language": "en",
+                "experiment_id": None,
+                "experiment_arm": None,
+            },
+            {
+                "client_id": "EXTRA_CLIENT",
+                "notice_version": "overdue_standard_v1",
+                "language": "en",
+                "experiment_id": None,
+                "experiment_arm": None,
+            },
         )
         config_path = tmp_path / "parameters.yaml"
         config_path.write_text(
@@ -1894,16 +2088,39 @@ class TestBuildPreprocessResultManifestMode:
         )
         with pytest.raises(ValueError, match="[Pp]reflight"):
             preprocess.build_preprocess_result(
-                _simple_df(2), None, {}, preprocess.REPLACE_UNSPECIFIED,
-                config_path=config_path, catalog=catalog, manifest=manifest
+                _simple_df(2),
+                None,
+                {},
+                preprocess.REPLACE_UNSPECIFIED,
+                config_path=config_path,
+                catalog=catalog,
+                manifest=manifest,
             )
 
     def test_manifest_mode_extra_rows_warn_continues(self, tmp_path) -> None:
         catalog = _make_catalog()
         manifest = _make_manifest(
-            {"client_id": "C001", "notice_version": "overdue_standard_v1", "language": "en", "experiment_id": None, "experiment_arm": None},
-            {"client_id": "C002", "notice_version": "overdue_standard_v1", "language": "en", "experiment_id": None, "experiment_arm": None},
-            {"client_id": "EXTRA_CLIENT", "notice_version": "overdue_standard_v1", "language": "en", "experiment_id": None, "experiment_arm": None},
+            {
+                "client_id": "C001",
+                "notice_version": "overdue_standard_v1",
+                "language": "en",
+                "experiment_id": None,
+                "experiment_arm": None,
+            },
+            {
+                "client_id": "C002",
+                "notice_version": "overdue_standard_v1",
+                "language": "en",
+                "experiment_id": None,
+                "experiment_arm": None,
+            },
+            {
+                "client_id": "EXTRA_CLIENT",
+                "notice_version": "overdue_standard_v1",
+                "language": "en",
+                "experiment_id": None,
+                "experiment_arm": None,
+            },
         )
         config_path = tmp_path / "parameters.yaml"
         config_path.write_text(
@@ -1912,21 +2129,45 @@ class TestBuildPreprocessResultManifestMode:
         )
         # Should NOT raise because extra_manifest_rows=warn
         result, reconciliation_result = preprocess.build_preprocess_result(
-            _simple_df(2), None, {}, preprocess.REPLACE_UNSPECIFIED,
-            config_path=config_path, catalog=catalog, manifest=manifest
+            _simple_df(2),
+            None,
+            {},
+            preprocess.REPLACE_UNSPECIFIED,
+            config_path=config_path,
+            catalog=catalog,
+            manifest=manifest,
         )
         assert reconciliation_result is not None
         assert "EXTRA_CLIENT" in reconciliation_result.extra_rows
 
-    def test_manifest_mode_missing_language_falls_back_to_default(self, tmp_path) -> None:
+    def test_manifest_mode_missing_language_falls_back_to_default(
+        self, tmp_path
+    ) -> None:
         catalog = _make_catalog()
         # C001 has no language in manifest row
         manifest = _make_manifest(
-            {"client_id": "C001", "notice_version": "overdue_standard_v1", "language": None, "experiment_id": None, "experiment_arm": None},
-            {"client_id": "C002", "notice_version": "overdue_standard_v1", "language": "fr", "experiment_id": None, "experiment_arm": None},
+            {
+                "client_id": "C001",
+                "notice_version": "overdue_standard_v1",
+                "language": None,
+                "experiment_id": None,
+                "experiment_arm": None,
+            },
+            {
+                "client_id": "C002",
+                "notice_version": "overdue_standard_v1",
+                "language": "fr",
+                "experiment_id": None,
+                "experiment_arm": None,
+            },
         )
         result, reconciliation_result = preprocess.build_preprocess_result(
-            _simple_df(2), None, {}, preprocess.REPLACE_UNSPECIFIED, catalog=catalog, manifest=manifest
+            _simple_df(2),
+            None,
+            {},
+            preprocess.REPLACE_UNSPECIFIED,
+            catalog=catalog,
+            manifest=manifest,
         )
         assert reconciliation_result is not None
         assert "C001" in reconciliation_result.missing_language_clients
@@ -1952,15 +2193,35 @@ class TestWriteAssignmentMetadata:
         """
         catalog = _make_catalog()
         manifest = _make_manifest(
-            {"client_id": "C001", "notice_version": "overdue_standard_v1", "language": "en", "experiment_id": None, "experiment_arm": None},
-            {"client_id": "C002", "notice_version": "overdue_standard_v1", "language": "fr", "experiment_id": None, "experiment_arm": None},
+            {
+                "client_id": "C001",
+                "notice_version": "overdue_standard_v1",
+                "language": "en",
+                "experiment_id": None,
+                "experiment_arm": None,
+            },
+            {
+                "client_id": "C002",
+                "notice_version": "overdue_standard_v1",
+                "language": "fr",
+                "experiment_id": None,
+                "experiment_arm": None,
+            },
         )
         result, reconciliation_result = preprocess.build_preprocess_result(
-            _simple_df(2), None, {}, preprocess.REPLACE_UNSPECIFIED, catalog=catalog, manifest=manifest
+            _simple_df(2),
+            None,
+            {},
+            preprocess.REPLACE_UNSPECIFIED,
+            catalog=catalog,
+            manifest=manifest,
         )
         assert reconciliation_result is not None
         import json
-        out_path = preprocess.write_assignment_metadata(tmp_path, "run123", catalog, reconciliation_result, result.clients)
+
+        out_path = preprocess.write_assignment_metadata(
+            tmp_path, "run123", catalog, reconciliation_result, result.clients
+        )
         assert out_path.exists()
         payload = json.loads(out_path.read_text())
         assert payload["counts_by_version"] == {"overdue_standard_v1": 2}

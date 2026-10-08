@@ -916,12 +916,8 @@ class TestBundlePdfs:
         with pytest.raises(FileNotFoundError, match="Expected artifact"):
             bundle_pdfs.bundle_pdfs(config)
 
-    def test_bundle_pdfs_raises_for_language_mismatch(self, tmp_path: Path) -> None:
-        """Verify bundle_pdfs raises error if artifact language doesn't match.
-
-        Real-world significance:
-        - Bundling must process same language as artifact
-        """
+    def test_bundle_pdfs_requires_explicit_render_jobs(self, tmp_path: Path) -> None:
+        """A language label cannot substitute for the list of expected notices."""
         artifact = sample_input.create_test_artifact_payload(
             num_clients=1, language="en", run_id="test"
         )
@@ -940,15 +936,13 @@ class TestBundlePdfs:
             run_id="test",
         )
 
-        with pytest.raises(ValueError, match="language"):
+        with pytest.raises(FileNotFoundError, match="render_jobs.json"):
             bundle_pdfs.bundle_pdfs(config)
 
-    def test_bundle_pdfs_returns_empty_when_no_pdfs(self, tmp_path: Path) -> None:
-        """Verify bundle_pdfs returns empty if no PDFs found.
-
-        Real-world significance:
-        - No PDFs generated means nothing to bundle
-        """
+    def test_bundle_pdfs_rejects_uncompiled_nonempty_cohort(
+        self, tmp_path: Path
+    ) -> None:
+        """A nonempty cohort without compiled notices is a failure, not empty success."""
         artifact = sample_input.create_test_artifact_payload(
             num_clients=1, run_id="test"
         )
@@ -967,6 +961,5 @@ class TestBundlePdfs:
             run_id="test",
         )
 
-        results = bundle_pdfs.bundle_pdfs(config)
-
-        assert results == []
+        with pytest.raises(FileNotFoundError, match="render_jobs.json"):
+            bundle_pdfs.bundle_pdfs(config)

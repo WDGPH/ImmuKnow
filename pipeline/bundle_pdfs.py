@@ -58,6 +58,8 @@ from itertools import islice
 from pathlib import Path
 from typing import Dict, Iterator, List, Sequence, TypeVar
 
+from .generate_notices import read_render_jobs
+
 from pypdf import PdfReader, PdfWriter
 
 from .config_loader import load_config
@@ -87,7 +89,7 @@ class BundleConfig:
     """
 
     output_dir: Path
-    language: str
+    language: str | None
     bundle_size: int
     bundle_strategy: BundleStrategy
     run_id: str
@@ -144,7 +146,7 @@ PDF_PATTERN = re.compile(
 
 def bundle_pdfs_with_config(
     output_dir: Path,
-    language: str,
+    language: str | None,
     run_id: str,
     config_path: Path | None = None,
 ) -> List[BundleResult]:
@@ -548,14 +550,16 @@ def write_bundle(
     artifact_path: Path,
 ) -> BundleResult:
     # Generate filename based on bundle type and identifiers
+    languages = sorted({record.client["language"] for record in plan.clients})
+    prefix = languages[0] if len(languages) == 1 else "notices"
     if plan.bundle_type == BundleType.SCHOOL_GROUPED:
         identifier_slug = slugify(plan.bundle_identifier or "unknown")
-        name = f"{config.language}_school_{identifier_slug}_{plan.bundle_number:03d}_of_{plan.total_bundles:03d}"
+        name = f"{prefix}_school_{identifier_slug}_{plan.bundle_number:03d}_of_{plan.total_bundles:03d}"
     elif plan.bundle_type == BundleType.BOARD_GROUPED:
         identifier_slug = slugify(plan.bundle_identifier or "unknown")
-        name = f"{config.language}_board_{identifier_slug}_{plan.bundle_number:03d}_of_{plan.total_bundles:03d}"
+        name = f"{prefix}_board_{identifier_slug}_{plan.bundle_number:03d}_of_{plan.total_bundles:03d}"
     else:  # SIZE_BASED
-        name = f"{config.language}_bundle_{plan.bundle_number:03d}_of_{plan.total_bundles:03d}"
+        name = f"{prefix}_bundle_{plan.bundle_number:03d}_of_{plan.total_bundles:03d}"
 
     output_pdf = combined_dir / f"{name}.pdf"
     manifest_path = metadata_dir / f"{name}_manifest.json"
@@ -567,7 +571,8 @@ def write_bundle(
 
     manifest = {
         "run_id": config.run_id,
-        "language": config.language,
+        "language": languages[0] if len(languages) == 1 else None,
+        "languages": languages,
         "bundle_type": plan.bundle_type.value,
         "bundle_identifier": plan.bundle_identifier,
         "bundle_number": plan.bundle_number,
@@ -619,22 +624,31 @@ def bundle_pdfs(config: BundleConfig) -> List[BundleResult]:
         raise FileNotFoundError(f"Expected artifact at {artifact_path}")
 
     artifact = load_artifact(config.output_dir, config.run_id)
-    if artifact.get("language") != config.language:
-        raise ValueError(
-            f"Artifact language {artifact.get('language')!r} does not match requested language {config.language!r}."
-        )
     clients = build_client_lookup(artifact)
-
-    records = build_pdf_records(config.output_dir, config.language, clients)
+    jobs = read_render_jobs(config.output_dir / "artifacts", require_compiled=True)
+    if {(job.sequence, job.client_id) for job in jobs} != set(clients):
+        raise ValueError("Render jobs do not match the canonical cohort")
+    records = [
+        PdfRecord(
+            sequence=job.sequence,
+            client_id=job.client_id,
+            pdf_path=job.pdf,
+            page_count=len(PdfReader(job.pdf).pages),
+            client=clients[(job.sequence, job.client_id)],
+        )
+        for job in jobs
+    ]
     if not records:
-        LOG.info("No PDFs found for language %s; nothing to bundle.", config.language)
+        LOG.info("The cohort is empty; nothing to bundle.")
         return []
 
     log_path = config.output_dir / "logs" / f"preprocess_{config.run_id}.log"
     plans = plan_bundles(config, records, log_path)
-    if not plans:
-        LOG.info("No bundle plans produced; check bundle size and filters.")
-        return []
+    planned = [record.pdf_path for plan in plans for record in plan.clients]
+    if len(planned) != len(records) or set(planned) != {
+        record.pdf_path for record in records
+    }:
+        raise ValueError("Bundle plans must include every expected notice exactly once")
 
     combined_dir = config.output_dir / "pdf_combined"
     combined_dir.mkdir(parents=True, exist_ok=True)

@@ -12,12 +12,30 @@ from typing import Any, Dict, List, Optional, Sequence
 
 
 @dataclass(frozen=True)
+class RenderJob:
+    """Map one canonical client to its static template, JSON input, and PDF.
+
+    All paths are absolute filesystem paths. ``workspace`` bounds Typst reads;
+    the compiler translates ``data`` into a path relative to that root.
+    """
+
+    sequence: str
+    client_id: str
+    language: str
+    version_id: str
+    workspace: Path
+    template: Path
+    data: Path
+    pdf: Path
+
+
+@dataclass(frozen=True)
 class ClientRecord:
     """Unified client record across all pipeline steps.
 
     This dataclass represents a single client (student) record passed through
     the entire pipeline. It contains all necessary information for:
-    
+
     - Generating personalized notices
     - Creating QR codes
     - Encrypting PDFs
@@ -72,9 +90,9 @@ class ClientRecord:
 
     metadata : Dict[str, object]
         Custom pipeline metadata (warnings, flags, etc.).
-        
+
     qr : Optional[Dict[str, Any]]
-    
+
         - QR code information (if generated):
             - payload: URL encoded in QR code (same string that becomes QR PNG data)
             - filename: PNG filename (e.g., "qr_code_00001_1234567890.png")
@@ -92,7 +110,7 @@ class ClientRecord:
     vaccines_due_list: Optional[List[str]]
     vaccines_due_agent_list: Optional[List[str]]
     received: Optional[Sequence[Dict[str, object]]]
-    metadata: Dict[str, object]
+    metadata: Dict[str, Any]
     qr: Optional[Dict[str, Any]] = None
 
 
@@ -145,13 +163,13 @@ class ArtifactPayload:
     """
 
     run_id: str
-    language: str
+    language: str | None
     clients: List[ClientRecord]
     warnings: List[str]
     created_at: str
     input_file: Optional[str] = None
     total_clients: int = 0
-    assignment_mode: str = "fixed"       # "fixed" | "manifest"
+    assignment_mode: str = "fixed"  # "fixed" | "manifest"
     default_version: Optional[str] = None
 
 

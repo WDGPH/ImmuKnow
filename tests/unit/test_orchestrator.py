@@ -165,13 +165,14 @@ class TestValidateArgs:
         args.config_dir = tmp_path
         args.template_dir = None
 
-        import io
         with patch("builtins.print") as mock_print:
             orchestrator.validate_args(args)
 
         assert args.language is None
         # Warning must have been printed
-        printed = " ".join(str(c) for call in mock_print.call_args_list for c in call.args)
+        printed = " ".join(
+            str(c) for call in mock_print.call_args_list for c in call.args
+        )
         assert "Warning" in printed or "ignored" in printed.lower()
 
     def test_notice_assignments_missing_manifest_file(self, tmp_path: Path) -> None:
@@ -295,6 +296,10 @@ class TestPipelineSteps:
         """
         preprocess_result = MagicMock(clients=[], warnings=[])
         config_dir = tmp_path / "selected-config"
+        config_dir.mkdir()
+        (config_dir / "parameters.yaml").write_text(
+            "phix_validation:\n  enabled: false\n"
+        )
 
         with (
             patch(
@@ -340,8 +345,10 @@ class TestPipelineSteps:
 
         assert total_clients == 0
         assert reconciliation_result is None
-        assert mock_build_result.call_args.args[0] is mock_check_client_info.return_value
-        
+        assert (
+            mock_build_result.call_args.args[0] is mock_check_client_info.return_value
+        )
+
         assert mock_build_result.call_args.kwargs["config_path"] == (
             config_dir / "parameters.yaml"
         )
@@ -354,7 +361,8 @@ class TestPipelineSteps:
 
         with (
             patch(
-                "pipeline.orchestrator.generate_notices.main", return_value=[]
+                "pipeline.orchestrator.generate_notices.prepare_render_jobs",
+                return_value=[],
             ) as mock_generate,
             patch("builtins.print"),
         ):
@@ -368,8 +376,6 @@ class TestPipelineSteps:
         mock_generate.assert_called_once_with(
             output_dir / "artifacts" / "preprocessed_clients_test_run.json",
             output_dir / "artifacts",
-            template_dir / "assets" / "logo.png",
-            template_dir / "assets" / "signature.png",
             template_dir,
             config_path=config_dir / "parameters.yaml",
         )
@@ -611,16 +617,19 @@ class TestUnsupportedLanguageDetection:
         from pathlib import Path
 
         templates_dir = Path(__file__).parent.parent.parent / "templates"
-        renderers = generate_notices.build_language_renderers(templates_dir)
 
         # Verify renderer dispatch works for valid languages
         en = Language.from_string("en")
-        en_renderer = generate_notices.get_language_renderer(en, renderers)
-        assert callable(en_renderer)
+        en_renderer = generate_notices.select_template(
+            templates_dir, "legacy_fixed_v1", en.value
+        )
+        assert en_renderer.is_file()
 
         fr = Language.from_string("fr")
-        fr_renderer = generate_notices.get_language_renderer(fr, renderers)
-        assert callable(fr_renderer)
+        fr_renderer = generate_notices.select_template(
+            templates_dir, "legacy_fixed_v1", fr.value
+        )
+        assert fr_renderer.is_file()
 
     def test_valid_languages_pass_all_checks(self) -> None:
         """Verify valid languages pass all validation checks.
@@ -633,19 +642,22 @@ class TestUnsupportedLanguageDetection:
         from pathlib import Path
 
         templates_dir = Path(__file__).parent.parent.parent / "templates"
-        renderers = generate_notices.build_language_renderers(templates_dir)
 
         # English
         en_lang = Language.from_string("en")
         assert en_lang == Language.ENGLISH
-        en_renderer = generate_notices.get_language_renderer(en_lang, renderers)
-        assert callable(en_renderer)
+        en_renderer = generate_notices.select_template(
+            templates_dir, "legacy_fixed_v1", en_lang.value
+        )
+        assert en_renderer.is_file()
 
         # French
         fr_lang = Language.from_string("fr")
         assert fr_lang == Language.FRENCH
-        fr_renderer = generate_notices.get_language_renderer(fr_lang, renderers)
-        assert callable(fr_renderer)
+        fr_renderer = generate_notices.select_template(
+            templates_dir, "legacy_fixed_v1", fr_lang.value
+        )
+        assert fr_renderer.is_file()
 
     def test_language_all_codes_returns_supported_languages(self) -> None:
         """Verify Language.all_codes() returns set of all supported languages.
@@ -741,7 +753,6 @@ class TestLanguageFailurePathDocumentation:
         from pathlib import Path
 
         templates_dir = Path(__file__).parent.parent.parent / "templates"
-        renderers = generate_notices.build_language_renderers(templates_dir)
 
         # This test is primarily documentation; verify current state
         assert Language.all_codes() == {"en", "fr"}
@@ -752,5 +763,7 @@ class TestLanguageFailurePathDocumentation:
 
         # Verify renderer dispatch works as documented
         en = Language.from_string("en")
-        en_renderer = generate_notices.get_language_renderer(en, renderers)
-        assert callable(en_renderer)
+        en_renderer = generate_notices.select_template(
+            templates_dir, "legacy_fixed_v1", en.value
+        )
+        assert en_renderer.is_file()

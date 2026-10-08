@@ -35,16 +35,19 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
+from importlib.resources import files
 from typing import List, Tuple
 
 import yaml
 from pypdf import PdfReader, PdfWriter
 
 from .enums import TemplateField
+from .config_loader import load_config
+from .generate_notices import read_artifact, read_render_jobs
 from .utils import build_client_context, validate_and_format_template
 
 # Configuration paths
-CONFIG_DIR = Path(__file__).resolve().parent.parent / "config"
+CONFIG_DIR = Path(str(files("config")))
 
 _encryption_config = None
 
@@ -88,7 +91,7 @@ def get_encryption_config():
     return load_encryption_config()
 
 
-def encrypt_pdf(file_path: str, context: dict) -> str:
+def encrypt_pdf(file_path: str, context: dict, *, config: dict | None = None) -> str:
     """Encrypt a PDF with a password derived from client context.
 
     Parameters
@@ -109,7 +112,8 @@ def encrypt_pdf(file_path: str, context: dict) -> str:
     ValueError
         If password template references missing fields or is invalid.
     """
-    config = get_encryption_config()
+    if config is None:
+        config = get_encryption_config()
     password_config = config.get("password", {})
     template = password_config.get("template", "{date_of_birth_iso_compact}")
 
@@ -137,6 +141,38 @@ def encrypt_pdf(file_path: str, context: dict) -> str:
         writer.write(f)
 
     return str(encrypted_path)
+
+
+def encrypt_expected_notices(
+    artifact_path: Path, artifact_dir: Path, config_path: Path
+) -> list[Path]:
+    """Encrypt exactly the compiled cohort, using its recorded client mapping.
+
+    Parameters
+    ----------
+    artifact_path : Path
+        Canonical client records for password preparation.
+    artifact_dir : Path
+        Render jobs and successful compilation evidence.
+    config_path : Path
+        Selected parameters, including the password format.
+
+    Returns
+    -------
+    list[Path]
+        Encrypted outputs in canonical order. Any failure halts the run.
+    """
+    clients = {
+        (client.sequence, client.client_id): client
+        for client in read_artifact(artifact_path).clients
+    }
+    config = load_config(config_path).get("encryption", {})
+    outputs = []
+    for job in read_render_jobs(artifact_dir, require_compiled=True):
+        client = clients[(job.sequence, job.client_id)]
+        context = build_client_context(client)
+        outputs.append(Path(encrypt_pdf(str(job.pdf), context, config=config)))
+    return outputs
 
 
 def load_notice_metadata(json_path: Path) -> tuple:

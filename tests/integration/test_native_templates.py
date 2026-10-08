@@ -57,6 +57,7 @@ def prepare_case(workspace: Path, case: str) -> tuple[Path, Path, dict]:
         logo_path="/templates/assets/logo.png",
         signature_path="/templates/assets/signature.png",
     )
+    assert client.qr is not None
     qrcode.make(client.qr["payload"]).save(workspace / "qr.png")
     notice["client_data"]["qr_img"] = "/qr.png"
     version_dir = (

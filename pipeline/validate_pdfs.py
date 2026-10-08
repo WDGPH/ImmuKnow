@@ -70,7 +70,7 @@ class ValidationResult:
         True if no warnings, False otherwise
     measurements : dict[str, int | float | str]
         Actual measurements extracted from PDF with proper types:
-        
+
         - page_count (int): Number of pages
         - signature_page (int): Page where signature block ends
         - contact_height_inches (float): Contact table height in inches
@@ -248,7 +248,7 @@ def validate_pdf_layout(
     reader: PdfReader,
     enabled_rules: dict[str, str],
     client_id_map: dict[str, str] | None = None,
-) -> tuple[List[str], dict[str, float]]:
+) -> tuple[List[str], dict[str, float | str]]:
     """Check PDF for layout issues using invisible markers and metadata.
 
     Parameters
@@ -598,6 +598,7 @@ def main(
     json_output: Path | None = None,
     client_id_map: dict[str, str] | None = None,
     config_dir: Path | None = None,
+    expected_pdfs: List[Path] | None = None,
 ) -> ValidationSummary:
     """Main entry point for PDF validation.
 
@@ -639,8 +640,13 @@ def main(
     if client_id_map is None:
         client_id_map = {}
 
-    files = discover_pdfs(target)
-    filtered = filter_by_language(files, language)
+    if expected_pdfs is None:
+        filtered = filter_by_language(discover_pdfs(target), language)
+    else:
+        filtered = expected_pdfs
+        for pdf in filtered:
+            if not pdf.is_file():
+                raise FileNotFoundError(f"Expected notice PDF is missing: {pdf}")
     summary = validate_pdfs(
         filtered, enabled_rules=enabled_rules, client_id_map=client_id_map
     )

@@ -16,7 +16,13 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional
 
-from .notice_versioning import NoticeVersionCatalog, ResolvedNotice, validate_eligibility
+from .notice_versioning import (
+    NoticeVersionCatalog,
+    ResolvedNotice,
+    validate_eligibility,
+    validate_version_id,
+)
+from .enums import Language
 
 if TYPE_CHECKING:
     from .data_models import ClientRecord
@@ -25,7 +31,7 @@ if TYPE_CHECKING:
 @dataclasses.dataclass(frozen=True)
 class ManifestRow:
     client_id: str
-    notice_version: str
+    version_id: str
     language: Optional[str]
     experiment_id: Optional[str]
     experiment_arm: Optional[str]
@@ -37,13 +43,18 @@ class ReconciliationResult:
     # the print_preflight_summary display format exactly.
     counts_by_version: Dict[str, int]
     counts_by_language: Dict[str, int]
-    missing_clients: List[str]          # in cohort, not in manifest
-    extra_rows: List[str]               # in manifest, not in cohort
-    duplicate_manifest_ids: List[str]   # always empty; duplicates caught by load_manifest
-    unknown_versions: List[str]         # version IDs not in catalog (deduplicated)
-    missing_language_clients: List[str] # client_ids whose manifest row has no language
-    eligibility_conflicts: List[str]    # client_ids failing eligibility
-    default_language: str               # catalog.default_language, used by print summary
+    missing_clients: List[str]  # in cohort, not in manifest
+    extra_rows: List[str]  # in manifest, not in cohort
+    duplicate_manifest_ids: List[
+        str
+    ]  # always empty; duplicates caught by load_manifest
+    unknown_versions: List[str]  # version IDs not in catalog (deduplicated)
+    missing_language_clients: List[str]  # client_ids whose manifest row has no language
+    eligibility_conflicts: List[str]  # client_ids failing eligibility
+    default_language: str  # catalog.default_language, used by print summary
+    resolved_notices: Dict[str, ResolvedNotice] = dataclasses.field(
+        default_factory=dict
+    )
 
 
 def load_manifest(path: Path) -> Dict[str, ManifestRow]:
@@ -87,6 +98,11 @@ def load_manifest(path: Path) -> Dict[str, ManifestRow]:
                 f"Assignment manifest row {idx} (client_id={client_id!r}) is missing "
                 f"required field 'notice_version': {path}"
             )
+        validate_version_id(notice_version)
+        if item.get("version_id") and item["version_id"] != notice_version:
+            raise ValueError(
+                f"Conflicting version_id and notice_version for client {client_id}"
+            )
 
         if client_id in seen:
             raise ValueError(
@@ -96,12 +112,14 @@ def load_manifest(path: Path) -> Dict[str, ManifestRow]:
         seen[client_id] = idx
 
         language = item.get("language") or None
+        if language is not None:
+            Language.from_string(language)
         experiment_id = item.get("experiment_id") or None
         experiment_arm = item.get("experiment_arm") or None
 
         result[client_id] = ManifestRow(
             client_id=client_id,
-            notice_version=notice_version,
+            version_id=notice_version,
             language=language,
             experiment_id=experiment_id,
             experiment_arm=experiment_arm,
@@ -131,68 +149,50 @@ def reconcile(
     unknown_versions_set: set[str] = set()
     missing_language_clients: List[str] = []
     eligibility_conflicts: List[str] = []
+    resolved_notices: Dict[str, ResolvedNotice] = {}
 
     for client in clients:
         cid = client.client_id
         row = manifest.get(cid)
 
-        if row is not None:
-            version = row.notice_version
+        if row is None and not allow_unassigned:
+            missing_clients.append(cid)
+            continue
 
-            if version not in catalog.versions:
-                unknown_versions_set.add(version)
-                continue
-
-            lang = row.language
-            if not lang:
-                lang = catalog.default_language
-                missing_language_clients.append(cid)
-
-            catalog_version = catalog.versions[version]
-            resolved = ResolvedNotice(
-                notice_version=version,
-                notice_kind=catalog_version.kind.value,
-                language=lang,
-                experiment_id=row.experiment_id,
-                experiment_arm=row.experiment_arm,
-                assignment_source="manifest",
+        input_version = client.metadata.get("version_id")
+        if row is not None and input_version and input_version != row.version_id:
+            raise ValueError(
+                f"Conflicting version_id and manifest notice_version for client {cid}: "
+                f"{input_version!r} != {row.version_id!r}"
             )
-            try:
-                validate_eligibility(client, resolved, catalog)
-            except ValueError:
-                eligibility_conflicts.append(cid)
-                continue
-
-            composite_key = f"{version} ({lang})"
-            counts_by_version[composite_key] = counts_by_version.get(composite_key, 0) + 1
-            counts_by_language[lang] = counts_by_language.get(lang, 0) + 1
-
-        else:
-            if allow_unassigned:
-                version = catalog.default_version
-                lang = catalog.default_language
-                catalog_version = catalog.versions[version]
-                resolved = ResolvedNotice(
-                    notice_version=version,
-                    notice_kind=catalog_version.kind.value,
-                    language=lang,
-                    experiment_id=None,
-                    experiment_arm=None,
-                    assignment_source="default",
-                )
-                try:
-                    validate_eligibility(client, resolved, catalog)
-                except ValueError:
-                    eligibility_conflicts.append(cid)
-                    continue
-
-                composite_key = f"{version} ({lang})"
-                counts_by_version[composite_key] = (
-                    counts_by_version.get(composite_key, 0) + 1
-                )
-                counts_by_language[lang] = counts_by_language.get(lang, 0) + 1
-            else:
-                missing_clients.append(cid)
+        version = row.version_id if row else (input_version or catalog.default_version)
+        validate_version_id(version)
+        if version not in catalog.versions:
+            unknown_versions_set.add(version)
+            continue
+        lang = (row.language if row else None) or catalog.default_language
+        Language.from_string(lang)
+        if row and not row.language:
+            missing_language_clients.append(cid)
+        resolved = ResolvedNotice(
+            version_id=version,
+            notice_kind=catalog.versions[version].kind.value,
+            language=lang,
+            experiment_id=row.experiment_id if row else None,
+            experiment_arm=row.experiment_arm if row else None,
+            assignment_source="manifest"
+            if row
+            else ("input" if input_version else "default"),
+        )
+        try:
+            validate_eligibility(client, resolved, catalog)
+        except ValueError:
+            eligibility_conflicts.append(cid)
+            continue
+        resolved_notices[cid] = resolved
+        composite_key = f"{version} ({lang})"
+        counts_by_version[composite_key] = counts_by_version.get(composite_key, 0) + 1
+        counts_by_language[lang] = counts_by_language.get(lang, 0) + 1
 
     return ReconciliationResult(
         counts_by_version=counts_by_version,
@@ -204,6 +204,7 @@ def reconcile(
         missing_language_clients=missing_language_clients,
         eligibility_conflicts=eligibility_conflicts,
         default_language=catalog.default_language,
+        resolved_notices=resolved_notices,
     )
 
 
