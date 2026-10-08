@@ -62,8 +62,7 @@ def prepare_clients(
     """
     configure_logging(output_dir, run_id)
     schema = config_dir / "input_schema.json"
-    validate_input(input_path, schema if schema.exists() else None)
-    frame = normalize_dataframe(read_input(input_path))
+    frame = read_input(input_path, schema if schema.exists() else None)
     frame = check_addresses_complete(frame, drop_incomplete=True, output_dir=output_dir)
     frame = check_client_info_complete(
         frame,
@@ -105,7 +104,7 @@ def check_addresses_complete(
     df: pd.DataFrame, drop_incomplete=True, output_dir: Path | None = None
 ) -> pd.DataFrame:
     """
-    Check if address fields are complete in the DataFrame.
+    Check prepared address fields without changing their source values.
 
     Adds a temporary boolean 'address_complete' column based on presence of
     street address, city, province, and postal code.
@@ -113,33 +112,17 @@ def check_addresses_complete(
 
     df = df.copy()
 
-    # Normalize text fields: convert to string, strip whitespace, convert "" to NA
-    address_cols = [
-        "street_address_line_1",
-        "street_address_line_2",
-        "city",
-        "province",
-        "postal_code",
-    ]
-
-    for col in address_cols:
-        df[col] = df[col].astype(str).str.strip().replace({"": pd.NA, "nan": pd.NA})
-
     # Build combined address line
     df["address"] = (
-        df["street_address_line_1"].fillna("")
-        + " "
-        + df["street_address_line_2"].fillna("")
+        df["street_address_line_1"] + " " + df["street_address_line_2"]
     ).str.strip()
-
-    df["address"] = df["address"].replace({"": pd.NA})
 
     # Check completeness
     df["address_complete"] = (
-        df["address"].notna()
-        & df["city"].notna()
-        & df["province"].notna()
-        & df["postal_code"].notna()
+        df["address"].ne("")
+        & df["city"].ne("")
+        & df["province"].ne("")
+        & df["postal_code"].ne("")
     )
 
     if not df["address_complete"].all():
@@ -171,7 +154,7 @@ def check_client_info_complete(
     output_dir: Path | None = None,
 ) -> pd.DataFrame:
     """
-    Check if client fields are complete in the DataFrame.
+    Check prepared client fields without repeating text cleanup.
 
     Adds a temporary boolean 'client_info_complete' column based on presence of
     first name, last name, DOB, school name, immunizations given, and client ID.
@@ -179,7 +162,6 @@ def check_client_info_complete(
 
     df = df.copy()
 
-    # Normalize text fields: convert to string, strip whitespace, convert "" to NA
     client_info_cols = [
         "school_name",
         "client_id",
@@ -189,11 +171,8 @@ def check_client_info_complete(
         "imms_given",
     ]
 
-    for col in client_info_cols:
-        df[col] = df[col].astype(str).str.strip().replace({"": pd.NA, "nan": pd.NA})
-
     # Check completeness
-    df["client_info_complete"] = df[client_info_cols].notna().all(axis=1)
+    df["client_info_complete"] = df[client_info_cols].ne("").all(axis=1)
 
     if not df["client_info_complete"].all():
         incomplete_count = (~df["client_info_complete"]).sum()
@@ -311,43 +290,37 @@ def validate_csv_path(file_path: Path) -> None:
         raise ValueError(f"Input must be a CSV file: {file_path}")
 
 
-def read_input(file_path: Path) -> pd.DataFrame:
-    """Read CSV with delimiter detection and preserve source fields as strings."""
+def read_input(file_path: Path, schema_path: Path | None = None) -> pd.DataFrame:
+    """Read and trim CSV text once, then validate it against the selected schema."""
     validate_csv_path(file_path)
     for encoding in ("utf-8-sig", "latin-1", "cp1252"):
         try:
             frame = pd.read_csv(
-                file_path, sep=None, encoding=encoding, engine="python", dtype=str
+                file_path,
+                sep=None,
+                encoding=encoding,
+                engine="python",
+                dtype=str,
+                keep_default_na=False,
             )
         except (UnicodeDecodeError, pd.errors.ParserError):
             continue
         LOG.info("Loaded %s rows from %s", len(frame), file_path)
-        return frame
+        return validate_input(normalize_dataframe(frame), schema_path)
     raise ValueError("Could not decode CSV with common encodings or delimiters")
 
 
-def validate_input(file_path: Path, schema_path: Path | None = None) -> None:
-    """Validate that the input file conforms to the expected column schema.
-
-    Parameters
-    ----------
-    file_path : Path
-        Path to the CSV cohort.
-
-    Raises
-    ------
-    ValueError
-        If the file does not conform to the schema defined in
-        ``config/input_schema.json``.
-    """
-    validate_csv_path(file_path)
+def validate_input(
+    frame: pd.DataFrame, schema_path: Path | None = None
+) -> pd.DataFrame:
+    """Validate prepared values and supply empty strings for absent optional fields."""
     descriptor = json.loads(
         (schema_path or INPUT_SCHEMA_PATH).read_text(encoding="utf-8")
     )
     schema = Schema.from_descriptor(descriptor)
+    missing = [field.name for field in schema.fields if field.name not in frame.columns]
     report = fl_validate(
-        file_path.name,
-        basepath=str(file_path.parent),
+        [list(frame.columns), *frame.values.tolist()],
         schema=schema,
         detector=Detector(schema_sync=True),
     )
@@ -358,6 +331,15 @@ def validate_input(file_path: Path, schema_path: Path | None = None) -> None:
             "Input file does not conform to expected schema:\n"
             + "\n".join(f"  - {e[0]}" for e in errors)
         )
+
+    prepared = frame.reindex(columns=[*frame.columns, *missing], fill_value="")
+    for field in schema.fields:
+        if field.type == "date":
+            prepared[field.name] = [
+                value.isoformat() if value is not None else ""
+                for value, _ in map(field.read_cell, prepared[field.name])
+            ]
+    return prepared
 
 
 def parse_overdue_diseases(
@@ -400,40 +382,9 @@ def parse_overdue_diseases(
     return entries
 
 
-_REQUIRED_STRING_COLS = [
-    "school_name",
-    "first_name",
-    "last_name",
-    "street_address_line_1",
-    "street_address_line_2",
-    "city",
-    "province",
-    "postal_code",
-    "overdue_agent",
-]
-
-_OPTIONAL_COLS = ["board_name", "board_id", "school_id", "version_id"]
-
-
 def normalize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    """Normalize data types on a DataFrame with snake_case column names.
-
-    Applies string normalization, date parsing, and numeric coercion.
-    """
-    working = df.copy()
-
-    for col in _REQUIRED_STRING_COLS:
-        working[col] = working[col].fillna(" ").astype(str).str.strip()
-
-    for col in _OPTIONAL_COLS:
-        if col not in working.columns:
-            working[col] = ""
-        else:
-            working[col] = working[col].fillna(" ").astype(str).str.strip()
-
-    working["date_of_birth"] = pd.to_datetime(working["date_of_birth"], errors="coerce")
-
-    return working
+    """Prepare all CSV fields as trimmed strings, with empty strings for blanks."""
+    return df.fillna("").astype(str).apply(lambda column: column.str.strip())
 
 
 def synthesize_identifier(existing: str, source: str, prefix: str) -> str:
@@ -897,8 +848,8 @@ def build_preprocess_result(
     Parameters
     ----------
     df : pd.DataFrame
-        Raw input DataFrame loaded from the CSV cohort.
-        Must have lower_snake_case column names matching the input schema.
+        Prepared input with trimmed string values and empty strings for blanks.
+        Column names match the input schema; dates remain ISO strings.
     vaccine_reference : Dict[str, Any]
         Maps vaccine codes to disease names. Passed through to
         ``enrich_grouped_records``.
@@ -925,9 +876,6 @@ def build_preprocess_result(
         ``show_validity_markers`` is ``True`` in ``parameters.yaml``.
         This indicates the source data is structurally inconsistent and
         cannot be displayed reliably.
-    ValueError
-        If any required columns are missing from ``df`` (raised by the
-        underlying ``normalize_dataframe`` call).
 
     Notes
     -----
@@ -939,7 +887,7 @@ def build_preprocess_result(
       ``show_validity_markers`` is ``False``.
     """
     warnings: set[str] = set()
-    working = normalize_dataframe(df)
+    working = df.copy()
 
     params = config
     normalization_path = config_dir / "disease_normalization.json"
@@ -983,10 +931,9 @@ def build_preprocess_result(
         axis=1,
     )
 
-    if (working["board_name"] == "").any():
-        affected = (
-            working.loc[working["board_name"] == "", "school_name"].unique().tolist()
-        )
+    missing_board = working.get("board_name", pd.Series("", index=working.index)).eq("")
+    if missing_board.any():
+        affected = working.loc[missing_board, "school_name"].unique().tolist()
         warnings.add(
             "Missing board name for: " + ", ".join(sorted(filter(None, affected)))
             if affected
@@ -1023,11 +970,7 @@ def build_preprocess_result(
     for row in sorted_df.to_dict(orient="records"):
         client_id = str(row["client_id"])
         sequence = row["sequence"]
-        dob_iso = (
-            row["date_of_birth"].strftime("%Y-%m-%d")
-            if pd.notna(row["date_of_birth"])
-            else None
-        )
+        dob_iso = row["date_of_birth"] or None
         if dob_iso is None:
             warnings.add(f"Missing date of birth for client {client_id}")
 
@@ -1073,7 +1016,7 @@ def build_preprocess_result(
         }
 
         board = {
-            "name": row["board_name"] or "",
+            "name": row.get("board_name", ""),
             "id": row["board_id"],
         }
 
@@ -1096,7 +1039,7 @@ def build_preprocess_result(
             overdue_agents=overdue_agents,
             received=received if received else None,
             metadata={},
-            version_id=row["version_id"] or None,
+            version_id=row.get("version_id") or None,
         )
 
         clients.append(client)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -29,24 +30,24 @@ def build_result(
         config = yaml.safe_load((preprocess.CONFIG_DIR / "parameters.yaml").read_text())
     if catalog is None:
         catalog = _make_catalog()
+    prepared = preprocess.normalize_dataframe(df)
     if manifest is None:
         manifest = {
             str(row["client_id"]): ManifestRow(
                 client_id=str(row["client_id"]),
                 version_id=(
                     "overdue_agents_v1"
-                    if pd.notna(row.get("overdue_disease"))
-                    and str(row.get("overdue_disease")).strip()
+                    if row.get("overdue_disease")
                     else "affirmative_schedule_v1"
                 ),
                 language=language,
                 experiment_id=None,
                 experiment_arm=None,
             )
-            for _, row in df.iterrows()
+            for _, row in prepared.iterrows()
         }
     return preprocess.build_preprocess_result(
-        df,
+        prepared,
         vaccine_reference,
         replace_unspecified,
         config=config,
@@ -119,11 +120,12 @@ class TestReadInput:
         path = tmp_path / "students.csv"
         source.to_csv(path, index=False, encoding="utf-8-sig")
 
-        actual = preprocess.normalize_dataframe(preprocess.read_input(path))
+        actual = preprocess.read_input(path)
 
         assert actual.loc[0, "client_id"] == "0000000001"
         assert actual.loc[0, "school_id"] == "0012"
         assert actual.loc[0, "board_id"] == "0034"
+        assert actual.loc[0, "date_of_birth"] == "2015-01-02"
 
     def test_read_input_csv_file(self, tmp_test_dir: Path) -> None:
         """Read a supported CSV source."""
@@ -135,6 +137,30 @@ class TestReadInput:
 
         assert len(df_read) == 3
         assert "school_name" in df_read.columns
+
+    def test_csv_keeps_literal_na_text_and_trims_all_columns(
+        self, tmp_path: Path
+    ) -> None:
+        """NA-like names remain data while surrounding source spaces are removed."""
+        source = sample_input.create_test_input_dataframe(num_clients=3)
+        source["first_name"] = [" NA ", " nan ", " NULL "]
+        source["client_id"] = [" 0000000001 ", " 0000000002 ", " 0000000003 "]
+        source["imms_given"] = [" May 1, 2020 - DTaP "] * 3
+        path = tmp_path / "names.csv"
+        source.to_csv(path, index=False)
+
+        actual = preprocess.read_input(path)
+
+        assert actual["first_name"].tolist() == ["NA", "nan", "NULL"]
+        assert actual["client_id"].tolist() == [
+            "0000000001",
+            "0000000002",
+            "0000000003",
+        ]
+        assert actual["imms_given"].tolist() == ["May 1, 2020 - DTaP"] * 3
+        for column in ("board_name", "board_id", "school_id", "version_id"):
+            assert column in actual
+        assert actual["board_id"].tolist() == [""] * 3
 
     def test_read_input_missing_file_raises_error(self, tmp_test_dir: Path) -> None:
         """Verify error when input file doesn't exist.
@@ -156,6 +182,63 @@ class TestReadInput:
 
         with pytest.raises(ValueError, match="CSV"):
             preprocess.read_input(unsupported_path)
+
+    @pytest.mark.parametrize(
+        ("column", "invalid"),
+        [("first_name", "   "), ("date_of_birth", "2015-02-29")],
+    )
+    def test_schema_rejects_cleaned_blank_or_invalid_date(
+        self, tmp_path: Path, column: str, invalid: str
+    ) -> None:
+        source = sample_input.create_test_input_dataframe(num_clients=1)
+        source.loc[0, column] = invalid
+        path = tmp_path / "invalid.csv"
+        source.to_csv(path, index=False)
+
+        with pytest.raises(ValueError, match=column):
+            preprocess.read_input(path)
+
+    def test_schema_requires_mandatory_source_columns(self, tmp_path: Path) -> None:
+        source = sample_input.create_test_input_dataframe(num_clients=1)
+        source = source.drop(columns=["imms_given"])
+        path = tmp_path / "missing-column.csv"
+        source.to_csv(path, index=False)
+
+        with pytest.raises(ValueError, match="imms_given"):
+            preprocess.read_input(path)
+
+    def test_schema_fills_absent_optional_address_column(self, tmp_path: Path) -> None:
+        """The schema supplies optional blank fields absent from a CSV export."""
+        source = sample_input.create_test_input_dataframe(num_clients=1)
+        source = source.drop(columns=["street_address_line_2"])
+        path = tmp_path / "optional-column.csv"
+        source.to_csv(path, index=False)
+
+        actual = preprocess.read_input(path)
+
+        assert actual.loc[0, "street_address_line_2"] == ""
+        assert actual.loc[0, "client_id"] == "0000000001"
+
+    def test_selected_schema_validates_trimmed_values(self, tmp_path: Path) -> None:
+        """The caller's schema governs values after the single cleanup pass."""
+        descriptor = json.loads(preprocess.INPUT_SCHEMA_PATH.read_text())
+        first_name = next(
+            field for field in descriptor["fields"] if field["name"] == "first_name"
+        )
+        first_name["constraints"]["pattern"] = "^Alice$"
+        schema_path = tmp_path / "selected-schema.json"
+        schema_path.write_text(json.dumps(descriptor), encoding="utf-8")
+        source = sample_input.create_test_input_dataframe(num_clients=1)
+        path = tmp_path / "students.csv"
+        source.loc[0, "first_name"] = "  Alice  "
+        source.to_csv(path, index=False)
+
+        assert preprocess.read_input(path, schema_path).loc[0, "first_name"] == "Alice"
+
+        source.loc[0, "first_name"] = "  Bob  "
+        source.to_csv(path, index=False)
+        with pytest.raises(ValueError, match="first_name"):
+            preprocess.read_input(path, schema_path)
 
 
 @pytest.mark.unit
@@ -182,14 +265,15 @@ class TestNormalizeDataFrame:
         assert result["street_address_line_2"].iloc[0] == ""
         assert result["postal_code"].iloc[1] == ""
 
-    def test_normalize_dataframe_converts_dates(self) -> None:
-        """Verify date_of_birth is parsed to datetime."""
+    def test_normalize_dataframe_preserves_date_text(self) -> None:
+        """Calendar interpretation belongs to validation, not cleanup."""
         df = sample_input.create_test_input_dataframe(num_clients=2)
         df["date_of_birth"] = ["2015-01-02", "2014-05-06"]
 
         result = preprocess.normalize_dataframe(df)
 
-        assert pd.api.types.is_datetime64_any_dtype(result["date_of_birth"])
+        assert result["date_of_birth"].tolist() == ["2015-01-02", "2014-05-06"]
+        assert result["date_of_birth"].map(type).eq(str).all()
 
     def test_normalize_dataframe_trims_whitespace(self) -> None:
         """Verify string columns have leading/trailing whitespace stripped."""
@@ -394,13 +478,7 @@ class TestBuildPreprocessResult:
         """
         config_path = tmp_path / "parameters.yaml"
         config_path.write_text(
-            "\n".join(
-                [
-                    "preprocess:",
-                    "  include_dose: false",
-                    "  show_validity_markers: true",
-                ]
-            ),
+            "preprocess:\n  include_dose: false\n  show_validity_markers: true\n",
             encoding="utf-8",
         )
         df = sample_input.create_test_input_dataframe(num_clients=1)
@@ -1245,22 +1323,16 @@ class TestCheckAddressesComplete:
     """
 
     @pytest.fixture
-    def output_dir(self, tmp_path, monkeypatch) -> Path:
-        """Redirect the hardcoded output path to tmp_path and return it.
-
-        The function writes incomplete_addresses.csv to SCRIPT_DIR.parent/output.
-        Patching SCRIPT_DIR keeps test I/O isolated from the real output/ folder.
-        Returns the output directory path so CSV-checking tests can use it directly.
-        """
+    def output_dir(self, tmp_path) -> Path:
+        """Keep excluded-row diagnostics inside this test's workspace."""
         out = tmp_path / "output"
         out.mkdir(parents=True)
-        monkeypatch.setattr(preprocess, "SCRIPT_DIR", tmp_path / "pipeline")
         return out
 
     @pytest.fixture
     def complete_df(self) -> pd.DataFrame:
         """Three rows with fully populated address fields."""
-        return pd.DataFrame(
+        frame = pd.DataFrame(
             {
                 "street_address_line_1": ["123 Main St", "456 Side Rd", "789 Oak Ave"],
                 "street_address_line_2": ["", "Suite 5", ""],
@@ -1269,16 +1341,15 @@ class TestCheckAddressesComplete:
                 "postal_code": ["N1H 2T2", "N1H 2T3", "N1K 1B2"],
             }
         )
+        return preprocess.normalize_dataframe(frame)
 
     @pytest.fixture
     def mixed_df(self) -> pd.DataFrame:
         """Two complete rows and one row with missing city and postal_code.
 
-        Uses float("nan") so the normalisation step (.astype(str) → "nan" →
-        replaced with pd.NA) correctly detects the values as absent.
-        Plain Python None becomes the string "None" and would not be caught.
+        Missing values are converted to empty strings by the shared cleanup.
         """
-        return pd.DataFrame(
+        frame = pd.DataFrame(
             {
                 "street_address_line_1": ["123 Main St", "456 Side Rd", "789 Oak Ave"],
                 "street_address_line_2": ["", "", ""],
@@ -1287,6 +1358,7 @@ class TestCheckAddressesComplete:
                 "postal_code": ["N1H 2T2", "N1H 2T3", float("nan")],
             }
         )
+        return preprocess.normalize_dataframe(frame)
 
     def test_all_complete_returns_all_rows(self, complete_df) -> None:
         """Verify all rows are returned when every address is fully populated.
@@ -1321,7 +1393,7 @@ class TestCheckAddressesComplete:
 
         Assertion: Only the two complete rows are returned
         """
-        result = preprocess.check_addresses_complete(mixed_df)
+        result = preprocess.check_addresses_complete(mixed_df, output_dir=output_dir)
 
         assert len(result) == 2
 
@@ -1337,7 +1409,7 @@ class TestCheckAddressesComplete:
         Assertion: Warning message contains the count of incomplete records
         """
         with caplog.at_level("WARNING"):
-            preprocess.check_addresses_complete(mixed_df)
+            preprocess.check_addresses_complete(mixed_df, output_dir=output_dir)
 
         assert "There are 1 records with incomplete address information" in caplog.text
 
@@ -1366,7 +1438,9 @@ class TestCheckAddressesComplete:
 
         Assertion: All rows are returned when drop_incomplete is False
         """
-        result = preprocess.check_addresses_complete(mixed_df, drop_incomplete=False)
+        result = preprocess.check_addresses_complete(
+            mixed_df, drop_incomplete=False, output_dir=output_dir
+        )
 
         assert len(result) == len(mixed_df)
 
@@ -1389,7 +1463,9 @@ class TestCheckAddressesComplete:
             }
         )
 
-        result = preprocess.check_addresses_complete(df)
+        result = preprocess.check_addresses_complete(
+            preprocess.normalize_dataframe(df), output_dir=output_dir
+        )
 
         assert len(result) == 0
 
@@ -1412,22 +1488,16 @@ class TestCheckClientInfoComplete:
     """Required identity fields gate the assigned notice cohort."""
 
     @pytest.fixture
-    def output_dir(self, tmp_path, monkeypatch) -> Path:
-        """Redirect the hardcoded output path to tmp_path and return it.
-
-        The function writes incomplete_clients.csv to SCRIPT_DIR.parent/output.
-        Patching SCRIPT_DIR keeps test I/O isolated from the real output/ folder.
-        Returns the output directory path so CSV-checking tests can use it directly.
-        """
+    def output_dir(self, tmp_path) -> Path:
+        """Keep excluded-row diagnostics inside this test's workspace."""
         out = tmp_path / "output"
         out.mkdir(parents=True)
-        monkeypatch.setattr(preprocess, "SCRIPT_DIR", tmp_path / "pipeline")
         return out
 
     @pytest.fixture
     def complete_df(self) -> pd.DataFrame:
         """Two rows with complete identity fields."""
-        return pd.DataFrame(
+        frame = pd.DataFrame(
             {
                 "school_name": ["Tunnel Academy", "River School"],
                 "client_id": ["C001", "C002"],
@@ -1439,6 +1509,7 @@ class TestCheckClientInfoComplete:
                 "overdue_agent": ["MMR", "IPV"],
             }
         )
+        return preprocess.normalize_dataframe(frame)
 
     @pytest.fixture
     def complete_manifest_df(self) -> pd.DataFrame:
@@ -1448,7 +1519,7 @@ class TestCheckClientInfoComplete:
         so they can be absent or empty without flagging a row as incomplete.
         imms_given must still be non-empty.
         """
-        return pd.DataFrame(
+        frame = pd.DataFrame(
             {
                 "school_name": ["Tunnel Academy", "River School"],
                 "client_id": ["C001", "C002"],
@@ -1460,6 +1531,7 @@ class TestCheckClientInfoComplete:
                 "overdue_agent": ["", ""],
             }
         )
+        return preprocess.normalize_dataframe(frame)
 
     def test_all_complete_returns_all_rows(self, complete_df) -> None:
         """Verify all rows are returned when every required field is present.
@@ -1505,7 +1577,9 @@ class TestCheckClientInfoComplete:
             }
         )
 
-        result = preprocess.check_client_info_complete(df)
+        result = preprocess.check_client_info_complete(
+            preprocess.normalize_dataframe(df), output_dir=output_dir
+        )
 
         assert len(result) == 1
         assert result.iloc[0]["client_id"] == "C001"
@@ -1535,7 +1609,9 @@ class TestCheckClientInfoComplete:
         )
 
         with caplog.at_level("WARNING"):
-            preprocess.check_client_info_complete(df)
+            preprocess.check_client_info_complete(
+                preprocess.normalize_dataframe(df), output_dir=output_dir
+            )
 
         assert (
             "There are 1 records with incomplete/invalid client information"
@@ -1564,7 +1640,9 @@ class TestCheckClientInfoComplete:
             }
         )
 
-        preprocess.check_client_info_complete(df, output_dir=output_dir)
+        preprocess.check_client_info_complete(
+            preprocess.normalize_dataframe(df), output_dir=output_dir
+        )
 
         csv_path = output_dir / "incomplete_clients.csv"
         assert csv_path.exists()
@@ -1593,7 +1671,11 @@ class TestCheckClientInfoComplete:
             }
         )
 
-        result = preprocess.check_client_info_complete(df, drop_incomplete=False)
+        result = preprocess.check_client_info_complete(
+            preprocess.normalize_dataframe(df),
+            drop_incomplete=False,
+            output_dir=output_dir,
+        )
 
         assert len(result) == 2
 
@@ -1632,7 +1714,9 @@ class TestCheckClientInfoComplete:
             }
         )
 
-        result = preprocess.check_client_info_complete(df)
+        result = preprocess.check_client_info_complete(
+            preprocess.normalize_dataframe(df), output_dir=output_dir
+        )
 
         assert len(result) == 0
 
@@ -1787,7 +1871,7 @@ class TestBuildPreprocessResultManifestMode:
                 "experiment_arm": None,
             },
         )
-        result, reconciliation_result = build_result(
+        _, reconciliation_result = build_result(
             _simple_df(2),
             {},
             preprocess.REPLACE_UNSPECIFIED,
@@ -1980,7 +2064,7 @@ class TestBuildPreprocessResultManifestMode:
             encoding="utf-8",
         )
         # Should NOT raise because extra_manifest_rows=warn
-        result, reconciliation_result = build_result(
+        _, reconciliation_result = build_result(
             _simple_df(2),
             {},
             preprocess.REPLACE_UNSPECIFIED,

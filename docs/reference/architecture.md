@@ -1,12 +1,16 @@
 # Workflow and output evidence
 
 `immuknow.orchestrator.run_pipeline` owns a complete run; `immuknow` is its CLI.
-It loads selected configuration, validates source records and notice
-template filenames or one selected notice file, and prepares an ordered list
-of accepted clients. Python normalizes disease names, maps vaccines to diseases,
-checks eligibility and age, groups records, and checks assignments. The
-selected filename sets each client's `version_id` and language. Typst
-independently checks both.
+It loads selected configuration, reads the CSV once as text, and trims
+surrounding whitespace once. It validates those prepared values against the
+selected schema before checking address and client completeness. A required
+schema error rejects the whole file; incomplete addresses and clients that
+pass a permissive custom schema are excluded with separate CSV reports.
+It then checks notice template filenames or one selected notice file and
+prepares an ordered list of accepted clients. Python normalizes disease names,
+maps vaccines to diseases, checks eligibility and age, groups records, and
+checks assignments. The selected filename sets each client's `version_id` and
+language. Typst independently checks both.
 
 `preprocess.prepare_clients` owns CSV validation, normalization, record
 filtering, Phix checks, vaccine references, and assignment reconciliation.

@@ -105,6 +105,61 @@ def run_cli(command: list[str], cwd: Path) -> subprocess.CompletedProcess:
     return subprocess.run(command, cwd=cwd, capture_output=True, text=True, check=False)
 
 
+@pytest.mark.parametrize(
+    "field,value",
+    [("first_name", "   "), ("date_of_birth", "2015-02-30"), ("client_id", "123")],
+)
+def test_invalid_csv_stops_before_notices(
+    tmp_path: Path, field: str, value: str
+) -> None:
+    command, output, _ = prepare_cohort(tmp_path, ("en",))
+    source = Path(command[3])
+    frame = pd.read_csv(source, dtype=str, keep_default_na=False)
+    frame.loc[0, field] = value
+    frame.to_csv(source, index=False)
+
+    result = run_cli(command, tmp_path)
+
+    assert result.returncode == 1
+    assert "Input file does not conform to expected schema" in result.stderr
+    assert field in result.stderr
+    assert not list(output.rglob("*.pdf"))
+    assert not list((output / "metadata").glob("completion_*.json"))
+
+
+def test_cleaned_csv_values_reach_pdf_and_incomplete_address_report(
+    tmp_path: Path,
+) -> None:
+    command, output, _ = prepare_cohort(tmp_path)
+    source = Path(command[3])
+    frame = pd.read_csv(source, dtype=str, keep_default_na=False)
+    first_id, excluded_id = frame["client_id"]
+    frame.loc[0, "client_id"] = f"  {first_id}  "
+    frame.loc[0, "first_name"] = "  nan  "
+    frame.loc[0, "last_name"] = " NA "
+    frame.loc[0, "date_of_birth"] = "2015-1-2"
+    frame.loc[1, "postal_code"] = "   "
+    frame.drop(columns=["street_address_line_2"]).to_csv(source, index=False)
+    index = command.index("--notice-assignments")
+    command[index:] = [
+        "--template",
+        str(ROOT / "immuknow" / "templates" / "overdue_agents_v1.en.typ"),
+    ]
+
+    result = run_cli(command, tmp_path)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    jobs = read_render_jobs(output / "artifacts")
+    assert [job.client_id for job in jobs] == [first_id]
+    notice = json.loads(jobs[0].data.read_text())
+    assert notice["client_data"]["name"] == "nan NA"
+    assert notice["client_data"]["date_of_birth_iso"] == "2015-01-02"
+    assert "nan NA" in PdfReader(jobs[0].pdf).pages[0].extract_text()
+    excluded = pd.read_csv(output / "incomplete_addresses.csv", dtype=str)
+    assert excluded["client_id"].tolist() == [excluded_id]
+    assert next((output / "metadata").glob("completion_*.json")).is_file()
+
+
 def test_cli_requires_template_in_every_assignment(tmp_path: Path) -> None:
     """An old identity pair cannot silently select a maintained entry point."""
     command, output_dir, _ = prepare_cohort(tmp_path, languages=("en",))

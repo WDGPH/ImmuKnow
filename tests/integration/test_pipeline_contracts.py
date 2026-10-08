@@ -46,7 +46,7 @@ def test_prepared_client_data_survive_artifact_round_trip(
     }
 
     result, _ = preprocess.build_preprocess_result(
-        df,
+        preprocess.normalize_dataframe(df),
         default_vaccine_reference,
         [],
         config=config,
@@ -119,7 +119,7 @@ def test_mixed_validity_with_markers_is_rejected(
         ValueError, match="mix of records with and without validity indicators"
     ):
         preprocess.build_preprocess_result(
-            df,
+            preprocess.normalize_dataframe(df),
             default_vaccine_reference,
             [],
             config={"preprocess": {"show_validity_markers": True}},
