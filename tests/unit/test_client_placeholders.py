@@ -1,20 +1,4 @@
-"""Unit tests for utils module - shared utility functions.
-
-Tests cover:
-- Template field extraction and validation
-- Template formatting with placeholder substitution
-- Client context building from nested data structures
-- String conversion and None/NaN handling
-- Error handling for invalid templates and missing placeholders
-- Support for configuration-driven templates (QR codes, encryption passwords)
-
-Real-world significance:
-- Utilities are used by multiple pipeline steps (generate_qr_codes, encrypt_notice)
-- Bugs in utils affect all downstream modules
-- Template validation catches configuration errors early
-- Used for QR payload generation and PDF password templates
-- Critical for data integrity in notices
-"""
+"""Client placeholders used in configured QR links and PDF passwords."""
 
 from __future__ import annotations
 
@@ -22,7 +6,7 @@ from dataclasses import replace
 
 import pytest
 
-from immuknow import utils
+from immuknow import client_placeholders
 from tests.fixtures import sample_input
 
 
@@ -37,7 +21,7 @@ class TestStringOrEmpty:
         - Most client fields are already strings
         - Should not modify existing strings
         """
-        result = utils.string_or_empty("John")
+        result = client_placeholders.string_or_empty("John")
         assert result == "John"
 
     def test_string_or_empty_handles_none(self) -> None:
@@ -47,7 +31,7 @@ class TestStringOrEmpty:
         - Some client fields might be None/NaN
         - Should safely return empty string instead of "None"
         """
-        result = utils.string_or_empty(None)
+        result = client_placeholders.string_or_empty(None)
         assert result == ""
 
     def test_string_or_empty_converts_number(self) -> None:
@@ -57,7 +41,7 @@ class TestStringOrEmpty:
         - Client ID might be integer in some contexts
         - Should convert to string for template rendering
         """
-        result = utils.string_or_empty(12345)
+        result = client_placeholders.string_or_empty(12345)
         assert result == "12345"
 
     def test_string_or_empty_handles_whitespace(self) -> None:
@@ -67,7 +51,7 @@ class TestStringOrEmpty:
         - Excel input might have extra spaces
         - Templates expect trimmed values
         """
-        result = utils.string_or_empty("  John Doe  ")
+        result = client_placeholders.string_or_empty("  John Doe  ")
         assert result == "John Doe"
 
     def test_string_or_empty_handles_empty_string(self) -> None:
@@ -77,7 +61,7 @@ class TestStringOrEmpty:
         - Some optional fields might be empty
         - Should preserve empty state
         """
-        result = utils.string_or_empty("")
+        result = client_placeholders.string_or_empty("")
         assert result == ""
 
 
@@ -92,7 +76,7 @@ class TestExtractTemplateFields:
         - Simple templates like "{client_id}"
         - Should extract just the placeholder
         """
-        result = utils.extract_template_fields("{client_id}")
+        result = client_placeholders.extract_template_fields("{client_id}")
         assert result == {"client_id"}
 
     def test_extract_multiple_fields(self) -> None:
@@ -102,7 +86,7 @@ class TestExtractTemplateFields:
         - Complex templates with multiple fields
         - E.g., QR URL: "https://example.com?id={client_id}&dob={date_of_birth_iso}"
         """
-        result = utils.extract_template_fields(
+        result = client_placeholders.extract_template_fields(
             "https://example.com?id={client_id}&dob={date_of_birth_iso}"
         )
         assert result == {"client_id", "date_of_birth_iso"}
@@ -114,7 +98,7 @@ class TestExtractTemplateFields:
         - Template might use same field twice
         - set() naturally deduplicates
         """
-        result = utils.extract_template_fields("{client_id}_{client_id}")
+        result = client_placeholders.extract_template_fields("{client_id}_{client_id}")
         assert result == {"client_id"}
 
     def test_extract_no_fields(self) -> None:
@@ -124,7 +108,7 @@ class TestExtractTemplateFields:
         - Static templates with no variables
         - Should return empty set
         """
-        result = utils.extract_template_fields("https://example.com/fixed-url")
+        result = client_placeholders.extract_template_fields("https://example.com/fixed-url")
         assert result == set()
 
     def test_extract_nested_braces(self) -> None:
@@ -134,7 +118,7 @@ class TestExtractTemplateFields:
         - Format strings might have format specs: {client_id:>5}
         - Should extract field names correctly
         """
-        result = utils.extract_template_fields("{client_id:>5}")
+        result = client_placeholders.extract_template_fields("{client_id:>5}")
         assert "client_id" in result
 
     def test_extract_invalid_template_raises_error(self) -> None:
@@ -145,7 +129,7 @@ class TestExtractTemplateFields:
         - Prevents downstream formatting errors
         """
         with pytest.raises(ValueError, match="Invalid template format"):
-            utils.extract_template_fields("{client_id")
+            client_placeholders.extract_template_fields("{client_id")
 
 
 @pytest.mark.unit
@@ -161,7 +145,7 @@ class TestValidateAndFormatTemplate:
         """
         template = "Client: {client_id}"
         context = {"client_id": "12345"}
-        result = utils.validate_and_format_template(template, context)
+        result = client_placeholders.validate_and_format_template(template, context)
         assert result == "Client: 12345"
 
     def test_validate_and_format_multiple_fields(self) -> None:
@@ -176,7 +160,7 @@ class TestValidateAndFormatTemplate:
             "client_id": "12345",
             "date_of_birth_iso_compact": "20150315",
         }
-        result = utils.validate_and_format_template(template, context)
+        result = client_placeholders.validate_and_format_template(template, context)
         assert result == "12345_20150315"
 
     def test_validate_and_format_missing_placeholder_raises_error(self) -> None:
@@ -190,7 +174,7 @@ class TestValidateAndFormatTemplate:
         context = {"client_id": "12345"}
 
         with pytest.raises(KeyError, match="Unknown placeholder"):
-            utils.validate_and_format_template(template, context)
+            client_placeholders.validate_and_format_template(template, context)
 
     def test_validate_and_format_with_allowed_fields(self) -> None:
         """Verify validation against whitelist of fields.
@@ -203,7 +187,7 @@ class TestValidateAndFormatTemplate:
         context = {"client_id": "12345", "secret": "password"}
         allowed = {"client_id"}
 
-        result = utils.validate_and_format_template(
+        result = client_placeholders.validate_and_format_template(
             template, context, allowed_fields=allowed
         )
         assert result == "12345"
@@ -220,7 +204,7 @@ class TestValidateAndFormatTemplate:
         allowed = {"client_id"}
 
         with pytest.raises(ValueError, match="Disallowed placeholder"):
-            utils.validate_and_format_template(
+            client_placeholders.validate_and_format_template(
                 template, context, allowed_fields=allowed
             )
 
@@ -234,7 +218,7 @@ class TestValidateAndFormatTemplate:
         template = "{any_field}"
         context = {"any_field": "value"}
 
-        result = utils.validate_and_format_template(
+        result = client_placeholders.validate_and_format_template(
             template, context, allowed_fields=None
         )
         assert result == "value"
@@ -249,7 +233,7 @@ class TestValidateAndFormatTemplate:
         template = ""
         context = {}
 
-        result = utils.validate_and_format_template(template, context)
+        result = client_placeholders.validate_and_format_template(template, context)
         assert result == ""
 
     def test_validate_and_format_extra_context_fields(self) -> None:
@@ -266,7 +250,7 @@ class TestValidateAndFormatTemplate:
             "last_name": "Doe",
         }
 
-        result = utils.validate_and_format_template(template, context)
+        result = client_placeholders.validate_and_format_template(template, context)
         assert result == "12345"
 
 
@@ -290,8 +274,8 @@ class TestBuildClientContext:
         )
         client = replace(client, contact={"postal_code": "M5V 3A8", "city": "Toronto"})
 
-        context = utils.build_client_context(client)
-        assert context.keys() == utils.CLIENT_PLACEHOLDERS
+        context = client_placeholders.build_client_context(client)
+        assert context.keys() == client_placeholders.CLIENT_PLACEHOLDERS
 
         assert context["client_id"] == "12345"
         assert context["first_name"] == "John"
@@ -313,7 +297,7 @@ class TestBuildClientContext:
         client = sample_input.create_test_client_record(
             first_name="John", last_name="Quincy"
         )
-        context = utils.build_client_context(client)
+        context = client_placeholders.build_client_context(client)
 
         assert context["first_name"] == "John"
         assert context["last_name"] == "Quincy"
@@ -328,7 +312,7 @@ class TestBuildClientContext:
         - This test documents current behavior
         """
         client = sample_input.create_test_client_record(first_name="Cher", last_name="")
-        context = utils.build_client_context(client)
+        context = client_placeholders.build_client_context(client)
 
         assert context["first_name"] == "Cher"
         assert context["last_name"] == ""
@@ -343,7 +327,7 @@ class TestBuildClientContext:
         """
         client = sample_input.create_test_client_record(client_id="12345")
         client = replace(client, person={}, school={}, contact={}, board={})
-        context = utils.build_client_context(client)
+        context = client_placeholders.build_client_context(client)
 
         assert context["client_id"] == "12345"
         assert context["first_name"] == ""
@@ -358,7 +342,7 @@ class TestBuildClientContext:
         - Should remove dashes from ISO date
         """
         client = sample_input.create_test_client_record(date_of_birth="2015-03-15")
-        context = utils.build_client_context(client)
+        context = client_placeholders.build_client_context(client)
 
         assert context["date_of_birth_iso_compact"] == "20150315"
 
@@ -369,10 +353,10 @@ class TestBuildClientContext:
         - Template might format output based on language
         - Should preserve language code
         """
-        context_en = utils.build_client_context(
+        context_en = client_placeholders.build_client_context(
             sample_input.create_test_client_record(language="en")
         )
-        context_fr = utils.build_client_context(
+        context_fr = client_placeholders.build_client_context(
             sample_input.create_test_client_record(language="fr")
         )
 
@@ -389,7 +373,7 @@ class TestBuildClientContext:
         client = sample_input.create_test_client_record(
             first_name="  John", last_name="Doe  ", school_name="  Lincoln School  "
         )
-        context = utils.build_client_context(client)
+        context = client_placeholders.build_client_context(client)
 
         assert context["first_name"] == "John"
         assert context["last_name"] == "Doe"
@@ -412,7 +396,7 @@ class TestBuildClientContext:
                 "street": "123 Main St",
             },
         )
-        context = utils.build_client_context(client)
+        context = client_placeholders.build_client_context(client)
 
         assert context["postal_code"] == "M5V 3A8"
         assert context["city"] == "Toronto"

@@ -12,7 +12,7 @@ from pypdf import PdfReader, PdfWriter
 
 from .compile_notices import check_expected_notices
 from .data_models import ClientRecord, RenderJob
-from .utils import (
+from .client_placeholders import (
     CLIENT_PLACEHOLDERS,
     build_client_context,
     validate_and_format_template,

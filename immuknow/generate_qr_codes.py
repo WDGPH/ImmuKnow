@@ -19,7 +19,7 @@ except ImportError:
     Image = None
 
 from .data_models import ClientRecord
-from .utils import (
+from .client_placeholders import (
     CLIENT_PLACEHOLDERS,
     build_client_context,
     validate_and_format_template,

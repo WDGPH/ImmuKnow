@@ -11,7 +11,7 @@ from typing import Any, Dict, Optional
 import yaml
 
 from .bundle_pdfs import BundleGrouping
-from .utils import CLIENT_PLACEHOLDERS, extract_template_fields
+from .client_placeholders import CLIENT_PLACEHOLDERS, extract_template_fields
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG_PATH = (
