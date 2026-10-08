@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from immuknow.notice_versioning import (
+from immuknow.version_notices import (
     NoticeKind,
     NoticeVersion,
     NoticeVersionCatalog,

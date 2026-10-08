@@ -19,7 +19,7 @@ from .assignment_manifest import (
 )
 from .config_loader import load_config
 from .data_models import PreprocessResult
-from .notice_versioning import load_catalog, template_identity
+from .version_notices import load_catalog, template_identity
 
 # Pipeline stages follow the main workflow below; imports do not run the stages.
 # isort: off

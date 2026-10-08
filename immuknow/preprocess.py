@@ -28,7 +28,7 @@ from .data_models import (
     ClientRecord,
     PreprocessResult,
 )
-from .notice_versioning import NoticeVersionCatalog, attach_notice
+from .version_notices import NoticeVersionCatalog, attach_notice
 
 CONFIG_DIR = Path(str(files("immuknow").joinpath("config")))
 VACCINE_REFERENCE_PATH = CONFIG_DIR / "vaccine_reference.json"

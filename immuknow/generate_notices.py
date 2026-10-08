@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from .data_models import ClientRecord, RenderJob
-from .notice_versioning import Language, validate_version_id
+from .version_notices import Language, validate_version_id
 
 LOG = logging.getLogger(__name__)
 

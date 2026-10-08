@@ -11,7 +11,7 @@ import pytest
 from immuknow import preprocess
 from immuknow.assignment_manifest import ManifestRow
 from immuknow.data_models import ClientRecord
-from immuknow.notice_versioning import load_catalog
+from immuknow.version_notices import load_catalog
 from tests.fixtures import sample_input
 
 

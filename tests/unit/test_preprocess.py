@@ -1661,7 +1661,7 @@ class TestParseOverdueDiseases:
 
 
 def _make_catalog():
-    from immuknow.notice_versioning import (
+    from immuknow.version_notices import (
         NoticeKind,
         NoticeVersion,
         NoticeVersionCatalog,

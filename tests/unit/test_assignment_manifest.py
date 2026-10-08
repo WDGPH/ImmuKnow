@@ -17,7 +17,7 @@ from immuknow.assignment_manifest import (
     print_preflight_summary,
     reconcile,
 )
-from immuknow.notice_versioning import NoticeKind, NoticeVersion, NoticeVersionCatalog
+from immuknow.version_notices import NoticeKind, NoticeVersion, NoticeVersionCatalog
 from tests.fixtures.sample_input import create_test_client_record
 
 

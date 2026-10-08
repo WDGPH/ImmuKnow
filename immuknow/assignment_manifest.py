@@ -17,7 +17,7 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional
 
-from .notice_versioning import (
+from .version_notices import (
     Language,
     NoticeVersionCatalog,
     ResolvedNotice,
