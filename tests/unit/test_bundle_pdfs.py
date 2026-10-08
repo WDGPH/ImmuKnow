@@ -22,7 +22,7 @@ import pytest
 
 from immuknow import bundle_pdfs
 from immuknow.data_models import ClientRecord, PDFRecord
-from immuknow.enums import BundleStrategy, BundleType
+from immuknow.bundle_pdfs import BundleGrouping
 from tests.fixtures import sample_input
 
 
@@ -255,14 +255,14 @@ class TestPlanBundles:
         config = bundle_pdfs.BundleConfig(
             output_dir=tmp_path,
             bundle_size=2,
-            bundle_strategy=BundleStrategy.SIZE,
+            group_by=BundleGrouping.SIZE,
             run_id="test",
         )
 
         plans = bundle_pdfs.plan_bundles(config, records)
 
         assert len(plans) == 3  # 5 records / 2 per bundle = 3 bundles
-        assert plans[0].bundle_type == BundleType.SIZE_BASED
+        assert plans[0].group_by == BundleGrouping.SIZE
         assert len(plans[0].clients) == 2
         assert len(plans[2].clients) == 1
 
@@ -290,13 +290,13 @@ class TestPlanBundles:
         config = bundle_pdfs.BundleConfig(
             output_dir=tmp_path,
             bundle_size=2,
-            bundle_strategy=BundleStrategy.SCHOOL,
+            group_by=BundleGrouping.SCHOOL,
             run_id="test",
         )
 
         plans = bundle_pdfs.plan_bundles(config, records)
 
-        assert all(p.bundle_type == BundleType.SCHOOL_GROUPED for p in plans)
+        assert all(p.group_by == BundleGrouping.SCHOOL for p in plans)
         assert all(p.bundle_identifier in ["school_a", "school_b"] for p in plans)
 
     def test_plan_bundles_board_grouped(self, tmp_path: Path) -> None:
@@ -322,13 +322,13 @@ class TestPlanBundles:
         config = bundle_pdfs.BundleConfig(
             output_dir=tmp_path,
             bundle_size=1,
-            bundle_strategy=BundleStrategy.BOARD,
+            group_by=BundleGrouping.BOARD,
             run_id="test",
         )
 
         plans = bundle_pdfs.plan_bundles(config, records)
 
-        assert all(p.bundle_type == BundleType.BOARD_GROUPED for p in plans)
+        assert all(p.group_by == BundleGrouping.BOARD for p in plans)
 
     def test_plan_bundles_returns_empty_for_zero_bundle_size(
         self, tmp_path: Path
@@ -352,7 +352,7 @@ class TestPlanBundles:
         config = bundle_pdfs.BundleConfig(
             output_dir=tmp_path,
             bundle_size=0,
-            bundle_strategy=BundleStrategy.SIZE,
+            group_by=BundleGrouping.SIZE,
             run_id="test",
         )
 
@@ -414,7 +414,7 @@ class TestWriteBundle:
         metadata_dir.mkdir()
 
         plan = bundle_pdfs.BundlePlan(
-            bundle_type=BundleType.SIZE_BASED,
+            group_by=BundleGrouping.SIZE,
             bundle_identifier=None,
             bundle_number=1,
             total_bundles=1,
@@ -424,7 +424,7 @@ class TestWriteBundle:
         config = bundle_pdfs.BundleConfig(
             output_dir=tmp_path,
             bundle_size=2,
-            bundle_strategy=BundleStrategy.SIZE,
+            group_by=BundleGrouping.SIZE,
             run_id="test",
         )
 
@@ -463,7 +463,7 @@ class TestWriteBundle:
         metadata_dir.mkdir()
 
         plan = bundle_pdfs.BundlePlan(
-            bundle_type=BundleType.SIZE_BASED,
+            group_by=BundleGrouping.SIZE,
             bundle_identifier=None,
             bundle_number=1,
             total_bundles=1,
@@ -473,7 +473,7 @@ class TestWriteBundle:
         config = bundle_pdfs.BundleConfig(
             output_dir=tmp_path,
             bundle_size=1,
-            bundle_strategy=BundleStrategy.SIZE,
+            group_by=BundleGrouping.SIZE,
             run_id="test_run",
         )
 
@@ -491,7 +491,7 @@ class TestWriteBundle:
 
         assert manifest["run_id"] == "test_run"
         assert manifest["language"] == "en"
-        assert manifest["bundle_type"] == "size_based"
+        assert manifest["group_by"] == "size"
         assert manifest["total_clients"] == 1
         assert "sha256" in manifest
         assert "clients" in manifest

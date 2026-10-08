@@ -106,6 +106,7 @@ def test_valid_qr_encryption_and_bundling_configuration() -> None:
         ("bundling", {"bundle_size": -1}, "bundling.bundle_size"),
         ("bundling", {"bundle_size": "10"}, "bundling.bundle_size"),
         ("bundling", {"bundle_size": 1, "group_by": "language"}, "bundling.group_by"),
+        ("bundling", {"bundle_size": 1, "group_by": 123}, "bundling.group_by"),
         (
             "cleanup",
             {"delete_unencrypted_pdfs": "yes"},

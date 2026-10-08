@@ -10,6 +10,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass
+from enum import Enum
 from hashlib import sha256
 from itertools import islice
 from pathlib import Path
@@ -17,11 +18,32 @@ from typing import Iterator, List, Sequence, TypeVar
 
 from pypdf import PdfReader, PdfWriter
 
-from .enums import BundleStrategy, BundleType
 from .compile_notices import check_expected_notices
 from .data_models import ClientRecord, PDFRecord, RenderJob
 
 LOG = logging.getLogger(__name__)
+
+
+class BundleGrouping(Enum):
+    """Group notices by school or board, or split the whole cohort by size."""
+
+    SIZE = "size"
+    SCHOOL = "school"
+    BOARD = "board"
+
+    @classmethod
+    def from_string(cls, value: str | None) -> BundleGrouping:
+        """Read bundling.group_by; null means size-only bundles."""
+        if value is None:
+            return cls.SIZE
+        if isinstance(value, str):
+            try:
+                return cls(value.lower())
+            except ValueError:
+                pass
+        raise ValueError(
+            f"Unknown bundle grouping: {value!r}. Valid options: size, school, board"
+        )
 
 
 @dataclass(frozen=True)
@@ -34,15 +56,15 @@ class BundleConfig:
         Root output directory containing pipeline artifacts
     bundle_size : int
         Maximum number of clients per bundle (0 disables bundling)
-    bundle_strategy : BundleStrategy
-        Strategy for grouping PDFs into bundles
+    group_by : BundleGrouping
+        Grouping used to plan the bundles
     run_id : str
         Pipeline run identifier
     """
 
     output_dir: Path
     bundle_size: int
-    bundle_strategy: BundleStrategy
+    group_by: BundleGrouping
     run_id: str
 
 
@@ -52,8 +74,8 @@ class BundlePlan:
 
     Attributes
     ----------
-    bundle_type : BundleType
-        Type/strategy used for this bundle
+    group_by : BundleGrouping
+        Grouping used for this bundle
     bundle_identifier : str | None
         School or board code if bundle was grouped, None for size-based
     bundle_number : int
@@ -64,7 +86,7 @@ class BundlePlan:
         List of PDFs and metadata in this bundle
     """
 
-    bundle_type: BundleType
+    group_by: BundleGrouping
     bundle_identifier: str | None
     bundle_number: int
     total_bundles: int
@@ -192,7 +214,7 @@ def plan_bundles(config: BundleConfig, records: List[PDFRecord]) -> List[BundleP
 
     plans: List[BundlePlan] = []
 
-    if config.bundle_strategy == BundleStrategy.SCHOOL:
+    if config.group_by == BundleGrouping.SCHOOL:
         ensure_ids(records, attr="school")
         grouped = group_records(records, "school")
         for identifier, items in grouped.items():
@@ -200,7 +222,7 @@ def plan_bundles(config: BundleConfig, records: List[PDFRecord]) -> List[BundleP
             for index, chunk in enumerate(chunked(items, config.bundle_size), start=1):
                 plans.append(
                     BundlePlan(
-                        bundle_type=BundleType.SCHOOL_GROUPED,
+                        group_by=BundleGrouping.SCHOOL,
                         bundle_identifier=identifier,
                         bundle_number=index,
                         total_bundles=total_bundles,
@@ -209,7 +231,7 @@ def plan_bundles(config: BundleConfig, records: List[PDFRecord]) -> List[BundleP
                 )
         return plans
 
-    if config.bundle_strategy == BundleStrategy.BOARD:
+    if config.group_by == BundleGrouping.BOARD:
         ensure_ids(records, attr="board")
         grouped = group_records(records, "board")
         for identifier, items in grouped.items():
@@ -217,7 +239,7 @@ def plan_bundles(config: BundleConfig, records: List[PDFRecord]) -> List[BundleP
             for index, chunk in enumerate(chunked(items, config.bundle_size), start=1):
                 plans.append(
                     BundlePlan(
-                        bundle_type=BundleType.BOARD_GROUPED,
+                        group_by=BundleGrouping.BOARD,
                         bundle_identifier=identifier,
                         bundle_number=index,
                         total_bundles=total_bundles,
@@ -231,7 +253,7 @@ def plan_bundles(config: BundleConfig, records: List[PDFRecord]) -> List[BundleP
     for index, chunk in enumerate(chunked(records, config.bundle_size), start=1):
         plans.append(
             BundlePlan(
-                bundle_type=BundleType.SIZE_BASED,
+                group_by=BundleGrouping.SIZE,
                 bundle_identifier=None,
                 bundle_number=index,
                 total_bundles=total_bundles,
@@ -287,13 +309,13 @@ def write_bundle(
     # Generate filename based on bundle type and identifiers
     languages = sorted({record.client.language for record in plan.clients})
     prefix = languages[0] if len(languages) == 1 else "notices"
-    if plan.bundle_type == BundleType.SCHOOL_GROUPED:
+    if plan.group_by == BundleGrouping.SCHOOL:
         identifier_slug = slugify(plan.bundle_identifier or "unknown")
         name = f"{prefix}_school_{identifier_slug}_{plan.bundle_number:03d}_of_{plan.total_bundles:03d}"
-    elif plan.bundle_type == BundleType.BOARD_GROUPED:
+    elif plan.group_by == BundleGrouping.BOARD:
         identifier_slug = slugify(plan.bundle_identifier or "unknown")
         name = f"{prefix}_board_{identifier_slug}_{plan.bundle_number:03d}_of_{plan.total_bundles:03d}"
-    else:  # SIZE_BASED
+    else:  # SIZE
         name = f"{prefix}_bundle_{plan.bundle_number:03d}_of_{plan.total_bundles:03d}"
 
     output_pdf = combined_dir / f"{name}.pdf"
@@ -308,7 +330,7 @@ def write_bundle(
         "run_id": config.run_id,
         "language": languages[0] if len(languages) == 1 else None,
         "languages": languages,
-        "bundle_type": plan.bundle_type.value,
+        "group_by": plan.group_by.value,
         "bundle_identifier": plan.bundle_identifier,
         "bundle_number": plan.bundle_number,
         "total_bundles": plan.total_bundles,
@@ -360,7 +382,7 @@ def bundle_notices(
         output_dir=output_dir,
         run_id=run_id,
         bundle_size=bundle_settings.get("bundle_size", 0),
-        bundle_strategy=BundleStrategy.from_string(bundle_settings.get("group_by")),
+        group_by=BundleGrouping.from_string(bundle_settings.get("group_by")),
     )
     if config.bundle_size <= 0:
         return []

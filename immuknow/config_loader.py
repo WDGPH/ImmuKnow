@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional
 
 import yaml
 
+from .bundle_pdfs import BundleGrouping
 from .enums import TemplateField
 from .utils import extract_template_fields
 
@@ -214,11 +215,10 @@ def validate_config(config: Dict[str, Any]) -> None:
 
         # Validate group_by strategy
         group_by = bundling_config.get("group_by")
-        from .enums import BundleStrategy
 
         try:
             if group_by is not None:
-                BundleStrategy.from_string(group_by)
+                BundleGrouping.from_string(group_by)
         except ValueError as exc:
             raise ValueError(f"Invalid bundling.group_by strategy: {exc}") from exc
 

@@ -40,7 +40,7 @@ Set options in `parameters.yaml`. Common choices:
 | `preprocess.show_validity_markers` | Mark valid and invalid received doses in the history |
 | `qr.enabled`, `qr.payload_template` | QR image and encoded link |
 | `encryption.enabled`, `encryption.password.template` | Individual PDF encryption and password |
-| `bundling.bundle_size`, `bundling.group_by` | Bundle size and grouping: none, school, or board |
+| `bundling.bundle_size`, `bundling.group_by` | Bundle size and grouping: null/size, school, or board |
 | `pdf_validation.rules.*` | `disabled`, `warn`, or `error` per rule |
 | `pipeline.before_run.clear_output_directory` | Clear previous output or prompt before replacement |
 | `pipeline.after_run.remove_artifacts` | Remove retained render inputs after successful delivery |
@@ -52,6 +52,11 @@ Set options in `parameters.yaml`. Common choices:
 expected render job; the others use page count or native Typst markers.
 An error-level finding stops the run. The validation report is written under
 `metadata/`. [PDF validation][pdf-validation] explains the measurements.
+
+Bundle manifests record `group_by` as `size`, `school`, or `board`, matching
+`bundling.group_by`. A null configuration value means `size`: split the whole
+cohort into bundles of the requested size. School and board grouping apply
+that size limit within each group.
 
 For school matching, set `school_validation.enabled: true`,
 `target_phu` to the exact key in `school_reference.json`, and

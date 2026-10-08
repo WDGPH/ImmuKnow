@@ -3,54 +3,6 @@
 from enum import Enum
 
 
-class BundleStrategy(Enum):
-    """Bundle grouping strategy."""
-
-    SIZE = "size"
-    SCHOOL = "school"
-    BOARD = "board"
-
-    @classmethod
-    def from_string(cls, value: str | None) -> "BundleStrategy":
-        """Convert string to BundleStrategy.
-
-        Parameters
-        ----------
-        value : str | None
-            Bundle strategy name ('size', 'school', 'board'), or None for default.
-
-        Returns
-        -------
-        BundleStrategy
-            Corresponding BundleStrategy enum, defaults to SIZE if value is None.
-
-        Raises
-        ------
-        ValueError
-            If value is not a valid strategy name.
-        """
-        if value is None:
-            return cls.SIZE
-
-        value_lower = value.lower()
-        for strategy in cls:
-            if strategy.value == value_lower:
-                return strategy
-
-        raise ValueError(
-            f"Unknown bundle strategy: {value}. "
-            f"Valid options: {', '.join(s.value for s in cls)}"
-        )
-
-
-class BundleType(Enum):
-    """Type descriptor for bundle operation."""
-
-    SIZE_BASED = "size_based"
-    SCHOOL_GROUPED = "school_grouped"
-    BOARD_GROUPED = "board_grouped"
-
-
 class Language(Enum):
     """Supported output languages for immunization notices.
 
