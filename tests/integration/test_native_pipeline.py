@@ -12,8 +12,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
 import pandas as pd
+import pytest
 import yaml
 from pypdf import PdfReader
 
@@ -24,8 +24,8 @@ from immuknow import (
     orchestrator,
     validate_pdfs,
 )
-from immuknow.data_models import ClientRecord, RenderJob
 from immuknow.config_loader import load_config
+from immuknow.data_models import ClientRecord, RenderJob
 from tests.fixtures.sample_input import create_test_input_dataframe
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -78,8 +78,7 @@ def prepare_cohort(
             [
                 {
                     "client_id": str(client_id),
-                    "version_id": "overdue_standard_v1",
-                    "language": language,
+                    "template": f"overdue_standard_v1.{language}.typ",
                 }
                 for client_id, language in zip(frame["client_id"], languages)
             ]
@@ -106,17 +105,38 @@ def run_cli(command: list[str], cwd: Path) -> subprocess.CompletedProcess:
     return subprocess.run(command, cwd=cwd, capture_output=True, text=True, check=False)
 
 
-def test_cli_requires_version_id_in_every_assignment(tmp_path: Path) -> None:
-    """An old field alone cannot silently assign the catalog's default version."""
+def test_cli_requires_template_in_every_assignment(tmp_path: Path) -> None:
+    """An old identity pair cannot silently select a maintained entry point."""
     command, output_dir, _ = prepare_cohort(tmp_path, languages=("en",))
     manifest_path = Path(command[command.index("--notice-assignments") + 1])
     assignments = json.loads(manifest_path.read_text())
-    assignments[0]["notice_version"] = assignments[0].pop("version_id")
+    assignments[0].pop("template")
+    assignments[0].update(version_id="overdue_standard_v1", language="en")
     manifest_path.write_text(json.dumps(assignments), encoding="utf-8")
 
     result = run_cli(command, tmp_path)
     assert result.returncode != 0
-    assert "required field 'version_id'" in result.stdout + result.stderr
+    assert "required field 'template'" in result.stdout + result.stderr
+    assert not list(output_dir.rglob("*.pdf"))
+
+
+def test_unsupported_template_language_preserves_existing_output(
+    tmp_path: Path,
+) -> None:
+    """A bad manifest suffix fails before an earlier delivery is purged."""
+    command, output_dir, _ = prepare_cohort(tmp_path, languages=("en",))
+    manifest_path = Path(command[command.index("--notice-assignments") + 1])
+    assignments = json.loads(manifest_path.read_text())
+    assignments[0]["template"] = "overdue_standard_v1.es.typ"
+    manifest_path.write_text(json.dumps(assignments), encoding="utf-8")
+    output_dir.mkdir()
+    sentinel = output_dir / "prior-delivery.txt"
+    sentinel.write_text("preserve", encoding="utf-8")
+
+    result = run_cli(command, tmp_path)
+    assert result.returncode != 0
+    assert "language" in (result.stdout + result.stderr).lower()
+    assert sentinel.read_text(encoding="utf-8") == "preserve"
     assert not list(output_dir.rglob("*.pdf"))
 
 
@@ -225,7 +245,9 @@ def test_single_template_assigns_every_client_and_qr_language(tmp_path: Path) ->
     assert all(PdfReader(job.pdf).root_object["/Lang"] == "fr-CA" for job in jobs)
 
 
-@pytest.mark.parametrize("failure", ["ineligible", "language_mismatch"])
+@pytest.mark.parametrize(
+    "failure", ["ineligible", "language_mismatch", "linked_language_mismatch"]
+)
 def test_single_template_cannot_bypass_eligibility_or_native_language(
     tmp_path: Path, failure: str
 ) -> None:
@@ -237,7 +259,12 @@ def test_single_template_cannot_bypass_eligibility_or_native_language(
         diagnostic = "Notice assignment preflight failed"
     else:
         template = custom / "overdue_standard_v1.fr.typ"
-        template.write_bytes((custom / "overdue_standard_v1.en.typ").read_bytes())
+        english = custom / "overdue_standard_v1.en.typ"
+        if failure == "linked_language_mismatch":
+            template.unlink()
+            template.symlink_to(english)
+        else:
+            template.write_bytes(english.read_bytes())
         diagnostic = "Notice language does not match this template"
     result = run_cli(
         [
@@ -385,7 +412,7 @@ def test_sequential_callable_runs_keep_resources_and_assignments_isolated(
     frame.to_csv(input_path, index=False)
     assignment_path = Path(command[command.index("--notice-assignments") + 1])
     assignments = json.loads(assignment_path.read_text())
-    assignments[0]["version_id"] = "affirmative_schedule_v1"
+    assignments[0]["template"] = "affirmative_schedule_v1.en.typ"
     assignment_path.write_text(json.dumps(assignments))
     first_completion = orchestrator.run_pipeline(
         input_path,
@@ -451,7 +478,12 @@ def test_preflight_preserves_actionable_sensitive_findings(
     manifest = Path(command[command.index("--notice-assignments") + 1])
     assignments = json.loads(manifest.read_text())
     if failure == "unknown_version":
-        assignments[0]["version_id"] = "not_in_the_catalog"
+        assignments[0]["template"] = "not_in_the_catalog.fr.typ"
+        custom = tmp_path / "uncatalogued templates"
+        shutil.copytree(ROOT / "immuknow" / "templates", custom)
+        (custom / "not_in_the_catalog.fr.typ").write_bytes(
+            (custom / "overdue_standard_v1.fr.typ").read_bytes()
+        )
     else:
         frame = pd.read_csv(Path(command[3]), dtype=str)
         frame["version_id"] = "legacy_overdue_v1"
@@ -463,12 +495,15 @@ def test_preflight_preserves_actionable_sensitive_findings(
             output,
             config_dir=config_dir,
             notice_assignments=manifest,
+            template_dir=custom
+            if failure == "unknown_version"
+            else ROOT / "immuknow" / "templates",
         )
     diagnostic = next((output / "metadata").glob("assignment_findings_*.json"))
     finding = json.loads(diagnostic.read_text())[0]
     assert finding["client_id"] == assignments[0]["client_id"]
-    assert finding["version_id"] == assignments[0]["version_id"]
-    assert assignments[0]["version_id"] in finding["reason"]
+    assert finding["version_id"] == assignments[0]["template"].split(".")[0]
+    assert finding["version_id"] in finding["reason"]
     assert finding["kind"] == failure
     assert diagnostic.stat().st_mode & 0o777 == 0o600
     assert not list(output.rglob("*.pdf"))

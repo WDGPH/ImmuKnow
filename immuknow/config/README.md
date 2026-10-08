@@ -110,23 +110,28 @@ Kinds `overdue`, `affirmative`, and `informational` imply
 canonical overdue diseases, even when a template displays vaccine agents.
 The catalog does not choose a language or assign a version to a client.
 
-For per-client selection, the JSON manifest is an array with one explicit
-`client_id`, `version_id`, and `language` for every accepted client:
+For per-client selection, the JSON manifest is an array with one
+`client_id` and one `template` filename for every accepted client:
 
 ```json
 [
-  {"client_id": "1009876545", "version_id": "overdue_standard_v1", "language": "fr"},
-  {"client_id": "2001234567", "version_id": "affirmative_schedule_v1", "language": "en"}
+  {"client_id": "1009876545", "template": "overdue_standard_v1.fr.typ"},
+  {"client_id": "2001234567", "template": "affirmative_schedule_v1.en.typ"}
 ]
 ```
 
-Optional `experiment_id` and `experiment_arm` are retained as
-provenance. An explicit source `version_id` must agree with the assignment.
-Missing client rows, unknown versions, conflicting assignments, unsupported
-languages, invalid catalogs, and eligibility failures stop before rendering,
-with client-linked findings in the run output. Set
-`notice_versioning.extra_manifest_rows` to `error` or `warn` for rows
-without a matching source client.
+The `template` value is a basename, not a path. It resolves only within the
+packaged or selected complete template directory. Both selection routes parse
+`<version_id>.<language>.typ` with supported ISO 639-1 language codes
+`en` and `fr`; missing or unsupported language codes and path components
+are rejected. The filename supplies canonical `version_id` and language.
+The authored Typst entry point independently asserts that same identity.
+Optional `experiment_id` and `experiment_arm` are retained as provenance.
+An explicit source `version_id` must agree with the filename. Missing client
+rows, unknown versions, conflicting assignments, invalid catalogs, and
+eligibility failures stop before rendering, with client-linked findings in the
+run output. Set `notice_versioning.extra_manifest_rows` to `error` or
+`warn` for rows without a matching source client.
 
 For one version and language across the accepted cohort, pass the entry file:
 

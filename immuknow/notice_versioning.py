@@ -69,6 +69,20 @@ def validate_version_id(version_id: str) -> None:
         raise ValueError(f"Unsafe notice version identifier: {version_id!r}")
 
 
+def template_identity(template: Path) -> tuple[str, str]:
+    """Require a native filename carrying the version and supported ISO language."""
+    parts = template.name.rsplit(".", 2)
+    if len(parts) != 3 or parts[1] not in Language.all_codes() or parts[2] != "typ":
+        raise ValueError(
+            "Notice template filename must be <version_id>.<language>.typ "
+            f"with a supported ISO 639-1 language code (en or fr): {template}"
+        )
+    validate_version_id(parts[0])
+    if not template.is_file():
+        raise FileNotFoundError(f"Notice template not found: {template}")
+    return parts[0], parts[1]
+
+
 def attach_notice(client: "ClientRecord", resolved: ResolvedNotice) -> "ClientRecord":
     """Attach one resolved notice while preserving unrelated client metadata."""
     Language.from_string(resolved.language)
@@ -116,7 +130,7 @@ def load_catalog(config_dir: Path) -> NoticeVersionCatalog:
     if "default_version" in raw or "default_language" in raw:
         raise ValueError(
             "notice_versions.yaml: default_version and default_language are no longer "
-            "supported; select version and language in assignments or a notice template"
+            "supported; select a .typ file in assignments or with --notice-template"
         )
 
     raw_versions = raw.get("versions")

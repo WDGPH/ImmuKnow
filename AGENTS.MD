@@ -8,9 +8,11 @@ Read [contributing](docs/developer_guide/contributing.md),
 
 `immuknow.orchestrator.run_pipeline` owns one complete cohort; `immuknow` is
 its thin CLI. Every run takes one CSV cohort and exactly one notice selector:
-a JSON manifest with explicit per-client version and language, or one named
-`<version_id>.<language>.typ` file for all accepted clients. The catalog checks
-version eligibility but supplies no language. Group internal code around input
+a JSON manifest with an explicit `template` filename per client, or one named
+`<version_id>.<language>.typ` file for all accepted clients. Parse both selectors
+by the same filename contract; only `en` and `fr` are supported. Manifest
+filenames resolve inside the selected template tree and cannot contain paths.
+The catalog checks version eligibility but supplies no language. Group internal code around input
 preparation, native rendering,
 output checks, and delivery. Internal signatures and intermediate schemas may
 change together. Preserve user-facing configuration semantics and complete

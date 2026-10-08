@@ -28,7 +28,7 @@ from .assignment_manifest import (
 )
 from .config_loader import load_config
 from .data_models import PreprocessResult
-from .notice_versioning import NoticeVersionCatalog, load_catalog
+from .notice_versioning import NoticeVersionCatalog, load_catalog, template_identity
 
 DEFAULT_INPUT_DIR = Path.cwd() / "input"
 DEFAULT_OUTPUT_DIR = Path.cwd() / "output"
@@ -94,7 +94,7 @@ Examples:
     selection.add_argument(
         "--notice-assignments",
         type=Path,
-        help="JSON assignments with client_id, version_id, and language for each client.",
+        help="JSON assignments with client_id and a template filename for each client.",
     )
     selection.add_argument(
         "--notice-template",
@@ -247,8 +247,8 @@ def run_pipeline(
             raise ValueError(
                 "notice_template supplies its own directory; omit template_dir"
             )
-        notice_template = notice_template.resolve()
-        selected_notice = generate_notices.template_identity(notice_template)
+        notice_template = notice_template.parent.resolve() / notice_template.name
+        selected_notice = template_identity(notice_template)
         template_dir = notice_template.parent
     input_path, output_dir = input_path.resolve(), output_dir.resolve()
     config_dir = config_dir.resolve()
@@ -264,7 +264,9 @@ def run_pipeline(
     config = load_config(config_dir / "parameters.yaml")
     catalog = load_catalog(config_dir)
     manifest = (
-        load_manifest(notice_assignments) if notice_assignments is not None else {}
+        load_manifest(notice_assignments, template_dir)
+        if notice_assignments is not None
+        else {}
     )
     if selected_notice is not None and selected_notice[0] not in catalog.versions:
         raise ValueError(

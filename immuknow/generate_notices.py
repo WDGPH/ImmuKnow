@@ -27,20 +27,6 @@ TRANSLATION_DOMAINS = ("diseases_chart", "diseases_overdue")
 LANGUAGES = ("en", "fr")
 
 
-def template_identity(template: Path) -> tuple[str, str]:
-    """Read the version and language from a selected native entry point's name."""
-    if not template.is_file():
-        raise FileNotFoundError(f"Notice template not found: {template}")
-    parts = template.name.rsplit(".", 2)
-    if len(parts) != 3 or parts[1] not in LANGUAGES or parts[2] != "typ":
-        raise ValueError(
-            "Notice template filename must be <version_id>.<language>.typ "
-            f"with language en or fr: {template}"
-        )
-    validate_version_id(parts[0])
-    return parts[0], parts[1]
-
-
 def reject_overlap(source: Path, destination: Path) -> None:
     """Reject source overlap, including nested links followed during template copying."""
     source = source.resolve()

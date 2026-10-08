@@ -28,7 +28,10 @@ from shutil import copytree
 copytree(Path(str(files("immuknow").joinpath("templates"))), Path("/path/to/my-phu"))
 ```
 
-With a manifest, the shorter `--template my_phu` selects
+Manifest rows name entry-point files such as
+`overdue_standard_v1.fr.typ`, without paths. The pipeline resolves each name
+inside the complete selected tree. With a manifest, the shorter
+`--template my_phu` selects
 `phu_templates/my_phu/` beneath the caller's working directory. To use one
 file for the whole accepted cohort, pass its path instead:
 
@@ -37,7 +40,9 @@ uv run immuknow students.csv \
   --notice-template /path/to/my-phu/legacy_overdue_v1.en.typ
 ```
 
-That file's name supplies the version and language; its version must be
+Both selectors use the `<version_id>.<language>.typ` filename contract, with
+supported `en` or `fr`; Typst still asserts literal identity. The selected
+file's name supplies the version and language; its version must be
 registered in the selected catalog and eligible for every accepted client.
 Its containing tree supplies the entry point, helpers, and assets. The
 single-file option cannot be combined with `--notice-assignments`,

@@ -1,6 +1,6 @@
 """Assignment manifest loading, reconciliation, and preflight reporting.
 
-A manifest is a JSON array that maps client IDs to notice versions, languages,
+A manifest is a JSON array that maps client IDs to native template filenames
 and optional experiment metadata. This module loads manifests, reconciles them
 against the preprocessed cohort, and produces a ReconciliationResult that the
 caller uses to decide whether to halt or continue.
@@ -21,6 +21,7 @@ from .enums import Language
 from .notice_versioning import (
     NoticeVersionCatalog,
     ResolvedNotice,
+    template_identity,
     validate_eligibility,
     validate_version_id,
 )
@@ -67,13 +68,14 @@ class ReconciliationError(ValueError):
         )
 
 
-def load_manifest(path: Path) -> Dict[str, ManifestRow]:
+def load_manifest(path: Path, template_dir: Path) -> Dict[str, ManifestRow]:
     """Read a JSON assignment manifest and return a dict keyed by client_id.
 
     Raises ValueError for:
 
     - content that is not a JSON array
-    - rows missing client_id, version_id, or language
+    - rows missing client_id or template
+    - invalid template filenames or separately supplied version/language fields
     - duplicate client_id entries
     """
     if not path.is_file():
@@ -104,18 +106,28 @@ def load_manifest(path: Path) -> Dict[str, ManifestRow]:
                 f"Assignment manifest row {idx} is missing required field 'client_id': {path}"
             )
 
-        version_id = item.get("version_id")
-        if version_id is None:
+        template = item.get("template")
+        if not isinstance(template, str) or not template:
             raise ValueError(
                 f"Assignment manifest row {idx} (client_id={client_id!r}) is missing "
-                f"required field 'version_id': {path}"
+                f"required field 'template' or it is not a filename: {path}"
             )
-        if not isinstance(version_id, str) or not version_id:
+        if Path(template).name != template or "\\" in template:
             raise ValueError(
-                f"Assignment manifest row {idx} (client_id={client_id!r}) has invalid "
-                f"version_id: {version_id!r}: {path}"
+                f"Assignment manifest row {idx}: template must be a filename "
+                f"within the selected template directory, not a path: {template!r}"
             )
-        validate_version_id(version_id)
+        if "version_id" in item or "language" in item:
+            raise ValueError(
+                f"Assignment manifest row {idx}: version_id and language are derived "
+                "from template; remove the separate fields"
+            )
+        try:
+            version_id, language = template_identity(template_dir / template)
+        except (ValueError, FileNotFoundError) as exc:
+            raise type(exc)(
+                f"Assignment manifest row {idx} (client_id={client_id!r}): {exc}"
+            ) from exc
 
         if client_id in seen:
             raise ValueError(
@@ -124,13 +136,6 @@ def load_manifest(path: Path) -> Dict[str, ManifestRow]:
             )
         seen[client_id] = idx
 
-        language = item.get("language")
-        if not isinstance(language, str) or not language.strip():
-            raise ValueError(
-                f"Assignment manifest row {idx} (client_id={client_id!r}) "
-                "requires an explicit language ('en' or 'fr')"
-            )
-        language = Language.from_string(language).value
         experiment_id = item.get("experiment_id") or None
         experiment_arm = item.get("experiment_arm") or None
 
@@ -182,7 +187,7 @@ def reconcile(
                     "missing_assignment",
                     cid,
                     client.version_id,
-                    "Source client has no manifest assignment; add a row with version_id and language",
+                    "Source client has no manifest assignment; add a row with its template filename",
                 )
             )
             continue

@@ -2,9 +2,11 @@
 
 `immuknow.orchestrator.run_pipeline` owns a complete run; `immuknow` is its CLI.
 It loads selected configuration, validates source records and notice
-assignments or a selected notice file, and prepares an ordered canonical cohort. Disease normalization,
+template filenames or one selected notice file, and prepares an ordered
+canonical cohort. Disease normalization,
 vaccine mapping, eligibility, age, grouping, and assignment reconciliation
-remain in Python. Each client has one resolved `version_id` and language.
+remain in Python. The selected filename resolves each client's canonical
+`version_id` and language; Typst independently asserts them.
 
 ```mermaid
 flowchart LR

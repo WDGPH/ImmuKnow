@@ -28,13 +28,14 @@ If custom, please provide:
 ## 3. Prepare and Submit Data
 Pull your Panorama report to obtain a list of overdue students.
 
-Submit one CSV cohort, such as `YYYYMMDD_YourPHU_students.csv`, and its JSON
-notice-assignment manifest. Assign each client's notice version and language
-in the manifest; the cohort does not need separate English and French files.
-See [getting started](../getting_started.md) for the required columns and
-assignment configuration.
+Submit one CSV cohort, such as `YYYYMMDD_YourPHU_students.csv`, and select
+notices in one of two ways: provide a JSON manifest with a `template` filename
+for each client, or identify one `<version_id>.<language>.typ` entry point for
+the accepted cohort. Manifest filenames stay within the selected template tree.
+The cohort does not need separate English and French files. See
+[getting started](../getting_started.md) for columns and selection details.
 
-- [ ] CSV and assignment manifest uploaded to the SharePoint folder
+- [ ] CSV and the selected notice assignment or entry point provided
 
 ---
 

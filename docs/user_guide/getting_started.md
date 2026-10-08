@@ -34,8 +34,9 @@ and `version_id`. Missing required columns fail before notices are produced.
 Select exactly one route for the whole CSV:
 
 - `--notice-assignments PATH` reads a JSON manifest. Each accepted client
-  needs an explicit `client_id`, `version_id`, and `language` row. Version
-  and language select an authored `<version_id>.<language>.typ` entry point.
+  needs a `client_id` and a `template` filename such as
+  `overdue_standard_v1.fr.typ`. The filename selects version and language
+  within the packaged or selected complete template tree.
 - `--notice-template PATH` selects one such `.typ` file for all accepted
   clients. Its filename supplies the version and language. The version must
   exist in the catalog and satisfy its eligibility rule for every client.
@@ -50,7 +51,11 @@ uv run immuknow students.csv \
   --output /path/to/notices
 ```
 
-The packaged `notice_versions.yaml` defines eligible versions. Use
+Both routes require `<version_id>.<language>.typ` with supported `en` or
+`fr`. Manifest `template` values must be filenames, not paths; they resolve
+inside the selected complete tree. Typst also checks the literal version and
+language in the derived JSON. The packaged `notice_versions.yaml` defines
+eligible versions. Use
 `--config /path/to/config` for your own catalog and settings. With a
 manifest, `--templates /path/to/my-phu` selects a complete external Typst
 tree, or `--template NAME` selects `phu_templates/NAME/` beneath the

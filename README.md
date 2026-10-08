@@ -18,7 +18,7 @@ uv run immuknow students.csv --notice-assignments ./assignments.json \
 ```
 
 A run selects notices in one of two ways: pass `--notice-assignments` with
-one explicit `version_id` and `language` per client, or pass one
+one `template` filename per client, or pass one
 `--notice-template PATH` for all accepted clients:
 
 ```bash
@@ -27,12 +27,15 @@ uv run immuknow students.csv \
   --output ./output
 ```
 
-The selected file must be named `<version_id>.<language>.typ` and its version
-must be registered in the notice catalog for eligibility checks. An installed
+Every selected file must be named `<version_id>.<language>.typ`, with
+`en` or `fr`, and its version must be registered in the notice catalog for
+eligibility checks. An installed
 package supplies the same command, catalog, and resources. Use
 `--config /path/to/config` to select your own configuration and catalog.
 
-A manifest selects the matching authored entry point for each client. Use
+Each manifest `template` is a filename within the selected complete tree;
+paths in manifest rows are rejected. The filename supplies canonical version
+and language, and Typst independently asserts both. Use
 `--templates /path/to/my-phu` for a complete PHU template directory, or
 `--template NAME` for `phu_templates/NAME/` beneath the working directory.
 The single-file option uses the selected file's containing tree and cannot be

@@ -3,10 +3,11 @@
 The supported callable interface is `immuknow.orchestrator.run_pipeline`.
 Pass a CSV path and output directory, plus exactly one of
 `notice_assignments=Path(...)` or `notice_template=Path(...)`. A manifest
-assigns version and language per client; a named Typst file selects both for
+names one `<version_id>.<language>.typ` file per client within the selected
+template tree; a full-path Typst file selects both for
 the whole accepted cohort. `config_dir` selects configuration for either route;
-`template_dir` selects a template tree for manifest selection. The function returns the successful completion
-record path, or `None` when the user cancels an output-directory prompt.
+`template_dir` selects a template tree for manifest selection. The
+function returns the successful completion record path, or `None` when the user cancels an output-directory prompt.
 The CLI `immuknow` calls the same workflow.
 
 ```python

@@ -27,10 +27,25 @@ def write_manifest(tmp_path: Path, rows: object) -> Path:
     return path
 
 
+@pytest.fixture
+def template_dir(tmp_path: Path) -> Path:
+    selected = tmp_path / "templates"
+    selected.mkdir()
+    for name in (
+        "overdue_standard_v1.en.typ",
+        "overdue_standard_v1.fr.typ",
+        "affirmative_schedule_v1.en.typ",
+    ):
+        (selected / name).write_text(
+            "// selected native entry point\n", encoding="utf-8"
+        )
+    return selected
+
+
 def row(
     client_id: str, version: str = "overdue_standard_v1", language: str = "en"
 ) -> dict:
-    return {"client_id": client_id, "version_id": version, "language": language}
+    return {"client_id": client_id, "template": f"{version}.{language}.typ"}
 
 
 def catalog() -> NoticeVersionCatalog:
@@ -68,6 +83,7 @@ def findings(result: ReconciliationResult, kind: str) -> list[AssignmentFinding]
 @pytest.mark.unit
 def test_manifest_loads_explicit_language_and_experiment_metadata(
     tmp_path: Path,
+    template_dir: Path,
 ) -> None:
     path = write_manifest(
         tmp_path,
@@ -79,7 +95,7 @@ def test_manifest_loads_explicit_language_and_experiment_metadata(
             }
         ],
     )
-    loaded = load_manifest(path)
+    loaded = load_manifest(path, template_dir)
     assert loaded == {
         "C001": ManifestRow("C001", "overdue_standard_v1", "fr", "study", "B")
     }
@@ -91,54 +107,99 @@ def test_manifest_loads_explicit_language_and_experiment_metadata(
     [
         ({"client_id": "C001"}, "JSON array"),
         ([123], "row 1"),
-        ([{"version_id": "v1", "language": "en"}], "client_id"),
-        ([{"client_id": "C001", "language": "en"}], "version_id"),
+        ([{"template": "overdue_standard_v1.en.typ"}], "client_id"),
+        ([{"client_id": "C001"}], "template"),
         (
             [{"client_id": "C001", "notice_version": "v1", "language": "en"}],
-            "version_id",
+            "template",
         ),
         ([row("C001"), row("C001")], "duplicate client_id"),
     ],
 )
 def test_manifest_rejects_malformed_or_duplicate_rows(
-    tmp_path: Path, rows: object, message: str
+    tmp_path: Path, template_dir: Path, rows: object, message: str
 ) -> None:
     with pytest.raises(ValueError, match=message):
-        load_manifest(write_manifest(tmp_path, rows))
+        load_manifest(write_manifest(tmp_path, rows), template_dir)
 
 
 @pytest.mark.unit
 @pytest.mark.parametrize("invalid", ["", 123, [], {}])
-def test_manifest_rejects_invalid_version_id(tmp_path: Path, invalid: object) -> None:
-    with pytest.raises(ValueError, match="version_id"):
-        load_manifest(
-            write_manifest(tmp_path, [{**row("C001"), "version_id": invalid}])
-        )
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize("language", [None, "", "es", 123, []])
-def test_manifest_rejects_missing_or_unsupported_language(
-    tmp_path: Path, language: object
+def test_manifest_rejects_invalid_template_value(
+    tmp_path: Path, template_dir: Path, invalid: object
 ) -> None:
-    with pytest.raises(ValueError, match="language"):
-        load_manifest(write_manifest(tmp_path, [{**row("C001"), "language": language}]))
-
-
-@pytest.mark.unit
-def test_manifest_rejects_absent_language_field(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="language"):
+    with pytest.raises(ValueError, match="template"):
         load_manifest(
-            write_manifest(tmp_path, [{"client_id": "C001", "version_id": "v1"}])
+            write_manifest(tmp_path, [{"client_id": "C001", "template": invalid}]),
+            template_dir,
         )
 
 
 @pytest.mark.unit
-def test_manifest_rejects_invalid_json(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "template",
+    [
+        "overdue_standard_v1.es.typ",
+        "overdue_standard_v1..typ",
+        "overdue_standard_v1.EN.typ",
+        "overdue_standard_v1.typ",
+        "overdue_standard_v1.fr.pdf",
+    ],
+)
+def test_manifest_rejects_invalid_filename_or_language(
+    tmp_path: Path, template_dir: Path, template: str
+) -> None:
+    (template_dir / template).write_text("// malformed entry point\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="filename|language"):
+        load_manifest(
+            write_manifest(tmp_path, [{"client_id": "C001", "template": template}]),
+            template_dir,
+        )
+
+
+@pytest.mark.unit
+def test_manifest_rejects_missing_template_file(
+    tmp_path: Path, template_dir: Path
+) -> None:
+    with pytest.raises(FileNotFoundError, match="template"):
+        load_manifest(
+            write_manifest(tmp_path, [row("C001", "unwritten_v1")]), template_dir
+        )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "template", ["../outside.fr.typ", "/tmp/outside.fr.typ", "nested/notice.fr.typ"]
+)
+def test_manifest_rejects_template_outside_selected_directory(
+    tmp_path: Path, template_dir: Path, template: str
+) -> None:
+    with pytest.raises(ValueError, match="template|filename|directory"):
+        load_manifest(
+            write_manifest(tmp_path, [{"client_id": "C001", "template": template}]),
+            template_dir,
+        )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "legacy", [{"version_id": "overdue_standard_v1"}, {"language": "fr"}]
+)
+def test_manifest_rejects_contradictory_legacy_fields(
+    tmp_path: Path, template_dir: Path, legacy: dict[str, str]
+) -> None:
+    with pytest.raises(ValueError, match="template|version_id|language"):
+        load_manifest(
+            write_manifest(tmp_path, [{**row("C001"), **legacy}]), template_dir
+        )
+
+
+@pytest.mark.unit
+def test_manifest_rejects_invalid_json(tmp_path: Path, template_dir: Path) -> None:
     path = tmp_path / "assignments.json"
     path.write_text("{broken", encoding="utf-8")
     with pytest.raises(ValueError, match="valid JSON"):
-        load_manifest(path)
+        load_manifest(path, template_dir)
 
 
 @pytest.mark.unit
@@ -255,8 +316,10 @@ def test_preflight_console_shows_counts_without_client_details(capsys) -> None:
 
 
 @pytest.mark.unit
-def test_manifest_omitted_experiment_fields_remain_absent(tmp_path: Path) -> None:
-    loaded = load_manifest(write_manifest(tmp_path, [row("C001")]))
+def test_manifest_omitted_experiment_fields_remain_absent(
+    tmp_path: Path, template_dir: Path
+) -> None:
+    loaded = load_manifest(write_manifest(tmp_path, [row("C001")]), template_dir)
     assert loaded["C001"].experiment_id is None
     assert loaded["C001"].experiment_arm is None
 
