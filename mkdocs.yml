@@ -110,9 +110,7 @@ nav:
     - API Reference: reference/api.md
   - Developer Guide:
     - Contributing: developer_guide/contributing.md
-    - Branching Strategy: developer_guide/branching.md
     - Testing Standards: developer_guide/testing.md
     - Documentation Standards: developer_guide/documentation.md
     - Code Analysis: developer_guide/code_analysis.md
     - AI Agent Workflow: developer_guide/agents.md
-  - Changelog: changelog.md

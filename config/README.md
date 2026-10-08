@@ -12,7 +12,7 @@ This directory contains all configuration files for the immunization pipeline. E
     - [Feature flags overview](#feature-flags-overview)
     - [Pipeline Lifecycle](#pipeline-lifecycle)
     - [Date controls](#date-controls)
-    - [Chart diseases header](#chart_diseases_header-configuration)
+    - [Chart diseases header](#chart-diseases-header-configuration)
   - [`vaccine_reference.json`](#vaccine_referencejson)
   - [`disease_normalization.json`](#disease_normalizationjson)
   - [`translations/` Directory](#translations-directory)
@@ -54,6 +54,7 @@ Unchanged Typst templates + structured JSON
 [validate_pdfs.py]
     └─ Validate every expected PDF and emit validation JSON
 ```
+
 ---
 
 ## Required Configuration Files
@@ -64,6 +65,7 @@ Unchanged Typst templates + structured JSON
 **Purpose**: Pipeline behavior configuration (feature flags, settings, and chart disease filtering)
 
 **Usage**:
+
 - QR code generation settings
 - PDF encryption settings
 - Batching configuration
@@ -149,17 +151,19 @@ Each CSV contains: `input_name`, `input_id`, `matched_name`, `matched_id`, `mism
 The pipeline has two lifecycle phases controlled under `pipeline.*`:
 
 **Before Run (`pipeline.before_run`)**:
+
 - `clear_output_directory`: When true, removes all output except logs before starting a new run. Preserves the logs directory for audit trail. Set to true for clean re-runs; false to prompt before deleting.
 
 **After Run (`pipeline.after_run`)**:
-- `remove_artifacts`: When true, removes the `output/artifacts` directory (QR codes, Typst files). Use this to reclaim disk space after successful compilation and validation.
+
+- `remove_artifacts`: When true, removes the `output/artifacts` directory (QR images, notice JSON, render jobs, and staged templates). Use this to reclaim disk space after successful compilation and validation.
 - `remove_unencrypted_pdfs`: When true and either encryption OR batching is enabled, removes non-encrypted PDFs from `output/pdf_individual/` after encryption/batching completes. When both encryption and batching are disabled, individual non-encrypted PDFs are assumed to be the final output and are preserved regardless of this setting.
 
 #### Date controls
 - `date_data_cutoff` (ISO 8601 string) records when the source data was extracted. It renders in notices using the client's language via Babel so that readers see a localized calendar date. Change this only when regenerating notices from a fresher extract.
 - `date_notice_delivery` (ISO 8601 string) fixes the reference point for age-based eligibility checks and QR payloads. Preprocessing uses this value to decide if a client is 16 or older, so adjust it cautiously and keep it aligned with the actual delivery or mailing date.
 
-**`chart_diseases_header` Configuration:**
+#### Chart diseases header configuration
 
 This list defines which diseases appear as columns in the immunization chart:
 
@@ -183,23 +187,25 @@ chart_diseases_header:
 **Disease Filtering and "Other" Category:**
 
 1. **During Preprocessing (`preprocess.py`):**
-   - Diseases from vaccine records are checked against `chart_diseases_header`
-   - Diseases **not** in the list are **collapsed into "Other"**
-   - This ensures only configured diseases appear as separate columns
+    - Diseases from vaccine records are checked against `chart_diseases_header`
+    - Diseases **not** in the list are **collapsed into "Other"**
+    - This ensures only configured diseases appear as separate columns
 
 2. **During Notice Generation (`generate_notices.py`):**
-   - Each disease name in `chart_diseases_header` is **translated to the target language**
-   - Translations come from `translations/{lang}_diseases_chart.json`
-   - Translated list is written as ordinary JSON for the selected Typst template
-   - The template renders column headers using **Python-translated names**, not raw config values
+    - Each disease name in `chart_diseases_header` is **translated to the target language**
+    - Translations come from `translations/{lang}_diseases_chart.json`
+    - Translated list is written as ordinary JSON for the selected Typst template
+    - The template renders column headers using **Python-translated names**, not raw config values
 
 **Impact:**
+
 - Chart columns only show diseases in this list
 - Unplanned/unexpected diseases are grouped under "Other"
 - All column headers are properly localized before template rendering
 - No runtime lookups needed in Typst; translations applied in Python
 
 **Same-Date Validity Grouping:**
+
 - Each vaccine has one validity status, which applies to every displayed disease column populated by that vaccine.
 - Vaccines given on the same date remain in one row when their statuses populate different displayed disease columns.
 - Separate rows are created only when valid and invalid vaccines would populate the same displayed column, including vaccines grouped under "Other", so each displayed marker remains unambiguous.
@@ -218,10 +224,11 @@ chart_diseases_header:
 ```
 
 **Usage**:
+
 - Loaded in `orchestrator.py` step 2 (preprocessing)
 - Used in `preprocess.py`:
-  - `enrich_grouped_records()` expands vaccine codes to disease names
-  - Maps received vaccine records to canonical disease names
+    - `enrich_grouped_records()` expands vaccine codes to disease names
+    - Maps received vaccine records to canonical disease names
 - All disease names MUST be canonical (English) forms
 
 **Example**:
@@ -234,6 +241,7 @@ chart_diseases_header:
 ```
 
 **Canonical diseases** (must match these exactly):
+
 - Diphtheria
 - HPV
 - Hepatitis B
@@ -264,6 +272,7 @@ chart_diseases_header:
 ```
 
 **Usage**:
+
 - Loaded in `pipeline/translation_helpers.py`
 - Called by `normalize_disease()` in preprocessing
 - Handles input variants that differ from canonical names
@@ -301,11 +310,12 @@ translations/
 ```
 
 **Usage**:
+
 - Loaded in `pipeline/translation_helpers.py`
 - Called by `display_label()` when rendering notices
 - Two domains:
-  - **diseases_overdue**: Labels for the "vaccines due" section
-  - **diseases_chart**: Labels for the immunization history table
+    - **diseases_overdue**: Labels for the "vaccines due" section
+    - **diseases_chart**: Labels for the immunization history table
 - Different labels possible per domain (e.g., "Polio" vs "Poliomyelitis" in chart)
 
 **Example**:
@@ -345,9 +355,10 @@ Both QR code payloads and PDF password generation use **centralized template fie
 ### Template Validation
 
 All template placeholders are **validated at runtime**:
-- ✅ Placeholders must exist in the generated context
-- ✅ Placeholders must be in the allowed field list (no typos like `{client_ID}`)
-- ✅ Invalid placeholders raise clear error messages with allowed fields listed
+
+- [x] Placeholders must exist in the generated context
+- [x] Placeholders must be in the allowed field list (no typos like `{client_ID}`)
+- [x] Invalid placeholders raise clear error messages with allowed fields listed
 
 This prevents silent failures from configuration typos and ensures templates are correct before processing.
 
@@ -368,6 +379,7 @@ qr:
 ```
 
 Tip:
+
 - Use `{date_of_birth_iso}` or `{date_of_birth_iso_compact}` for predictable date formats
 - The delivery date available to templates is `date_notice_delivery`
 
@@ -380,11 +392,13 @@ After updating the configuration, rerun the pipeline and regenerated notices wil
 The PDF validation step runs after compilation to enforce basic quality rules and surface layout issues. Configuration lives under `pdf_validation` in `config/parameters.yaml`.
 
 Supported severity levels per rule:
+
 - `disabled`: skip the check
 - `warn`: include in summary but do not halt pipeline
 - `error`: fail the pipeline if any PDFs violate the rule
 
 Current rules:
+
 - `envelope_window_1_125`: Ensure contact area does not exceed 1.125" inches
 - `exactly_two_pages`: Ensure each notice has exactly 2 pages (notice + immunization record)
 - `signature_overflow`: Detect if the signature block spills onto page 2 (uses invisible Typst marker)
@@ -402,6 +416,7 @@ pdf_validation:
 ```
 
 Behavior:
+
 - The validation summary is always printed to the console.
 - A JSON report is written to `output/metadata/validation_<run_id>.json` with per-PDF results and aggregates.
 - If any rule is set to `error` and fails, the pipeline stops with a clear error message listing failing rules and counts.
@@ -417,6 +432,7 @@ PDF encryption can be customized in `config/parameters.yaml` under the `encrypti
 Refer to the [Template Field Reference](#template-field-reference) for the complete list of supported placeholders.
 
 Common strategies:
+
 - Simple: `{date_of_birth_iso_compact}` – DOB only
 - Compound: `{client_id}{date_of_birth_iso_compact}` – ID + DOB
 - Formatted: `{client_id}-{date_of_birth_iso}` – hyphenated
@@ -483,8 +499,8 @@ fails compilation when its required agent data is missing.
 catalog default when absent. Optional `experiment_id` and `experiment_arm`
 are retained with assignment provenance.
 
-The external manifest keeps `notice_version` for compatibility. Internally,
-resolved notices and output metadata use **`version_id`**. An explicit source
+Assignment manifests use `notice_version`. Resolved notices and output metadata
+use **`version_id`**. An explicit source
 input `version_id` must agree with its client's manifest `notice_version`.
 A conflicting pair fails before rendering; unrelated client metadata is preserved.
 
@@ -541,24 +557,24 @@ viper students.xlsx --notice-assignments assignments.json \
 Supplying a positional language in manifest mode produces a warning and leaves
 language selection to assignments and catalog defaults. A missing template fails
 before payload preparation. Follow the template authoring guide for the JSON
-contract, native assertions, and private-template migration.
+contract and native assertions.
 
 ## Adding New Configurations
 
 ### Adding a New Disease
 
 1. **Update `vaccine_reference.json`**:
-   - Add vaccine code mapping if needed
-   - Ensure all diseases use canonical names
+    - Add vaccine code mapping if needed
+    - Ensure all diseases use canonical names
 
 2. **Update all translation files** (required):
-   - `translations/en_diseases_overdue.json`
-   - `translations/fr_diseases_overdue.json`
-   - `translations/en_diseases_chart.json`
-   - `translations/fr_diseases_chart.json`
+    - `translations/en_diseases_overdue.json`
+    - `translations/fr_diseases_overdue.json`
+    - `translations/en_diseases_chart.json`
+    - `translations/fr_diseases_chart.json`
 
 3. **Update `disease_normalization.json`** (if needed):
-   - Add any input variants that map to this disease
+    - Add any input variants that map to this disease
 
 4. **Test**:
    ```bash
@@ -570,12 +586,12 @@ contract, native assertions, and private-template migration.
 1. **Extend Language enum** in `pipeline/enums.py`
 
 2. **Create translation files**:
-   - `translations/{lang}_diseases_overdue.json`
-   - `translations/{lang}_diseases_chart.json`
+    - `translations/{lang}_diseases_overdue.json`
+    - `translations/{lang}_diseases_chart.json`
 
 3. **Populate translations**:
-   - Copy English content
-   - Translate all disease names to target language
+    - Copy English content
+    - Translate all disease names to target language
 
 4. **Test**:
    ```bash

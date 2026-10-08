@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.12'",
@@ -429,23 +429,6 @@ wheels = [
 ]
 
 [[package]]
-name = "git-changelog"
-version = "2.9.7"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "jinja2" },
-    { name = "packaging" },
-    { name = "platformdirs" },
-    { name = "semver" },
-    { name = "tomli", marker = "python_full_version < '3.11'" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/1e/ef/e2e9232f13c44ebcf084901ac267f290f4033a8bf85ff5fc2f5eacfb5414/git_changelog-2.9.7.tar.gz", hash = "sha256:26f7e56a11027a6cc5c544992464f6d449fbee95fb0a05c627e65970bf766e50", size = 93159, upload-time = "2026-08-20T12:00:45.484Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/72/76/a5e7fbd174a00eb98f0d245fb17b5bd703ad20d8c1eaa117cda164777708/git_changelog-2.9.7-py3-none-any.whl", hash = "sha256:560813f0aef8d002e60fb1ad36e9756462cd021e35ed15b02c9697c4a849e7fb", size = 40648, upload-time = "2026-08-20T12:00:44.098Z" },
-]
-
-[[package]]
 name = "griffelib"
 version = "2.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -498,9 +481,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "git-changelog" },
     { name = "pre-commit" },
-    { name = "pypandoc" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ty" },
@@ -529,9 +510,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "git-changelog", specifier = ">=2.9.7" },
     { name = "pre-commit" },
-    { name = "pypandoc", specifier = ">=1.15" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ty", specifier = ">=0.0.74" },
@@ -1401,15 +1380,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pypandoc"
-version = "1.17"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/ea/d6/410615fc433e5d1eacc00db2044ae2a9c82302df0d35366fe2bd15de024d/pypandoc-1.17.tar.gz", hash = "sha256:51179abfd6e582a25ed03477541b48836b5bba5a4c3b282a547630793934d799", size = 69071, upload-time = "2026-03-14T22:39:07.21Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/0c/86/e2ffa604eacfbec3f430b1d850e7e04c4101eca1a5828f9ae54bf51dfba4/pypandoc-1.17-py3-none-any.whl", hash = "sha256:01fdbffa61edb9f8e82e8faad6954efcb7b6f8f0634aead4d89e322a00225a67", size = 23554, upload-time = "2026-03-14T22:38:46.007Z" },
-]
-
-[[package]]
 name = "pypdf"
 version = "6.16.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1876,15 +1846,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/9c/97/0043896fdd7828ce09a1d9a8b06433714d0960fc4ff3fc4aa72b666b764e/rpds_py-2026.6.3-pp311-pypy311_pp73-musllinux_1_2_aarch64.whl", hash = "sha256:2bfd04c19ddbd6640de0b51894d764bd2758854d5b75bd102d2ef10cb9c293a9", size = 558118, upload-time = "2026-06-30T07:17:47.759Z" },
     { url = "https://files.pythonhosted.org/packages/f6/40/02355f0e134f783a8f9814c4680a1bd311d37671577a5964ea838573ff37/rpds_py-2026.6.3-pp311-pypy311_pp73-musllinux_1_2_i686.whl", hash = "sha256:ca6546b66be9dc4738b1b043d5ebd5488c66c578c5ff0fd0e8065313fe3afb76", size = 623138, upload-time = "2026-06-30T07:17:49.355Z" },
     { url = "https://files.pythonhosted.org/packages/10/85/48f0abdcef5cce4e034c7a5b0ceeceba0b01bf0d942824f4bb720afe2dec/rpds_py-2026.6.3-pp311-pypy311_pp73-musllinux_1_2_x86_64.whl", hash = "sha256:8e65860d238379ed982fd9ba690579b5e95af2f4840f99c772816dbe573cb826", size = 586486, upload-time = "2026-06-30T07:17:51.141Z" },
-]
-
-[[package]]
-name = "semver"
-version = "3.0.4"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/72/d1/d3159231aec234a59dd7d601e9dd9fe96f3afff15efd33c1070019b26132/semver-3.0.4.tar.gz", hash = "sha256:afc7d8c584a5ed0a11033af086e8af226a9c0b206f313e0301f8dd7b6b589602", size = 269730, upload-time = "2025-01-24T13:19:27.617Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/a6/24/4d91e05817e92e3a61c8a21e08fd0f390f5301f1c448b137c57c4bc6e543/semver-3.0.4-py3-none-any.whl", hash = "sha256:9c824d87ba7f7ab4a1890799cec8596f15c1241cb473404ea1cb0c55e4b04746", size = 17912, upload-time = "2025-01-24T13:19:24.949Z" },
 ]
 
 [[package]]

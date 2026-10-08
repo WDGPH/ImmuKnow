@@ -13,9 +13,11 @@ Test docstrings should describe the behavior protected by the test, especially f
 ## Where to update guidance
 
 - [Getting started](../user_guide/getting_started.md): supported inputs and CLI.
-- [Template authoring](../user_guide/phu_templates.md): JSON payloads, native Typst entry points, assertions, and custom template migration.
+- [Template authoring](../user_guide/phu_templates.md): JSON payloads, native Typst entry points, and assertions.
 - [Architecture](../reference/architecture.md): step boundaries and artifacts.
 - [Testing](testing.md): checks and evidence limits.
 - [Code analysis](code_analysis.md): tracing callers and removing duplication.
 
-Update the existing guide that owns a contract when behavior changes. Keep point-in-time implementation evidence in the testing guide or changelog rather than creating a second set of instructions.
+Update the existing guide that owns a contract when behavior changes. Keep
+point-in-time implementation results in the pull request and Git history; the
+guides describe current behavior and repeatable checks.

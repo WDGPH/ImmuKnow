@@ -25,7 +25,7 @@
 
 * Present findings in the conversation as Markdown. Do not emit temporary files or heredoc tricks.
 * Integrate durable learnings into standards, module comments, or docstrings.
-* End each task by archiving insights where future contributors will look.
+* Keep documentation about current behavior. Put change history and implementation rationale in commits and pull requests.
 
 ---
 
@@ -126,11 +126,11 @@ Run each shell command once. Investigate before re‑running.
 
 ## Engineering principles
 
-Applies at all times. Compatibility posture is noted where behavior differs before and after 1.0.
+The pipeline is maintained and tested as a whole.
 
 1. **Simplicity first.** Prefer straightforward code over abstraction. Use native structures freely. Extract helpers only when they reduce duplication or improve clarity.
 
-   * *Compatibility note:* pre‑1.0 favors rapid simplification with no backward‑compat guarantees. Post‑1.0 preserve public contracts when changing code.
+   * Internal functions and intermediate artifacts may change together. Do not retain aliases, wrappers, or fallback paths solely for backwards compatibility; preserve the intended end-to-end results.
 2. **Clear boundaries and reuse.** Colocate helpers with the step that uses them. Extract to `utils.py` only when reused by ≥2 modules and clarity improves. Prefer pure, side‑effect‑free helpers with action‑oriented names.
 3. **Deterministic, step‑isolated pipeline.** Steps read inputs from disk and write outputs to disk. Do not pass in‑memory state via the orchestrator. Same input → same output, including ordering and filenames.
 4. **Contracts over defensiveness.** Centralize input validation in preprocessing and output checks in dedicated validation steps. Fail fast with precise exceptions. Do not add silent fallbacks.
@@ -139,10 +139,7 @@ Applies at all times. Compatibility posture is noted where behavior differs befo
 7. **Errors and logging.** Catch only exceptions you can handle meaningfully. Raise actionable messages. Log at step boundaries and major operations. Informative, not noisy.
 8. **Parallel development without drift.** Keep core steps stable (preprocess, notices, compile, validate). Optional steps (encryption, batching, cleanup) may evolve independently if contracts hold. Update tests and docs with any schema or layout change.
 9. **Tests are the spec.** Update tests with behavior changes. Use integration tests for quick feedback and E2E tests for coverage. Test native rendering outside the checkout with a bounded run-local file root.
-10. **Documentation placement.** Enduring standards live here and in `docs/`. Point‑in‑time analyses and refactor plans live in `docs/`.
-  - **Single canonical working document per initiative.** During a feature or refactor effort, maintain one authoritative document (e.g., `docs/DEFENSIVE_CODE_AND_HELPERS_PLAN.md`). Append progress (phases, decisions, status) to that file instead of creating new phase‑specific Markdown files.
-  - Prefer sections like "Status", "Decision Log", and dated "Updates" within the canonical doc over new files such as `PHASE_X_START.md` or `PHASE_X_COMPLETION.md`.
-  - If interim files were created, integrate their content back into the canonical doc and avoid introducing new ones. Link to historical PRs/commits for provenance rather than duplicating documents.
+10. **Documentation placement.** Keep current usage, configuration, architecture, and testing guidance in `docs/`. Git history and pull requests explain how the project changed. Do not commit dated work journals, progress reports, migration scorecards, or duplicate changelogs. Keep executable regression fixtures when they protect meaningful output behavior.
 
 ---
 

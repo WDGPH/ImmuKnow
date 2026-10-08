@@ -1,7 +1,5 @@
 # ImmuKnow
 
-**Current version:** v1.0.0
-
 ImmuKnow prepares personalized immunization history charts and notice letters
 for Public Health Units (PHUs) in Ontario. Python prepares each client's data;
 authored [Typst](https://typst.app) templates produce the PDFs. The maintained
@@ -59,16 +57,8 @@ The pipeline runs nine sequential, stateless steps. Each step reads its inputs f
 
     ---
 
-    Contributing, branching strategy, testing standards, and AI agent workflow.
+    Contributing, testing standards, and AI agent workflow.
 
     [:octicons-arrow-right-24: Contributing](developer_guide/contributing.md)
-
--   **Changelog**
-
-    ---
-
-    Release history and version notes.
-
-    [:octicons-arrow-right-24: Changelog](changelog.md)
 
 </div>

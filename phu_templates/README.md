@@ -17,7 +17,5 @@ viper students.xlsx en --templates "/path/to/my PHU templates"
 
 The selected directory supplies its own entry points, helpers, and assets.
 Missing languages never fall back to English or to another PHU's templates.
-Private Python generators must be migrated to native `.typ` files.
-
 Follow the [template authoring guide](../docs/user_guide/phu_templates.md) for
-the supported layout, JSON contract, identity assertions, and migration steps.
+the supported layout, JSON contract, and identity assertions.

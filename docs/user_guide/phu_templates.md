@@ -189,19 +189,8 @@ prepare_render_jobs(
 compile_with_config(artifacts, pdfs, parameters)
 ```
 
-## Migrate a private Python template
-
-Move the authored prose and layout into the corresponding `.typ` entry point.
-Replace source placeholders with fields from `notice`; move presentation
-conditions into Typst. Keep source normalization and localization in Python.
-Retain the helper imports, assets, validation markers, and literal identity checks.
-
-Remove the old Python module after testing the native entry point. Python-only
-custom templates now produce an error naming the expected `.typ` path and the
-module to migrate. There is no parallel Python renderer.
-
-Before adopting the migrated template, compare representative PDFs for prose,
-client details, history, validity symbols, QR links, branding, page numbering,
-signature position, and envelope-window measurements. Include long records and
-addresses. See the [testing guide](../developer_guide/testing.md) for the captured
-synthetic baselines and real-compiler acceptance tests.
+Review representative PDFs for prose, client details, history, validity symbols,
+QR links, branding, page numbering, signature position, and envelope-window
+measurements. Include long records and addresses. See the
+[testing guide](../developer_guide/testing.md) for repeatable native compilation
+checks and PDF review guidance.

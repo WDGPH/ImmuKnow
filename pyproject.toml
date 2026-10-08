@@ -30,8 +30,6 @@ dev = [
     "pytest-cov",
     "pre-commit",
     "ty>=0.0.74",
-    "git-changelog>=2.9.7",
-    "pypandoc>=1.15",
 ]
 docs = [
     "jinja2>=3.1.6",

@@ -77,8 +77,7 @@ Entry points are flat files such as `legacy_overdue_v1.en.typ` and
 Each entry point loads ordinary JSON through `sys.inputs` and asserts its
 literal version and language before rendering. Python does not generate Typst
 source. See the [template authoring guide](docs/user_guide/phu_templates.md)
-for the full contract, installed-package examples, private-template migration,
-and single-notice reproduction.
+for the full contract, installed-package examples, and single-notice reproduction.
 
 ## Pipeline and artifacts
 
@@ -126,7 +125,5 @@ uv run pre-commit run --all-files
 Real Typst compilation is required by the native acceptance tests and the CI
 test job. The suite includes mixed-language processing, identity assertions,
 failure propagation, custom templates, and a clean installed-wheel test.
-The [testing guide](docs/developer_guide/testing.md) records semantic and visual
-comparison evidence, including existing overflow in some synthetic baselines.
-
-See [CHANGELOG.md](CHANGELOG.md) for compatibility changes.
+The [testing guide](docs/developer_guide/testing.md) describes native compilation
+checks and PDF review. Review release tags and Git history for past changes.
