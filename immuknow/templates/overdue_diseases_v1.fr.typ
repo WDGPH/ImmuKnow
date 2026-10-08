@@ -112,7 +112,7 @@ Si vous avez des questions sur les vaccins de votre enfant, veuillez appeler le 
 #let received = notice.received
 #let diseases = notice.chart_diseases
 #let show_validity_markers = notice.show_validity_markers
-#let date = presentation.long-date(notice.date_data_cutoff_iso, "fr", required: false)
+#let date = presentation.long-date(notice.date_as_of, "fr", required: false)
 
 #set page(
   margin: (top: 1cm, bottom: 2cm, left: 1.75cm, right: 2cm),

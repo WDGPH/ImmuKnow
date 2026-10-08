@@ -42,7 +42,7 @@ def test_prepared_client_data_survive_artifact_round_trip(
     df["overdue_disease"] = ["Poliomyelitis - 12; Measles"]
     df["overdue_agent"] = ["IPV; MMR"]
     config = {
-        "date_notice_delivery": "2025-04-08",
+        "date_of_delivery": "2025-04-08",
         "preprocess": {"include_dose": False},
     }
 

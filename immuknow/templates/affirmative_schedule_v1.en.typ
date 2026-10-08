@@ -101,7 +101,7 @@ Thank you for helping to keep our children safe.
 #let received = notice.received
 #let diseases = notice.chart_diseases
 #let show_validity_markers = notice.show_validity_markers
-#let date = presentation.long-date(notice.date_data_cutoff_iso, "en", required: false)
+#let date = presentation.long-date(notice.date_as_of, "en", required: false)
 
 #set page(
   margin: (top: 1cm, bottom: 2cm, left: 1.75cm, right: 2cm),

@@ -37,8 +37,8 @@ Set options in `parameters.yaml`. Common choices:
 
 | Key | Meaning |
 |---|---|
-| `date_notice_delivery` | ISO reference date for age and delivery decisions |
-| `date_data_cutoff` | ISO extract date shown in notices; may be blank when absent |
+| `date_of_delivery` | Intended delivery date (YYYY-MM-DD), used to calculate client age |
+| `date_as_of` | As-of date shown in notices (YYYY-MM-DD); does not filter records; may be blank |
 | `chart_diseases_header` | Configured disease names in chart order; unlisted diseases group under `Other` |
 | `preprocess.include_dose` | Show numeric overdue doses when available; facts retain doses either way |
 | `preprocess.show_validity_markers` | Mark valid and invalid received doses in the history |

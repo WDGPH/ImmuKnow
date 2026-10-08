@@ -117,18 +117,16 @@ def prepare_render_jobs(
     reject_overlap(config_dir, workspace)
     if not template_dir.is_dir():
         raise FileNotFoundError(f"Notice template directory not found: {template_dir}")
-    cutoff = config.get("date_data_cutoff")
-    if cutoff not in (None, ""):
-        if not isinstance(cutoff, str) or not re.fullmatch(
-            r"\d{4}-\d{2}-\d{2}", cutoff
+    date_as_of = config.get("date_as_of")
+    if date_as_of not in (None, ""):
+        if not isinstance(date_as_of, str) or not re.fullmatch(
+            r"\d{4}-\d{2}-\d{2}", date_as_of
         ):
-            raise ValueError("date_data_cutoff must be an ISO calendar date")
+            raise ValueError("date_as_of must be an ISO calendar date")
         try:
-            date.fromisoformat(cutoff)
+            date.fromisoformat(date_as_of)
         except ValueError as exc:
-            raise ValueError(
-                "date_data_cutoff must be a valid ISO calendar date"
-            ) from exc
+            raise ValueError("date_as_of must be a valid ISO calendar date") from exc
 
     packaged_translations = (
         Path(str(files("immuknow").joinpath("config"))) / "translations"
@@ -253,7 +251,7 @@ def build_notice_data(client: ClientRecord, config: dict[str, Any]) -> dict[str,
         "language": client.language,
         "client_id": client.client_id,
         "client_data": client_data,
-        "date_data_cutoff_iso": config.get("date_data_cutoff") or "",
+        "date_as_of": config.get("date_as_of") or "",
         "overdue_diseases": client.overdue_diseases or [],
         "overdue_agents": client.overdue_agents or [],
         "include_dose": bool(preprocess_config.get("include_dose", False)),

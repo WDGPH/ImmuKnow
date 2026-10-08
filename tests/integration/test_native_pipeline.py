@@ -280,7 +280,7 @@ def test_mixed_cohort_processed_exactly_once(
 def test_assigned_language_controls_every_display_date(
     tmp_path: Path, assigned_language: str, month: str
 ) -> None:
-    """Assigned entry points control both birth and cutoff date presentation."""
+    """Assigned entry points control both birth and as-of date presentation."""
     command, output_dir, _ = prepare_cohort(tmp_path, (assigned_language,))
     result = run_cli(command, tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
@@ -289,8 +289,9 @@ def test_assigned_language_controls_every_display_date(
     text = "\n".join(page.extract_text() for page in PdfReader(job.pdf).pages)
     assert month in text
     assert notice["client_data"]["date_of_birth_iso"] == "2015-01-02"
-    cutoff_month = "août" if assigned_language == "fr" else "August"
-    assert cutoff_month in text
+    assert notice["date_as_of"] == "2025-08-31"
+    as_of_month = "août" if assigned_language == "fr" else "August"
+    assert as_of_month in text
     assert len(list((output_dir / "pdf_combined").glob("*.pdf"))) == 1
 
 

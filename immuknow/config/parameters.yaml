@@ -21,8 +21,8 @@ chart_diseases_header:
 - Meningococcal
 - Varicella
 - Other
-date_data_cutoff: '2025-08-31'
-date_notice_delivery: '2025-04-08'
+date_as_of: '2025-08-31'
+date_of_delivery: '2025-04-08'
 encryption:
   enabled: false
   password:

@@ -342,21 +342,18 @@ def build_preprocess_result(
     if not normalization_path.exists():
         normalization_path = CONFIG_DIR / "disease_normalization.json"
     normalization = load_normalization(normalization_path)
-    date_notice_delivery: Optional[str] = config.get("date_notice_delivery")
-    if date_notice_delivery is not None:
-        if not isinstance(date_notice_delivery, str):
+    date_of_delivery: Optional[str] = config.get("date_of_delivery")
+    if date_of_delivery is not None:
+        if not isinstance(date_of_delivery, str):
             raise ValueError(
-                "date_notice_delivery must be an ISO calendar date (YYYY-MM-DD)"
+                "date_of_delivery must be an ISO calendar date (YYYY-MM-DD)"
             )
         try:
-            if (
-                date.fromisoformat(date_notice_delivery).isoformat()
-                != date_notice_delivery
-            ):
+            if date.fromisoformat(date_of_delivery).isoformat() != date_of_delivery:
                 raise ValueError
         except ValueError as exc:
             raise ValueError(
-                "date_notice_delivery must be an ISO calendar date (YYYY-MM-DD)"
+                "date_of_delivery must be an ISO calendar date (YYYY-MM-DD)"
             ) from exc
     chart_diseases_header: List[str] = config.get("chart_diseases_header", [])
     preprocess_config: Dict[str, Any] = config.get("preprocess", {})
@@ -447,8 +444,8 @@ def build_preprocess_result(
             filter(None, [row["street_address_line_1"], row["street_address_line_2"]])
         ).strip()
 
-        if dob_iso and date_notice_delivery:
-            age = calculate_age_at_date(dob_iso, date_notice_delivery)
+        if dob_iso and date_of_delivery:
+            age = calculate_age_at_date(dob_iso, date_of_delivery)
             over_16 = age >= 16
         else:
             age = None
@@ -606,24 +603,24 @@ def parse_overdue_agents(raw: Any) -> list[str]:
     ]
 
 
-def calculate_age_at_date(date_of_birth, date_notice_delivery):
+def calculate_age_at_date(date_of_birth, date_of_delivery):
     """Calculate a client's age on notice delivery date.
 
     Parameters
     ----------
     date_of_birth : str
         Date of birth in YYYY-MM-DD format.
-    date_notice_delivery : str
+    date_of_delivery : str
         Notice delivery date in YYYY-MM-DD format.
 
     Returns
     -------
     int
-        The client's age on date_notice_delivery.
+        The client's age on date_of_delivery.
     """
 
     birth_datetime = datetime.strptime(date_of_birth, "%Y-%m-%d")
-    delivery_datetime = datetime.strptime(date_notice_delivery, "%Y-%m-%d")
+    delivery_datetime = datetime.strptime(date_of_delivery, "%Y-%m-%d")
 
     age = delivery_datetime.year - birth_datetime.year
 

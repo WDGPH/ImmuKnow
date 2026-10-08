@@ -52,7 +52,7 @@ def test_workspace_overlap_is_rejected_before_deletion(tmp_path: Path) -> None:
             [],
             artifact_dir,
             source,
-            {"date_data_cutoff": "2025-08-31"},
+            {"date_as_of": "2025-08-31"},
             config_dir,
             "run-1",
         )

@@ -91,7 +91,7 @@ The renderer gives each entry point one small, derived JSON file:
 |---|---|
 | `version_id`, `language`, `client_id` | Resolved identity and client identifier |
 | `client_data` | `name`, `address`, `city`, `postal_code`, `school`, `over_16`, and `date_of_birth_iso`; optional `qr_img` and `qr_url` |
-| `date_data_cutoff_iso` | ISO extract date or blank when absent |
+| `date_as_of` | As-of date shown in the notice, in YYYY-MM-DD format, or blank when absent |
 | `overdue_diseases` | Normalized disease names and doses as `{disease, dose}`; invalid dose also has `dose_raw` |
 | `overdue_agents` | Vaccine agents available to agent-based notices |
 | `include_dose` | Whether Typst shows available numeric doses |
@@ -103,7 +103,7 @@ The renderer gives each entry point one small, derived JSON file:
 An absent dose has `dose: null`; an invalid source dose also retains
 `dose_raw` for diagnostics. Python validates dates and passes ISO strings.
 `presentation.typ` formats long dates, approved disease labels, dose suffixes,
-and shared headings for English and French. A blank optional cutoff stays
+and shared headings for English and French. A blank optional as-of date stays
 blank; a required invalid date fails. The history retains its compact date
 format. Translation dictionaries are staged once under `/translations/` and
 looked up by disease name. Uncatalogued source labels stay visible unchanged.
