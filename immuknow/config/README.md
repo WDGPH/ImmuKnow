@@ -15,7 +15,7 @@ callable workflow are described in [getting started](https://WDGPH.github.io/Imm
 | `disease_normalization.json` | Source disease variants to canonical identifiers |
 | `phix_mapping.json` | PHU school and facility reference |
 | `translations/{en,fr}_diseases_{chart,overdue}.json` | Approved display labels for Typst |
-| `notice_versions.yaml` | Versions, eligibility, and defaults for manifest mode |
+| `notice_versions.yaml` | Registered notice versions and eligibility rules |
 
 Python uses the reference mappings to normalize records and decide eligibility.
 Typst loads the selected display dictionaries once from the staged render
@@ -85,17 +85,19 @@ localized display value. Configuration validation rejects it early and names
 the two explicit ISO alternatives. Review and edit existing QR or password
 templates yourself; the pipeline does not silently reinterpret them.
 
-## Versions and assignments
+## Versions and notice selection
 
-The CSV cohort workflow uses `--notice-assignments PATH`
-and a mapping-shaped `notice_versions.yaml` with integer
-`schema_version: 1`:
+Every run takes one CSV cohort and exactly one selector:
+`--notice-assignments PATH` for explicit per-client assignments, or
+`--notice-template PATH` for one named Typst entry point used by every
+accepted client. The selected version must be registered in a mapping-shaped
+`notice_versions.yaml` with integer `schema_version: 1`:
 
 ```yaml
 schema_version: 1
-default_version: overdue_standard_v1
-default_language: en
 versions:
+  legacy_overdue_v1:
+    kind: overdue
   overdue_standard_v1:
     kind: overdue
   affirmative_schedule_v1:
@@ -106,8 +108,10 @@ Kinds `overdue`, `affirmative`, and `informational` imply
 `has_overdue`, `no_overdue`, and `any` eligibility. A version can set
 `requires` explicitly to one of those values. Eligibility always follows
 canonical overdue diseases, even when a template displays vaccine agents.
+The catalog does not choose a language or assign a version to a client.
 
-The assignment manifest is a JSON array:
+For per-client selection, the JSON manifest is an array with one explicit
+`client_id`, `version_id`, and `language` for every accepted client:
 
 ```json
 [
@@ -116,31 +120,36 @@ The assignment manifest is a JSON array:
 ]
 ```
 
-`client_id` and `version_id` are required. Omitted `language` uses the
-catalog default. Optional `experiment_id` and `experiment_arm` are retained
-as provenance. An explicit source `version_id` must agree with the manifest.
-Unknown versions, conflicting assignments, unsupported languages, invalid
-catalogs, and eligibility failures stop before rendering, with client-linked
-findings in the run output.
+Optional `experiment_id` and `experiment_arm` are retained as
+provenance. An explicit source `version_id` must agree with the assignment.
+Missing client rows, unknown versions, conflicting assignments, unsupported
+languages, invalid catalogs, and eligibility failures stop before rendering,
+with client-linked findings in the run output. Set
+`notice_versioning.extra_manifest_rows` to `error` or `warn` for rows
+without a matching source client.
 
-`notice_versioning.allow_unassigned: false` requires one manifest row per
-client. If true, missing rows use the source `version_id` when present or
-the catalog default, with the default language. Set
-`notice_versioning.extra_manifest_rows` to `error` or `warn`
-for rows without a matching source client.
+For one version and language across the accepted cohort, pass the entry file:
 
-The maintained files are `<version_id>.<language>.typ`. The package includes
-legacy overdue (English/French), standard overdue (English/French), and an
-English affirmative entry point. A missing version/language pair fails; no
-other language or PHU directory is substituted. Each `.typ` entry point declares
-its language and rejects an assignment that does not match. See
-[template authoring](https://WDGPH.github.io/ImmuKnow/user_guide/phu_templates/) for the JSON contract.
+```bash
+immuknow students.csv \
+  --notice-template /path/to/my-phu/legacy_overdue_v1.en.typ
+```
 
-The implementation still accepts Excel input and a legacy fixed mode:
-without `--notice-assignments`, positional `en` or `fr` selects
-`legacy_overdue_v1`. These paths are separate from the CSV assignment workflow
-shown in the current guides. A positional language supplied with a manifest
-is ignored with a warning; it cannot override per-client assignments.
+The filename must be `<version_id>.<language>.typ`, with a version in the
+catalog. The file's containing template tree supplies its helpers and assets.
+Each accepted client must satisfy that version's eligibility rule. The
+`--notice-template` option cannot be combined with
+`--notice-assignments`, `--templates`, or `--template`.
+
+Manifest selection can use packaged entry points, `--templates PATH` for
+an external complete tree, or `--template NAME` for
+`phu_templates/NAME/` beneath the working directory. The maintained
+files include legacy overdue and standard overdue in English and French,
+and an English affirmative notice. A missing version/language pair fails;
+no other language or PHU directory is substituted. Every entry point declares
+its own version and language and rejects mismatched JSON. See
+[template authoring](https://WDGPH.github.io/ImmuKnow/user_guide/phu_templates/)
+for the native contract.
 
 ## Updating reference data
 

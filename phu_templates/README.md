@@ -16,6 +16,16 @@ immuknow students.csv --notice-assignments assignments.json \
   --templates "/path/to/my PHU templates"
 ```
 
+For one entry point across the accepted cohort:
+
+```bash
+immuknow students.csv --notice-template "/path/to/my PHU templates/legacy_overdue_v1.en.typ"
+```
+
+The selected file's version must be in the catalog, and its containing tree
+supplies helpers and assets. Do not combine this option with a manifest or
+template directory selector.
+
 The selected directory supplies its own entry points, helpers, and assets.
 Missing languages never fall back to English or to another PHU's templates.
 Follow the [template authoring guide](../docs/user_guide/phu_templates.md) for

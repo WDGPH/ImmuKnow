@@ -17,25 +17,35 @@ uv run immuknow students.csv --notice-assignments ./assignments.json \
   --input ./input --output ./output
 ```
 
-Use a CSV cohort and an assignment manifest. An installed package supplies the
-same `immuknow` command, built-in notice catalog, and resources. Use
+A run selects notices in one of two ways: pass `--notice-assignments` with
+one explicit `version_id` and `language` per client, or pass one
+`--notice-template PATH` for all accepted clients:
+
+```bash
+uv run immuknow students.csv \
+  --notice-template immuknow/templates/legacy_overdue_v1.en.typ \
+  --output ./output
+```
+
+The selected file must be named `<version_id>.<language>.typ` and its version
+must be registered in the notice catalog for eligibility checks. An installed
+package supplies the same command, catalog, and resources. Use
 `--config /path/to/config` to select your own configuration and catalog.
 
-Each manifest row identifies a client by `client_id` and assigns one
-`version_id`; `language` is optional and otherwise comes from the catalog.
-These select `<version_id>.<language>.typ`. Each authored entry point declares
-its own language and rejects mismatched data; there is no cohort-wide CLI
-language argument in this workflow.
-An explicit source `version_id` must agree with the manifest. The maintained
-notices are legacy overdue (English/French), standard overdue (English/French),
-and affirmative schedule (English). The legacy notice displays overdue
-diseases; the standard overdue notice displays vaccine agents. Eligibility
-uses overdue diseases in either case. No French affirmative entry ships.
-
-Use `--templates /path/to/my-phu` for a complete PHU template directory, or
+A manifest selects the matching authored entry point for each client. Use
+`--templates /path/to/my-phu` for a complete PHU template directory, or
 `--template NAME` for `phu_templates/NAME/` beneath the working directory.
-The selected tree supplies all entry points, helpers, and assets; missing files
-do not fall back to built-ins.
+The single-file option uses the selected file's containing tree and cannot be
+combined with either directory option. No missing entry, helper, or asset falls
+back to built-ins.
+
+The maintained notices are legacy overdue (English/French), standard overdue
+(English/French), and affirmative schedule (English). The legacy notice
+displays overdue diseases; the standard overdue notice displays vaccine
+agents. Eligibility uses overdue diseases in either case. No French
+affirmative entry ships. Each Typst entry point declares and checks its own
+version and language. An explicit source `version_id` must agree with the
+selected notice.
 
 The run writes individual PDFs, optional encrypted copies and bundles, and
 run metadata beneath `--output`. The canonical cohort and render jobs identify

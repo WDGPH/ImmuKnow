@@ -31,26 +31,38 @@ and `version_id`. Missing required columns fail before notices are produced.
 
 ## Select notices
 
-Assign versions and languages per client with a JSON manifest. The packaged
-configuration includes `notice_versions.yaml`; use `--config` for your own
-catalog and settings:
+Select exactly one route for the whole CSV:
+
+- `--notice-assignments PATH` reads a JSON manifest. Each accepted client
+  needs an explicit `client_id`, `version_id`, and `language` row. Version
+  and language select an authored `<version_id>.<language>.typ` entry point.
+- `--notice-template PATH` selects one such `.typ` file for all accepted
+  clients. Its filename supplies the version and language. The version must
+  exist in the catalog and satisfy its eligibility rule for every client.
 
 ```bash
 uv run immuknow students.csv \
   --notice-assignments /path/to/assignments.json \
-  --config /path/to/config --output /path/to/notices
+  --output /path/to/notices
+
+uv run immuknow students.csv \
+  --notice-template /path/to/my-phu/legacy_overdue_v1.en.typ \
+  --output /path/to/notices
 ```
 
-The manifest uses `client_id` and `version_id`; optional `language` uses
-the catalog default. Together, version and language select an authored `.typ`
-entry point. That file declares the document language and checks that the
-assignment matches. Do not split the CSV or pass a positional language for
-this workflow. An explicit source `version_id` must agree. The
-[configuration guide](configuration.md) defines defaults, eligibility,
-reconciliation, QR/password fields, and validation rules. Use
-`--templates /path/to/my-phu` for a complete external Typst tree, or
-`--template NAME` for `phu_templates/NAME/` beneath the working directory.
-The [authoring guide](phu_templates.md) describes the JSON and entry points.
+The packaged `notice_versions.yaml` defines eligible versions. Use
+`--config /path/to/config` for your own catalog and settings. With a
+manifest, `--templates /path/to/my-phu` selects a complete external Typst
+tree, or `--template NAME` selects `phu_templates/NAME/` beneath the
+working directory. Those directory choices cannot be combined with
+`--notice-template`, which supplies its containing template tree. Each
+entry point declares its identity and language and checks the derived JSON.
+An explicit source `version_id` must agree with the selected notice.
+
+The pipeline processes the whole CSV together; language does not filter
+clients from later output checks. See [configuration](configuration.md)
+for assignment and eligibility rules and [template authoring](phu_templates.md)
+for the native JSON contract.
 
 ## Run output
 

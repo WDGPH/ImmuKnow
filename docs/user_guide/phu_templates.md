@@ -28,11 +28,23 @@ from shutil import copytree
 copytree(Path(str(files("immuknow").joinpath("templates"))), Path("/path/to/my-phu"))
 ```
 
-The shorter `--template my_phu` selects `phu_templates/my_phu/` beneath the
-caller's working directory. The selected tree is isolated; a missing entry,
-helper, or asset does not fall back to built-ins. Writes stay in the run output,
-not the installed package. Avoid placing the output directory inside selected
-templates, or vice versa; overlap is rejected before copying or cleanup.
+With a manifest, the shorter `--template my_phu` selects
+`phu_templates/my_phu/` beneath the caller's working directory. To use one
+file for the whole accepted cohort, pass its path instead:
+
+```bash
+uv run immuknow students.csv \
+  --notice-template /path/to/my-phu/legacy_overdue_v1.en.typ
+```
+
+That file's name supplies the version and language; its version must be
+registered in the selected catalog and eligible for every accepted client.
+Its containing tree supplies the entry point, helpers, and assets. The
+single-file option cannot be combined with `--notice-assignments`,
+`--templates`, or `--template`. Selected trees are isolated; missing
+resources do not fall back to built-ins. Writes stay in the run output,
+not the installed package. Template/output overlap is rejected before copying
+or cleanup.
 
 Maintained flat entry points are `legacy_overdue_v1.en.typ`,
 `legacy_overdue_v1.fr.typ`, `overdue_standard_v1.en.typ`,
@@ -82,12 +94,12 @@ An absent dose has `dose: null`; an invalid source dose also retains
 and shared headings for English and French. A blank optional cutoff stays
 blank; a required invalid date fails. The history retains its compact date
 format. Translation dictionaries are staged once under `/translations/` and
-looked up by canonical key. Uncatalogued source labels stay visible unchanged; a label present only in the
-other language is an error. Chart membership is
+looked up by canonical key. Uncatalogued source labels stay visible unchanged.
+A label present only in the other language is an error. Chart membership is
 never inferred from translated labels.
 
-The selected templates can rearrange content, but keep their own version and
-language checks. The [configuration contract](configuration.md) explains
+Templates can rearrange content, but keep their own version and
+language checks. A selected single file applies those checks to every client. The [configuration contract](configuration.md) explains
 assignments, translation data, and QR/password fields.
 
 ## Reproduce and review a notice

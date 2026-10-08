@@ -2,14 +2,14 @@
 
 `immuknow.orchestrator.run_pipeline` owns a complete run; `immuknow` is its CLI.
 It loads selected configuration, validates source records and notice
-assignments, and prepares an ordered canonical cohort. Disease normalization,
+assignments or a selected notice file, and prepares an ordered canonical cohort. Disease normalization,
 vaccine mapping, eligibility, age, grouping, and assignment reconciliation
 remain in Python. Each client has one resolved `version_id` and language.
 
 ```mermaid
 flowchart LR
     A[CSV cohort] --> B[Validate and normalize]
-    M[Assignment manifest] --> B
+    M[Manifest or one notice file] --> B
     B --> C[Canonical cohort]
     C --> D[Per-notice JSON and render jobs]
     T[Selected Typst templates and labels] --> D
@@ -35,7 +35,7 @@ set and check identity and uniqueness, not just counts. Stale PDFs and
 encrypted duplicates are excluded. Language labels filenames but never filters
 the cohort. Bundles can group by size, school, or board across languages.
 
-Run metadata distinguishes assignments from successful compilation,
+Run metadata distinguishes resolved selection from successful compilation,
 validation, and final delivery. Client-linked diagnostics are sensitive; store
 them with the run's output. Installed library resources come from the
 `immuknow` package; selected PHU configuration and templates can live
