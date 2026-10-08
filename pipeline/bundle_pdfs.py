@@ -1,50 +1,7 @@
-"""Bundle per-client PDFs into combined files with manifests.
+"""Bundle the expected notice PDFs by size, school, or board.
 
-This module combines individual per-client PDFs into bundled files with
-accompanying manifest records. It can be invoked as a CLI tool or imported for
-unit testing. Bundling supports three modes:
-
-* Size-based (default): bundle the clients into fixed-size groups, i.e., 100 per bundle.
-* School-based: group the clients by school code then bundle the clients into fixed-sized groups
-* Board-based: group the clients by board code then bundle the clients into fixed-sized groups
-
-Each bundle produces a merged PDF inside ``output/pdf_combined`` and a manifest JSON
-record inside ``output/metadata`` that captures critical metadata for audits.
-
-**Input Contract:**
-
-- Reads individual PDF files from output/pdf_individual/
-- Reads client metadata from preprocessed artifact JSON
-- Assumes bundle_size > 0 in config (bundling is optional; disabled when bundle_size=0)
-
-**Output Contract:**
-
-- Writes merged PDF files to output/pdf_combined/
-- Writes bundle manifest JSON to output/metadata/
-- Returns list of created bundle files
-
-**Error Handling:**
-
-- Configuration errors (invalid bundle_size, group_by) raise immediately (infrastructure)
-- Per-bundle errors (PDF merge failure) log and continue (optional feature)
-- Pipeline completes even if some bundles fail to create (optional step)
-
-**Validation Contract:**
-
-What this module validates:
-
-- Bundle size is positive (bundle_size > 0)
-- Group-by strategy is valid (size, school, board, or None)
-- PDF files can be discovered and merged
-- Manifest records have required metadata
-
-What this module assumes (validated upstream):
-
-- PDF files are valid and readable (validated by count_pdfs step)
-- Client metadata in artifact is complete (validated by preprocessing step)
-- Output directory can be created (general I/O)
-
-Note: This is an optional step. Per-bundle errors are logged but don't halt pipeline.
+The render-job manifest supplies the complete compiled cohort. Each merged PDF
+has a matching audit manifest; missing notices and merge failures halt this step.
 """
 
 from __future__ import annotations
@@ -58,13 +15,12 @@ from itertools import islice
 from pathlib import Path
 from typing import Dict, Iterator, List, Sequence, TypeVar
 
-from .generate_notices import read_render_jobs
-
 from pypdf import PdfReader, PdfWriter
 
 from .config_loader import load_config
 from .data_models import PdfRecord
 from .enums import BundleStrategy, BundleType
+from .generate_notices import read_render_jobs
 
 LOG = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -78,8 +34,6 @@ class BundleConfig:
     ----------
     output_dir : Path
         Root output directory containing pipeline artifacts
-    language : str
-        Language code ('en' or 'fr')
     bundle_size : int
         Maximum number of clients per bundle (0 disables bundling)
     bundle_strategy : BundleStrategy
@@ -89,7 +43,6 @@ class BundleConfig:
     """
 
     output_dir: Path
-    language: str | None
     bundle_size: int
     bundle_strategy: BundleStrategy
     run_id: str
@@ -139,14 +92,8 @@ class BundleResult:
     bundle_plan: BundlePlan
 
 
-PDF_PATTERN = re.compile(
-    r"^(?P<lang>[a-z]{2})_notice_(?P<sequence>\d{5})_(?P<client_id>.+)\.pdf$"
-)
-
-
 def bundle_pdfs_with_config(
     output_dir: Path,
-    language: str | None,
     run_id: str,
     config_path: Path | None = None,
 ) -> List[BundleResult]:
@@ -156,8 +103,6 @@ def bundle_pdfs_with_config(
     ----------
     output_dir : Path
         Root output directory containing pipeline artifacts.
-    language : str
-        Language prefix to bundle ('en' or 'fr').
     run_id : str
         Pipeline run identifier to locate preprocessing artifacts.
     config_path : Path, optional
@@ -178,42 +123,12 @@ def bundle_pdfs_with_config(
 
     config_obj = BundleConfig(
         output_dir=output_dir.resolve(),
-        language=language,
         bundle_size=bundle_size,
         bundle_strategy=bundle_strategy,
         run_id=run_id,
     )
 
     return bundle_pdfs(config_obj)
-
-
-def main(
-    output_dir: Path, language: str, run_id: str, config_path: Path | None = None
-) -> List[BundleResult]:
-    """Main entry point for PDF bundling.
-
-    Parameters
-    ----------
-    output_dir : Path
-        Root output directory containing pipeline artifacts.
-    language : str
-        Language prefix to bundle ('en' or 'fr').
-    run_id : str
-        Pipeline run identifier.
-    config_path : Path, optional
-        Path to parameters.yaml configuration file.
-
-    Returns
-    -------
-    List[BundleResult]
-        List of bundles created.
-    """
-    results = bundle_pdfs_with_config(output_dir, language, run_id, config_path)
-    if results:
-        print(f"Created {len(results)} bundles in {output_dir / 'pdf_combined'}")
-    else:
-        print("No bundles created.")
-    return results
 
 
 T = TypeVar("T")
@@ -328,86 +243,6 @@ def build_client_lookup(
         client_id = client.get("client_id")  # type: ignore[attr-defined]
         lookup[(sequence, client_id)] = client  # type: ignore[typeddict-item]
     return lookup
-
-
-def discover_pdfs(output_dir: Path, language: str) -> List[Path]:
-    """Discover all individual PDF files for a given language.
-
-    Discovers non-encrypted PDF files only. Encrypted PDFs (with _encrypted suffix)
-    are excluded from bundling since bundling operates on the original unencrypted PDFs.
-
-    Parameters
-    ----------
-    output_dir : Path
-        Root output directory.
-    language : str
-        Language prefix to match (e.g., 'en' or 'fr').
-
-    Returns
-    -------
-    List[Path]
-        Sorted list of non-encrypted PDF file paths matching the language, or empty list
-        if pdf_individual directory doesn't exist.
-    """
-    pdf_dir = output_dir / "pdf_individual"
-    if not pdf_dir.exists():
-        return []
-    # Exclude encrypted PDFs (those with _encrypted suffix)
-    all_pdfs = pdf_dir.glob(f"{language}_notice_*.pdf")
-    return sorted([p for p in all_pdfs if not p.stem.endswith("_encrypted")])
-
-
-def build_pdf_records(
-    output_dir: Path, language: str, clients: Dict[tuple[str, str], dict]
-) -> List[PdfRecord]:
-    """Build a list of PdfRecord objects from discovered PDF files.
-
-    Discovers PDFs, extracts metadata from filenames, looks up client data,
-    and constructs PdfRecord objects with page counts and client metadata.
-
-    Parameters
-    ----------
-    output_dir : Path
-        Root output directory.
-    language : str
-        Language prefix to filter PDFs.
-    clients : Dict[tuple[str, str], dict]
-        Lookup table of client data keyed by (sequence, client_id).
-
-    Returns
-    -------
-    List[PdfRecord]
-        Sorted list of PdfRecord objects by sequence.
-
-    Raises
-    ------
-    KeyError
-        If a PDF filename has no matching client in the lookup table.
-    """
-    pdf_paths = discover_pdfs(output_dir, language)
-    records: List[PdfRecord] = []
-    for pdf_path in pdf_paths:
-        match = PDF_PATTERN.match(pdf_path.name)
-        if not match:
-            LOG.warning("Skipping unexpected PDF filename: %s", pdf_path.name)
-            continue
-        sequence = match.group("sequence")
-        client_id = match.group("client_id")
-        key = (sequence, client_id)
-        if key not in clients:
-            raise KeyError(f"No client metadata found for PDF {pdf_path.name}")
-        reader = PdfReader(str(pdf_path))
-        page_count = len(reader.pages)
-        records.append(
-            PdfRecord(
-                sequence=sequence,
-                client_id=client_id,
-                pdf_path=pdf_path,
-                page_count=page_count,
-                client=clients[key],
-            )
-        )
-    return sorted(records, key=lambda record: record.sequence)
 
 
 def ensure_ids(records: Sequence[PdfRecord], *, attr: str, log_path: Path) -> None:
@@ -620,9 +455,6 @@ def bundle_pdfs(config: BundleConfig) -> List[BundleResult]:
     artifact_path = (
         config.output_dir / "artifacts" / f"preprocessed_clients_{config.run_id}.json"
     )
-    if not artifact_path.exists():
-        raise FileNotFoundError(f"Expected artifact at {artifact_path}")
-
     artifact = load_artifact(config.output_dir, config.run_id)
     clients = build_client_lookup(artifact)
     jobs = read_render_jobs(config.output_dir / "artifacts", require_compiled=True)
@@ -669,18 +501,3 @@ def bundle_pdfs(config: BundleConfig) -> List[BundleResult]:
 
     LOG.info("Generated %d bundle(s).", len(results))
     return results
-
-
-if __name__ == "__main__":
-    import sys
-
-    print(
-        "⚠️  Direct invocation: This module is typically executed via orchestrator.py.\n"
-        "   Re-running a single step is valid when pipeline artifacts are retained on disk,\n"
-        "   allowing you to skip earlier steps and regenerate output.\n"
-        "   Note: Output will overwrite any previous files.\n"
-        "\n"
-        "   For typical usage, run: uv run viper <input> <language>\n",
-        file=sys.stderr,
-    )
-    sys.exit(1)

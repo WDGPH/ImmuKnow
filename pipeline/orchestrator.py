@@ -1,34 +1,9 @@
-"""VIPER Pipeline Orchestrator.
+"""Run the immunization notice pipeline in sequential stages.
 
-This script orchestrates the end-to-end immunization notice generation pipeline.
-It executes each step in sequence, handles errors, and provides detailed timing and
-progress information.
-
-**Error Handling Philosophy:**
-
-The pipeline distinguishes between critical and optional steps:
-
-- **Critical Steps** (Notice generation, Compilation, PDF validation) implement fail-fast:
-    - Any error halts the pipeline immediately
-    - No partial output; users get deterministic results
-    - Pipeline exits with code 1; user must investigate and retry
-
-- **Optional Steps** (QR codes, Encryption, Bundling) implement per-item recovery:
-    - Individual item failures (PDF, client, bundle) are logged and skipped
-    - Remaining items continue processing
-    - Pipeline completes successfully even if some items failed
-    - Users are shown summary of successes, skipped, and failed items
-
-- **Infrastructure Errors** (missing files, config errors) always fail-fast:
-    - Caught and raised immediately; no recovery attempts
-    - Prevents confusing partial output caused by misconfiguration
-    - Pipeline exits with code 1
-
-**Exit Codes:**
-
-- 0: Pipeline completed successfully
-- 1: Pipeline failed (critical step error or infrastructure error)
-- 2: User cancelled (output preparation step)
+Any failed configured stage fails the run. Earlier files may remain on disk,
+but completion evidence is written only after the expected notices compile.
+The CLI exits with 0 on success, 1 on failure, or 2 when output preparation is
+cancelled.
 """
 
 from __future__ import annotations
@@ -39,18 +14,20 @@ import sys
 import time
 import traceback
 from datetime import datetime, timezone
-from pathlib import Path
 from importlib.resources import files
+from pathlib import Path
 from typing import Optional
 
-# Import pipeline steps
-from . import bundle_pdfs, cleanup, compile_notices, validate_pdfs
 from . import (
+    bundle_pdfs,
+    cleanup,
+    compile_notices,
     encrypt_notice,
     generate_notices,
     generate_qr_codes,
     prepare_output,
     preprocess,
+    validate_pdfs,
 )
 from .assignment_manifest import (
     ReconciliationResult,
@@ -465,7 +442,6 @@ def run_step_6_validate_pdfs(
     """Step 6: Validating compiled PDFs."""
     print_step(6, "Validating compiled PDFs")
 
-    pdf_dir = output_dir / "pdf_individual"
     metadata_dir = output_dir / "metadata"
     validation_json = metadata_dir / f"validation_{run_id}.json"
     artifacts_dir = output_dir / "artifacts"
@@ -473,11 +449,10 @@ def run_step_6_validate_pdfs(
     client_id_map = {job.pdf.name: job.client_id for job in jobs}
 
     validate_pdfs.main(
-        pdf_dir,
+        [job.pdf for job in jobs],
         json_output=validation_json,
         client_id_map=client_id_map,
         config_dir=config_dir,
-        expected_pdfs=[job.pdf for job in jobs],
     )
 
 
@@ -517,7 +492,6 @@ def run_step_8_bundle_pdfs(
 
     results = bundle_pdfs.bundle_pdfs_with_config(
         output_dir,
-        None,
         run_id,
         parameters_path,
     )

@@ -61,9 +61,8 @@ class ClientRecord:
         - Person details:
             - first_name: Given name
             - last_name: Family name
-            - date_of_birth: Display format (e.g., "Jan 8, 2025")
-            - date_of_birth_iso: ISO format (YYYY-MM-DD)
-            - date_of_birth_display: Localized display format
+            - date_of_birth_iso: Canonical ISO date (YYYY-MM-DD). The notice
+              preparation step creates localized display text after assignment.
             - age: Calculated age in years (as string)
             - over_16: Boolean flag for age >= 16
 
@@ -96,7 +95,7 @@ class ClientRecord:
         - QR code information (if generated):
             - payload: URL encoded in QR code (same string that becomes QR PNG data)
             - filename: PNG filename (e.g., "qr_code_00001_1234567890.png")
-            - path: Relative path to PNG file
+            - path: Absolute filesystem path to the generated PNG file
     """
 
     sequence: str
@@ -145,11 +144,9 @@ class ArtifactPayload:
     ----------
     run_id : str
         Unique pipeline run identifier (timestamp-based).
-    language : str
-        ISO 639-1 language code ('en' or 'fr'). Must be a valid Language enum value
-        (see pipeline.enums.Language). All clients in the artifact must have language
-        codes that match this field; validation ensures consistency across all
-        notices generated in a single run.
+    language : str | None
+        Common resolved language when all clients agree, or None for a
+        mixed-language cohort. Each client carries its own resolved language.
     clients : List[ClientRecord]
         All processed client records.
     warnings : List[str]

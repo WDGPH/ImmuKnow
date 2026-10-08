@@ -267,7 +267,7 @@ def read_artifact(path: Path) -> ArtifactPayload:
     ------
     FileNotFoundError
         If artifact file does not exist.
-    json.JSONDecodeError
+    ValueError
         If artifact is not valid JSON.
     KeyError
         If artifact is missing required fields.

@@ -24,207 +24,8 @@ from pipeline import validate_pdfs
 
 
 @pytest.mark.unit
-class TestDiscoverPdfs:
-    """Tests for PDF discovery functionality."""
-
-    def test_discover_pdfs_in_directory(self, tmp_path: Path) -> None:
-        """Verify PDF discovery finds all PDFs in a directory.
-
-        Real-world significance:
-        - Pipeline validates all compiled PDFs from a batch
-        - Discovery must be deterministic and comprehensive
-        - Enables consistent validation across different run sizes
-
-        Parameters
-        ----------
-        tmp_path : Path
-            Pytest fixture providing temporary directory
-
-        Raises
-        ------
-        AssertionError
-            If discovered PDF count doesn't match created count
-
-        Assertion: All PDFs in directory are discovered and have .pdf suffix
-        """
-        # Create test PDF files
-        for i in range(3):
-            pdf_path = tmp_path / f"test_{i}.pdf"
-            writer = PdfWriter()
-            writer.add_blank_page(width=612, height=792)
-            with open(pdf_path, "wb") as f:
-                writer.write(f)
-
-        pdfs = validate_pdfs.discover_pdfs(tmp_path)
-        assert len(pdfs) == 3
-        assert all(p.suffix == ".pdf" for p in pdfs)
-
-    def test_discover_pdfs_single_file(self, tmp_path: Path) -> None:
-        """Verify PDF discovery accepts both directories and single files.
-
-        Real-world significance:
-        - Validation may run on entire batch or individual PDF for debugging
-        - Single-file mode enables manual PDF validation without batch context
-        - Flexible input enables different usage patterns
-
-        Parameters
-        ----------
-        tmp_path : Path
-            Pytest fixture providing temporary directory
-
-        Raises
-        ------
-        AssertionError
-            If single file path not recognized as valid PDF input
-
-        Assertion: Single PDF file is discovered and returned in list
-        """
-        pdf_path = tmp_path / "test.pdf"
-        writer = PdfWriter()
-        writer.add_blank_page(width=612, height=792)
-        with open(pdf_path, "wb") as f:
-            writer.write(f)
-
-        pdfs = validate_pdfs.discover_pdfs(pdf_path)
-        assert len(pdfs) == 1
-        assert pdfs[0] == pdf_path
-
-    def test_discover_pdfs_no_files_empty_dir(self, tmp_path: Path) -> None:
-        """Verify PDF discovery handles empty directories gracefully.
-
-        Real-world significance:
-        - Optional pipeline steps may not create PDFs
-        - Validation must not crash on missing output
-        - Enables idempotent pipeline execution
-
-        Parameters
-        ----------
-        tmp_path : Path
-            Pytest fixture providing temporary directory
-
-        Raises
-        ------
-        AssertionError
-            If empty directory doesn't return empty list
-
-        Assertion: Empty directory returns empty PDF list
-        """
-        pdfs = validate_pdfs.discover_pdfs(tmp_path)
-        assert len(pdfs) == 0
-
-    def test_discover_pdfs_invalid_path(self, tmp_path: Path) -> None:
-        """Verify PDF discovery fails fast on invalid paths.
-
-        Real-world significance:
-        - Configuration errors (wrong directory) should be caught immediately
-        - Prevents silent skipping of validation or misleading success messages
-        - Enables clear error messages for operators to debug
-
-        Parameters
-        ----------
-        tmp_path : Path
-            Pytest fixture providing temporary directory
-
-        Raises
-        ------
-        FileNotFoundError
-            If path does not exist (expected behavior)
-
-        AssertionError
-            If invalid path does not raise FileNotFoundError
-
-        Assertion: Invalid path raises FileNotFoundError
-        """
-        invalid_path = tmp_path / "nonexistent.pdf"
-        with pytest.raises(FileNotFoundError):
-            validate_pdfs.discover_pdfs(invalid_path)
-
-
-@pytest.mark.unit
-class TestFilterByLanguage:
-    """Tests for language filtering."""
-
-    def test_filter_by_language_en(self, tmp_path: Path) -> None:
-        """Verify language filtering correctly separates multi-language output.
-
-        Real-world significance:
-        - Pipeline generates notices in both English and French
-        - Validation must run separately per language to report accurate statistics
-        - Enables language-specific quality control (e.g., signature placement varies)
-
-        Parameters
-        ----------
-        tmp_path : Path
-            Pytest fixture providing temporary directory
-
-        Raises
-        ------
-        AssertionError
-            If language filter doesn't correctly select files or includes other languages
-
-        Assertion: Only English-prefixed PDFs are selected from mixed language set
-        """
-        files = [
-            tmp_path / "en_notice_001.pdf",
-            tmp_path / "fr_notice_001.pdf",
-            tmp_path / "en_notice_002.pdf",
-        ]
-        filtered = validate_pdfs.filter_by_language(files, "en")
-        assert len(filtered) == 2
-        assert all("en_" in f.name for f in filtered)
-
-    def test_filter_by_language_none(self, tmp_path: Path) -> None:
-        """Verify no language filter returns all PDFs unchanged.
-
-        Real-world significance:
-        - Pipeline may validate entire batch without language separation
-        - Enables single validation run for mixed language output
-        - Ensures filtering doesn't accidentally exclude files
-
-        Parameters
-        ----------
-        tmp_path : Path
-            Pytest fixture providing temporary directory
-
-        Raises
-        ------
-        AssertionError
-            If language filter unexpectedly modifies file list when None
-
-        Assertion: All PDFs returned when language filter is None
-        """
-        files = [
-            tmp_path / "en_notice_001.pdf",
-            tmp_path / "fr_notice_001.pdf",
-        ]
-        filtered = validate_pdfs.filter_by_language(files, None)
-        assert len(filtered) == 2
-
-
-@pytest.mark.unit
 class TestValidatePdfStructure:
-    """Tests for PDF structure validation."""
-
     def test_validate_pdf_structure_basic(self, tmp_path: Path) -> None:
-        """Verify PDF with correct structure (2 pages) passes validation.
-
-        Real-world significance:
-        - Standard immunization notices are 2 pages (notice + immunization record)
-        - Validation must correctly identify well-formed PDFs
-        - Establishes baseline for warning detection (valid ≠ warned)
-
-        Parameters
-        ----------
-        tmp_path : Path
-            Pytest fixture providing temporary directory
-
-        Raises
-        ------
-        AssertionError
-            If valid PDF is incorrectly marked as failed
-
-        Assertion: PDF with exactly 2 pages and no layout issues passes validation
-        """
         pdf_path = tmp_path / "test.pdf"
         writer = PdfWriter()
         writer.add_blank_page(width=612, height=792)
@@ -239,25 +40,6 @@ class TestValidatePdfStructure:
         assert len(result.warnings) == 0
 
     def test_validate_pdf_structure_unexpected_pages(self, tmp_path: Path) -> None:
-        """Verify validation detects and warns on incorrect page count.
-
-        Real-world significance:
-        - PDF compilation errors may produce wrong page counts
-        - Warnings enable operators to detect template/Typst issues
-        - QA step must catch layout problems before delivery
-
-        Parameters
-        ----------
-        tmp_path : Path
-            Pytest fixture providing temporary directory
-
-        Raises
-        ------
-        AssertionError
-            If page count warning not generated for non-2-page PDF
-
-        Assertion: PDF with 3 pages generates exactly_two_pages warning
-        """
         pdf_path = tmp_path / "test.pdf"
         writer = PdfWriter()
         for _ in range(3):
@@ -275,25 +57,6 @@ class TestValidatePdfStructure:
         assert "exactly_two_pages" in result.warnings[0]
 
     def test_validate_pdf_structure_rule_disabled(self, tmp_path: Path) -> None:
-        """Verify disabled rules do not generate warnings (configurable validation).
-
-        Real-world significance:
-        - Operators may disable specific rules for testing or edge cases
-        - Configuration-driven behavior enables workflow flexibility
-        - Disabled rules prevent false positives when rules don't apply
-
-        Parameters
-        ----------
-        tmp_path : Path
-            Pytest fixture providing temporary directory
-
-        Raises
-        ------
-        AssertionError
-            If disabled rule still generates warnings
-
-        Assertion: PDF with 3 pages passes when exactly_two_pages rule is disabled
-        """
         pdf_path = tmp_path / "test.pdf"
         writer = PdfWriter()
         for _ in range(3):
@@ -312,28 +75,7 @@ class TestValidatePdfStructure:
 
 @pytest.mark.unit
 class TestValidationSummary:
-    """Tests for validation summary generation."""
-
     def test_validate_pdfs_summary(self, tmp_path: Path) -> None:
-        """Verify batch validation generates accurate summary statistics.
-
-        Real-world significance:
-        - Operators need aggregate statistics to understand batch quality
-        - Summary enables trend analysis across multiple runs
-        - Pass/fail counts inform decision on whether to proceed
-
-        Parameters
-        ----------
-        tmp_path : Path
-            Pytest fixture providing temporary directory
-
-        Raises
-        ------
-        AssertionError
-            If summary statistics don't match input PDFs
-
-        Assertion: Summary correctly reports passed, warned, and page distributions
-        """
         # Create test PDFs with different page counts
         files = []
         for i in range(3):
@@ -358,30 +100,8 @@ class TestValidationSummary:
 
 @pytest.mark.unit
 class TestWriteValidationJson:
-    """Tests for JSON output."""
-
     def test_write_validation_json(self, tmp_path: Path) -> None:
-        """Verify validation summary exports to JSON for downstream processing.
-
-        Real-world significance:
-        - JSON metadata enables integration with external analysis tools
-        - Persistent records support audit trail and debugging
-        - Enables programmatic post-processing of validation results
-
-        Parameters
-        ----------
-        tmp_path : Path
-            Pytest fixture providing temporary directory
-
-        Raises
-        ------
-        AssertionError
-            If JSON output missing expected keys or values
-
-        Assertion: JSON output contains all summary statistics and per-PDF results
-        """
         summary = validate_pdfs.ValidationSummary(
-            language="en",
             total_pdfs=2,
             passed_count=1,
             warning_count=1,
@@ -424,28 +144,7 @@ class TestWriteValidationJson:
 
 @pytest.mark.unit
 class TestMainFunction:
-    """Tests for main entry point."""
-
     def test_main_with_json_output(self, tmp_path: Path) -> None:
-        """Verify main entry point orchestrates validation and produces JSON output.
-
-        Real-world significance:
-        - Pipeline orchestrator calls main() as step 6
-        - Validates all compiled PDFs and reports aggregate results
-        - Enables downstream decisions on whether to proceed (e.g., email delivery)
-
-        Parameters
-        ----------
-        tmp_path : Path
-            Pytest fixture providing temporary directory
-
-        Raises
-        ------
-        AssertionError
-            If JSON output not created or summary statistics incorrect
-
-        Assertion: Valid PDFs pass, JSON metadata is written, summary is returned
-        """
         # Create test PDFs
         pdf_dir = tmp_path / "pdfs"
         pdf_dir.mkdir()
@@ -459,8 +158,7 @@ class TestMainFunction:
 
         json_path = tmp_path / "validation.json"
         summary = validate_pdfs.main(
-            pdf_dir,
-            language="en",
+            expected_pdfs=sorted(pdf_dir.glob("*.pdf")),
             enabled_rules={"exactly_two_pages": "warn"},
             json_output=json_path,
         )
@@ -470,28 +168,6 @@ class TestMainFunction:
         assert json_path.exists()
 
     def test_main_with_error_rule(self, tmp_path: Path) -> None:
-        """Verify main halts pipeline when error-level validation rule fails.
-
-        Real-world significance:
-        - Some validation issues are critical and must prevent delivery
-        - Error-level rules enable strict quality gates
-        - Prevents defective notices from reaching clients
-
-        Parameters
-        ----------
-        tmp_path : Path
-            Pytest fixture providing temporary directory
-
-        Raises
-        ------
-        RuntimeError
-            When validation rule with severity 'error' detects failure (expected)
-
-        AssertionError
-            If main does not raise RuntimeError for error-level validation failure
-
-        Assertion: main() raises RuntimeError when error-level rule detects issue
-        """
         # Create test PDFs with wrong page count
         pdf_dir = tmp_path / "pdfs"
         pdf_dir.mkdir()
@@ -504,7 +180,7 @@ class TestMainFunction:
 
         with pytest.raises(RuntimeError, match="PDF validation failed with errors"):
             validate_pdfs.main(
-                pdf_dir,
+                expected_pdfs=[pdf_path],
                 enabled_rules={"exactly_two_pages": "error"},
                 json_output=None,
             )
@@ -512,18 +188,7 @@ class TestMainFunction:
 
 @pytest.mark.unit
 class TestExtractMeasurements:
-    """Tests for measurement extraction from invisible markers."""
-
     def test_extract_measurements_from_markers(self) -> None:
-        """Verify measurement extraction from Typst marker patterns.
-
-        Real-world significance:
-        - Typst templates embed layout measurements as invisible text
-        - Validator parses these to check envelope window constraints
-        - Must handle various numeric formats (integers, floats)
-
-        Assertion: Measurements are correctly extracted and normalized
-        """
         # Simulate text extracted from PDF with our marker
         page_text = """
         Some regular text here
@@ -537,27 +202,11 @@ class TestExtractMeasurements:
         assert measurements["measure_contact_height"] == 214.62692913385834
 
     def test_extract_measurements_no_markers(self) -> None:
-        """Verify graceful handling when no markers present.
-
-        Real-world significance:
-        - Older PDFs may not have measurement markers
-        - Validator should not fail on legacy documents
-
-        Assertion: Returns empty dict when no markers found
-        """
         page_text = "Just regular PDF content without any markers"
         measurements = validate_pdfs.extract_measurements_from_markers(page_text)
         assert measurements == {}
 
     def test_extract_measurements_partial_markers(self) -> None:
-        """Verify extraction works with mixed marker presence.
-
-        Real-world significance:
-        - Template evolution may add new markers over time
-        - Validator should extract what's available
-
-        Assertion: Extracts available measurements, ignores missing ones
-        """
         page_text = """
         MEASURE_CONTACT_HEIGHT:123.45
         SOME_OTHER_MARKER:ignored
@@ -573,18 +222,7 @@ class TestExtractMeasurements:
 
 @pytest.mark.unit
 class TestRuleResultsAndMeasurements:
-    """Tests for enhanced validation output with per-rule results and measurements."""
-
     def test_validation_includes_measurements(self, tmp_path: Path) -> None:
-        """Verify ValidationResult includes actual measurements from PDFs.
-
-        Real-world significance:
-        - Actual measurements allow confirming validation rules work correctly
-        - Helps debug why a PDF passed or failed a specific rule
-        - Enables detailed analysis of layout variations
-
-        Assertion: ValidationResult contains measurements dict with actual values
-        """
         pdf_path = tmp_path / "test.pdf"
         writer = PdfWriter()
         writer.add_blank_page(width=612, height=792)
@@ -604,15 +242,6 @@ class TestRuleResultsAndMeasurements:
         assert result.measurements["page_count"] == 2
 
     def test_rule_results_include_all_rules(self, tmp_path: Path) -> None:
-        """Verify ValidationSummary includes results for all configured rules.
-
-        Real-world significance:
-        - User wants to see all rules, including disabled ones
-        - Helps understand which rules are active and their pass/fail rates
-        - Enables auditing of validation configuration
-
-        Assertion: rule_results includes all rules from enabled_rules config
-        """
         pdf_dir = tmp_path / "pdfs"
         pdf_dir.mkdir()
 
@@ -631,7 +260,7 @@ class TestRuleResultsAndMeasurements:
             "envelope_window_1_125": "error",
         }
 
-        files = validate_pdfs.discover_pdfs(pdf_dir)
+        files = sorted(pdf_dir.glob("*.pdf"))
         summary = validate_pdfs.validate_pdfs(files, enabled_rules=enabled_rules)
 
         # Should have rule_results for all configured rules
@@ -654,15 +283,6 @@ class TestRuleResultsAndMeasurements:
         assert rule_dict["envelope_window_1_125"].severity == "error"
 
     def test_warnings_include_actual_values(self, tmp_path: Path) -> None:
-        """Verify warning messages include actual measured values.
-
-        Real-world significance:
-        - User wants to see actual page count, not just "failed"
-        - Helps understand severity (3 pages vs 10 pages)
-        - Enables data-driven decision making
-
-        Assertion: Warning messages contain actual values like "has 3 pages"
-        """
         pdf_path = tmp_path / "test.pdf"
         writer = PdfWriter()
         for _ in range(5):  # Create 5-page PDF
@@ -683,17 +303,7 @@ class TestRuleResultsAndMeasurements:
 
 @pytest.mark.unit
 class TestClientIdValidation:
-    """Tests for client ID presence validation (markerless)."""
-
     def test_find_client_id_in_text(self) -> None:
-        """Verify client ID extraction from PDF page text.
-
-        Real-world significance:
-        - Text extraction from PDF enables searching for the expected ID
-        - Should find 10-digit numbers with word boundaries
-
-        Assertion: Finds 10-digit client ID in extracted text
-        """
         # Text with client ID
         text = "Client ID: 1009876543\nDate of Birth: 2015-06-15"
         found_id = validate_pdfs.find_client_id_in_text(text)
@@ -710,13 +320,6 @@ class TestClientIdValidation:
         assert found_id_empty is None
 
     def test_client_id_presence_pass(self, tmp_path: Path) -> None:
-        """Verify client ID validation passes when ID found and matches.
-
-        Real-world significance:
-        - Passes when the expected ID from filename is found in PDF
-
-        Assertion: No warning when client ID matches
-        """
         pdf_path = tmp_path / "en_notice_00001_1009876543.pdf"
         writer = PdfWriter()
         writer.add_blank_page(width=612, height=792)
@@ -743,13 +346,6 @@ class TestClientIdValidation:
         assert "1009876543" in result.warnings[0]
 
     def test_client_id_presence_disabled(self, tmp_path: Path) -> None:
-        """Verify client ID rule respects disabled configuration.
-
-        Real-world significance:
-        - Users can disable the rule via config
-
-        Assertion: No warning when rule is disabled
-        """
         pdf_path = tmp_path / "en_notice_00001_1009876543.pdf"
         writer = PdfWriter()
         writer.add_blank_page(width=612, height=792)

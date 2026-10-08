@@ -5,8 +5,9 @@ and optional experiment metadata. This module loads manifests, reconciles them
 against the preprocessed cohort, and produces a ReconciliationResult that the
 caller uses to decide whether to halt or continue.
 
-None of the functions here raise on policy violations - they populate the result
-and the caller (build_preprocess_result / orchestrator) decides what to do.
+Malformed manifests and conflicting explicit versions raise immediately.
+Reconciliation records missing assignments, unknown versions, and eligibility
+conflicts for the caller to apply the selected policy.
 """
 
 from __future__ import annotations
@@ -16,13 +17,13 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional
 
+from .enums import Language
 from .notice_versioning import (
     NoticeVersionCatalog,
     ResolvedNotice,
     validate_eligibility,
     validate_version_id,
 )
-from .enums import Language
 
 if TYPE_CHECKING:
     from .data_models import ClientRecord
@@ -137,7 +138,8 @@ def reconcile(
 ) -> ReconciliationResult:
     """Reconcile a cohort against a manifest and return a populated ReconciliationResult.
 
-    Does NOT raise - all policy decisions are left to the caller.
+    Explicit input and manifest version conflicts raise immediately. Other
+    assignment and eligibility findings are returned for policy handling.
     """
     cohort_ids = {c.client_id for c in clients}
     manifest_ids = set(manifest.keys())

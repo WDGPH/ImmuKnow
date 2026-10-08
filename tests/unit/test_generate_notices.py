@@ -1,18 +1,4 @@
-"""Unit tests for generate_notices module - notice generation from templates.
-
-Tests cover:
-- Template variable substitution
-- Language-specific content handling (English and French)
-- Data escaping for Typst syntax
-- Error handling for missing data/files
-- QR code reference integration
-
-Real-world significance:
-- Step 4 of pipeline: generates Typst template files for each client
-- Template content directly appears in compiled PDF notices
-- Language correctness is critical for bilingual support (en/fr)
-- Must properly escape special characters for Typst syntax
-"""
+"""Artifact reading errors before native render job preparation."""
 
 from __future__ import annotations
 
@@ -100,15 +86,27 @@ class TestReadArtifact:
         artifact_path = tmp_test_dir / "bad.json"
         artifact_path.write_text("not valid json {{{")
 
-        with pytest.raises(Exception):  # json.JSONDecodeError or similar
+        with pytest.raises(ValueError, match="Preprocessed artifact is not valid JSON"):
             generate_notices.read_artifact(artifact_path)
 
 
-# ---------------------------------------------------------------------------
-# build_template_registry (manifest mode)
-# ---------------------------------------------------------------------------
+@pytest.mark.unit
+def test_render_jobs_reject_duplicate_expected_pdf(tmp_path: Path) -> None:
+    """One output path cannot stand in for two expected client notices."""
+    job = {
+        "sequence": "00001",
+        "client_id": "A",
+        "language": "en",
+        "version_id": "overdue_standard_v1",
+        "workspace": str(tmp_path),
+        "template": str(tmp_path / "template.typ"),
+        "data": str(tmp_path / "notice.json"),
+        "pdf": str(tmp_path / "notice.pdf"),
+    }
+    other = {**job, "sequence": "00002", "client_id": "B"}
+    (tmp_path / "render_jobs.json").write_text(
+        json.dumps({"run_id": "test", "total_clients": 2, "jobs": [job, other]})
+    )
 
-
-# ---------------------------------------------------------------------------
-# generate_typst_files — manifest mode branch
-# ---------------------------------------------------------------------------
+    with pytest.raises(ValueError, match="every expected notice exactly once"):
+        generate_notices.read_render_jobs(tmp_path)

@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import json
 import io
-from pathlib import Path
-from unittest.mock import patch
+import json
 from dataclasses import replace
+from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 
@@ -19,8 +19,8 @@ from pipeline.assignment_manifest import (
     print_preflight_summary,
     reconcile,
 )
-from pipeline.notice_versioning import NoticeKind, NoticeVersion, NoticeVersionCatalog
 from pipeline.data_models import ClientRecord
+from pipeline.notice_versioning import NoticeKind, NoticeVersion, NoticeVersionCatalog
 from tests.fixtures.sample_input import create_test_client_record
 
 
@@ -99,17 +99,17 @@ def _row(
 
 
 def _empty_result(**overrides) -> ReconciliationResult:
-    defaults: dict[str, Any] = dict(
-        counts_by_version={},
-        counts_by_language={},
-        missing_clients=[],
-        extra_rows=[],
-        duplicate_manifest_ids=[],
-        unknown_versions=[],
-        missing_language_clients=[],
-        eligibility_conflicts=[],
-        default_language="en",
-    )
+    defaults: dict[str, Any] = {
+        "counts_by_version": {},
+        "counts_by_language": {},
+        "missing_clients": [],
+        "extra_rows": [],
+        "duplicate_manifest_ids": [],
+        "unknown_versions": [],
+        "missing_language_clients": [],
+        "eligibility_conflicts": [],
+        "default_language": "en",
+    }
     defaults.update(overrides)
     return ReconciliationResult(**defaults)
 
@@ -265,15 +265,6 @@ class TestReconcile:
         }
         result = reconcile(clients, manifest, _catalog(), False, "error")
         assert "C001" in result.eligibility_conflicts
-
-    def test_duplicate_manifest_ids_always_empty(self) -> None:
-        # load_manifest raises on duplicates; reconcile always produces empty list
-        clients = [_client("C001", ["Measles"])]
-        manifest = {
-            "C001": ManifestRow("C001", "overdue_standard_v1", "en", None, None),
-        }
-        result = reconcile(clients, manifest, _catalog(), False, "error")
-        assert result.duplicate_manifest_ids == []
 
     def test_counts_by_version_uses_composite_keys(self) -> None:
         clients = [_client("C001", ["Measles"]), _client("C002", ["Polio"])]

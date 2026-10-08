@@ -1,46 +1,8 @@
-"""Validate compiled PDFs for layout, structure, and quality issues.
+"""Validate every expected compiled notice for structure and layout.
 
-Performs comprehensive validation of compiled PDF files including page counts,
-layout checks (signature placement), and structural integrity. Outputs validation
-results to JSON metadata for downstream processing and optional console warnings.
-
-**Input Contract:**
-
-- Reads PDF files from output/pdf_individual/ directory
-- Assumes PDFs are valid (created by compilation step)
-- Assumes each PDF corresponds to one client notice
-
-**Output Contract:**
-
-- Writes validation results to JSON: output/metadata/validation_{run_id}.json
-- Records per-PDF validations: page counts, layout warnings, structural issues
-- Aggregate statistics: total PDFs, warnings by type, pass/fail counts
-- Optional console output (controlled by config: pdf_validation.print_warnings)
-
-**Error Handling:**
-
-- Invalid/corrupt PDFs raise immediately (fail-fast; quality validation step)
-- Missing PDF files raise immediately (infrastructure error)
-- Layout warnings are non-fatal (logged but don't halt pipeline)
-- All PDFs must be readable; validation results may contain warnings (quality step)
-
-**Validation Contract:**
-
-What this module validates:
-
-- PDF files are readable and structurally valid (uses PdfReader)
-- Page count statistics and distribution
-- Layout markers (signature block placement using MARK_END_SIGNATURE_BLOCK)
-- Expected vs actual page counts (configurable tolerance)
-
-What this module assumes (validated upstream):
-
-- PDF files exist and are complete (created by compile step)
-- PDF filenames match expected pattern (from notice generation)
-- Output metadata directory can be created (general I/O)
-
-Note: This is a validation/QA step. Structural PDF errors halt pipeline (fail-fast),
-but layout warnings are non-fatal and logged for review.
+The render-job manifest supplies the complete PDF list. Validation writes an
+audit summary and raises when an error-severity rule fails; layout warnings
+remain available for review.
 """
 
 from __future__ import annotations
@@ -112,8 +74,6 @@ class ValidationSummary:
 
     Attributes
     ----------
-    language : str | None
-        Language code if filtered (e.g., 'en' or 'fr')
     total_pdfs : int
         Total number of PDFs validated
     passed_count : int
@@ -130,7 +90,6 @@ class ValidationSummary:
         Per-file validation results
     """
 
-    language: str | None
     total_pdfs: int
     passed_count: int
     warning_count: int
@@ -138,52 +97,6 @@ class ValidationSummary:
     warning_types: dict[str, int]
     rule_results: List[RuleResult]
     results: List[ValidationResult]
-
-
-def discover_pdfs(target: Path) -> List[Path]:
-    """Discover all PDF files at the given target path.
-
-    Parameters
-    ----------
-    target : Path
-        Either a directory containing PDFs or a single PDF file.
-
-    Returns
-    -------
-    List[Path]
-        Sorted list of PDF file paths.
-
-    Raises
-    ------
-    FileNotFoundError
-        If target is neither a PDF file nor a directory containing PDFs.
-    """
-    if target.is_dir():
-        return sorted(target.glob("*.pdf"))
-    if target.is_file() and target.suffix.lower() == ".pdf":
-        return [target]
-    raise FileNotFoundError(f"No PDF(s) found at {target}")
-
-
-def filter_by_language(files: List[Path], language: str | None) -> List[Path]:
-    """Filter PDF files by language prefix in filename.
-
-    Parameters
-    ----------
-    files : List[Path]
-        PDF file paths to filter.
-    language : str | None
-        Language code to filter by (e.g., 'en' or 'fr'). If None, returns all files.
-
-    Returns
-    -------
-    List[Path]
-        Filtered list of PDF paths, or all files if language is None.
-    """
-    if not language:
-        return list(files)
-    prefix = f"{language}_"
-    return [path for path in files if path.name.startswith(prefix)]
 
 
 def find_client_id_in_text(page_text: str) -> str | None:
@@ -501,7 +414,6 @@ def validate_pdfs(
     rule_results = compute_rule_results(results, enabled_rules)
 
     return ValidationSummary(
-        language=None,  # Set by caller
         total_pdfs=len(results),
         passed_count=passed_count,
         warning_count=warning_count,
@@ -592,22 +504,18 @@ def check_for_errors(
 
 
 def main(
-    target: Path,
-    language: str | None = None,
+    expected_pdfs: List[Path],
     enabled_rules: dict[str, str] | None = None,
     json_output: Path | None = None,
     client_id_map: dict[str, str] | None = None,
     config_dir: Path | None = None,
-    expected_pdfs: List[Path] | None = None,
 ) -> ValidationSummary:
     """Main entry point for PDF validation.
 
     Parameters
     ----------
-    target : Path
-        PDF file or directory containing PDFs.
-    language : str, optional
-        Optional language prefix to filter PDF filenames (e.g., 'en').
+    expected_pdfs : List[Path]
+        Explicit PDFs from the compiled render-job manifest.
     enabled_rules : dict[str, str], optional
         Validation rules configuration (rule_name -> "disabled"/"warn"/"error").
         If not provided and config_dir is given, loads from config_dir/parameters.yaml.
@@ -640,17 +548,12 @@ def main(
     if client_id_map is None:
         client_id_map = {}
 
-    if expected_pdfs is None:
-        filtered = filter_by_language(discover_pdfs(target), language)
-    else:
-        filtered = expected_pdfs
-        for pdf in filtered:
-            if not pdf.is_file():
-                raise FileNotFoundError(f"Expected notice PDF is missing: {pdf}")
+    for pdf in expected_pdfs:
+        if not pdf.is_file():
+            raise FileNotFoundError(f"Expected notice PDF is missing: {pdf}")
     summary = validate_pdfs(
-        filtered, enabled_rules=enabled_rules, client_id_map=client_id_map
+        expected_pdfs, enabled_rules=enabled_rules, client_id_map=client_id_map
     )
-    summary.language = language
 
     if json_output:
         write_validation_json(summary, json_output)
@@ -665,18 +568,3 @@ def main(
         raise RuntimeError(error_msg)
 
     return summary
-
-
-if __name__ == "__main__":
-    import sys
-
-    print(
-        "⚠️  Direct invocation: This module is typically executed via orchestrator.py.\n"
-        "   Re-running a single step is valid when pipeline artifacts are retained on disk,\n"
-        "   allowing you to skip earlier steps and regenerate output.\n"
-        "   Note: Output will overwrite any previous files.\n"
-        "\n"
-        "   For typical usage, run: uv run viper <input> <language>\n",
-        file=sys.stderr,
-    )
-    sys.exit(1)

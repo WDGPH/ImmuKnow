@@ -16,7 +16,13 @@ import pytest
 import yaml
 from pypdf import PdfReader
 
-from pipeline import bundle_pdfs, compile_notices, generate_notices, orchestrator
+from pipeline import (
+    bundle_pdfs,
+    compile_notices,
+    encrypt_notice,
+    generate_notices,
+    orchestrator,
+)
 from tests.fixtures.sample_input import create_test_input_dataframe
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -30,6 +36,8 @@ def prepare_cohort(
     group_by: str | None = None,
     encrypted: bool = False,
     qr: bool = False,
+    include_dose: bool = False,
+    show_validity_markers: bool = False,
 ) -> tuple[list[str], Path, Path]:
     """Prepare synthetic Excel, manifest, and external config for a real CLI run."""
     config_dir = tmp_path / "Configuration été"
@@ -39,7 +47,8 @@ def prepare_cohort(
     config["bundling"] = {"bundle_size": 10, "group_by": group_by}
     config["encryption"]["enabled"] = encrypted
     config["qr"]["enabled"] = qr
-    config["preprocess"]["include_dose"] = True
+    config["preprocess"]["include_dose"] = include_dose
+    config["preprocess"]["show_validity_markers"] = show_validity_markers
     config_path.write_text(yaml.safe_dump(config))
     catalog_path = config_dir / "notice_versions.yaml"
     catalog = yaml.safe_load(catalog_path.read_text())
@@ -81,7 +90,7 @@ def prepare_cohort(
 
 def run_cli(command: list[str], cwd: Path) -> subprocess.CompletedProcess:
     """Run from an unrelated directory, without inheriting a checkout path."""
-    return subprocess.run(command, cwd=cwd, capture_output=True, text=True)
+    return subprocess.run(command, cwd=cwd, capture_output=True, text=True, check=False)
 
 
 @pytest.mark.parametrize("group_by", [None, "school", "board"])
@@ -89,9 +98,14 @@ def run_cli(command: list[str], cwd: Path) -> subprocess.CompletedProcess:
 def test_mixed_cohort_processed_exactly_once(
     tmp_path: Path, group_by: str | None, options: bool
 ) -> None:
-    """Both languages pass validation, encryption options, and every bundle strategy."""
+    """Both languages pass validation and every configured notice option."""
     command, output_dir, _ = prepare_cohort(
-        tmp_path, group_by=group_by, encrypted=options, qr=options
+        tmp_path,
+        group_by=group_by,
+        encrypted=options,
+        qr=options,
+        include_dose=options,
+        show_validity_markers=options,
     )
     result = run_cli(command, tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
@@ -119,6 +133,8 @@ def test_mixed_cohort_processed_exactly_once(
     assert len(encrypted_files) == (2 if options else 0)
     for job in jobs:
         notice = json.loads(job.data.read_text())
+        assert ("2" in notice["vaccines_due_str"]) == options
+        assert notice["show_validity_markers"] is options
         assert ("qr_img" in notice["client_data"]) == options
         assert (
             job.template.read_bytes()
@@ -209,7 +225,7 @@ def test_expected_outputs_exclude_stale_files_and_require_every_pdf(
     )
     orchestrator.run_step_6_validate_pdfs(output_dir, manifest["run_id"], config_dir)
     bundles = bundle_pdfs.bundle_pdfs_with_config(
-        output_dir, None, manifest["run_id"], config_dir / "parameters.yaml"
+        output_dir, manifest["run_id"], config_dir / "parameters.yaml"
     )
     assert sum(len(bundle.bundle_plan.clients) for bundle in bundles) == 2
     jobs[0].pdf.unlink()
@@ -219,5 +235,24 @@ def test_expected_outputs_exclude_stale_files_and_require_every_pdf(
         )
     with pytest.raises(FileNotFoundError, match="Expected notice PDF is missing"):
         bundle_pdfs.bundle_pdfs_with_config(
-            output_dir, None, manifest["run_id"], config_dir / "parameters.yaml"
+            output_dir, manifest["run_id"], config_dir / "parameters.yaml"
+        )
+
+
+def test_encryption_rejects_job_client_mismatch(tmp_path: Path) -> None:
+    """A compiled job cannot be encrypted under another client's password."""
+    command, output_dir, config_dir = prepare_cohort(tmp_path, ("en",))
+    result = run_cli(command, tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    artifact_dir = output_dir / "artifacts"
+    artifact_path = next(artifact_dir.glob("preprocessed_clients_*.json"))
+    artifact = json.loads(artifact_path.read_text())
+    artifact["clients"][0]["client_id"] = "different_client"
+    artifact_path.write_text(json.dumps(artifact))
+
+    with pytest.raises(
+        ValueError, match="Render jobs do not match the canonical cohort"
+    ):
+        encrypt_notice.encrypt_expected_notices(
+            artifact_path, artifact_dir, config_dir / "parameters.yaml"
         )
