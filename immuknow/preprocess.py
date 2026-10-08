@@ -28,7 +28,6 @@ from .data_models import (
     ClientRecord,
     PreprocessResult,
 )
-from .normalization import load_normalization, normalize_disease
 from .notice_versioning import NoticeVersionCatalog, attach_notice
 
 CONFIG_DIR = Path(str(files("immuknow").joinpath("config")))
@@ -329,64 +328,24 @@ def build_preprocess_result(
     catalog: NoticeVersionCatalog,
     manifest: Dict[str, ManifestRow],
 ) -> Tuple[PreprocessResult, ReconciliationResult]:
-    """Normalize client data and produce the structured preprocessing artifact.
+    """Build client records, then reconcile their notice assignments.
 
-    Orchestrates all per-dataset and per-client normalization: column
-    mapping, sorting, sequence assignment, dataset-level validity
-    classification, age calculation, vaccine history parsing, and disease
-    enrichment. The resulting ``PreprocessResult`` is the sole artifact
-    consumed by all downstream pipeline steps.
+    Sort by school, surname, given name, and client ID to assign the notice
+    sequence. Parse disease names and vaccine history, calculate age at
+    delivery, and attach each eligible notice's version and language.
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Prepared input with trimmed string values and empty strings for blanks.
-        Column names match the input schema; dates remain ISO strings.
-    vaccine_reference : Dict[str, Any]
-        Maps vaccine codes to disease names. Passed through to
-        ``enrich_grouped_records``.
-    replace_unspecified : List[str]
-        Vaccine names to suppress from immunization history. Passed
-        through to ``build_received_rows``.
-    config : dict
-        Parameters loaded once for this run.
-    config_dir : Path
-        Selected configuration resource directory.
-
-    Returns
-    -------
-    PreprocessResult
-        Contains a list of ``ClientRecord`` objects (one per input row,
-        sorted by school → last name → first name → client ID) and a
-        list of warning strings for data-quality issues discovered during
-        processing.
-
-    Raises
-    ------
-    ValueError
-        If ``classify_dataset_validity`` returns ``"mixed"`` and
-        ``show_validity_markers`` is ``True`` in ``parameters.yaml``.
-        This indicates the source data is structurally inconsistent and
-        cannot be displayed reliably.
-
-    Notes
-    -----
-    - Configuration is supplied by the orchestrator, avoiding repeated reads
-      and state shared across runs.
-    - Warns (does not raise) for: missing board name, missing date of
-      birth, duplicate client IDs, ``all_absent`` validity when
-      ``show_validity_markers`` is ``True``, ``mixed`` validity when
-      ``show_validity_markers`` is ``False``.
+    Return the prepared records with source warnings and assignment findings.
+    Inconsistent validity indicators raise when markers are requested;
+    assignment errors raise ReconciliationError before rendering begins.
     """
     warnings: set[str] = set()
     working = df.copy()
 
-    params = config
     normalization_path = config_dir / "disease_normalization.json"
     if not normalization_path.exists():
         normalization_path = CONFIG_DIR / "disease_normalization.json"
     normalization = load_normalization(normalization_path)
-    date_notice_delivery: Optional[str] = params.get("date_notice_delivery")
+    date_notice_delivery: Optional[str] = config.get("date_notice_delivery")
     if date_notice_delivery is not None:
         if not isinstance(date_notice_delivery, str):
             raise ValueError(
@@ -402,13 +361,15 @@ def build_preprocess_result(
             raise ValueError(
                 "date_notice_delivery must be an ISO calendar date (YYYY-MM-DD)"
             ) from exc
-    chart_diseases_header: List[str] = params.get("chart_diseases_header", [])
-    preprocess_cfg: Dict[str, Any] = params.get("preprocess", {})
-    show_validity_markers: bool = preprocess_cfg.get("show_validity_markers", False)
+    chart_diseases_header: List[str] = config.get("chart_diseases_header", [])
+    preprocess_config: Dict[str, Any] = config.get("preprocess", {})
+    show_validity_markers: bool = preprocess_config.get("show_validity_markers", False)
 
     # Assignment reconciliation policy
-    notice_versioning_cfg: Dict[str, Any] = params.get("notice_versioning", {})
-    extra_manifest_rows: str = notice_versioning_cfg.get("extra_manifest_rows", "error")
+    notice_versioning_config: Dict[str, Any] = config.get("notice_versioning", {})
+    extra_manifest_rows: str = notice_versioning_config.get(
+        "extra_manifest_rows", "error"
+    )
 
     working["school_id"] = working.apply(
         lambda row: synthesize_identifier(
@@ -548,7 +509,7 @@ def build_preprocess_result(
         for cid in sorted(duplicates.keys()):
             warnings.add(
                 f"Duplicate client ID '{cid}' found {duplicates[cid]} times. "
-                "Later records will overwrite earlier ones in generated notices."
+                "Each source row will receive a separate notice with the same assignment."
             )
 
     reconciliation_result = reconcile(clients, manifest, catalog, extra_manifest_rows)
@@ -576,6 +537,23 @@ def synthesize_identifier(existing: str, source: str, prefix: str) -> str:
     base = (source or "").strip().lower() or "unknown"
     digest = sha1(base.encode("utf-8")).hexdigest()[:10]
     return f"{prefix}_{digest}"
+
+
+def load_normalization(path: Path) -> dict[str, str]:
+    """Read the selected normalization resource for one pipeline run."""
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict) or any(
+        not isinstance(key, str) or not isinstance(value, str)
+        for key, value in data.items()
+    ):
+        raise ValueError(f"Disease normalization must be a string mapping: {path}")
+    return data
+
+
+def normalize_disease(token: str, normalization: dict[str, str]) -> str:
+    """Look up the configured disease name, keeping unlisted names unchanged."""
+    token = token.strip()
+    return normalization.get(token, token)
 
 
 def parse_overdue_diseases(
@@ -650,7 +628,7 @@ def calculate_age_at_date(date_of_birth, date_notice_delivery):
 
     age = delivery_datetime.year - birth_datetime.year
 
-    # Adjust if birthday hasn't occurred yet in the DOV month
+    # Subtract one year if the birthday falls after the notice delivery date.
     if (delivery_datetime.month < birth_datetime.month) or (
         delivery_datetime.month == birth_datetime.month
         and delivery_datetime.day < birth_datetime.day
@@ -673,7 +651,7 @@ def classify_dataset_validity(
 
     Called once by ``build_preprocess_result`` immediately before the client
     loop. Its return value determines which branch of the warning/error logic
-    fires; see the behaviour table in the module docstring.
+    applies before any notice is rendered.
 
     Parameters
     ----------
@@ -810,9 +788,8 @@ def parse_dose_segments(
     Extracts individual dose entries from a semicolon-delimited string,
     normalizes dates to ISO format, normalizes validity to one of
     ``"valid"`` / ``"invalid"`` / ``"unknown"``, and filters unwanted
-    vaccine names.  Unlike the former ``process_received_agents``, this
-    function does *not* group by date — grouping and disease-expansion are
-    handled by ``build_received_rows``.
+    vaccine names. ``build_received_rows`` then groups doses by date and
+    looks up the diseases covered by each vaccine.
 
     Parameters
     ----------
@@ -1068,41 +1045,12 @@ def normalize_validity_status(raw_status: Any) -> str:
     return "unknown"
 
 
-def collapse_validity_statuses(statuses: List[Any]) -> str:
-    """Collapse multiple validity statuses using strict precedence.
-
-    Precedence:
-
-    1. mixed (if both valid and invalid are present and no unknown)
-    2. valid (if at least one valid is present and no unknown)
-    3. invalid (if invalid is present and no unknown)
-    4. unknown (otherwise)
-    """
-    normalized = [normalize_validity_status(s) for s in statuses]
-
-    has_valid = "valid" in normalized
-    has_invalid = "invalid" in normalized
-    has_unknown = "unknown" in normalized
-
-    if has_valid and has_invalid and not has_unknown:
-        return "mixed"
-
-    # "All valid" / "all invalid" only when no unknowns are present
-    if has_valid and not has_unknown:
-        return "valid"
-    if has_invalid and not has_unknown:
-        return "invalid"
-
-    # anything involving unknown (or empty) stays unknown
-    return "unknown"
-
-
 def write_artifact(
     output_dir: Path,
     run_id: str,
     result: PreprocessResult,
 ) -> Path:
-    """Write preprocessed result to JSON artifact file."""
+    """Save the prepared client records and source warnings for this run."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
     payload = {

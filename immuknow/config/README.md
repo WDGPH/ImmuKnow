@@ -38,7 +38,6 @@ Set options in `parameters.yaml`. Common choices:
 | `chart_diseases_header` | Configured disease names in chart order; unlisted diseases group under `Other` |
 | `preprocess.include_dose` | Show numeric overdue doses when available; facts retain doses either way |
 | `preprocess.show_validity_markers` | Mark valid and invalid received doses in the history |
-| `ignore_agents` | Agent codes excluded from assessment processing |
 | `qr.enabled`, `qr.payload_template` | QR image and encoded link |
 | `encryption.enabled`, `encryption.password.template` | Individual PDF encryption and password |
 | `bundling.bundle_size`, `bundling.group_by` | Bundle size and grouping: none, school, or board |

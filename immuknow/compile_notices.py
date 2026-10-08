@@ -2,7 +2,8 @@
 
 Each command passes a JSON file reference rather than personal details. A PDF is
 published only after its compilation succeeds. Whole-stage completion evidence
-is written only after every job succeeds; downstream stages require that evidence.
+is written only after every job succeeds. The orchestrator then checks the files
+before validation and delivery.
 """
 
 from __future__ import annotations

@@ -587,7 +587,7 @@ class TestBuildPreprocessResult:
         Real-world significance:
         - Source data may contain duplicate client IDs (data entry errors)
         - Must warn about this data quality issue
-        - Later records with same ID will overwrite earlier ones in notice generation
+        - Each source row keeps a separate notice sequence and shares the assignment
         """
         df = sample_input.create_test_input_dataframe(num_clients=2)
         # Force duplicate client IDs
@@ -609,7 +609,7 @@ class TestBuildPreprocessResult:
         assert len(duplicate_warnings) == 1
         assert "C123456789" in duplicate_warnings[0]
         assert "2 times" in duplicate_warnings[0]
-        assert "overwrite" in duplicate_warnings[0]
+        assert "separate notice with the same assignment" in duplicate_warnings[0]
 
     def test_build_result_detects_multiple_duplicate_client_ids(
         self, default_vaccine_reference
@@ -724,97 +724,6 @@ class TestValidityStatusHandling:
         assert preprocess.normalize_validity_status("true") == "unknown"
         assert preprocess.normalize_validity_status("") == "unknown"
         assert preprocess.normalize_validity_status(None) == "unknown"
-
-
-@pytest.mark.unit
-class TestCollapseValidityStatuses:
-    """Unit tests for collapse_validity_statuses() precedence contract.
-
-    Covers:
-    - Pure valid / pure invalid / mixed (valid+invalid) / unknown cases
-    - The rule that any "unknown" in the list contaminates the result
-    - Single-element and empty-list edge cases
-    - Raw (non-normalized) inputs being accepted via the internal normalize call
-
-    Real-world significance:
-    - collapse_validity_statuses is the authority for what validity status
-      appears in the "Other" chart column when multiple vaccines contribute
-    - Getting the precedence wrong would silently misrepresent a patient's
-      immunity record on a printed notice
-    """
-
-    def test_all_valid_returns_valid(self) -> None:
-        """Verify a list with only valid statuses collapses to valid.
-
-        Assertion: ["valid", "valid"] → "valid"
-        """
-        assert preprocess.collapse_validity_statuses(["valid", "valid"]) == "valid"
-
-    def test_all_invalid_returns_invalid(self) -> None:
-        """Verify a list with only invalid statuses collapses to invalid.
-
-        Assertion: ["invalid", "invalid"] → "invalid"
-        """
-        assert (
-            preprocess.collapse_validity_statuses(["invalid", "invalid"]) == "invalid"
-        )
-
-    def test_valid_and_invalid_without_unknown_returns_mixed(self) -> None:
-        """Verify mixed valid+invalid (no unknown) collapses to mixed.
-
-        Real-world significance:
-        - "mixed" appears in the "Other" column when different vaccines on the
-          same day have conflicting validity, alerting the user that not all
-          "Other" doses counted toward immunity
-
-        Assertion: ["valid", "invalid"] → "mixed"
-        """
-        assert preprocess.collapse_validity_statuses(["valid", "invalid"]) == "mixed"
-
-    def test_any_unknown_returns_unknown_regardless_of_others(self) -> None:
-        """Verify that a single unknown contaminates valid+invalid combinations.
-
-        Real-world significance:
-        - An unknown status means data was incomplete; displaying "mixed" or
-          "valid" when data quality is uncertain would be misleading on a notice
-
-        Assertion: unknown present → "unknown", even alongside valid and invalid
-        """
-        assert (
-            preprocess.collapse_validity_statuses(["valid", "invalid", "unknown"])
-            == "unknown"
-        )
-        assert preprocess.collapse_validity_statuses(["valid", "unknown"]) == "unknown"
-        assert (
-            preprocess.collapse_validity_statuses(["invalid", "unknown"]) == "unknown"
-        )
-
-    def test_single_valid_returns_valid(self) -> None:
-        """Assertion: ["valid"] → "valid"."""
-        assert preprocess.collapse_validity_statuses(["valid"]) == "valid"
-
-    def test_single_invalid_returns_invalid(self) -> None:
-        """Assertion: ["invalid"] → "invalid"."""
-        assert preprocess.collapse_validity_statuses(["invalid"]) == "invalid"
-
-    def test_single_unknown_returns_unknown(self) -> None:
-        """Assertion: ["unknown"] → "unknown"."""
-        assert preprocess.collapse_validity_statuses(["unknown"]) == "unknown"
-
-    def test_empty_list_returns_unknown(self) -> None:
-        """Verify an empty list (no statuses to collapse) is treated as unknown.
-
-        Assertion: [] → "unknown"
-        """
-        assert preprocess.collapse_validity_statuses([]) == "unknown"
-
-    def test_normalizes_raw_casing_before_collapsing(self) -> None:
-        """Verify raw casing variants are normalized before precedence is applied.
-
-        Assertion: ["Valid", "Invalid"] → "mixed" (same as ["valid", "invalid"])
-        """
-        assert preprocess.collapse_validity_statuses(["Valid", "Invalid"]) == "mixed"
-        assert preprocess.collapse_validity_statuses(["Valid", "Valid"]) == "valid"
 
 
 @pytest.mark.unit

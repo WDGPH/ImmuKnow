@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from immuknow.normalization import load_normalization, normalize_disease
+from immuknow.preprocess import load_normalization, normalize_disease
 
 
 @pytest.mark.unit
