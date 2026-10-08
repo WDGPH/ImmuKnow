@@ -9,9 +9,7 @@ Date de naissance: 2 janvier 2015
 Centre de garde d'enfants: Tunnel Academy
 MEASURE_CONTACT_HEIGHT:81
 En date du 31 août 2025, nos dossiers indiquent que votre enfant n’a pas reçu les immunisations suivantes :
-• Rougeole (1re dose)
-• Oreillons
-• Rubéole
+• MMR
 Veuillez examiner le dossier d’immunisation à la page 2 et mettre à jour le dossier de votre enfant en utilisant l’une 
 des options suivantes :
 1. En visitant https://www.test-immunization.ca

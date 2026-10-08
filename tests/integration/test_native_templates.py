@@ -139,15 +139,34 @@ def case_language(case: str) -> str:
 
 
 @pytest.mark.parametrize(
-    ("field", "value", "diagnostic"),
+    ("case", "field", "value", "diagnostic"),
     [
-        ("language", "fr", "Notice language does not match this template"),
         (
+            "overdue_agents_en",
+            "language",
+            "fr",
+            "Notice language does not match this template",
+        ),
+        (
+            "overdue_agents_fr",
+            "language",
+            "en",
+            "Notice language does not match this template",
+        ),
+        (
+            "overdue_agents_en",
             "version_id",
             "affirmative_schedule_v1",
             "Notice version does not match this template",
         ),
         (
+            "overdue_agents_en",
+            "overdue_agents",
+            [],
+            "This overdue template requires vaccine agent data",
+        ),
+        (
+            "overdue_agents_fr",
             "overdue_agents",
             [],
             "This overdue template requires vaccine agent data",
@@ -155,17 +174,36 @@ def case_language(case: str) -> str:
     ],
 )
 def test_native_template_rejects_incompatible_data(
-    tmp_path: Path, field: str, value: object, diagnostic: str
+    tmp_path: Path, case: str, field: str, value: object, diagnostic: str
 ) -> None:
     """Direct invocation cannot bypass template identity or required agent content."""
     workspace = tmp_path / "assertions"
-    template, data_file, notice = prepare_case(workspace, "overdue_agents_en")
+    template, data_file, notice = prepare_case(workspace, case)
     notice[field] = value
     data_file.write_text(json.dumps(notice))
     result = compile_notice(template, data_file, workspace)
     assert result.returncode != 0
     assert diagnostic in result.stderr
     assert not (workspace / "notice.pdf").exists()
+
+
+@pytest.mark.parametrize("case", ["overdue_agents_en", "overdue_agents_fr"])
+def test_agent_templates_show_agents_independently_of_diseases(
+    tmp_path: Path, case: str
+) -> None:
+    """An agent notice displays selected vaccine agents in either language."""
+    workspace = tmp_path / "agent content"
+    template, data_file, notice = prepare_case(workspace, case)
+    notice["overdue_diseases"] = []
+    notice["overdue_agents"] = ["MMR", "DTaP"]
+    data_file.write_text(json.dumps(notice, ensure_ascii=False))
+    result = compile_notice(template, data_file, workspace)
+    assert result.returncode == 0, result.stderr
+    first_page = PdfReader(workspace / "notice.pdf").pages[0].extract_text()
+    assert "• MMR" in first_page
+    assert "• DTaP" in first_page
+    assert "• Measles" not in first_page
+    assert "• Rougeole" not in first_page
 
 
 def test_json_punctuation_remains_text(tmp_path: Path) -> None:

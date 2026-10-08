@@ -428,24 +428,29 @@ def test_sequential_callable_runs_keep_resources_and_assignments_isolated(
     }
 
     command, second_output, second_config = prepare_cohort(tmp_path / "second", ("fr",))
+    second_assignments = Path(command[command.index("--notice-assignments") + 1])
+    assignments = json.loads(second_assignments.read_text())
+    assignments[0]["template"] = "overdue_diseases_v1.fr.typ"
+    second_assignments.write_text(json.dumps(assignments))
     translation = second_config / "translations" / "fr_diseases_overdue.json"
     labels = json.loads(translation.read_text())
     labels["Measles"] = "LIBELLÉ LOCAL SÉLECTIONNÉ"
     translation.write_text(json.dumps(labels, ensure_ascii=False))
     custom = tmp_path / "Modèles privés"
     shutil.copytree(ROOT / "immuknow" / "templates", custom)
-    entry = custom / "overdue_agents_v1.fr.typ"
+    entry = custom / "overdue_diseases_v1.fr.typ"
     entry.write_text(entry.read_text() + "\n#text[SECOND TEMPLATE SET]\n")
     second_completion = orchestrator.run_pipeline(
         Path(command[3]),
         second_output,
         config_dir=second_config,
         template_dir=custom,
-        notice_assignments=Path(command[command.index("--notice-assignments") + 1]),
+        notice_assignments=second_assignments,
     )
     assert second_completion is not None
     second_jobs = read_render_jobs(second_output / "artifacts")
     assert len(second_jobs) == 1 and second_jobs[0].language == "fr"
+    assert second_jobs[0].version_id == "overdue_diseases_v1"
     text = "\n".join(
         page.extract_text() for page in PdfReader(second_jobs[0].pdf).pages
     )

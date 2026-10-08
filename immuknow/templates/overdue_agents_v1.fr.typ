@@ -3,6 +3,7 @@
 #let template-language = "fr"
 #assert(notice.version_id == template-version, message: "Notice version does not match this template")
 #assert(notice.language == template-language, message: "Notice language does not match this template")
+#assert(notice.overdue_agents.len() > 0, message: "This overdue template requires vaccine agent data")
 
 // --- CCEYA NOTICE TEMPLATE (TEST VERSION) --- //
 // Description: A typst template that dynamically generates CCEYA templates.
@@ -108,7 +109,7 @@ Si vous avez des questions sur les vaccins de votre enfant, veuillez appeler le 
 
 #let client_row = notice.client_id
 #let data = notice.client_data
-#let vaccines_due_array = notice.overdue_diseases.map(entry => presentation.overdue-label(entry, notice.include_dose, "fr"))
+#let vaccines_due_array = notice.overdue_agents
 #let received = notice.received
 #let diseases = notice.chart_diseases
 #let show_validity_markers = notice.show_validity_markers
