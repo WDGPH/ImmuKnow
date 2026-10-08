@@ -1,5 +1,5 @@
 {
-  "version_id": "overdue_standard_v1",
+  "version_id": "overdue_agents_v1",
   "client": {
     "sequence": "00001",
     "client_id": "0000000001",
@@ -535,7 +535,7 @@
     "qr": {
       "payload": "https://www.test-immunization.ca/update?client_id=0000000001&dob=2015-01-02&lang=en"
     },
-    "version_id": "overdue_standard_v1",
+    "version_id": "overdue_agents_v1",
     "overdue_diseases": [
       {
         "disease": "Measles",

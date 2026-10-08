@@ -96,9 +96,9 @@ accepted client. The selected version must be registered in a mapping-shaped
 ```yaml
 schema_version: 1
 versions:
-  legacy_overdue_v1:
+  overdue_diseases_v1:
     kind: overdue
-  overdue_standard_v1:
+  overdue_agents_v1:
     kind: overdue
   affirmative_schedule_v1:
     kind: affirmative
@@ -109,13 +109,17 @@ Kinds `overdue`, `affirmative`, and `informational` imply
 `requires` explicitly to one of those values. Eligibility always follows
 canonical overdue diseases, even when a template displays vaccine agents.
 The catalog does not choose a language or assign a version to a client.
+The affirmative version's `no_overdue` rule checks an empty canonical
+`overdue_diseases` list from the source assessment. An affirmative notice
+is selected only by an explicit manifest row or `--notice-template`; it is
+not inferred from an empty list. An eligibility conflict fails preflight.
 
 For per-client selection, the JSON manifest is an array with one
 `client_id` and one `template` filename for every accepted client:
 
 ```json
 [
-  {"client_id": "1009876545", "template": "overdue_standard_v1.fr.typ"},
+  {"client_id": "1009876545", "template": "overdue_agents_v1.fr.typ"},
   {"client_id": "2001234567", "template": "affirmative_schedule_v1.en.typ"}
 ]
 ```
@@ -137,7 +141,7 @@ For one version and language across the accepted cohort, pass the entry file:
 
 ```bash
 immuknow students.csv \
-  --notice-template /path/to/my-phu/legacy_overdue_v1.en.typ
+  --notice-template /path/to/my-phu/overdue_diseases_v1.en.typ
 ```
 
 The filename must be `<version_id>.<language>.typ`, with a version in the
@@ -148,10 +152,10 @@ Each accepted client must satisfy that version's eligibility rule. The
 
 Manifest selection can use packaged entry points, `--templates PATH` for
 an external complete tree, or `--template NAME` for
-`phu_templates/NAME/` beneath the working directory. The maintained
-files include legacy overdue and standard overdue in English and French,
-and an English affirmative notice. A missing version/language pair fails;
-no other language or PHU directory is substituted. Every entry point declares
+`phu_templates/NAME/` beneath the working directory. The maintained examples
+include disease and agent overdue notices in English and French, and an
+English affirmative notice. A missing version/language pair fails; no other
+language or PHU directory is substituted. Every entry point declares
 its own version and language and rejects mismatched JSON. See
 [template authoring](https://WDGPH.github.io/ImmuKnow/user_guide/phu_templates/)
 for the native contract.

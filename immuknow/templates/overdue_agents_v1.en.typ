@@ -1,8 +1,9 @@
 #let notice = json(sys.inputs.at("data"))
-#let template-version = "legacy_overdue_v1"
+#let template-version = "overdue_agents_v1"
 #let template-language = "en"
 #assert(notice.version_id == template-version, message: "Notice version does not match this template")
 #assert(notice.language == template-language, message: "Notice language does not match this template")
+#assert(notice.overdue_agents.len() > 0, message: "This overdue template requires vaccine agent data")
 
 // --- CCEYA NOTICE TEMPLATE (TEST VERSION) --- //
 // Description: A typst template that dynamically generates CCEYA templates.
@@ -108,7 +109,7 @@ If you have any questions, please call 555-555-5555 ext. 1234.
 
 #let client_row = notice.client_id
 #let data = notice.client_data
-#let vaccines_due_array = notice.overdue_diseases.map(entry => presentation.overdue-label(entry, notice.include_dose, "en"))
+#let vaccines_due_array = notice.overdue_agents
 #let received = notice.received
 #let diseases = notice.chart_diseases
 #let show_validity_markers = notice.show_validity_markers

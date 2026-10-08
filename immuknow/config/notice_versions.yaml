@@ -1,10 +1,10 @@
 schema_version: 1
 
 versions:
-  legacy_overdue_v1:
+  overdue_diseases_v1:
     kind: overdue
     requires: has_overdue
-  overdue_standard_v1:
+  overdue_agents_v1:
     kind: overdue
     requires: has_overdue
   affirmative_schedule_v1:

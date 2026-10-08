@@ -19,8 +19,8 @@ def test_single_language_custom_template(tmp_path: Path, language: str) -> None:
     custom = tmp_path / "PHU modèles"
     shutil.copytree(ROOT / "immuknow" / "templates", custom)
     other = "fr" if language == "en" else "en"
-    (custom / f"overdue_standard_v1.{other}.typ").unlink()
-    entry = custom / f"overdue_standard_v1.{language}.typ"
+    (custom / f"overdue_agents_v1.{other}.typ").unlink()
+    entry = custom / f"overdue_agents_v1.{language}.typ"
     entry.write_text(entry.read_text() + "\n#text(size: 8pt)[PHU CUSTOM TEMPLATE]\n")
     result = run_cli(command + ["--templates", str(custom)], tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
@@ -29,7 +29,7 @@ def test_single_language_custom_template(tmp_path: Path, language: str) -> None:
         page.extract_text() for page in PdfReader(pdf).pages
     )
     with pytest.raises(FileNotFoundError, match="Notice template not found"):
-        select_template(custom, "overdue_standard_v1", other)
+        select_template(custom, "overdue_agents_v1", other)
 
 
 @pytest.mark.parametrize(

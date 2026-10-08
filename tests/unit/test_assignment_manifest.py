@@ -32,8 +32,8 @@ def template_dir(tmp_path: Path) -> Path:
     selected = tmp_path / "templates"
     selected.mkdir()
     for name in (
-        "overdue_standard_v1.en.typ",
-        "overdue_standard_v1.fr.typ",
+        "overdue_agents_v1.en.typ",
+        "overdue_agents_v1.fr.typ",
         "affirmative_schedule_v1.en.typ",
     ):
         (selected / name).write_text(
@@ -43,7 +43,7 @@ def template_dir(tmp_path: Path) -> Path:
 
 
 def row(
-    client_id: str, version: str = "overdue_standard_v1", language: str = "en"
+    client_id: str, version: str = "overdue_agents_v1", language: str = "en"
 ) -> dict:
     return {"client_id": client_id, "template": f"{version}.{language}.typ"}
 
@@ -52,8 +52,8 @@ def catalog() -> NoticeVersionCatalog:
     return NoticeVersionCatalog(
         schema_version=1,
         versions={
-            "overdue_standard_v1": NoticeVersion(
-                "overdue_standard_v1", NoticeKind.OVERDUE, "has_overdue"
+            "overdue_agents_v1": NoticeVersion(
+                "overdue_agents_v1", NoticeKind.OVERDUE, "has_overdue"
             ),
             "affirmative_schedule_v1": NoticeVersion(
                 "affirmative_schedule_v1", NoticeKind.AFFIRMATIVE, "no_overdue"
@@ -71,7 +71,7 @@ def client(client_id: str, diseases: list[str], version_id: str | None = None):
 
 
 def assignment(
-    client_id: str, version: str = "overdue_standard_v1", language: str = "en"
+    client_id: str, version: str = "overdue_agents_v1", language: str = "en"
 ):
     return ManifestRow(client_id, version, language, None, None)
 
@@ -97,7 +97,7 @@ def test_manifest_loads_explicit_language_and_experiment_metadata(
     )
     loaded = load_manifest(path, template_dir)
     assert loaded == {
-        "C001": ManifestRow("C001", "overdue_standard_v1", "fr", "study", "B")
+        "C001": ManifestRow("C001", "overdue_agents_v1", "fr", "study", "B")
     }
 
 
@@ -107,7 +107,7 @@ def test_manifest_loads_explicit_language_and_experiment_metadata(
     [
         ({"client_id": "C001"}, "JSON array"),
         ([123], "row 1"),
-        ([{"template": "overdue_standard_v1.en.typ"}], "client_id"),
+        ([{"template": "overdue_agents_v1.en.typ"}], "client_id"),
         ([{"client_id": "C001"}], "template"),
         (
             [{"client_id": "C001", "notice_version": "v1", "language": "en"}],
@@ -139,11 +139,11 @@ def test_manifest_rejects_invalid_template_value(
 @pytest.mark.parametrize(
     "template",
     [
-        "overdue_standard_v1.es.typ",
-        "overdue_standard_v1..typ",
-        "overdue_standard_v1.EN.typ",
-        "overdue_standard_v1.typ",
-        "overdue_standard_v1.fr.pdf",
+        "overdue_agents_v1.es.typ",
+        "overdue_agents_v1..typ",
+        "overdue_agents_v1.EN.typ",
+        "overdue_agents_v1.typ",
+        "overdue_agents_v1.fr.pdf",
     ],
 )
 def test_manifest_rejects_invalid_filename_or_language(
@@ -183,7 +183,7 @@ def test_manifest_rejects_template_outside_selected_directory(
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    "legacy", [{"version_id": "overdue_standard_v1"}, {"language": "fr"}]
+    "legacy", [{"version_id": "overdue_agents_v1"}, {"language": "fr"}]
 )
 def test_manifest_rejects_contradictory_legacy_fields(
     tmp_path: Path, template_dir: Path, legacy: dict[str, str]
@@ -205,19 +205,19 @@ def test_manifest_rejects_invalid_json(tmp_path: Path, template_dir: Path) -> No
 @pytest.mark.unit
 def test_reconcile_preserves_explicit_identity_and_provenance() -> None:
     records = [
-        client("C001", ["Measles"], version_id="overdue_standard_v1"),
+        client("C001", ["Measles"], version_id="overdue_agents_v1"),
         client("C002", ["Polio"]),
     ]
     selected = {
-        "C001": ManifestRow("C001", "overdue_standard_v1", "en", "study", "A"),
-        "C002": ManifestRow("C002", "overdue_standard_v1", "fr", None, None),
+        "C001": ManifestRow("C001", "overdue_agents_v1", "en", "study", "A"),
+        "C002": ManifestRow("C002", "overdue_agents_v1", "fr", None, None),
     }
     result = reconcile(records, selected, catalog(), "error")
     assert result.findings == []
     assert result.counts_by_language == {"en": 1, "fr": 1}
     assert result.counts_by_version == {
-        "overdue_standard_v1 (en)": 1,
-        "overdue_standard_v1 (fr)": 1,
+        "overdue_agents_v1 (en)": 1,
+        "overdue_agents_v1 (fr)": 1,
     }
     assert result.resolved_notices["C001"].experiment_id == "study"
     assert result.resolved_notices["C001"].experiment_arm == "A"
@@ -253,7 +253,7 @@ def test_source_version_conflict_identifies_both_versions() -> None:
     assert len(conflict) == 1
     assert conflict[0].client_id == "C001"
     assert "affirmative_schedule_v1" in conflict[0].reason
-    assert "overdue_standard_v1" in conflict[0].reason
+    assert "overdue_agents_v1" in conflict[0].reason
     assert has_errors(result, "error")
 
 
@@ -294,7 +294,7 @@ def test_extra_manifest_rows_follow_configured_policy(
     extra = findings(result, "extra_manifest_row")
     assert len(extra) == 1
     assert extra[0].client_id == "EXTRA"
-    assert extra[0].version_id == "overdue_standard_v1"
+    assert extra[0].version_id == "overdue_agents_v1"
     assert has_errors(result, policy) is should_fail
 
 
@@ -308,7 +308,7 @@ def test_preflight_console_shows_counts_without_client_details(capsys) -> None:
     )
     print_preflight_summary(result)
     output = capsys.readouterr().out
-    assert "overdue_standard_v1" in output
+    assert "overdue_agents_v1" in output
     assert "fr" in output
     assert "1" in output
     assert "C001" not in output

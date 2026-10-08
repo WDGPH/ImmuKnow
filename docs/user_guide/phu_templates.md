@@ -29,7 +29,7 @@ copytree(Path(str(files("immuknow").joinpath("templates"))), Path("/path/to/my-p
 ```
 
 Manifest rows name entry-point files such as
-`overdue_standard_v1.fr.typ`, without paths. The pipeline resolves each name
+`overdue_agents_v1.fr.typ`, without paths. The pipeline resolves each name
 inside the complete selected tree. With a manifest, the shorter
 `--template my_phu` selects
 `phu_templates/my_phu/` beneath the caller's working directory. To use one
@@ -37,7 +37,7 @@ file for the whole accepted cohort, pass its path instead:
 
 ```bash
 uv run immuknow students.csv \
-  --notice-template /path/to/my-phu/legacy_overdue_v1.en.typ
+  --notice-template /path/to/my-phu/overdue_diseases_v1.en.typ
 ```
 
 Both selectors use the `<version_id>.<language>.typ` filename contract, with
@@ -51,12 +51,19 @@ resources do not fall back to built-ins. Writes stay in the run output,
 not the installed package. Template/output overlap is rejected before copying
 or cleanup.
 
-Maintained flat entry points are `legacy_overdue_v1.en.typ`,
-`legacy_overdue_v1.fr.typ`, `overdue_standard_v1.en.typ`,
-`overdue_standard_v1.fr.typ`, and `affirmative_schedule_v1.en.typ`.
-The legacy overdue notice displays diseases; the standard overdue notice
-displays vaccine agents. Eligibility for either is disease-based. No French
-affirmative notice ships; add one only after its wording and layout are reviewed.
+The maintained examples have flat entry points:
+`overdue_diseases_v1.en.typ`, `overdue_diseases_v1.fr.typ`,
+`overdue_agents_v1.en.typ`, `overdue_agents_v1.fr.typ`, and
+`affirmative_schedule_v1.en.typ`. The disease example displays overdue
+diseases; the agent example displays vaccine agents. Eligibility for both
+uses the canonical overdue disease list.
+
+The affirmative example is never selected automatically. Assign
+`affirmative_schedule_v1.en.typ` in a manifest, or select that file with
+`--notice-template` for a whole cohort. Its catalog `no_overdue` rule
+requires `overdue_diseases` to be empty for every selected client, based
+on the source assessment. An ineligible assignment fails preflight. No French affirmative
+example ships. Add one only after its wording and layout are reviewed.
 
 ## Assert the notice identity
 
@@ -65,7 +72,7 @@ the JSON, and sets the document text language and Canadian region:
 
 ```typst
 #let notice = json(sys.inputs.at("data"))
-#assert(notice.version_id == "overdue_standard_v1", message: "Wrong notice version")
+#assert(notice.version_id == "overdue_agents_v1", message: "Wrong notice version")
 #assert(notice.language == "en", message: "Wrong notice language")
 #set text(lang: "en", region: "CA")
 #import "/templates/conf.typ"
@@ -103,9 +110,10 @@ looked up by canonical key. Uncatalogued source labels stay visible unchanged.
 A label present only in the other language is an error. Chart membership is
 never inferred from translated labels.
 
-Templates can rearrange content, but keep their own version and
-language checks. A selected single file applies those checks to every client. The [configuration contract](configuration.md) explains
-assignments, translation data, and QR/password fields.
+Templates can rearrange content, but must keep their own version and
+language checks. A selected single file applies those checks to every client.
+The [configuration contract](configuration.md) explains assignments,
+translation data, and QR/password fields.
 
 ## Reproduce and review a notice
 
@@ -121,7 +129,7 @@ With Typst 0.15.1, use the actual paths from that job:
 typst compile \
   --root "/path/to/output/artifacts/render" \
   --input data=/data/en_notice_00001_123.json \
-  "/path/to/output/artifacts/render/templates/legacy_overdue_v1.en.typ" \
+  "/path/to/output/artifacts/render/templates/overdue_diseases_v1.en.typ" \
   "/path/to/review.pdf"
 ```
 

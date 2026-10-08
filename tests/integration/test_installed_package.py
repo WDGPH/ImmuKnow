@@ -33,7 +33,7 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
     wheel = next(distributions.glob("*.whl"))
     with zipfile.ZipFile(wheel) as archive:
         names = set(archive.namelist())
-        assert "immuknow/templates/overdue_standard_v1.fr.typ" in names
+        assert "immuknow/templates/overdue_agents_v1.fr.typ" in names
         assert "immuknow/templates/affirmative_schedule_v1.en.typ" in names
         assert "immuknow/templates/assets/logo.png" in names
         assert "immuknow/templates/assets/signature.png" in names
@@ -50,7 +50,7 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
     with tarfile.open(next(distributions.glob("*.tar.gz"))) as archive:
         source_names = archive.getnames()
         assert any(
-            name.endswith("immuknow/templates/overdue_standard_v1.fr.typ")
+            name.endswith("immuknow/templates/overdue_agents_v1.fr.typ")
             for name in source_names
         )
         assert any(
@@ -162,7 +162,7 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
                 str(environment / "bin" / "immuknow"),
                 str(input_file),
                 "--notice-template",
-                str(custom / "legacy_overdue_v1.fr.typ"),
+                str(custom / "overdue_diseases_v1.fr.typ"),
                 "--output",
                 str(custom_output),
             ],

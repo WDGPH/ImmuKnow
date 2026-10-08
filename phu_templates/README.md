@@ -19,7 +19,7 @@ immuknow students.csv --notice-assignments assignments.json \
 For one entry point across the accepted cohort:
 
 ```bash
-immuknow students.csv --notice-template "/path/to/my PHU templates/legacy_overdue_v1.en.typ"
+immuknow students.csv --notice-template "/path/to/my PHU templates/overdue_diseases_v1.en.typ"
 ```
 
 The selected file's version must be in the catalog, and its containing tree

@@ -1,4 +1,4 @@
-"""Compile maintained Typst entry points with JSON and compare legacy notice text.
+"""Compile maintained Typst examples with JSON and compare baseline notice text.
 
 These acceptance tests require the real compiler. A missing executable is a
 failure, including in CI; mocked compilation cannot prove the template boundary.
@@ -26,12 +26,12 @@ BASELINES = ROOT / "tests" / "fixtures" / "notice_baseline"
 CASES = sorted(path.stem for path in BASELINES.glob("*.json"))
 SIGNATURE_PAGE = {
     "affirmative_en": 1,
-    "legacy_en": 2,
-    "legacy_fr": 2,
+    "overdue_diseases_en": 2,
+    "overdue_diseases_fr": 2,
     "long_address": 2,
     "long_record": 1,
-    "overdue_en": 1,
-    "overdue_fr": 2,
+    "overdue_agents_en": 1,
+    "overdue_agents_fr": 2,
 }
 pytestmark = pytest.mark.integration
 
@@ -159,7 +159,7 @@ def test_native_template_rejects_incompatible_data(
 ) -> None:
     """Direct invocation cannot bypass template identity or required agent content."""
     workspace = tmp_path / "assertions"
-    template, data_file, notice = prepare_case(workspace, "overdue_en")
+    template, data_file, notice = prepare_case(workspace, "overdue_agents_en")
     notice[field] = value
     data_file.write_text(json.dumps(notice))
     result = compile_notice(template, data_file, workspace)
@@ -171,7 +171,7 @@ def test_native_template_rejects_incompatible_data(
 def test_json_punctuation_remains_text(tmp_path: Path) -> None:
     """Input punctuation, accents, empty collections, and nulls never become code."""
     workspace = tmp_path / "ordinary data"
-    template, data_file, notice = prepare_case(workspace, "legacy_en")
+    template, data_file, notice = prepare_case(workspace, "overdue_diseases_en")
     literal = 'Élodie "O\'Connor" \\ #panic("EXECUTED") [*text*] $x$ @name'
     notice["client_data"]["name"] = literal
     notice["client_data"]["address"] = "First line\nSecond line"
@@ -293,7 +293,7 @@ def test_presentation_rejects_missing_or_invalid_required_date(
 def test_missing_approved_label_fails_native_render(tmp_path: Path) -> None:
     """An incomplete selected dictionary cannot silently drop an overdue item."""
     workspace = tmp_path / "missing label"
-    template, data_file, _ = prepare_case(workspace, "legacy_fr")
+    template, data_file, _ = prepare_case(workspace, "overdue_diseases_fr")
     path = workspace / "translations" / "fr_diseases_overdue.json"
     labels = json.loads(path.read_text())
     del labels["Measles"]
@@ -307,7 +307,7 @@ def test_missing_approved_label_fails_native_render(tmp_path: Path) -> None:
 def test_uncatalogued_source_label_remains_visible(tmp_path: Path) -> None:
     """Grouped source text is preserved without inventing a translated label."""
     workspace = tmp_path / "uncatalogued source label"
-    template, data_file, notice = prepare_case(workspace, "legacy_fr")
+    template, data_file, notice = prepare_case(workspace, "overdue_diseases_fr")
     notice["overdue_diseases"] = [
         {"disease": "Diphtheria/Tetanus/Pertussis", "dose": None}
     ]
@@ -324,7 +324,7 @@ def test_uncatalogued_source_label_remains_visible(tmp_path: Path) -> None:
 def test_duplicate_display_labels_do_not_merge_chart_cells(tmp_path: Path) -> None:
     """Two canonical keys can share a heading while their record cells stay distinct."""
     workspace = tmp_path / "duplicate display labels"
-    template, data_file, notice = prepare_case(workspace, "legacy_fr")
+    template, data_file, notice = prepare_case(workspace, "overdue_diseases_fr")
     chart_path = workspace / "translations" / "fr_diseases_chart.json"
     labels = json.loads(chart_path.read_text())
     labels["Measles"] = "Même libellé"

@@ -34,7 +34,7 @@ def build_result(
             str(row["client_id"]): ManifestRow(
                 client_id=str(row["client_id"]),
                 version_id=(
-                    "overdue_standard_v1"
+                    "overdue_agents_v1"
                     if pd.notna(row.get("overdue_disease"))
                     and str(row.get("overdue_disease")).strip()
                     else "affirmative_schedule_v1"
@@ -1693,13 +1693,13 @@ def _make_catalog():
     return NoticeVersionCatalog(
         schema_version=1,
         versions={
-            "legacy_overdue_v1": NoticeVersion(
-                version_id="legacy_overdue_v1",
+            "overdue_diseases_v1": NoticeVersion(
+                version_id="overdue_diseases_v1",
                 kind=NoticeKind.OVERDUE,
                 requires="has_overdue",
             ),
-            "overdue_standard_v1": NoticeVersion(
-                version_id="overdue_standard_v1",
+            "overdue_agents_v1": NoticeVersion(
+                version_id="overdue_agents_v1",
                 kind=NoticeKind.OVERDUE,
                 requires="has_overdue",
             ),
@@ -1744,11 +1744,11 @@ def _simple_df(num=2, with_overdue=True):
 class TestBuildPreprocessResultManifestMode:
     """Manifest mode retains one resolved version and language per client."""
 
-    def test_legacy_notice_remains_assignable(self) -> None:
+    def test_disease_notice_can_be_assigned(self) -> None:
         manifest = _make_manifest(
             {
                 "client_id": "C001",
-                "version_id": "legacy_overdue_v1",
+                "version_id": "overdue_diseases_v1",
                 "language": "fr",
                 "experiment_id": None,
                 "experiment_arm": None,
@@ -1761,9 +1761,11 @@ class TestBuildPreprocessResultManifestMode:
             catalog=_make_catalog(),
             manifest=manifest,
         )
-        assert reconciliation.resolved_notices["C001"].version_id == "legacy_overdue_v1"
+        assert (
+            reconciliation.resolved_notices["C001"].version_id == "overdue_diseases_v1"
+        )
         assert (result.clients[0].version_id, result.clients[0].language) == (
-            "legacy_overdue_v1",
+            "overdue_diseases_v1",
             "fr",
         )
 
@@ -1772,14 +1774,14 @@ class TestBuildPreprocessResultManifestMode:
         manifest = _make_manifest(
             {
                 "client_id": "C001",
-                "version_id": "overdue_standard_v1",
+                "version_id": "overdue_agents_v1",
                 "language": "en",
                 "experiment_id": None,
                 "experiment_arm": None,
             },
             {
                 "client_id": "C002",
-                "version_id": "overdue_standard_v1",
+                "version_id": "overdue_agents_v1",
                 "language": "fr",
                 "experiment_id": None,
                 "experiment_arm": None,
@@ -1794,8 +1796,8 @@ class TestBuildPreprocessResultManifestMode:
         )
         assert reconciliation_result.counts_by_language == {"en": 1, "fr": 1}
         assert reconciliation_result.counts_by_version == {
-            "overdue_standard_v1 (en)": 1,
-            "overdue_standard_v1 (fr)": 1,
+            "overdue_agents_v1 (en)": 1,
+            "overdue_agents_v1 (fr)": 1,
         }
 
     def test_manifest_mode_resolved_version_on_client(self, tmp_path) -> None:
@@ -1803,14 +1805,14 @@ class TestBuildPreprocessResultManifestMode:
         manifest = _make_manifest(
             {
                 "client_id": "C001",
-                "version_id": "overdue_standard_v1",
+                "version_id": "overdue_agents_v1",
                 "language": "en",
                 "experiment_id": None,
                 "experiment_arm": None,
             },
             {
                 "client_id": "C002",
-                "version_id": "overdue_standard_v1",
+                "version_id": "overdue_agents_v1",
                 "language": "en",
                 "experiment_id": None,
                 "experiment_arm": None,
@@ -1824,7 +1826,7 @@ class TestBuildPreprocessResultManifestMode:
             manifest=manifest,
         )
         for client in result.clients:
-            assert client.version_id == "overdue_standard_v1"
+            assert client.version_id == "overdue_agents_v1"
             assert "resolved_notice" not in client.metadata
 
     def test_resolved_languages_follow_manifest(self, tmp_path) -> None:
@@ -1832,14 +1834,14 @@ class TestBuildPreprocessResultManifestMode:
         manifest = _make_manifest(
             {
                 "client_id": "C001",
-                "version_id": "overdue_standard_v1",
+                "version_id": "overdue_agents_v1",
                 "language": "en",
                 "experiment_id": None,
                 "experiment_arm": None,
             },
             {
                 "client_id": "C002",
-                "version_id": "overdue_standard_v1",
+                "version_id": "overdue_agents_v1",
                 "language": "fr",
                 "experiment_id": None,
                 "experiment_arm": None,
@@ -1891,7 +1893,7 @@ class TestBuildPreprocessResultManifestMode:
         manifest = _make_manifest(
             {
                 "client_id": "C001",
-                "version_id": "overdue_standard_v1",
+                "version_id": "overdue_agents_v1",
                 "language": "en",
                 "experiment_id": None,
                 "experiment_arm": None,
@@ -1912,21 +1914,21 @@ class TestBuildPreprocessResultManifestMode:
         manifest = _make_manifest(
             {
                 "client_id": "C001",
-                "version_id": "overdue_standard_v1",
+                "version_id": "overdue_agents_v1",
                 "language": "en",
                 "experiment_id": None,
                 "experiment_arm": None,
             },
             {
                 "client_id": "C002",
-                "version_id": "overdue_standard_v1",
+                "version_id": "overdue_agents_v1",
                 "language": "en",
                 "experiment_id": None,
                 "experiment_arm": None,
             },
             {
                 "client_id": "EXTRA_CLIENT",
-                "version_id": "overdue_standard_v1",
+                "version_id": "overdue_agents_v1",
                 "language": "en",
                 "experiment_id": None,
                 "experiment_arm": None,
@@ -1952,21 +1954,21 @@ class TestBuildPreprocessResultManifestMode:
         manifest = _make_manifest(
             {
                 "client_id": "C001",
-                "version_id": "overdue_standard_v1",
+                "version_id": "overdue_agents_v1",
                 "language": "en",
                 "experiment_id": None,
                 "experiment_arm": None,
             },
             {
                 "client_id": "C002",
-                "version_id": "overdue_standard_v1",
+                "version_id": "overdue_agents_v1",
                 "language": "en",
                 "experiment_id": None,
                 "experiment_arm": None,
             },
             {
                 "client_id": "EXTRA_CLIENT",
-                "version_id": "overdue_standard_v1",
+                "version_id": "overdue_agents_v1",
                 "language": "en",
                 "experiment_id": None,
                 "experiment_arm": None,

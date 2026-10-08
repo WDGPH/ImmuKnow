@@ -24,7 +24,7 @@ completion = run_pipeline(
 completion = run_pipeline(
     Path("students.csv"),
     Path("notices"),
-    notice_template=Path("my-phu/legacy_overdue_v1.en.typ"),
+    notice_template=Path("my-phu/overdue_diseases_v1.en.typ"),
 )
 ```
 

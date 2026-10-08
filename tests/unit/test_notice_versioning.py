@@ -24,11 +24,11 @@ def catalog() -> NoticeVersionCatalog:
     return NoticeVersionCatalog(
         schema_version=1,
         versions={
-            "legacy_overdue_v1": NoticeVersion(
-                "legacy_overdue_v1", NoticeKind.OVERDUE, "has_overdue"
+            "overdue_diseases_v1": NoticeVersion(
+                "overdue_diseases_v1", NoticeKind.OVERDUE, "has_overdue"
             ),
-            "overdue_standard_v1": NoticeVersion(
-                "overdue_standard_v1", NoticeKind.OVERDUE, "has_overdue"
+            "overdue_agents_v1": NoticeVersion(
+                "overdue_agents_v1", NoticeKind.OVERDUE, "has_overdue"
             ),
             "affirmative_schedule_v1": NoticeVersion(
                 "affirmative_schedule_v1", NoticeKind.AFFIRMATIVE, "no_overdue"
@@ -64,7 +64,7 @@ def test_catalog_loads_registered_kinds_and_explicit_rule(tmp_path: Path) -> Non
         {
             "schema_version": 1,
             "versions": {
-                "legacy_overdue_v1": {"kind": "overdue"},
+                "overdue_diseases_v1": {"kind": "overdue"},
                 "affirmative_schedule_v1": {"kind": "affirmative"},
                 "info_v1": {"kind": "informational", "requires": "any"},
             },
@@ -72,7 +72,7 @@ def test_catalog_loads_registered_kinds_and_explicit_rule(tmp_path: Path) -> Non
     )
     loaded = load_catalog(tmp_path)
     assert loaded.schema_version == 1
-    assert loaded.versions["legacy_overdue_v1"].requires == "has_overdue"
+    assert loaded.versions["overdue_diseases_v1"].requires == "has_overdue"
     assert loaded.versions["affirmative_schedule_v1"].requires == "no_overdue"
     assert loaded.versions["info_v1"].requires == "any"
 
@@ -162,8 +162,8 @@ def test_catalog_rejects_invalid_yaml(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     "version,kind,diseases,allowed",
     [
-        ("legacy_overdue_v1", NoticeKind.OVERDUE, ["Measles"], True),
-        ("legacy_overdue_v1", NoticeKind.OVERDUE, [], False),
+        ("overdue_diseases_v1", NoticeKind.OVERDUE, ["Measles"], True),
+        ("overdue_diseases_v1", NoticeKind.OVERDUE, [], False),
         ("affirmative_schedule_v1", NoticeKind.AFFIRMATIVE, [], True),
         ("affirmative_schedule_v1", NoticeKind.AFFIRMATIVE, ["Measles"], False),
         ("info_v1", NoticeKind.INFORMATIONAL, [], True),
@@ -200,10 +200,10 @@ def test_attaching_assignment_retains_client_metadata_and_provenance() -> None:
         metadata={"source_batch": "synthetic", "custom": {"flag": True}},
     )
     resolved = ResolvedNotice(
-        "overdue_standard_v1", NoticeKind.OVERDUE.value, "fr", "study", "B", "manifest"
+        "overdue_agents_v1", NoticeKind.OVERDUE.value, "fr", "study", "B", "manifest"
     )
     attached = attach_notice(record, resolved)
-    assert attached.version_id == "overdue_standard_v1"
+    assert attached.version_id == "overdue_agents_v1"
     assert attached.language == "fr"
     assert attached.metadata == {
         "source_batch": "synthetic",
@@ -223,7 +223,7 @@ def test_eligibility_error_identifies_client_without_person_name() -> None:
     )
     with pytest.raises(ValueError) as error:
         validate_eligibility(
-            record, assigned("legacy_overdue_v1", NoticeKind.OVERDUE), catalog()
+            record, assigned("overdue_diseases_v1", NoticeKind.OVERDUE), catalog()
         )
     assert "C001" in str(error.value)
     assert "Sensitive" not in str(error.value)

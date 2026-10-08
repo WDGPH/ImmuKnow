@@ -45,7 +45,7 @@ def parse_args() -> argparse.Namespace:
         epilog="""
 Examples:
   %(prog)s students.csv --notice-assignments assignments.json
-  %(prog)s students.csv --notice-template ./my-phu/overdue_standard_v1.fr.typ
+  %(prog)s students.csv --notice-template ./my-phu/overdue_agents_v1.fr.typ
         """,
     )
 

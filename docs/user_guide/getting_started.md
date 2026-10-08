@@ -35,7 +35,7 @@ Select exactly one route for the whole CSV:
 
 - `--notice-assignments PATH` reads a JSON manifest. Each accepted client
   needs a `client_id` and a `template` filename such as
-  `overdue_standard_v1.fr.typ`. The filename selects version and language
+  `overdue_agents_v1.fr.typ`. The filename selects version and language
   within the packaged or selected complete template tree.
 - `--notice-template PATH` selects one such `.typ` file for all accepted
   clients. Its filename supplies the version and language. The version must
@@ -47,7 +47,7 @@ uv run immuknow students.csv \
   --output /path/to/notices
 
 uv run immuknow students.csv \
-  --notice-template /path/to/my-phu/legacy_overdue_v1.en.typ \
+  --notice-template /path/to/my-phu/overdue_diseases_v1.en.typ \
   --output /path/to/notices
 ```
 

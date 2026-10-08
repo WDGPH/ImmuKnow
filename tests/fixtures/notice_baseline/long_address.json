@@ -1,5 +1,5 @@
 {
-  "version_id": "legacy_overdue_v1",
+  "version_id": "overdue_diseases_v1",
   "include_dose": true,
   "client": {
     "sequence": "00001",
@@ -56,7 +56,7 @@
     "qr": {
       "payload": "https://www.test-immunization.ca/update?client_id=0000000001&dob=2015-01-02&lang=fr"
     },
-    "version_id": "legacy_overdue_v1",
+    "version_id": "overdue_diseases_v1",
     "overdue_diseases": [
       {
         "disease": "Measles",

@@ -207,7 +207,7 @@ def create_test_client_record(
         received=received,
         metadata={},
         qr=None,
-        version_id="legacy_overdue_v1",
+        version_id="overdue_diseases_v1",
     )
 
 

@@ -18,7 +18,7 @@ def assigned_manifest(df, language: str) -> dict[str, ManifestRow]:
     return {
         client_id: ManifestRow(
             client_id=client_id,
-            version_id="overdue_standard_v1",
+            version_id="overdue_agents_v1",
             language=language,
             experiment_id=None,
             experiment_arm=None,
@@ -58,7 +58,7 @@ def test_preprocessed_canonical_facts_survive_artifact_round_trip(
     payload = json.loads(path.read_text(encoding="utf-8"))
     client = ClientRecord(**payload["clients"][0])
 
-    assert client.version_id == "overdue_standard_v1"
+    assert client.version_id == "overdue_agents_v1"
     assert client.language == "fr"
     assert client.overdue_diseases == [
         {"disease": "Polio", "dose": 12},

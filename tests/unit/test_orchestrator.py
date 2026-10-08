@@ -56,14 +56,14 @@ class TestParseArgs:
     def test_parse_args_defaults(self) -> None:
         with patch(
             "sys.argv",
-            ["immuknow", "file.csv", "--notice-template", "overdue_standard_v1.fr.typ"],
+            ["immuknow", "file.csv", "--notice-template", "overdue_agents_v1.fr.typ"],
         ):
             args = orchestrator.parse_args()
             # Defaults should exist
             assert args.input_dir is not None
             assert args.output_dir is not None
             assert args.config_dir is not None
-            assert args.notice_template == Path("overdue_standard_v1.fr.typ")
+            assert args.notice_template == Path("overdue_agents_v1.fr.typ")
             assert args.notice_assignments is None
 
 

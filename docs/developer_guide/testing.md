@@ -42,7 +42,7 @@ eligibility, assignment conflicts, malformed configuration, and precise
 diagnostics. Integration tests should compile maintained Typst entry points
 and verify mixed cohorts, manifest filenames confined to the selected tree,
 one-file cohort selection,
-legacy notice assignments, QR links, encryption, bundles,
+disease and agent notice assignments, QR links, encryption, bundles,
 installed-wheel resources, path isolation, and failure propagation. Mock a
 compiler only for discovery or version diagnostics; mock success cannot prove
 PDF behavior.

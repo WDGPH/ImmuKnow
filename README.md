@@ -23,7 +23,7 @@ one `template` filename per client, or pass one
 
 ```bash
 uv run immuknow students.csv \
-  --notice-template immuknow/templates/legacy_overdue_v1.en.typ \
+  --notice-template immuknow/templates/overdue_diseases_v1.en.typ \
   --output ./output
 ```
 
@@ -42,13 +42,17 @@ The single-file option uses the selected file's containing tree and cannot be
 combined with either directory option. No missing entry, helper, or asset falls
 back to built-ins.
 
-The maintained notices are legacy overdue (English/French), standard overdue
-(English/French), and affirmative schedule (English). The legacy notice
-displays overdue diseases; the standard overdue notice displays vaccine
-agents. Eligibility uses overdue diseases in either case. No French
-affirmative entry ships. Each Typst entry point declares and checks its own
-version and language. An explicit source `version_id` must agree with the
-selected notice.
+The maintained examples are `overdue_diseases_v1` (English/French),
+which displays overdue diseases; `overdue_agents_v1` (English/French),
+which displays vaccine agents; and `affirmative_schedule_v1` (English),
+which reports that the child's immunizations are up to date. Both overdue examples use the canonical
+overdue disease list for eligibility. The affirmative example is selected
+explicitly in the manifest or with `--notice-template`; it is never chosen
+automatically when no diseases are due. Its catalog `no_overdue` rule
+requires an empty `overdue_diseases` list from the source assessment.
+An ineligible assignment fails preflight. No French affirmative example ships.
+Each Typst entry point declares and checks its version and language. An
+explicit source `version_id` must agree with the selected notice.
 
 The run writes individual PDFs, optional encrypted copies and bundles, and
 run metadata beneath `--output`. The canonical cohort and render jobs identify

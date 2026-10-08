@@ -78,7 +78,7 @@ def prepare_cohort(
             [
                 {
                     "client_id": str(client_id),
-                    "template": f"overdue_standard_v1.{language}.typ",
+                    "template": f"overdue_agents_v1.{language}.typ",
                 }
                 for client_id, language in zip(frame["client_id"], languages)
             ]
@@ -111,7 +111,7 @@ def test_cli_requires_template_in_every_assignment(tmp_path: Path) -> None:
     manifest_path = Path(command[command.index("--notice-assignments") + 1])
     assignments = json.loads(manifest_path.read_text())
     assignments[0].pop("template")
-    assignments[0].update(version_id="overdue_standard_v1", language="en")
+    assignments[0].update(version_id="overdue_agents_v1", language="en")
     manifest_path.write_text(json.dumps(assignments), encoding="utf-8")
 
     result = run_cli(command, tmp_path)
@@ -127,7 +127,7 @@ def test_unsupported_template_language_preserves_existing_output(
     command, output_dir, _ = prepare_cohort(tmp_path, languages=("en",))
     manifest_path = Path(command[command.index("--notice-assignments") + 1])
     assignments = json.loads(manifest_path.read_text())
-    assignments[0]["template"] = "overdue_standard_v1.es.typ"
+    assignments[0]["template"] = "overdue_agents_v1.es.typ"
     manifest_path.write_text(json.dumps(assignments), encoding="utf-8")
     output_dir.mkdir()
     sentinel = output_dir / "prior-delivery.txt"
@@ -189,7 +189,7 @@ def test_mixed_cohort_processed_exactly_once(
                 ROOT
                 / "immuknow"
                 / "templates"
-                / f"overdue_standard_v1.{job.language}.typ"
+                / f"overdue_agents_v1.{job.language}.typ"
             ).read_bytes()
         )
         if options:
@@ -225,7 +225,7 @@ def test_assigned_language_controls_every_display_date(
 def test_single_template_assigns_every_client_and_qr_language(tmp_path: Path) -> None:
     """One French entry point supplies identity and language without a manifest."""
     command, output, config = prepare_cohort(tmp_path, qr=True)
-    template = ROOT / "immuknow" / "templates" / "overdue_standard_v1.fr.typ"
+    template = ROOT / "immuknow" / "templates" / "overdue_agents_v1.fr.typ"
     completion = orchestrator.run_pipeline(
         Path(command[3]), output, config_dir=config, notice_template=template
     )
@@ -237,7 +237,7 @@ def test_single_template_assigns_every_client_and_qr_language(tmp_path: Path) ->
     assert len(cohort["clients"]) == 2
     for client in cohort["clients"]:
         assert client["language"] == "fr"
-        assert client["version_id"] == "overdue_standard_v1"
+        assert client["version_id"] == "overdue_agents_v1"
         assert client["metadata"]["assignment_source"] == "template"
         assert "lang=fr" in client["qr"]["payload"]
     jobs = read_render_jobs(output / "artifacts")
@@ -258,8 +258,8 @@ def test_single_template_cannot_bypass_eligibility_or_native_language(
         template = custom / "affirmative_schedule_v1.en.typ"
         diagnostic = "Notice assignment preflight failed"
     else:
-        template = custom / "overdue_standard_v1.fr.typ"
-        english = custom / "overdue_standard_v1.en.typ"
+        template = custom / "overdue_agents_v1.fr.typ"
+        english = custom / "overdue_agents_v1.en.typ"
         if failure == "linked_language_mismatch":
             template.unlink()
             template.symlink_to(english)
@@ -316,7 +316,7 @@ def test_french_notice_failure_prevents_successful_delivery(
     custom = tmp_path / "PHU modèles"
     shutil.copytree(ROOT / "immuknow" / "templates", custom)
     selected_command = command + ["--templates", str(custom)]
-    french = custom / "overdue_standard_v1.fr.typ"
+    french = custom / "overdue_agents_v1.fr.typ"
     if failure == "wrong_client":
         french.write_text(
             french.read_text().replace("notice.client_id", '"9999999999"')
@@ -424,7 +424,7 @@ def test_sequential_callable_runs_keep_resources_and_assignments_isolated(
     first_jobs = read_render_jobs(first_output / "artifacts")
     assert {(job.version_id, job.language) for job in first_jobs} == {
         ("affirmative_schedule_v1", "en"),
-        ("overdue_standard_v1", "fr"),
+        ("overdue_agents_v1", "fr"),
     }
 
     command, second_output, second_config = prepare_cohort(tmp_path / "second", ("fr",))
@@ -434,7 +434,7 @@ def test_sequential_callable_runs_keep_resources_and_assignments_isolated(
     translation.write_text(json.dumps(labels, ensure_ascii=False))
     custom = tmp_path / "Modèles privés"
     shutil.copytree(ROOT / "immuknow" / "templates", custom)
-    entry = custom / "overdue_standard_v1.fr.typ"
+    entry = custom / "overdue_agents_v1.fr.typ"
     entry.write_text(entry.read_text() + "\n#text[SECOND TEMPLATE SET]\n")
     second_completion = orchestrator.run_pipeline(
         Path(command[3]),
@@ -482,11 +482,11 @@ def test_preflight_preserves_actionable_sensitive_findings(
         custom = tmp_path / "uncatalogued templates"
         shutil.copytree(ROOT / "immuknow" / "templates", custom)
         (custom / "not_in_the_catalog.fr.typ").write_bytes(
-            (custom / "overdue_standard_v1.fr.typ").read_bytes()
+            (custom / "overdue_agents_v1.fr.typ").read_bytes()
         )
     else:
         frame = pd.read_csv(Path(command[3]), dtype=str)
-        frame["version_id"] = "legacy_overdue_v1"
+        frame["version_id"] = "overdue_diseases_v1"
         frame.to_csv(Path(command[3]), index=False)
     manifest.write_text(json.dumps(assignments))
     with pytest.raises(ValueError, match="Sensitive assignment diagnostics"):
