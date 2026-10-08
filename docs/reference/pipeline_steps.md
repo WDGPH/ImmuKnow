@@ -40,7 +40,7 @@ Reads the raw Excel input, validates the schema, normalizes all client and vacci
 | `chart_diseases_header` | list | Diseases to include as chart columns; others collapse to "Other" |
 | `preprocess.include_dose` | bool | Include dose numbers in overdue vaccine lists (default: `false`) |
 | `preprocess.show_validity_markers` | bool | Render validity markers in the immunization chart (default: `false`) |
-| `phix_validation.enabled` | bool | Validate school names against PHIX reference mapping (default: `true`) |
+| `phix_validation.enabled` | bool | Validate school names against PHIX reference mapping (packaged default: `false`) |
 | `phix_validation.target_phu` | str | Exact PHU name as it appears in `phix_mapping.json` |
 | `phix_validation.unmatched_behavior` | str | Action on unmatched schools: `warn`, `error`, or `skip` |
 | `date_notice_delivery` | ISO 8601 | Reference date for age-based eligibility (16+ threshold) |
@@ -50,7 +50,7 @@ Reads the raw Excel input, validates the schema, normalizes all client and vacci
 
 **Inputs:**
 
-- Excel file from `input/` (single worksheet, `.xlsx`)
+- Excel file (`.xlsx` or `.xls`, one worksheet) or CSV from `input/`
 - `config/vaccine_reference.json` — maps vaccine codes to disease names
 - `config/disease_normalization.json` — normalizes raw disease name variants
 - `config/phix_mapping.json` — PHU-keyed school name → PHIX facility ID mapping (when PHIX validation enabled)
@@ -75,7 +75,7 @@ Reads the raw Excel input, validates the schema, normalizes all client and vacci
 5. Filters diseases against `chart_diseases_header`; collapses unlisted diseases to "Other"
 6. Computes client ages relative to `date_notice_delivery` (determines parent vs. student addressing)
 7. Checks address completeness: records missing `address`, `city`, `province`, or `postal_code` are logged, written to `output/incomplete_addresses.csv`, and **dropped** by default from further processing
-8. Checks client information completeness: records missing `first_name`, `last_name`, `date_of_birth`, `client_id`, `school_name`, `overdue_disease`, or `imms_given` are logged and written to `output/incomplete_clients.csv`, and **dropped** by default from further processing
+8. Checks client information completeness: records missing required fields are logged, written to `output/incomplete_clients.csv`, and dropped from further processing
 9. Sorts clients deterministically: school → last name → first name → client ID
 10. Assigns stable sequence numbers (`00001`, `00002`, …)
 11. Synthesizes missing school/board identifiers where needed
@@ -181,6 +181,7 @@ Validates compiled PDFs against configurable rules using invisible markers embed
 | `pdf_validation.rules.exactly_two_pages` | severity | Ensure each notice has exactly 2 pages |
 | `pdf_validation.rules.signature_overflow` | severity | Signature block must end on page 1 |
 | `pdf_validation.rules.envelope_window_1_125` | severity | Contact table height ≤ 1.125 inches |
+| `pdf_validation.rules.client_id_presence` | severity | Extracted client ID must match the expected client |
 
 Severity levels: `disabled` (skip), `warn` (log only), `error` (halt pipeline).
 

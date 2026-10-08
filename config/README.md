@@ -43,16 +43,16 @@ Artifact JSON (canonical English disease names, filtered by chart config)
     ├─ parameters.yaml.chart_diseases_header → load chart disease list
     ├─ translations/{lang}_diseases_chart.json → translate each disease name
     ├─ translations/{lang}_diseases_overdue.json → translate vaccines_due list
-    ├─ (manifest mode) build template registry from per-version subdirectories
-    └─ Inject translated diseases into Typst template
+    ├─ Select each client's native version/language entry point
+    └─ Write localized per-notice JSON and explicit render jobs
     ↓
-Typst Files (with localized, filtered disease names)
+Unchanged Typst templates + structured JSON
     ↓
 [compile_notices.py]
-    └─ Generate PDFs
-  ↓
+    └─ Compile each expected PDF; record whole-stage completion
+    ↓
 [validate_pdfs.py]
-  └─ Validate PDFs (page counts, layout markers) and emit validation JSON
+    └─ Validate every expected PDF and emit validation JSON
 ```
 ---
 
@@ -110,7 +110,7 @@ The mapping file should be re-generated whenever a new PHIX reference workbook i
 
 | Key | Type | Description |
 |---|---|---|
-| `enabled` | bool | Set to `false` to skip PHIX validation entirely (default: `true`) |
+| `enabled` | bool | Set to `true` to enable PHIX validation (packaged default: `false`) |
 | `mapping_file` | string | Path to `phix_mapping.json`, relative to the selected configuration directory, or absolute |
 | `target_phu` | string | Exact PHU name as it appears as a key in the mapping file |
 | `column_prefix` | string | Prefix for DataFrame output columns (default: `"PHIX_"`) |
@@ -190,7 +190,7 @@ chart_diseases_header:
 2. **During Notice Generation (`generate_notices.py`):**
    - Each disease name in `chart_diseases_header` is **translated to the target language**
    - Translations come from `translations/{lang}_diseases_chart.json`
-   - Translated list is passed to Typst template
+   - Translated list is written as ordinary JSON for the selected Typst template
    - The template renders column headers using **Python-translated names**, not raw config values
 
 **Impact:**
@@ -388,12 +388,14 @@ Current rules:
 - `envelope_window_1_125`: Ensure contact area does not exceed 1.125" inches
 - `exactly_two_pages`: Ensure each notice has exactly 2 pages (notice + immunization record)
 - `signature_overflow`: Detect if the signature block spills onto page 2 (uses invisible Typst marker)
+- `client_id_presence`: Compare the extracted ID with the expected render job client ID
 
 Example configuration:
 
 ```yaml
 pdf_validation:
   rules:
+    client_id_presence: error
     envelope_window_1_125: error
     exactly_two_pages: warn
     signature_overflow: disabled

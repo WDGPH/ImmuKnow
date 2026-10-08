@@ -89,7 +89,7 @@ Auto-generated from NumPy-format docstrings in the `pipeline/` package.
 
 ---
 
-## Step 4 — Notice Generation
+## Step 4 — Notice Data Preparation
 
 ::: pipeline.generate_notices
     options:

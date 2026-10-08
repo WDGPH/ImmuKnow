@@ -25,7 +25,7 @@ uv run pre-commit install
 
 ## Preparing input data
 
-Input files must be `.xlsx` format with a single worksheet, extracted from [Panorama PEAR](https://accessonehealth.ca/).
+Input files may be Excel (`.xlsx` or `.xls`, one worksheet) or CSV, extracted from [Panorama PEAR](https://accessonehealth.ca/).
 
 The pipeline enforces a strict column schema — column names must match exactly (no fuzzy matching). The following columns are **required**:
 
@@ -74,7 +74,7 @@ uv run viper <input_file> <language> [options]
 
 | Argument | Description |
 |----------|-------------|
-| `<input_file>` | Excel path, or a filename within `--input` |
+| `<input_file>` | Excel or CSV path, or a filename within `--input` |
 | `<language>` | `en` or `fr`; required in fixed mode, optional with manifest assignments |
 
 **Common options:**

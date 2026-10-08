@@ -2,7 +2,11 @@
 
 **Current version:** v1.0.0
 
-ImmuKnow is a Python-based pipeline for generating bilingual (EN/FR) **personalized immunization history charts and notice letters** for children overdue for mandated vaccinations under the Child Care and Early Years Act (CCEYA) and ISPA. It is designed for use by Public Health Units (PHUs) across Ontario and produces publication-quality PDFs using [Typst](https://typst.app) as the typesetting engine.
+ImmuKnow prepares personalized immunization history charts and notice letters
+for Public Health Units (PHUs) in Ontario. Python prepares each client's data;
+authored [Typst](https://typst.app) templates produce the PDFs. The maintained
+templates include English and French overdue notices and an English affirmative
+notice.
 
 ## What it does
 
@@ -10,10 +14,10 @@ For each client in an input dataset extracted from Panorama/PEAR, the pipeline:
 
 - Validates and normalizes raw vaccination records
 - Generates a bilingual immunization history chart
-- Renders a personalized notice letter with the client's overdue vaccines
+- Renders the assigned notice letter and immunization history
 - Optionally encrypts individual PDFs and bundles them by school or board
 
-Output is ready for direct mailing or electronic delivery.
+PHUs must review the sample branding, wording, and outputs before use.
 
 ## Pipeline architecture
 

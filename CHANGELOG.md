@@ -34,6 +34,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   Mixed cohort headers have `language: null`; validation reports are named
   `validation_<run_id>.json`. Render jobs and compilation evidence replace
   per-client generated Typst files.
+- Library callers now supply explicit render jobs or PDF paths for downstream
+  processing. Directory/language discovery helpers and the old per-client
+  encryption JSON wrappers are retired; use `encrypt_pdf` for one file.
 - Synthetic semantic and visual comparisons preserve the prior output, including
   existing three-page overflow in some notices. No French affirmative notice was added.
 

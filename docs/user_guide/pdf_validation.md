@@ -9,6 +9,7 @@ We validate layout and structure using rules configured in `config/parameters.ya
 - `exactly_two_pages`: Ensure each notice PDF has exactly 2 pages.
 - `signature_overflow`: Ensure the signature block ends on page 1.
 - `envelope_window_1_125`: Ensure the contact table height fits a 1.125-inch envelope window.
+- `client_id_presence`: Compare the client ID extracted from the PDF with the ID in its render job.
 
 Each rule can be configured to `disabled`, `warn`, or `error`.
 
@@ -18,6 +19,7 @@ Example:
 pdf_validation:
   # Validation rules: "disabled" (skip check), "warn" (log only), or "error" (halt pipeline)
   rules:
+    client_id_presence: error       # PDF must contain the expected client ID
     exactly_two_pages: warn         # Ensure PDF has exactly 2 pages (notice + immunization record)
     signature_overflow: warn        # Signature block not on page 1
     envelope_window_1_125: warn     # Contact table fits in envelope window (1.125in max height)
@@ -118,57 +120,18 @@ Example excerpt:
 }
 ```
 
-## Optional markerless validations
+## Validate the expected notice set
 
-Markers are recommended for precision, but some validations can operate without them by scanning page text directly.
+Step 6 reads `artifacts/render_jobs.json` and requires the whole-stage
+`artifacts/compilation.json` record. It passes each job's expected PDF path and
+client ID to the validator. A missing expected PDF fails the run; unrelated PDFs,
+old files, and encrypted copies are not selected. Filenames label the outputs,
+but the render jobs supply the expected client identities.
 
-**Example:** Client ID presence check
-
-- Goal: Ensure each generated PDF contains the expected client ID somewhere in the text.
-- Approach: Use `pypdf.PdfReader` to extract text of all pages and search with a regex pattern for the formatted client ID (e.g., 10 digits, or a specific prefix/suffix).
-- Failure condition: Pattern not found → emit a warning like `client_id_presence: ID 1009876543 not found in PDF text`.
-
-Implementation notes:
-
-- Keep patterns strict enough to avoid false positives (e.g., word boundaries: `\b\d{10}\b`).
-- Normalize text if needed (strip spaces/hyphens) and compare both raw and normalized forms.
-- Add the new rule key under `pdf_validation.rules` and include it in per‑rule summaries just like other rules.
-
-This markerless approach is also suitable for checks like:
-
-- Presence of required labels or headers.
-- Language detection heuristics (e.g., a small set of expected words in FR/EN output).
-- Date format sanity checks.
-
-## Validator contracts: validate against artifacts, not filenames
-
-**Core principle:** Validate against the preprocessed artifact (source of truth), never against filenames (derived output).
-
-### Why
-- Filenames are output from prior steps and can drift or be manually renamed.
-- The preprocessed `clients.json` is the single source of truth: it represents the actual clients validated and processed through the pipeline.
-- If validation uses a filename, a silent rename or data mismatch may go undetected.
-- If validation uses the artifact, data consistency is guaranteed.
-
-### How it works in practice
-
-In step 6 (validation), the orchestrator:
-
-1. Loads `preprocessed_clients_{run_id}.json` from `output/artifacts/`.
-2. Builds a mapping: `filename -> expected_value` (e.g., client ID, sequence number).
-3. Passes this mapping to `validate_pdfs.main(..., client_id_map=client_id_map)`.
-
-Rules then validate against the mapping using artifact data as the source of truth.
-
-### Example: client_id_presence rule
-
-Current rule: Searches for any 10-digit number in the PDF text and compares to the expected client ID.
-
-- **Expected ID source:** `client_id_map["en_notice_00001_1009876543.pdf"]` → `"1009876543"` (from artifact).
-- **Actual ID found:** regex `\b(\d{10})\b` in extracted text.
-- **Validation:** If found ≠ expected, emit warning.
-
-This ensures every generated PDF contains the correct client ID, catching generation errors or data drift early.
+The `client_id_presence` rule searches extracted text for a 10-digit ID and
+compares it with that job's client ID. The rule is markerless and is enabled at
+`error` severity in the packaged configuration. It catches absent or mismatched
+IDs without relying on a language prefix in the filename.
 
 ## Why we prefer template‑emitted measurements over PDF distance math
 
@@ -234,17 +197,14 @@ Validator side (already implemented)
 
 ## How to run
 
-From the orchestrator (preferred):
+Run validation through the orchestrator so it receives the complete expected
+PDF list and client IDs from the render jobs:
 
 ```bash
-uv run viper <input.xlsx> <en|fr>
+uv run viper students.xlsx en
 ```
 
-Directly (advanced/testing):
-
-```bash
-# Validate all PDFs in a directory
-uv run python -m pipeline.validate_pdfs output/pdf_individual
-```
-
-The validator writes JSON to `output/metadata` and prints a summary with per-rule pass/fail counts. Severity `error` will cause the pipeline to stop.
+The validator writes `output/metadata/validation_<run_id>.json` and prints
+per-rule counts. A rule at `error` severity fails the pipeline. For library
+use, pass the explicit expected PDF paths and client ID mapping to
+`pipeline.validate_pdfs.main`; a directory scan is not the notice-set contract.

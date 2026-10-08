@@ -71,6 +71,8 @@ viper students.xlsx en --templates /path/to/my-phu --output /path/to/notices
 Edit the `.typ` files, `conf.typ`, and assets together. The selected directory
 is isolated from the built-ins. The convenience option `--template my_phu`
 selects `phu_templates/my_phu/` under the caller's working directory.
+Entry points are flat files such as `legacy_overdue_v1.en.typ` and
+`overdue_standard_v1.fr.typ`.
 
 Each entry point loads ordinary JSON through `sys.inputs` and asserts its
 literal version and language before rendering. Python does not generate Typst

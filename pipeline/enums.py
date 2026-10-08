@@ -54,24 +54,16 @@ class BundleType(Enum):
 class Language(Enum):
     """Supported output languages for immunization notices.
 
-    Each language corresponds to:
-
-    - A template renderer in templates/ (en.typ, fr.typ, etc.)
-    - Localization of dates, disease names, and notice formatting
-    - An artifact language code stored in preprocessed data
-
-    Currently supports English and French; extensible for future languages.
+    Each resolved notice uses one of these codes for localization and to select
+    a matching native Typst entry point. A particular version may support only
+    one language.
 
     Attributes
     ----------
     ENGLISH : str
-        English language code ('en'). Templates: templates/en.typ
+        English language code ('en').
     FRENCH : str
-        French language code ('fr'). Templates: templates/fr.typ
-
-    See Also
-    --------
-    get_language_renderer : Map Language enum to template rendering function
+        French language code ('fr').
     """
 
     ENGLISH = "en"
@@ -147,10 +139,10 @@ class Language(Enum):
 
 
 class TemplateField(Enum):
-    """Available placeholder fields for template rendering (QR codes, PDF passwords).
+    """Allowed fields in QR URL and PDF password configuration strings.
 
     These fields are dynamically generated from client data by build_client_context()
-    and can be used in configuration templates for:
+    and can be used in configuration strings for:
 
     - QR code payloads (qr.payload_template in parameters.yaml)
     - PDF password generation (encryption.password.template in parameters.yaml)
