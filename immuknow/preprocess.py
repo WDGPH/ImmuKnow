@@ -16,7 +16,7 @@ import pandas as pd
 from frictionless import Detector, Schema
 from frictionless import validate as fl_validate
 
-from . import validate_phix
+from . import validate_schools
 from .assignment_manifest import (
     ManifestRow,
     ReconciliationError,
@@ -67,7 +67,7 @@ def prepare_clients(
         drop_incomplete=True,
         output_dir=output_dir,
     )
-    frame, warnings = run_phix_validation(
+    frame, warnings = run_school_validation(
         frame, output_dir, config=config, config_dir=config_dir
     )
     if selected_notice is not None:
@@ -264,57 +264,59 @@ def check_client_info_complete(
         return df.drop(columns=["client_info_complete"])
 
 
-def run_phix_validation(
+def run_school_validation(
     df: pd.DataFrame,
     output_dir: Path,
     *,
     config: dict[str, Any],
     config_dir: Path,
 ) -> tuple[pd.DataFrame, list[str]]:
-    """Validate school names against the PHIX mapping file.
+    """Validate school names against the school reference file.
 
-    Reads supplied ``phix_validation`` config. Returns the
+    Reads supplied ``school_validation`` config. Returns the
     DataFrame unchanged (with no warnings) when validation is disabled or
-    ``mapping_file`` is not set.
+    ``reference_file`` is not set.
 
     Parameters
     ----------
     df:
         Normalized DataFrame (output of ``check_addresses_complete``).
     output_dir:
-        Directory where result CSVs (``phix_exact.csv``, etc.) are written.
+        Directory where result CSVs (``school_exact.csv``, etc.) are written.
 
     Returns
     -------
     tuple[DataFrame, list[str]]
         Enriched DataFrame and a (possibly empty) list of warning strings.
     """
-    phix_config = config.get("phix_validation", {})
+    school_config = config.get("school_validation", {})
 
-    if not phix_config.get("enabled", False):
+    if not school_config.get("enabled", False):
         return df, []
 
-    mapping_file = phix_config.get("mapping_file", "")
-    if not mapping_file:
-        LOG.warning("phix_validation.enabled is true but mapping_file is not set.")
+    reference_file = school_config.get("reference_file", "")
+    if not reference_file:
+        LOG.warning("school_validation.enabled is true but reference_file is not set.")
         return df, []
 
-    target_phu = phix_config.get("target_phu", "")
+    target_phu = school_config.get("target_phu", "")
     if not target_phu:
-        LOG.warning("phix_validation.target_phu is not set — skipping PHIX validation.")
+        LOG.warning(
+            "school_validation.target_phu is not set — skipping school validation."
+        )
         return df, []
 
-    mapping_path = Path(mapping_file)
-    if not mapping_path.is_absolute():
-        mapping_path = (config_dir / mapping_path).resolve()
+    reference_path = Path(reference_file)
+    if not reference_path.is_absolute():
+        reference_path = (config_dir / reference_path).resolve()
 
-    return validate_phix.validate_schools(
+    return validate_schools.validate_schools(
         df=df,
-        mapping_path=mapping_path,
+        reference_path=reference_path,
         target_phu=target_phu,
         output_dir=output_dir,
-        unmatched_behavior=phix_config.get("unmatched_behavior", "warn"),
-        column_prefix=phix_config.get("column_prefix", "phix_"),
+        unmatched_behavior=school_config.get("unmatched_behavior", "warn"),
+        column_prefix=school_config.get("column_prefix", "school_"),
     )
 
 

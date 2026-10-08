@@ -13,7 +13,7 @@ callable workflow are described in [getting started][getting-started].
 | `input_schema.json` | Required source columns and types |
 | `vaccine_reference.json` | Vaccine code to configured disease names |
 | `disease_normalization.json` | Source disease variants to configured disease names |
-| `phix_mapping.json` | PHU school and facility reference |
+| `school_reference.json` | PHU school and facility reference |
 | `translations/{en,fr}_diseases_{chart,overdue}.json` | Approved display labels for Typst |
 | `notice_versions.yaml` | Registered notice versions and eligibility rules |
 
@@ -53,12 +53,15 @@ expected render job; the others use page count or native Typst markers.
 An error-level finding stops the run. The validation report is written under
 `metadata/`. [PDF validation][pdf-validation] explains the measurements.
 
-For school matching, set `phix_validation.enabled: true`,
-`target_phu` to the exact key in `phix_mapping.json`, and
-`mapping_file` to that selected-directory-relative or absolute path.
+For school matching, set `school_validation.enabled: true`,
+`target_phu` to the exact key in `school_reference.json`, and
+`reference_file` to that selected-directory-relative or absolute path.
 `unmatched_behavior` can be `warn`, `error`, or `skip`; `skip`
 excludes unmatched records. Per-run match CSVs distinguish exact, inexact,
-and no match results. Refresh the PHIX reference when its source changes.
+and no match results. Refresh the school reference when its source changes. The bundled reference
+records its original PHIX workbook in `_meta`; the pipeline reads only the
+prepared JSON list. Reports are `school_exact.csv`, `school_inexact.csv`, and
+`school_no_match.csv`, and added columns use the default `school_` prefix.
 
 ## QR and password placeholders
 

@@ -71,21 +71,23 @@ def test_prepared_client_data_survive_artifact_round_trip(
 
 
 @pytest.mark.integration
-def test_phix_mapping_from_selected_config_preserves_prepared_clients(
+def test_school_mapping_from_selected_config_preserves_prepared_clients(
     tmp_path: Path, default_vaccine_reference: dict
 ) -> None:
     df = sample_input.create_test_input_dataframe(num_clients=1)
     mapping = {"phus": {"Test PHU": {"TUNNEL ACADEMY": "001"}}}
-    (tmp_path / "phix_mapping.json").write_text(json.dumps(mapping), encoding="utf-8")
+    (tmp_path / "school_reference.json").write_text(
+        json.dumps(mapping), encoding="utf-8"
+    )
     config = {
-        "phix_validation": {
+        "school_validation": {
             "enabled": True,
-            "mapping_file": "phix_mapping.json",
+            "reference_file": "school_reference.json",
             "target_phu": "Test PHU",
         }
     }
 
-    enriched, warnings = preprocess.run_phix_validation(
+    enriched, warnings = preprocess.run_school_validation(
         preprocess.normalize_dataframe(df), tmp_path, config=config, config_dir=tmp_path
     )
     result, _ = preprocess.build_preprocess_result(
@@ -99,10 +101,10 @@ def test_phix_mapping_from_selected_config_preserves_prepared_clients(
     )
 
     assert not warnings
-    assert enriched.loc[0, "phix_match_type"] == "inexact"
+    assert enriched.loc[0, "school_match_type"] == "inexact"
     assert result.clients[0].client_id == df.loc[0, "client_id"]
     assert result.clients[0].overdue_diseases
-    assert "phix_match_type" not in result.clients[0].metadata
+    assert "school_match_type" not in result.clients[0].metadata
 
 
 @pytest.mark.integration

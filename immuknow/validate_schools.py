@@ -1,25 +1,12 @@
-"""Validate school/daycare names in the input DataFrame against the PHIX mapping file.
+"""Check school and daycare names against a PHU's reference list.
 
-The mapping file is produced by a separate script and contains a PHU-keyed dict
-of normalized school names → PHIX facility IDs.
+The JSON reference groups school names and facility IDs by public health unit.
+An exact match agrees on name and ID. An inexact match agrees on only the
+name or ID, or has a conflicting ID. No match means neither was found.
 
-Match categories
-----------------
-`exact`: normalized name found in the target PHU's mapping AND facility ID matches
-
-`inexact`: name found but no ID provided for comparison (name_only), name found but provided ID differs from mapping (id_mismatch),
-or ID found under a different name (id_only)
-
-`no_match`: neither name nor ID found for the target PHU
-
-Usage (called from preprocess.run_phix_validation)
------
-    df, warnings = validate_schools(
-        df=df,
-        mapping_path=config_dir / "phix_mapping.json",
-        target_phu="Wellington Dufferin Guelph Public Health",
-        output_dir=output_dir,
-    )
+The returned table carries match details. CSV reports support review, while
+configuration decides whether unmatched schools warn, stop the run, or are
+excluded. This module reads the prepared reference, not its source workbook.
 """
 
 from __future__ import annotations
@@ -43,7 +30,7 @@ LOG = logging.getLogger(__name__)
 def normalize_school_name(name: str) -> str:
     """Uppercase and collapse whitespace.
 
-    Must produce the same keys as build_phix_mapping.py so lookups match.
+    Reference keys must use the same uppercase and whitespace convention.
     """
     if not name:
         return ""
@@ -77,8 +64,8 @@ def parse_input_entry(entry: str) -> tuple[str, str]:
 
 
 @dataclass
-class PHIXMatchResult:
-    """Outcome of matching one input school entry against the PHIX mapping."""
+class SchoolMatchResult:
+    """Outcome of matching one input school entry against the school reference."""
 
     input_name: str
     input_id: str  # "" when not provided in input
@@ -94,17 +81,17 @@ class PHIXMatchResult:
 
 
 def load_mapping(
-    mapping_path: Path,
+    reference_path: Path,
     target_phu: str,
 ) -> tuple[dict[str, str], dict[str, str]]:
-    """Load ``phix_mapping.json`` and return lookup dicts for *target_phu*.
+    """Load ``school_reference.json`` and return lookup dicts for *target_phu*.
 
     The ``by_id`` reverse lookup is built here from the flat name→id mapping.
 
     Parameters
     ----------
-    mapping_path:
-        Path to the JSON file produced by ``build_phix_mapping.py``.
+    reference_path:
+        Path to the JSON reference containing a ``phus`` mapping.
     target_phu:
         Exact PHU key string as it appears in the JSON (e.g.
         ``"Wellington Dufferin Guelph Public Health"``).
@@ -124,16 +111,16 @@ def load_mapping(
         When *target_phu* is not present in the mapping, with available PHUs
         listed in the message.
     """
-    if not mapping_path.exists():
-        raise FileNotFoundError(f"PHIX mapping file not found: {mapping_path}")
+    if not reference_path.exists():
+        raise FileNotFoundError(f"school reference file not found: {reference_path}")
 
-    data = json.loads(mapping_path.read_text(encoding="utf-8"))
+    data = json.loads(reference_path.read_text(encoding="utf-8"))
     phus: dict = data.get("phus", {})
 
     if target_phu not in phus:
         available = ", ".join(f'"{p}"' for p in sorted(phus))
         raise KeyError(
-            f"PHU '{target_phu}' not found in {mapping_path.name}. "
+            f"PHU '{target_phu}' not found in {reference_path.name}. "
             f"Available PHUs: {available}"
         )
 
@@ -152,7 +139,7 @@ def classify_match(
     input_id: str,
     name_to_id: dict[str, str],
     id_to_name: dict[str, str],
-) -> PHIXMatchResult:
+) -> SchoolMatchResult:
     """Classify one input entry against the PHU's school/ID mapping.
 
     Parameters
@@ -172,7 +159,7 @@ def classify_match(
         mapping_id = name_to_id[normalized]
 
         if not input_id:
-            return PHIXMatchResult(
+            return SchoolMatchResult(
                 input_name=input_name,
                 input_id=input_id,
                 match_type="inexact",
@@ -181,14 +168,14 @@ def classify_match(
                 mismatch_reason="name_only",
             )
         if input_id == mapping_id:
-            return PHIXMatchResult(
+            return SchoolMatchResult(
                 input_name=input_name,
                 input_id=input_id,
                 match_type="exact",
                 matched_name=input_name,
                 matched_id=mapping_id,
             )
-        return PHIXMatchResult(
+        return SchoolMatchResult(
             input_name=input_name,
             input_id=input_id,
             match_type="inexact",
@@ -200,7 +187,7 @@ def classify_match(
     # Name not found — try reverse ID lookup
     if input_id and input_id in id_to_name:
         mapped_name = id_to_name[input_id]
-        return PHIXMatchResult(
+        return SchoolMatchResult(
             input_name=input_name,
             input_id=input_id,
             match_type="inexact",
@@ -209,7 +196,7 @@ def classify_match(
             mismatch_reason="id_only",
         )
 
-    return PHIXMatchResult(
+    return SchoolMatchResult(
         input_name=input_name,
         input_id=input_id,
         match_type="no_match",
@@ -221,7 +208,7 @@ def classify_match(
 # ---------------------------------------------------------------------------
 
 
-def _write_csv(results: list[PHIXMatchResult], path: Path) -> None:
+def _write_csv(results: list[SchoolMatchResult], path: Path) -> None:
     """Serialise a list of match results to CSV. No-op when results is empty."""
     if not results:
         return
@@ -248,14 +235,14 @@ def _write_csv(results: list[PHIXMatchResult], path: Path) -> None:
 
 def validate_schools(
     df: pd.DataFrame,
-    mapping_path: Path,
+    reference_path: Path,
     target_phu: str,
     output_dir: Path,
     school_column: str = "school_name",
     unmatched_behavior: str = "warn",
-    column_prefix: str = "phix_",
+    column_prefix: str = "school_",
 ) -> tuple[pd.DataFrame, list[str]]:
-    """Validate school names in *df* against the PHIX mapping for *target_phu*.
+    """Validate school names in *df* against the school reference for *target_phu*.
 
     Adds four columns to the DataFrame (with *column_prefix*):
 
@@ -268,16 +255,16 @@ def validate_schools(
 
     Writes three CSV files to *output_dir*:
 
-    * ``phix_exact.csv``
-    * ``phix_inexact.csv``
-    * ``phix_no_match.csv``
+    * ``school_exact.csv``
+    * ``school_inexact.csv``
+    * ``school_no_match.csv``
 
     Parameters
     ----------
     df:
         Input DataFrame (not mutated; a copy is returned).
-    mapping_path:
-        Path to ``phix_mapping.json``.
+    reference_path:
+        Path to ``school_reference.json``.
     target_phu:
         Exact PHU key in the mapping JSON.
     output_dir:
@@ -304,16 +291,16 @@ def validate_schools(
 
     if school_column not in df.columns:
         LOG.warning(
-            "Column '%s' not found in DataFrame — skipping PHIX validation.",
+            "Column '%s' not found in DataFrame — skipping school validation.",
             school_column,
         )
         return df, warnings
 
-    name_to_id, id_to_name = load_mapping(mapping_path, target_phu)
+    name_to_id, id_to_name = load_mapping(reference_path, target_phu)
     LOG.info("Loaded %d schools for PHU '%s'.", len(name_to_id), target_phu)
 
     # Classify each unique input value (deduplicated for efficiency)
-    results: dict[str, PHIXMatchResult] = {}
+    results: dict[str, SchoolMatchResult] = {}
     for raw in df[school_column].dropna().unique():
         name, fac_id = parse_input_entry(str(raw))
         results[str(raw)] = classify_match(name, fac_id, name_to_id, id_to_name)
@@ -349,12 +336,12 @@ def validate_schools(
     no_match = [r for r in results.values() if r.match_type == "no_match"]
 
     # Write CSVs
-    _write_csv(exact, output_dir / "phix_exact.csv")
-    _write_csv(inexact, output_dir / "phix_inexact.csv")
-    _write_csv(no_match, output_dir / "phix_no_match.csv")
+    _write_csv(exact, output_dir / "school_exact.csv")
+    _write_csv(inexact, output_dir / "school_inexact.csv")
+    _write_csv(no_match, output_dir / "school_no_match.csv")
 
     LOG.info(
-        "PHIX validation complete: %d exact, %d inexact, %d no_match",
+        "school validation complete: %d exact, %d inexact, %d no_match",
         len(exact),
         len(inexact),
         len(no_match),
@@ -363,8 +350,8 @@ def validate_schools(
     if no_match:
         no_match_names = sorted(r.input_name for r in no_match)
         msg = (
-            f"{len(no_match)} school(s) had no PHIX match for PHU '{target_phu}'. "
-            f"See phix_no_match.csv for details."
+            f"{len(no_match)} school(s) had no school reference match for PHU '{target_phu}'. "
+            f"See school_no_match.csv for details."
         )
         warnings.append(msg)
         LOG.warning("%s First unmatched: %s", msg, no_match_names[:5])
@@ -378,9 +365,9 @@ def validate_schools(
             before = len(df)
             df = df[df[school_column].isin(matched_inputs)]
             skipped = before - len(df)
-            warnings.append(f"Skipped {skipped} record(s) with no PHIX match.")
+            warnings.append(f"Skipped {skipped} record(s) with no school reference match.")
             LOG.info(
-                "Skipped %d records with no PHIX match, %d remaining.", skipped, len(df)
+                "Skipped %d records with no school reference match, %d remaining.", skipped, len(df)
             )
 
     return df, warnings

@@ -1,11 +1,11 @@
 bundling:
   bundle_size: 100
   group_by: null
-phix_validation:
+school_validation:
   enabled: false
-  mapping_file: phix_mapping.json
+  reference_file: school_reference.json
   target_phu: "Wellington-Dufferin-Guelph Public Health" # Exact PHU name as it appears as a key in the mapping JSON
-  column_prefix: "PHIX_"
+  column_prefix: "school_"
   unmatched_behavior: warn # How to handle schools with no_match: warn | error | skip
 chart_diseases_header:
 - Diphtheria
