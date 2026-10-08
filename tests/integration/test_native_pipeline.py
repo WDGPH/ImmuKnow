@@ -20,7 +20,7 @@ from pypdf import PdfReader
 from immuknow import (
     bundle_pdfs,
     compile_notices,
-    encrypt_notice,
+    encrypt_notices,
     orchestrator,
     validate_pdfs,
 )
@@ -465,7 +465,7 @@ def test_encryption_rejects_job_client_mismatch(tmp_path: Path) -> None:
     with pytest.raises(
         ValueError, match="Render jobs do not match the prepared client list"
     ):
-        encrypt_notice.encrypt_expected_notices(
+        encrypt_notices.encrypt_expected_notices(
             [ClientRecord(**raw) for raw in artifact["clients"]],
             read_render_jobs(artifact_dir),
             load_config(config_dir / "parameters.yaml"),

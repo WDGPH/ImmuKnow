@@ -30,7 +30,7 @@ from . import (
     generate_notices,
     compile_notices,
     validate_pdfs,
-    encrypt_notice,
+    encrypt_notices,
     bundle_pdfs,
 )
 # isort: on
@@ -249,7 +249,7 @@ def run_pipeline(
         )
         # 7. Make optional encrypted copies and grouped PDF bundles.
         encrypted_pdfs = (
-            encrypt_notice.encrypt_expected_notices(clients, render_jobs, config)
+            encrypt_notices.encrypt_expected_notices(clients, render_jobs, config)
             if config.get("encryption", {}).get("enabled", False)
             else []
         )
