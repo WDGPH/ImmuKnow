@@ -5,7 +5,7 @@ Files beneath this directory are ignored by Git, apart from this README and
 `.gitkeep`.
 
 ```bash
-cp -r templates phu_templates/my_phu
+cp -r immuknow/templates phu_templates/my_phu
 uv run viper students.xlsx en --template my_phu
 ```
 

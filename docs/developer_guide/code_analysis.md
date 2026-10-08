@@ -1,15 +1,16 @@
 # Code analysis
 
-Before changing a function, trace its callers and the notice output it affects. Start with the orchestrator for pipeline flow, then follow the files read and written by the step.
+Start at `immuknow.orchestrator.run_pipeline`, then follow the functions and
+files involved in the final PDF or bundle. Search current callers and tests:
 
 ```bash
-rg -n 'function_name|ClassName' pipeline tests
-rg -n 'open\(|read_text|write_text|load_config' pipeline
-rg -n 'TODO|FIXME|deprecated' pipeline
+rg -n 'function_name|ClassName' immuknow tests
+rg -n 'open\\(|read_text|write_text|load_config' immuknow
+rg -n 'TODO|FIXME|deprecated' immuknow
 ```
 
-Check whether a function has production callers, whether similar logic exists elsewhere, and whether changing it affects the canonical cohort, render jobs, PDFs, or completion evidence. Test-only use does not necessarily make a helper dead; inspect its contract first.
-
-Keep helpers beside the step that uses them. Move one to `pipeline/utils.py` when two or more modules need it and the move makes the flow clearer. Prefer one assignment and localization path over parallel implementations. For native notices, Python prepares structured data and Typst owns prose and layout.
-
-When a change touches output selection, check that every expected notice is accounted for and stale files cannot enter later steps. Update tests and documentation with any contract change. See [Testing](testing.md) for checks and [Architecture](../reference/architecture.md) for the disk contracts.
+Check whether a helper has a production caller, duplicates another path, or
+exists only for an obsolete intermediate contract. Keep shared helpers only
+when they reduce repetition. Confirm assignment, rendering, validation,
+encryption, and bundling use the same expected notice set. See
+[workflow evidence](../reference/architecture.md) and [testing](testing.md).

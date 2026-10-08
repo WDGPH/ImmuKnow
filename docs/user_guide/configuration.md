@@ -1,1 +1,1 @@
---8<-- "config/README.md"
+--8<-- "immuknow/config/README.md"

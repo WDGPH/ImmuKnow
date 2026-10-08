@@ -1,121 +1,77 @@
-# Getting Started
+# Getting started
 
-## Prerequisites
-
-Before running the pipeline you need:
-
-- **Python ≥ 3.10** — managed automatically by `uv`
-- **[uv](https://github.com/astral-sh/uv)** — Python package and project manager
-- **[Typst v0.15.1](https://typst.app/docs/changelog/0.15.1/)** — PDF typesetting engine (must be on `PATH`, configured via `typst.bin` in `parameters.yaml`, or selected with `TYPST_BIN`)
-
-## Installation
+Install Python 3.10 or later, [uv](https://docs.astral.sh/uv/), and
+[Typst 0.15.1](https://typst.app/docs/changelog/0.15.1/). Put `typst`
+on `PATH`, set `TYPST_BIN`, or configure `typst.bin` in
+`parameters.yaml`. From a checkout:
 
 ```bash
-git clone https://github.com/WDGPH/ImmuKnow.git
-cd ImmuKnow
 uv sync
+uv run viper students.xlsx en --input ./input --output ./output
 ```
 
-To also install development tools (pre-commit, pytest, etc.):
+An installed package provides `viper` and its resources without a checkout.
 
-```bash
-uv sync --group dev
-uv run pre-commit install
-```
+## Prepare input
 
-## Preparing input data
+Input is one Excel worksheet (`.xlsx` or `.xls`) or a CSV extracted from
+Panorama/PEAR. Column names must match the packaged
+[input schema](input_schema.md). Required columns are:
 
-Input files may be Excel (`.xlsx` or `.xls`, one worksheet) or CSV, extracted from [Panorama PEAR](https://accessonehealth.ca/).
-
-The pipeline enforces a strict column schema — column names must match exactly (no fuzzy matching). The following columns are **required**:
-
-| Column name | Notes |
+| Client and location | Assessment and history |
 |---|---|
-| `school_name` | |
-| `client_id` | 10-digit numeric string |
-| `first_name` | |
-| `last_name` | |
-| `date_of_birth` | ISO 8601 date (`YYYY-MM-DD`) |
-| `street_address_line_1` | |
-| `street_address_line_2` | May be blank |
-| `city` | |
-| `province` | |
-| `postal_code` | |
-| `overdue_disease` | May be blank |
-| `overdue_agent` | May be blank |
-| `imms_given` | May be blank |
+| `school_name`, `client_id`, `first_name`, `last_name`, `date_of_birth` | `overdue_disease`, `overdue_agent`, `imms_given` |
+| `street_address_line_1`, `street_address_line_2`, `city`, `province`, `postal_code` | |
 
-The following columns are **optional** and will be used when present:
+`client_id` is a 10-digit string and `date_of_birth` is a valid
+`YYYY-MM-DD` date. The second street line, overdue fields, and history may
+be blank. Optional columns are `board_name`, `board_id`, `school_id`,
+and `version_id`. Missing required columns fail before notices are produced.
 
-| Column name |
-|---|
-| `board_name` |
-| `board_id` |
-| `school_id` |
-| `version_id` |
+## Select notices
 
-The full schema is defined in `config/input_schema.json`. If the file is missing any required column, the pipeline will stop immediately with a clear error message listing the missing columns.
-
-Place input files in the `input/` subdirectory (not tracked by Git):
-
-```
-ImmuKnow/
-└── input/
-    └── students.xlsx
-```
-
-## Running the pipeline
+Fixed mode uses the legacy overdue notice and requires a positional language:
 
 ```bash
-uv run viper <input_file> <language> [options]
+uv run viper students.xlsx fr --output /path/to/notices
 ```
 
-**Positional arguments:**
-
-| Argument | Description |
-|----------|-------------|
-| `<input_file>` | Excel or CSV path, or a filename within `--input` |
-| `<language>` | `en` or `fr`; required in fixed mode, optional with manifest assignments |
-
-**Common options:**
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--input PATH` | `./input` | Input directory |
-| `--output PATH` | `./output` | Output directory |
-| `--config PATH` | Packaged config | Configuration directory |
-| `--templates PATH` | Built-in templates | External PHU template directory |
-| `--notice-assignments PATH` | None | Assignment manifest; selects manifest mode |
-| `--template NAME` | Built-in `templates/` | PHU template name within `phu_templates/` |
-
-**Examples:**
+To assign versions and languages per client, supply a JSON manifest and a
+configuration directory with `notice_versions.yaml`:
 
 ```bash
-# Basic English run
-uv run viper students.xlsx en
-
-# French run with custom output directory
-uv run viper students.xlsx fr --output /tmp/output
-
-# Use a PHU-specific template
-uv run viper students.xlsx en --template wdgph
+uv run viper students.xlsx \
+  --notice-assignments /path/to/assignments.json \
+  --config /path/to/config --output /path/to/notices
 ```
 
-## Output
+The manifest uses `client_id` and `version_id`; optional `language` uses
+the catalog default. An explicit source `version_id` must agree. The
+[configuration guide](configuration.md) defines defaults, eligibility,
+reconciliation, QR/password fields, and validation rules. Use
+`--templates /path/to/my-phu` for a complete external Typst tree, or
+`--template NAME` for `phu_templates/NAME/` beneath the working directory.
+The [authoring guide](phu_templates.md) describes the JSON and entry points.
 
-All outputs are written to `output/` (or the path given by `--output`):
+## Run output
 
-```
+The complete run writes beneath `--output`:
+
+```text
 output/
-├── pdf_individual/      # One PDF per client
-├── pdf_combined/        # Bundled PDFs (if bundling is enabled)
-├── artifacts/           # Render jobs, JSON, unchanged templates and QR codes
-├── metadata/            # Validation reports and run metadata
-└── logs/                # Per-run log files
+  pdf_individual/  # one expected notice per accepted client
+  pdf_combined/    # optional bundles
+  artifacts/       # canonical cohort, render jobs, staged inputs when retained
+  metadata/        # validation and completion evidence
+  logs/
 ```
 
-## Next steps
+The accepted cohort and render jobs determine the expected PDFs. Compilation
+and validation must succeed for every notice before optional encryption and
+bundling complete. The run rejects missing or stale outputs and never uses a
+language filter to split the expected set. Diagnostics can contain client
+identifiers and should be handled as sensitive run output.
 
-- [Configuration Reference](configuration.md) — feature flags, QR codes, encryption, validation rules
-- [PHU Templates](phu_templates.md) — creating organization-specific layouts
-- [Architecture](../reference/architecture.md) — how the pipeline steps fit together
+For a callable workflow, use `immuknow.orchestrator.run_pipeline` as shown
+in the [Python interface](../reference/api.md). The
+[workflow diagram](../reference/architecture.md) explains output accounting.

@@ -1,155 +1,103 @@
 # Authoring native Typst notices
 
-A notice consists of an authored `.typ` entry point and one JSON payload.
-Python validates the source records, resolves the assignment, and prepares
-display values. Typst owns the prose, layout, images, and presentation conditions.
+A notice is an authored `.typ` entry point that reads one JSON payload.
+Python supplies validated canonical facts and the resolved assignment. Typst
+owns the document's prose, layout, dates, disease labels, dose wording, and
+visible chart headings. The included branding and contacts are samples that a
+PHU must review.
 
-## Choose a template directory
+## Select a complete template tree
 
-The wheel includes the built-in templates, shared helper, and branding assets.
-The built-ins contain sample branding and contact details; customize them before
-using them for a PHU.
-
-To start from a checkout:
+The package owns `immuknow/templates/`. Copy its entry points, `conf.typ`,
+`presentation.typ`, and assets to a directory you control, then use
+`--templates PATH`. From a checkout:
 
 ```bash
-cp -r templates /path/to/my-phu
-viper students.xlsx en --templates /path/to/my-phu --output /path/to/notices
+cp -r immuknow/templates /path/to/my-phu
+uv run viper students.xlsx en --templates /path/to/my-phu
 ```
 
-For an installed package, copy its resources to a directory you own:
+For an installed wheel:
 
 ```python
 from importlib.resources import files
 from pathlib import Path
 from shutil import copytree
 
-copytree(Path(str(files("templates"))), Path("/path/to/my-phu"))
+copytree(Path(str(files("immuknow").joinpath("templates"))), Path("/path/to/my-phu"))
 ```
 
-Use `--templates PATH` for an external directory. The shorter
-`--template my_phu` selects `phu_templates/my_phu/` beneath the caller's
-working directory. Choose one option. Neither requires writing into site-packages.
+The shorter `--template my_phu` selects `phu_templates/my_phu/` beneath the
+caller's working directory. The selected tree is isolated; a missing entry,
+helper, or asset does not fall back to built-ins. Writes stay in the run output,
+not the installed package. Avoid placing the output directory inside selected
+templates, or vice versa; overlap is rejected before copying or cleanup.
 
-A selected PHU directory is isolated: its missing templates or assets are never
-filled from the built-ins. Private files beneath `phu_templates/` remain ignored
-by Git. Maintain them in your own controlled location.
+Maintained flat entry points are `legacy_overdue_v1.en.typ`,
+`legacy_overdue_v1.fr.typ`, `overdue_standard_v1.en.typ`,
+`overdue_standard_v1.fr.typ`, and `affirmative_schedule_v1.en.typ`.
+The legacy overdue notice displays diseases; the standard overdue notice
+displays vaccine agents. Eligibility for either is disease-based. No French
+affirmative notice ships; add one only after its wording and layout are reviewed.
 
-## Maintained entry points
+## Assert the notice identity
 
-```text
-templates/
-  legacy_overdue_v1.en.typ
-  legacy_overdue_v1.fr.typ
-  overdue_standard_v1.en.typ
-  overdue_standard_v1.fr.typ
-  affirmative_schedule_v1.en.typ
-  conf.typ
-  assets/
-    logo.png
-    signature.png
-```
-
-The `legacy_overdue_v1` entry points retain the legacy notice wording and overdue **disease**
-list. They declare the internal identity `legacy_overdue_v1` and work in fixed mode
-without a catalog or manifest. The versioned overdue templates display **vaccine
-agents**. These are distinct notices; renaming an entry point does not
-make its wording equivalent.
-
-There is no French affirmative template. A request for it fails with its expected
-path. Add a translation only when an author has supplied and reviewed it.
-
-Entry points use `<version_id>.<language>.typ`. The filename names the notice
-and its revision as well as its language; no version subdirectory is needed.
-Shared helpers and assets may still use subdirectories.
-
-## Load data and check identity
-
-Every entry point declares literal version and language values and checks both
-before rendering. For example:
+Each entry point names its own literal `version_id` and language, checks
+the JSON, and sets the document text language and Canadian region:
 
 ```typst
 #let notice = json(sys.inputs.at("data"))
-#let template-version = "overdue_standard_v1"
-#let template-language = "en"
-
-#assert(
-  notice.version_id == template-version,
-  message: "Notice version does not match this template",
-)
-#assert(
-  notice.language == template-language,
-  message: "Notice language does not match this template",
-)
-
+#assert(notice.version_id == "overdue_standard_v1", message: "Wrong notice version")
+#assert(notice.language == "en", message: "Wrong notice language")
+#set text(lang: "en", region: "CA")
 #import "/templates/conf.typ"
 ```
 
-Keep these checks unconditional. The expected identity belongs to the template;
-it must not be copied from the JSON input. Direct compilation of mismatched data
-must fail even when Python is bypassed.
+Keep assertions independent of the input values. An agent-based overdue entry
+also asserts `notice.overdue_agents.len() > 0`. Disease-based and affirmative
+entries do not require agents. Use ordinary Typst field access; input strings
+must remain literal data, never executable source.
 
-Use ordinary Typst field access and interpolation, such as
-`#notice.client_data.name`. Strings remain text. Never use `eval` on input values
-or introduce a Python/Jinja renderer.
+## Per-notice JSON
 
-## JSON contract
-
-The per-notice payload is derived from the canonical preprocessed client record.
-It is a render input, not another editable assignment source.
+The renderer gives each entry point one small, derived JSON file:
 
 | Field | Meaning |
 |---|---|
-| `version_id`, `language` | Resolved identity, checked by the entry point |
-| `client_row` | One-element array containing the client ID |
-| `client_data` | Name, address, city, postal code, school, `over_16`, display birth date and cutoff date |
-| `client_data.date_of_birth_iso` | Canonical birth date, retained separately from display text |
-| `date_data_cutoff_iso` | Canonical cutoff date |
-| `vaccines_due_array`, `vaccines_due_str` | Localized disease list and its joined text |
-| `vaccines_due_agents_array`, `vaccines_due_agents_str` | Source agent list and its joined text; may be empty |
-| `received` | History rows with `date_given`, `date_rowspan`, `vaccines`, and localized `columns` |
-| `num_rows` | Number of history rows |
-| `chart_diseases_translated` | Ordered chart headings |
-| `show_validity_markers` | Whether to distinguish valid and invalid doses |
-| `logo_path`, `signature_path` | Paths beneath the bounded Typst file root |
-| `client_data.qr_img`, `client_data.qr_url` | Optional QR image reference and link |
+| `version_id`, `language`, `client_id` | Resolved identity and client identifier |
+| `client_data` | `name`, `address`, `city`, `postal_code`, `school`, `over_16`, and `date_of_birth_iso`; optional `qr_img` and `qr_url` |
+| `date_data_cutoff_iso` | ISO extract date or blank when absent |
+| `overdue_diseases` | Canonical `{disease, dose}` entries; invalid dose also has `dose_raw` |
+| `overdue_agents` | Vaccine agents available to agent-based notices |
+| `include_dose` | Whether Typst shows available numeric doses |
+| `received` | History rows with `date_given`, `date_rowspan`, `vaccines`, and canonical `columns` validity statuses |
+| `chart_diseases` | Canonical chart identifiers in configured order |
+| `show_validity_markers` | Whether the history distinguishes validity |
+| `logo_path`, `signature_path` | Assets beneath the bounded Typst root |
 
-All fields use ordinary JSON strings, arrays, dictionaries, numbers, booleans, or
-nulls. Arrays and dictionaries are never pre-serialized as Typst source.
-Birth dates, cutoff dates, disease labels, headings, and dose wording are prepared
-after the notice language is resolved. History dates remain in their established
-ISO display form.
+An absent dose has `dose: null`; an invalid source dose also retains
+`dose_raw` for diagnostics. Python validates dates and passes ISO strings.
+`presentation.typ` formats long dates, approved disease labels, dose suffixes,
+and shared headings for English and French. A blank optional cutoff stays
+blank; a required invalid date fails. The history retains its compact date
+format. Translation dictionaries are staged once under `/translations/` and
+looked up by canonical key. Uncatalogued source labels stay visible unchanged; a label present only in the
+other language is an error. Chart membership is
+never inferred from translated labels.
 
-Eligibility always follows the overdue **disease** list. A template independently
-chooses its displayed list. An agent-based overdue template must enforce:
+The selected templates can rearrange content, but keep their own version and
+language checks. The [configuration contract](configuration.md) explains
+assignments, translation data, and QR/password fields.
 
-```typst
-#assert(
-  notice.vaccines_due_agents_array.len() > 0,
-  message: "This overdue template requires vaccine agent data",
-)
-```
+## Reproduce and review a notice
 
-Do not impose that requirement on an affirmative or disease-based notice.
+A run stages the selected tree at `output/artifacts/render/templates/`, the
+language dictionaries at `render/translations/`, and one JSON file per client
+at `render/data/`. `artifacts/render_jobs.json` records each exact template,
+data file, expected PDF, and bounded workspace. Set
+`pipeline.after_run.remove_artifacts: false` to retain these inputs.
 
-## Files and reproduction
-
-Step 4 copies the selected template tree once, without changing its source:
-
-```text
-output/artifacts/
-  render_jobs.json
-  render/
-    templates/                   # entry points, helpers, and assets
-    data/en_notice_00001_123.json
-    qr_codes/                    # present when QR generation is enabled
-```
-
-Each render job records the client ID, sequence, resolved identity, template,
-data path, bounded workspace, and expected PDF. The pipeline passes only the
-data-file reference through `sys.inputs`.
-
-To reproduce a retained job with Typst 0.15.1:
+With Typst 0.15.1, use the actual paths from that job:
 
 ```bash
 typst compile \
@@ -159,38 +107,11 @@ typst compile \
   "/path/to/review.pdf"
 ```
 
-Use the actual entry point and data filename from `render_jobs.json`.
-A leading slash in Typst is relative to `--root`, not the operating system root.
-Use forward slashes for imports and asset references. Relative imports within
-the selected template tree retain their directory structure.
+The slash in a Typst import or data reference is relative to `--root`; the
+root is the run workspace, never the filesystem root. A manual compile aids
+review but does not certify whole-cohort validation or delivery.
 
-Keep `pipeline.after_run.remove_artifacts: false` to retain these inputs.
-A manual compilation produces a review PDF; it does not certify the pipeline's
-whole-cohort compilation or validation stage.
-
-The same preparation and compilation functions are available to library callers:
-
-```python
-from pathlib import Path
-from pipeline.generate_notices import prepare_render_jobs
-from pipeline.compile_notices import compile_with_config
-
-artifacts = Path("/path/to/output/artifacts")
-pdfs = Path("/path/to/output/pdf_individual")
-parameters = Path("/path/to/config/parameters.yaml")
-
-prepare_render_jobs(
-    artifacts / "preprocessed_clients_RUN_ID.json",
-    artifacts,
-    template_dir=Path("/path/to/my-phu"),
-    config_path=parameters,
-    pdf_dir=pdfs,
-)
-compile_with_config(artifacts, pdfs, parameters)
-```
-
-Review representative PDFs for prose, client details, history, validity symbols,
-QR links, branding, page numbering, signature position, and envelope-window
-measurements. Include long records and addresses. See the
-[testing guide](../developer_guide/testing.md) for repeatable native compilation
-checks and PDF review guidance.
+Review English and French prose, client details, history grouping, validity
+symbols, QR links, branding, page count, signature position, and envelope
+window. Include long records and addresses. The
+[testing guide](../developer_guide/testing.md) covers repeatable native checks.

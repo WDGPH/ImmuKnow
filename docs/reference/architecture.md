@@ -1,88 +1,42 @@
-# Pipeline architecture
+# Workflow and output evidence
 
-Python validates and normalizes the source records, resolves each notice's
-version and language, and prepares localized display data. Maintained Typst
-templates own the document source. Every expected PDF then passes through
-validation and, when enabled, encryption and bundling.
+`immuknow.orchestrator.run_pipeline` owns a complete run; `viper` is its CLI.
+It loads selected configuration, validates source records and notice
+assignments, and prepares an ordered canonical cohort. Disease normalization,
+vaccine mapping, eligibility, age, grouping, and assignment reconciliation
+remain in Python. Each client has one resolved `version_id` and language.
 
 ```mermaid
 flowchart LR
-    A[Source records] --> B[Normalize and resolve assignments]
-    B --> C[Canonical cohort JSON]
-    C --> D[Prepare notice JSON and render jobs]
-    T[Static Typst templates] --> D
-    D --> E[Compile each expected PDF]
-    E --> F[Validate every expected PDF]
+    A[Excel or CSV] --> B[Validate and normalize]
+    M[Optional assignment manifest] --> B
+    B --> C[Canonical cohort]
+    C --> D[Per-notice JSON and render jobs]
+    T[Selected Typst templates and labels] --> D
+    D --> E[Compile all expected PDFs]
+    E --> F[Validate all expected PDFs]
     F --> G[Optional encryption and bundling]
+    G --> H[Completion evidence]
 ```
 
-## Disk contracts
+The cohort and render jobs persist under `artifacts/` when configured to retain
+them. A render job names the client, sequence, version, language, selected
+template, data path, bounded workspace, and expected PDF. Small JSON payloads
+supply canonical facts; Typst formats dates, labels, dose wording, headings,
+and notice prose. The selected template tree and language dictionaries are
+staged once per run. No generated Typst source or client-specific wrapper is
+needed. The [authoring guide](../user_guide/phu_templates.md) defines the JSON.
 
-The orchestrator passes paths and configuration between steps. Each step reads
-its own disk inputs. The canonical cohort is ordered by school, last name, first
-name, and client ID; its sequence numbers persist through all outputs.
+The renderer publishes a PDF only after compilation succeeds, then records
+successful completion for the whole expected set. Validation checks each
+expected PDF and its client ID, plus configured page and layout rules. An
+error-level finding stops the run. Encryption and bundling use the same notice
+set and check identity and uniqueness, not just counts. Stale PDFs and
+encrypted duplicates are excluded. Language labels filenames but never filters
+the cohort. Bundles can group by size, school, or board across languages.
 
-| Step | Module | Output |
-|---|---|---|
-| 1 | `prepare_output.py` | Caller-selected output directories |
-| 2 | `preprocess.py` | Canonical cohort and assignment metadata |
-| 3 | `generate_qr_codes.py` | Optional QR PNGs |
-| 4 | `generate_notices.py` | Per-notice JSON, staged static templates, `render_jobs.json` |
-| 5 | `compile_notices.py` | Expected PDFs and whole-stage `compilation.json` |
-| 6 | `validate_pdfs.py` | `metadata/validation_<run_id>.json` |
-| 7 | `encrypt_notice.py` | Optional encrypted copies of expected PDFs |
-| 8 | `bundle_pdfs.py` | Optional bundles and client-level manifests |
-| 9 | `cleanup.py` | Configured removal of run-local intermediates |
-
-## Assignment precedes presentation
-
-The external manifest, canonical record, resolved notice, render payload, and
-render job all use `version_id`. An explicit input `version_id` must agree with
-the manifest's value. Reconciliation resolves
-the assignment once and retains the result for preprocessing to attach without
-discarding unrelated metadata.
-
-Catalog defaults apply only at this boundary. Each client then carries its own
-language through localization, QR construction, compilation, validation,
-encryption, and bundling. The cohort header's `language` is the common language
-when one exists, otherwise null. It is never a file-selection rule.
-
-Fixed mode declares `legacy_overdue_v1` and needs no catalog. Its disease-based
-notices remain distinct from the agent-based `overdue_standard_v1` notices.
-Eligibility uses overdue diseases regardless of a template's presentation choice.
-
-## Explicit rendering and output accounting
-
-A `RenderJob` connects a canonical client to an unchanged entry point, a small
-JSON input, a bounded workspace, and an expected PDF. Step 4 stages the selected
-template tree once per run. No client-specific Typst source, wrapper script,
-dynamic Python import, or source substitution is involved.
-
-Typst 0.15.1 checks each template's literal version and language against the
-payload. The compiler receives a data-file reference through `sys.inputs`.
-All template imports, assets, JSON files, and QR images are beneath
-`artifacts/render/`; the filesystem root is never used as Typst's file root.
-
-Compilation removes old expected outputs and publishes each new PDF only after
-its command succeeds. The whole-stage completion record appears only after all
-jobs succeed. Assignment metadata alone is not evidence of compilation.
-A failed job prevents downstream processing even when earlier jobs produced PDFs.
-
-Validation consumes the expected paths and client IDs. Encryption uses the
-same sequence/client mapping. Bundling verifies that the canonical cohort and
-render jobs agree and that each expected notice appears exactly once in its
-plans. Missing outputs fail; stale PDFs and encrypted copies are excluded.
-Size, school, and board grouping remain unchanged, with no automatic language
-split. A mixed-language bundle lists its actual languages in its manifest.
-
-## Resources and custom templates
-
-The wheel and source distribution include the templates, assets, and reference
-configuration. Defaults are accessed through package resources. Input and output
-defaults belong to the caller's working directory, not site-packages.
-External configuration and `--templates PATH` work without a checkout.
-
-A PHU's selected template directory is isolated. Shared helpers and assets stay
-with its entry points. Read-only installed resources are copied into a removable,
-run-local workspace. See the [authoring guide](../user_guide/phu_templates.md)
-for the JSON contract and a single-notice compilation command.
+Run metadata distinguishes assignments from successful compilation,
+validation, and final delivery. Client-linked diagnostics are sensitive; store
+them with the run's output. Installed library resources come from the
+`immuknow` package; selected PHU configuration and templates can live
+elsewhere. Writes go to the caller's output directory.

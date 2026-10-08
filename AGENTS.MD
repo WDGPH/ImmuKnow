@@ -1,174 +1,53 @@
-# Agent Development Guidelines
+# Agent development guidelines
 
+Read [contributing](docs/developer_guide/contributing.md),
+[testing](docs/developer_guide/testing.md), and
+[documentation](docs/developer_guide/documentation.md) before changing behavior.
 
-## Read first
+## Application boundary
 
-* **Standards**:
-  * `docs/developer_guide/documentation.md`
-  * `docs/developer_guide/testing.md`
-  * `docs/developer_guide/code_analysis.md`
+`immuknow.orchestrator.run_pipeline` owns one complete cohort; `viper` is
+its thin CLI. Group internal code around input preparation, native rendering,
+output checks, and delivery. Internal signatures and intermediate schemas may
+change together. Preserve user-facing configuration semantics and complete
+end-to-end results, not obsolete step APIs.
 
----
+Python owns source validation, canonical disease and dose facts, assessment,
+eligibility, assignment reconciliation, QR payloads, encryption, and grouping.
+Typst owns notice prose, labels, dates, dose wording, chart headings, and
+layout. The authored entry points and assets live under
+`immuknow/templates/`; package configuration and translations live under
+`immuknow/config/`. PHU template and configuration directories are isolated.
+Use a bounded run workspace and never write into installed package files.
 
-## Workflow
+Keep one authoritative resolved `version_id` and language per notice.
+Persist the canonical cohort, selected resources, expected outputs, and
+successful completion where they help reproduce a run. Pass validated objects
+between internal responsibilities instead of writing files solely to separate
+functions. Compilation, validation, encryption, and bundling must account for
+the same expected set by identity and uniqueness. A failure must not publish
+a successful bundle or reuse stale PDFs.
 
-1. **Understand:** read code, trace flows, grep usages, read docs.
-2. **Plan:** design around findings.
-3. **Implement:** imports at top, types, meaningful docstrings.
-4. **Test:** `uv run pytest` with markers.
-5. **Configure:** add parameters under the correct step in YAML with comments.
-6. **Document:** update standards or docstrings when feature‑complete. **Avoid standalone reports; strongly focus on integrating findings into existing docs and keeping them up to date.**
+## Working method
 
----
+1. Trace a change from CLI or orchestrator to the final notice and delivery.
+2. Change the maintained code and the one guide that owns its contract.
+3. Add or update tests that prove behavior at the real boundary. Retire tests
+   of deleted internal signatures when they no longer protect behavior.
+4. Run focused checks, then the relevant full gates from the testing guide.
+   For presentation changes, compile actual Typst and inspect representative
+   PDFs, including long records and addresses.
+5. Describe resulting behavior, checks, and limits in the pull request. Use
+   Git history for change history; do not commit dated journals or scorecards.
 
-## Collaboration
+Keep code direct and typed. Imports belong at the top; avoid wildcard imports,
+silent fallbacks, global mutable configuration caches, and wrappers kept only
+for compatibility. Catch exceptions only where there is a meaningful recovery
+or actionable error. Lock dependency versions in `uv.lock`; upgrades require
+a matching lockfile and tests. Use `uv run ty check`,
+`uv run pytest`, and `uv run pre-commit run --all-files` as applicable.
 
-* Present findings in the conversation as Markdown. Do not emit temporary files or heredoc tricks.
-* Integrate durable learnings into standards, module comments, or docstrings.
-* Keep documentation about current behavior. Put change history and implementation rationale in commits and pull requests.
-
----
-
-## Package layout
-
-* **Orchestrator:** `pipeline/orchestrator.py` is the `viper` CLI entry point and coordinates 9 steps.
-* **Steps:** Modules are organized by steps 1–9, not by functional themes.
-* **Templates:** `templates/` contains authored `.typ` entry points, shared `conf.typ`, and assets. Python prepares JSON and render jobs; Typst owns document source and asserts each notice identity. `--templates PATH` selects an external PHU directory; `--template NAME` selects `phu_templates/NAME/` beneath the working directory. Private PHU materials remain ignored. See the template authoring guide for the JSON contract and migration.
-
----
-
-## Dependencies
-
-Single source of truth: `uv.lock`.
-
-* Code to locked versions. No runtime fallbacks for alternate APIs.
-* Upgrades:
-
-  ```bash
-  uv lock --upgrade
-  uv sync
-  uv run pytest
-  git add uv.lock && git commit -m "deps: upgrade"
-  ```
-* If a version bump is required, update `pyproject.toml`, run `uv sync`, test, and commit the new lockfile.
-
----
-
-## Configuration (`config/parameters.yaml`)
-
-* Organize by pipeline step with headers, e.g., `# Step 3: Generating QR Codes`.
-* Use dot notation and `snake_case` keys, e.g., `qr.enabled`, `qr.payload_template`.
-* Document inline in YAML.
-* Validate quickly:
-
-  ```bash
-  uv run python -c "import yaml,sys; yaml.safe_load(open('config/parameters.yaml')) or sys.exit(0)"
-  ```
-
----
-
-## Code style
-
-* Imports at top: future → stdlib → third‑party → local.
-
-  ```python
-  from __future__ import annotations
-  import json
-  import yaml
-  from .config_loader import load_config
-  ```
-* Use type hints, f‑strings, docstrings, dataclasses.
-* No wildcard imports.
-* Depth and significance guidance lives in `docs/developer_guide/code_analysis.md`.
-
----
-
-## Quality gates (pre‑commit)
-
-One‑time setup:
-
-```bash
-uv sync --group dev
-uv run pre-commit install
-```
-
-Manual run:
-
-```bash
-uv run pre-commit run --all-files
-```
-
-Hooks (block commits on failure): `ruff check --fix` then `ruff format`.
-
----
-
-## Type checking (`ty`)
-
-Check before tests:
-
-```bash
-uv run ty check
-```
-
-Resolve all type errors or justify with `# type: ignore` and a short comment.
-
----
-
-## Command execution discipline
-
-Run each shell command once. Investigate before re‑running.
-
-* If you need stderr, include it from the start: `2>&1`.
-* On hangs or failures, inspect state (`git status`, file contents) before retrying.
-* After interruptions, verify outcomes before re‑execution.
-
----
-
-## Engineering principles
-
-The pipeline is maintained and tested as a whole.
-
-1. **Simplicity first.** Prefer straightforward code over abstraction. Use native structures freely. Extract helpers only when they reduce duplication or improve clarity.
-
-   * Internal functions and intermediate artifacts may change together. Do not retain aliases, wrappers, or fallback paths solely for backwards compatibility; preserve the intended end-to-end results.
-2. **Clear boundaries and reuse.** Colocate helpers with the step that uses them. Extract to `utils.py` only when reused by ≥2 modules and clarity improves. Prefer pure, side‑effect‑free helpers with action‑oriented names.
-3. **Deterministic, step‑isolated pipeline.** Steps read inputs from disk and write outputs to disk. Do not pass in‑memory state via the orchestrator. Same input → same output, including ordering and filenames.
-4. **Contracts over defensiveness.** Centralize input validation in preprocessing and output checks in dedicated validation steps. Fail fast with precise exceptions. Do not add silent fallbacks.
-5. **Naming and public surface.** Functions use `snake_case` with verbs (e.g., `prepare_render_jobs`). Do not rely on leading underscores for privacy; document intent. Only the orchestrator exposes a CLI; no per‑module parsers.
-6. **Dependencies are locked.** Write to the APIs in `uv.lock`. If an API changes, upgrade and re‑lock. Do not branch at runtime to support multiple versions.
-7. **Errors and logging.** Catch only exceptions you can handle meaningfully. Raise actionable messages. Log at step boundaries and major operations. Informative, not noisy.
-8. **Parallel development without drift.** Keep core steps stable (preprocess, notices, compile, validate). Optional steps (encryption, batching, cleanup) may evolve independently if contracts hold. Update tests and docs with any schema or layout change.
-9. **Tests are the spec.** Update tests with behavior changes. Use integration tests for quick feedback and E2E tests for coverage. Test native rendering outside the checkout with a bounded run-local file root.
-10. **Documentation placement.** Keep current usage, configuration, architecture, and testing guidance in `docs/`. Git history and pull requests explain how the project changed. Do not commit dated work journals, progress reports, migration scorecards, or duplicate changelogs. Keep executable regression fixtures when they protect meaningful output behavior.
-
----
-
-## Tests: quick reference
-
-Setup once:
-
-```bash
-uv sync --group dev
-```
-
-Run pipeline:
-
-```bash
-uv run viper <input.xlsx> <en|fr>
-```
-
-Run tests:
-
-```bash
-uv run pytest                           # all
-uv run pytest -m unit                   # unit only (~2s)
-uv run pytest -m "not e2e"              # skip e2e
-uv run pytest tests/e2e/ -v             # only e2e
-uv run pytest tests/test_file.py::TestClass::test_name -v
-```
-
-Coverage:
-
-```bash
-uv run pytest --cov=pipeline --cov-report=html  # opens htmlcov/index.html
-```
+Do not commit private PHU assets or real client data. Client-linked diagnostics
+are sensitive run output. The [template guide](docs/user_guide/phu_templates.md)
+defines the JSON and native assertions; [architecture](docs/reference/architecture.md)
+defines complete output evidence.

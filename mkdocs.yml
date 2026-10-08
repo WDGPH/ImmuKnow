@@ -76,20 +76,6 @@ markdown_extensions:
 
 plugins:
   - search
-  - mkdocstrings:
-      handlers:
-        python:
-          options:
-            docstring_style: numpy
-            members_order: source
-            separate_signature: true
-            show_overloads: true
-            show_root_heading: true
-            show_root_full_path: true
-            show_root_toc_entry: true
-            show_symbol_type_heading: true
-            show_symbol_type_toc: true
-            show_submodules: false
 
 nav:
   - Home: index.md
@@ -106,11 +92,9 @@ nav:
       - Email Template Text: user_guide/email_package/email_template_text.md
   - Reference:
     - Architecture: reference/architecture.md
-    - Pipeline Steps: reference/pipeline_steps.md
     - API Reference: reference/api.md
   - Developer Guide:
     - Contributing: developer_guide/contributing.md
     - Testing Standards: developer_guide/testing.md
     - Documentation Standards: developer_guide/documentation.md
     - Code Analysis: developer_guide/code_analysis.md
-    - AI Agent Workflow: developer_guide/agents.md

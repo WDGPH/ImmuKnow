@@ -1,23 +1,17 @@
 # Documentation
 
-Document the behavior that contributors and PHUs need to rely on. Explain what the code produces, its input and output contracts, and failures that require action. Keep implementation details close to the code and avoid repeating the same contract across guides.
+Keep one current guide for each contract: [getting started](../user_guide/getting_started.md)
+for inputs and the complete workflow, [configuration](../user_guide/configuration.md)
+for user options and reference data, [template authoring](../user_guide/phu_templates.md)
+for native JSON and assertions, and [testing](testing.md) for checks.
+The [architecture](../reference/architecture.md) explains output evidence.
+Link to these guides instead of copying them into new step descriptions.
 
-## Docstrings
+Module docstrings should state purpose and important inputs, outputs, and
+failures. Use types and examples when they clarify behavior. Test names and
+docstrings should identify the user-visible behavior protected, especially
+for compilation, mixed cohorts, and missing outputs.
 
-Every Python module starts with a purpose statement. Public functions use type hints and a short NumPy-style docstring. Include `Parameters`, `Returns`, and `Raises` when they add information beyond the signature. State important file reads, writes, configuration inputs, and assumptions. Keep examples executable or clearly illustrative.
-
-For example, a PDF validator's docstring should say that it checks the expected PDFs from render jobs, compares extracted client IDs with those jobs, and writes `metadata/validation_<run_id>.json`. It should not claim that a language prefix selects the PDFs.
-
-Test docstrings should describe the behavior protected by the test, especially for compilation assertions, mixed cohorts, and missing-output failures. Avoid restating the code line by line.
-
-## Where to update guidance
-
-- [Getting started](../user_guide/getting_started.md): supported inputs and CLI.
-- [Template authoring](../user_guide/phu_templates.md): JSON payloads, native Typst entry points, and assertions.
-- [Architecture](../reference/architecture.md): step boundaries and artifacts.
-- [Testing](testing.md): checks and evidence limits.
-- [Code analysis](code_analysis.md): tracing callers and removing duplication.
-
-Update the existing guide that owns a contract when behavior changes. Keep
-point-in-time implementation results in the pull request and Git history; the
-guides describe current behavior and repeatable checks.
+Keep point-in-time results and implementation rationale in the pull request
+and Git history. Repository guides describe current behavior and repeatable
+checks.
