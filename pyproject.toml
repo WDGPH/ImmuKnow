@@ -38,7 +38,7 @@ docs = [
 ]
 
 [project.scripts]
-viper = "immuknow.orchestrator:main"
+immuknow = "immuknow.orchestrator:main"
 
 [tool.coverage.run]
 source = ["immuknow"]

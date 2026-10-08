@@ -153,7 +153,7 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
         fixed_output = tmp_path / "Fixed packaged configuration"
         run_checked(
             [
-                str(environment / "bin" / "viper"),
+                str(environment / "bin" / "immuknow"),
                 str(input_file),
                 "fr",
                 "--output",

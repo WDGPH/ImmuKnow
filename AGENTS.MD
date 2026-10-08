@@ -6,7 +6,7 @@ Read [contributing](docs/developer_guide/contributing.md),
 
 ## Application boundary
 
-`immuknow.orchestrator.run_pipeline` owns one complete cohort; `viper` is
+`immuknow.orchestrator.run_pipeline` owns one complete cohort; `immuknow` is
 its thin CLI. Group internal code around input preparation, native rendering,
 output checks, and delivery. Internal signatures and intermediate schemas may
 change together. Preserve user-facing configuration semantics and complete

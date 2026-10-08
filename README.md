@@ -13,7 +13,7 @@ From a checkout:
 
 ```bash
 uv sync
-uv run viper students.xlsx en --input ./input --output ./output
+uv run immuknow students.xlsx en --input ./input --output ./output
 ```
 
 The positional `en` or `fr` selects a fixed legacy overdue notice. An installed
@@ -21,7 +21,7 @@ package supplies the same command and built-in resources. For a mixed cohort,
 provide a notice catalog and manifest:
 
 ```bash
-viper /path/to/students.xlsx \
+immuknow /path/to/students.xlsx \
   --notice-assignments /path/to/assignments.json \
   --config /path/to/config --output /path/to/notices
 ```

@@ -4,7 +4,7 @@ The supported callable interface is `immuknow.orchestrator.run_pipeline`.
 It accepts an input Excel or CSV path, an output directory, optional fixed
 language, and selected configuration, template, or assignment paths. It returns
 the successful run's completion-record path, or `None` when the user cancels
-an output-directory prompt. The CLI `viper` calls the same workflow.
+an output-directory prompt. The CLI `immuknow` calls the same workflow.
 
 ```python
 from pathlib import Path

@@ -40,7 +40,7 @@ DEFAULT_CONFIG_DIR = Path(str(files("immuknow").joinpath("config")))
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
-        description="Run the VIPER immunization notice generation pipeline",
+        description="Run the ImmuKnow immunization notice generation pipeline",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:

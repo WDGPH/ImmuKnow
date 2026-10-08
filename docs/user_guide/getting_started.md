@@ -7,10 +7,10 @@ on `PATH`, set `TYPST_BIN`, or configure `typst.bin` in
 
 ```bash
 uv sync
-uv run viper students.xlsx en --input ./input --output ./output
+uv run immuknow students.xlsx en --input ./input --output ./output
 ```
 
-An installed package provides `viper` and its resources without a checkout.
+An installed package provides `immuknow` and its resources without a checkout.
 
 ## Prepare input
 
@@ -33,14 +33,14 @@ and `version_id`. Missing required columns fail before notices are produced.
 Fixed mode uses the legacy overdue notice and requires a positional language:
 
 ```bash
-uv run viper students.xlsx fr --output /path/to/notices
+uv run immuknow students.xlsx fr --output /path/to/notices
 ```
 
 To assign versions and languages per client, supply a JSON manifest and a
 configuration directory with `notice_versions.yaml`:
 
 ```bash
-uv run viper students.xlsx \
+uv run immuknow students.xlsx \
   --notice-assignments /path/to/assignments.json \
   --config /path/to/config --output /path/to/notices
 ```

@@ -14,7 +14,7 @@ Real-world significance:
 
 Each test:
 1. Prepares a temporary input Excel file
-2. Runs the full viper pipeline
+2. Runs the full immuknow pipeline
 3. Validates exit code and output structure
 4. Checks that expected artifacts were created
 5. Verifies PDF count matches client count
@@ -66,7 +66,7 @@ class TestFullPipelineExecution:
         e2e_workdir: Path,
         config_overrides: dict | None = None,
     ) -> subprocess.CompletedProcess:
-        """Run the viper pipeline via subprocess using isolated config/output."""
+        """Run the immuknow pipeline via subprocess using isolated config/output."""
         config_dir = e2e_workdir / "config"
 
         if config_overrides:
@@ -91,7 +91,7 @@ class TestFullPipelineExecution:
         cmd = [
             "uv",
             "run",
-            "viper",
+            "immuknow",
             str(input_file.name),
             language,
             "--input",

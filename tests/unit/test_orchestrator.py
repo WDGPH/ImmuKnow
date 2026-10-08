@@ -14,7 +14,7 @@ Real-world significance:
 - Orchestration order ensures correct data flow (Step N output → Step N+1 input)
 - Error handling must gracefully report problems to users
 - Run ID generation enables comparing multiple pipeline runs
-- Used by both CLI (viper command) and programmatic callers
+- Used by both CLI (immuknow command) and programmatic callers
 """
 
 from __future__ import annotations
@@ -30,14 +30,14 @@ from immuknow import orchestrator
 @pytest.mark.unit
 class TestParseArgs:
     def test_parse_args_required_arguments(self) -> None:
-        with patch("sys.argv", ["viper", "students.xlsx", "en"]):
+        with patch("sys.argv", ["immuknow", "students.xlsx", "en"]):
             args = orchestrator.parse_args()
             assert args.input_file == "students.xlsx"
             assert args.language == "en"
 
     def test_parse_args_language_choices(self) -> None:
         # Valid language
-        with patch("sys.argv", ["viper", "file.xlsx", "fr"]):
+        with patch("sys.argv", ["immuknow", "file.xlsx", "fr"]):
             args = orchestrator.parse_args()
             assert args.language == "fr"
 
@@ -45,7 +45,7 @@ class TestParseArgs:
         with patch(
             "sys.argv",
             [
-                "viper",
+                "immuknow",
                 "test.xlsx",
                 "en",
                 "--input",
@@ -62,7 +62,7 @@ class TestParseArgs:
             assert args.config_dir == Path("/etc/config")
 
     def test_parse_args_defaults(self) -> None:
-        with patch("sys.argv", ["viper", "file.xlsx", "en"]):
+        with patch("sys.argv", ["immuknow", "file.xlsx", "en"]):
             args = orchestrator.parse_args()
             # Defaults should exist
             assert args.input_dir is not None

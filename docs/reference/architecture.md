@@ -1,6 +1,6 @@
 # Workflow and output evidence
 
-`immuknow.orchestrator.run_pipeline` owns a complete run; `viper` is its CLI.
+`immuknow.orchestrator.run_pipeline` owns a complete run; `immuknow` is its CLI.
 It loads selected configuration, validates source records and notice
 assignments, and prepares an ordered canonical cohort. Disease normalization,
 vaccine mapping, eligibility, age, grouping, and assignment reconciliation
