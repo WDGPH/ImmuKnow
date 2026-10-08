@@ -49,6 +49,7 @@ viper = "pipeline.orchestrator:main"
 [tool.coverage.run]
 source = ["pipeline"]
 omit = ["*/__pycache__/*", "*/site-packages/*"]
+patch = ["subprocess"]
 
 [tool.coverage.report]
 exclude_lines = [
