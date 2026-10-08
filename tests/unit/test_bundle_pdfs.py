@@ -155,9 +155,7 @@ class TestEnsureIds:
         records = make_pdf_records(clients, tmp_path)
 
         # Should not raise
-        bundle_pdfs.ensure_ids(
-            records, attr="school", log_path=tmp_path / "preprocess.log"
-        )
+        bundle_pdfs.ensure_ids(records, attr="school")
 
     def test_ensure_ids_raises_for_missing_identifiers(self, tmp_path: Path) -> None:
         artifact = sample_input.create_test_artifact_payload(
@@ -178,9 +176,7 @@ class TestEnsureIds:
         records = make_pdf_records(clients, tmp_path)
 
         with pytest.raises(ValueError, match="Missing school"):
-            bundle_pdfs.ensure_ids(
-                records, attr="school", log_path=tmp_path / "preprocess.log"
-            )
+            bundle_pdfs.ensure_ids(records, attr="school")
 
 
 @pytest.mark.unit
@@ -263,7 +259,7 @@ class TestPlanBundles:
             run_id="test",
         )
 
-        plans = bundle_pdfs.plan_bundles(config, records, tmp_path / "preprocess.log")
+        plans = bundle_pdfs.plan_bundles(config, records)
 
         assert len(plans) == 3  # 5 records / 2 per bundle = 3 bundles
         assert plans[0].bundle_type == BundleType.SIZE_BASED
@@ -298,7 +294,7 @@ class TestPlanBundles:
             run_id="test",
         )
 
-        plans = bundle_pdfs.plan_bundles(config, records, tmp_path / "preprocess.log")
+        plans = bundle_pdfs.plan_bundles(config, records)
 
         assert all(p.bundle_type == BundleType.SCHOOL_GROUPED for p in plans)
         assert all(p.bundle_identifier in ["school_a", "school_b"] for p in plans)
@@ -330,7 +326,7 @@ class TestPlanBundles:
             run_id="test",
         )
 
-        plans = bundle_pdfs.plan_bundles(config, records, tmp_path / "preprocess.log")
+        plans = bundle_pdfs.plan_bundles(config, records)
 
         assert all(p.bundle_type == BundleType.BOARD_GROUPED for p in plans)
 
@@ -360,7 +356,7 @@ class TestPlanBundles:
             run_id="test",
         )
 
-        plans = bundle_pdfs.plan_bundles(config, records, tmp_path / "preprocess.log")
+        plans = bundle_pdfs.plan_bundles(config, records)
 
         assert plans == []
 

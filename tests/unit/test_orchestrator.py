@@ -2,13 +2,46 @@
 
 from __future__ import annotations
 
+import io
+import json
+import logging
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from immuknow import orchestrator
+from tests.fixtures.sample_input import create_test_input_dataframe
+
+
+def logging_state() -> tuple[
+    int, tuple[logging.Handler, ...], int, tuple[logging.Handler, ...]
+]:
+    root = logging.getLogger()
+    package = logging.getLogger("immuknow")
+    return root.level, tuple(root.handlers), package.level, tuple(package.handlers)
+
+
+@pytest.mark.unit
+def test_import_does_not_configure_host_logging(tmp_path: Path) -> None:
+    script = """
+import logging
+root = logging.getLogger()
+before = root.level, tuple(root.handlers)
+import immuknow.orchestrator
+assert (root.level, tuple(root.handlers)) == before
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 @pytest.mark.unit
@@ -211,6 +244,7 @@ class TestWorkflowBoundaries:
         (config_dir / "parameters.yaml").write_text(
             "pipeline: {before_run: {clear_output_directory: false}}\nqr: {enabled: false}"
         )
+        before_logging = logging_state()
         with patch("builtins.input", return_value="no"):
             assert (
                 orchestrator.run_pipeline(
@@ -219,6 +253,8 @@ class TestWorkflowBoundaries:
                 is None
             )
         assert existing.read_bytes() == b"unchanged"
+        assert logging_state() == before_logging
+        assert not list((output / "logs").glob("run_*.log"))
 
     @pytest.mark.parametrize("source_kind", ["templates", "config", "input"])
     def test_output_cannot_delete_selected_source(
@@ -248,6 +284,7 @@ class TestWorkflowBoundaries:
             assert (selected / "keep").read_text() == "source"
 
     def test_missing_source_fails_before_creating_output(self, tmp_path: Path) -> None:
+        before_logging = logging_state()
         with pytest.raises(FileNotFoundError, match="Input file not found"):
             orchestrator.run_pipeline(
                 tmp_path / "missing.csv",
@@ -255,6 +292,54 @@ class TestWorkflowBoundaries:
                 notice_assignments=tmp_path / "a.json",
             )
         assert not (tmp_path / "output").exists()
+        assert logging_state() == before_logging
+
+    def test_invalid_csv_restores_host_logging_after_accepted_run(
+        self, tmp_path: Path
+    ) -> None:
+        source = tmp_path / "students.csv"
+        frame = create_test_input_dataframe(num_clients=1)
+        frame.loc[0, "date_of_birth"] = "2015-02-30"
+        frame.to_csv(source, index=False)
+        manifest = tmp_path / "assignments.json"
+        manifest.write_text(
+            json.dumps(
+                [
+                    {
+                        "client_id": str(frame.loc[0, "client_id"]),
+                        "template": "overdue_agents_v1.en.typ",
+                    }
+                ]
+            )
+        )
+        output = tmp_path / "output"
+        root = logging.getLogger()
+        package = logging.getLogger("immuknow")
+        original_root, original_package = root.level, package.level
+        root_handler = logging.StreamHandler(io.StringIO())
+        package_handler = logging.StreamHandler(io.StringIO())
+        root.addHandler(root_handler)
+        package.addHandler(package_handler)
+        root.setLevel(logging.WARNING)
+        package.setLevel(logging.ERROR)
+        expected = logging_state()
+        try:
+            with pytest.raises(ValueError, match="date_of_birth"):
+                orchestrator.run_pipeline(source, output, notice_assignments=manifest)
+            assert logging_state() == expected
+            logs = list((output / "logs").glob("run_*.log"))
+            assert len(logs) == 1
+            text = logs[0].read_text(encoding="utf-8")
+            assert "Run started" in text
+            assert "Run failed" in text and "date_of_birth" in text
+            assert not list((output / "metadata").glob("completion_*.json"))
+        finally:
+            root.removeHandler(root_handler)
+            root_handler.close()
+            package.removeHandler(package_handler)
+            package_handler.close()
+            root.setLevel(original_root)
+            package.setLevel(original_package)
 
 
 @pytest.mark.unit

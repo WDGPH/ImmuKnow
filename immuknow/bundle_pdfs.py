@@ -22,7 +22,6 @@ from .compile_notices import check_expected_notices
 from .data_models import ClientRecord, PDFRecord, RenderJob
 
 LOG = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 
 @dataclass(frozen=True)
@@ -153,20 +152,15 @@ def slugify(value: str) -> str:
     return re.sub(r"_+", "_", cleaned).strip("_").lower() or "unknown"
 
 
-def ensure_ids(records: Sequence[PDFRecord], *, attr: str, log_path: Path) -> None:
+def ensure_ids(records: Sequence[PDFRecord], *, attr: str) -> None:
     missing = [
         record for record in records if not getattr(record.client, attr).get("id")
     ]
     if missing:
         sample = missing[0]
         raise ValueError(
-            "Missing {attr} for client {client} (sequence {sequence});\n"
-            "Cannot bundle without identifiers. See {log_path} for preprocessing warnings.".format(
-                attr=attr.replace("_", " "),
-                client=sample.client_id,
-                sequence=sample.sequence,
-                log_path=log_path,
-            )
+            f"Missing {attr} identifier for client {sample.client_id} "
+            f"(sequence {sample.sequence}); cannot group notices by {attr}."
         )
 
 
@@ -178,9 +172,7 @@ def group_records(records: Sequence[PDFRecord], key: str) -> dict[str, List[PDFR
     return dict(sorted(grouped.items(), key=lambda item: item[0]))
 
 
-def plan_bundles(
-    config: BundleConfig, records: List[PDFRecord], log_path: Path
-) -> List[BundlePlan]:
+def plan_bundles(config: BundleConfig, records: List[PDFRecord]) -> List[BundlePlan]:
     """Plan how to group PDFs into bundles based on configuration.
 
     Parameters
@@ -189,8 +181,6 @@ def plan_bundles(
         Bundling configuration including strategy and bundle size
     records : List[PDFRecord]
         List of PDF records to bundle
-    log_path : Path
-        Path to logging file
 
     Returns
     -------
@@ -203,7 +193,7 @@ def plan_bundles(
     plans: List[BundlePlan] = []
 
     if config.bundle_strategy == BundleStrategy.SCHOOL:
-        ensure_ids(records, attr="school", log_path=log_path)
+        ensure_ids(records, attr="school")
         grouped = group_records(records, "school")
         for identifier, items in grouped.items():
             total_bundles = (len(items) + config.bundle_size - 1) // config.bundle_size
@@ -220,7 +210,7 @@ def plan_bundles(
         return plans
 
     if config.bundle_strategy == BundleStrategy.BOARD:
-        ensure_ids(records, attr="board", log_path=log_path)
+        ensure_ids(records, attr="board")
         grouped = group_records(records, "board")
         for identifier, items in grouped.items():
             total_bundles = (len(items) + config.bundle_size - 1) // config.bundle_size
@@ -391,8 +381,7 @@ def bundle_notices(
         LOG.info("The cohort is empty; nothing to bundle.")
         return []
 
-    log_path = config.output_dir / "logs" / f"preprocess_{config.run_id}.log"
-    plans = plan_bundles(config, records, log_path)
+    plans = plan_bundles(config, records)
     planned = [record.pdf_path for plan in plans for record in plan.clients]
     if len(planned) != len(records) or set(planned) != {
         record.pdf_path for record in records

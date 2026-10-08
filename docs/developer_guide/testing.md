@@ -67,3 +67,7 @@ their own assets and wording.
 Tests that fail on an error-level validation finding or incomplete output set
 must remain meaningful; do not update a snapshot or weaken an assertion merely
 to obtain a pass.
+
+Check that one run log covers preparation and later stages, and that both
+success and failure remove the run handler without changing caller logging.
+Failure tests should also verify that incomplete output is not delivered.

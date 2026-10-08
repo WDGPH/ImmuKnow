@@ -23,7 +23,6 @@ from .enums import TemplateField
 from .utils import build_client_context, validate_and_format_template
 
 LOG = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 # Allowed template fields for QR payloads (from centralized enum)
 SUPPORTED_QR_TEMPLATE_FIELDS = TemplateField.all_values()

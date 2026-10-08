@@ -8,12 +8,15 @@ import re
 from dataclasses import asdict
 from datetime import date, datetime, timezone
 from hashlib import sha1
-from pathlib import Path
 from importlib.resources import files
+from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple
-import pandas as pd
-from frictionless import Detector, Schema, validate as fl_validate
 
+import pandas as pd
+from frictionless import Detector, Schema
+from frictionless import validate as fl_validate
+
+from . import validate_phix
 from .assignment_manifest import (
     ManifestRow,
     ReconciliationError,
@@ -25,13 +28,11 @@ from .data_models import (
     ClientRecord,
     PreprocessResult,
 )
-from .notice_versioning import NoticeVersionCatalog, attach_notice
 from .normalization import load_normalization, normalize_disease
+from .notice_versioning import NoticeVersionCatalog, attach_notice
 
-SCRIPT_DIR = Path(__file__).resolve().parent
 CONFIG_DIR = Path(str(files("immuknow").joinpath("config")))
 VACCINE_REFERENCE_PATH = CONFIG_DIR / "vaccine_reference.json"
-PARAMETERS_PATH = CONFIG_DIR / "parameters.yaml"
 
 LOG = logging.getLogger(__name__)
 
@@ -49,7 +50,6 @@ INPUT_SCHEMA_PATH = CONFIG_DIR / "input_schema.json"
 def prepare_clients(
     input_path: Path,
     output_dir: Path,
-    run_id: str,
     config: dict,
     config_dir: Path,
     catalog: NoticeVersionCatalog,
@@ -60,7 +60,6 @@ def prepare_clients(
 
     Raises ReconciliationError with findings when assignments fail preflight.
     """
-    configure_logging(output_dir, run_id)
     schema = config_dir / "input_schema.json"
     frame = read_input(input_path, schema if schema.exists() else None)
     frame = check_addresses_complete(frame, drop_incomplete=True, output_dir=output_dir)
@@ -98,6 +97,71 @@ def prepare_clients(
         manifest=manifest,
     )
     return PreprocessResult(result.clients, warnings + result.warnings), reconciliation
+
+
+def validate_csv_path(file_path: Path) -> None:
+    """Reject missing or non-CSV input before any output cleanup."""
+    if not file_path.is_file():
+        raise FileNotFoundError(f"Input file not found: {file_path}")
+    if file_path.suffix.lower() != ".csv":
+        raise ValueError(f"Input must be a CSV file: {file_path}")
+
+
+def read_input(file_path: Path, schema_path: Path | None = None) -> pd.DataFrame:
+    """Read and trim CSV text once, then validate it against the selected schema."""
+    validate_csv_path(file_path)
+    for encoding in ("utf-8-sig", "latin-1", "cp1252"):
+        try:
+            frame = pd.read_csv(
+                file_path,
+                sep=None,
+                encoding=encoding,
+                engine="python",
+                dtype=str,
+                keep_default_na=False,
+            )
+        except (UnicodeDecodeError, pd.errors.ParserError):
+            continue
+        LOG.info("Loaded %s rows from %s", len(frame), file_path)
+        return validate_input(normalize_dataframe(frame), schema_path)
+    raise ValueError("Could not decode CSV with common encodings or delimiters")
+
+
+def normalize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """Prepare all CSV fields as trimmed strings, with empty strings for blanks."""
+    return df.fillna("").astype(str).apply(lambda column: column.str.strip())
+
+
+def validate_input(
+    frame: pd.DataFrame, schema_path: Path | None = None
+) -> pd.DataFrame:
+    """Validate prepared values and supply empty strings for absent optional fields."""
+    descriptor = json.loads(
+        (schema_path or INPUT_SCHEMA_PATH).read_text(encoding="utf-8")
+    )
+    schema = Schema.from_descriptor(descriptor)
+    missing = [field.name for field in schema.fields if field.name not in frame.columns]
+    report = fl_validate(
+        [list(frame.columns), *frame.values.tolist()],
+        schema=schema,
+        detector=Detector(schema_sync=True),
+    )
+
+    if not report.valid:
+        errors = report.flatten(["message"])
+        raise ValueError(
+            "Input file does not conform to expected schema:\n"
+            + "\n".join(f"  - {e[0]}" for e in errors)
+        )
+
+    prepared = frame.reindex(columns=[*frame.columns, *missing], fill_value="")
+    for field in schema.fields:
+        if field.type == "date":
+            prepared[field.name] = [
+                value.isoformat() if value is not None else ""
+                for value, _ in map(field.read_cell, prepared[field.name])
+            ]
+    return prepared
 
 
 def check_addresses_complete(
@@ -201,630 +265,58 @@ def check_client_info_complete(
         return df.drop(columns=["client_info_complete"])
 
 
-def convert_date_iso(date_str: str) -> str:
-    """Parse a source immunization date and return an ISO calendar date.
-
-    Expects "Mon DD, YYYY" (e.g., "May 8, 2025") in the source export.
-
-    Parameters
-    ----------
-    date_str : str
-        Date in English display format (e.g., "May 8, 2025").
-
-    Returns
-    -------
-    str
-        Date in ISO format (YYYY-MM-DD).
-    """
-    date_obj = datetime.strptime(date_str, "%b %d, %Y")
-    return date_obj.strftime("%Y-%m-%d")
-
-
-def calculate_age_at_date(date_of_birth, date_notice_delivery):
-    """Calculate a client's age on notice delivery date.
-
-    Parameters
-    ----------
-    date_of_birth : str
-        Date of birth in YYYY-MM-DD format.
-    date_notice_delivery : str
-        Notice delivery date in YYYY-MM-DD format.
-
-    Returns
-    -------
-    int
-        The client's age on date_notice_delivery.
-    """
-
-    birth_datetime = datetime.strptime(date_of_birth, "%Y-%m-%d")
-    delivery_datetime = datetime.strptime(date_notice_delivery, "%Y-%m-%d")
-
-    age = delivery_datetime.year - birth_datetime.year
-
-    # Adjust if birthday hasn't occurred yet in the DOV month
-    if (delivery_datetime.month < birth_datetime.month) or (
-        delivery_datetime.month == birth_datetime.month
-        and delivery_datetime.day < birth_datetime.day
-    ):
-        age -= 1
-
-    return age
-
-
-def configure_logging(output_dir: Path, run_id: str) -> Path:
-    """Configure file logging for the preprocessing step.
-
-    Parameters
-    ----------
-    output_dir : Path
-        Root output directory where logs subdirectory will be created.
-    run_id : str
-        Unique run identifier used in log filename.
-
-    Returns
-    -------
-    Path
-        Path to the created log file.
-    """
-    log_dir = output_dir / "logs"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    log_path = log_dir / f"preprocess_{run_id}.log"
-
-    handler = logging.FileHandler(log_path, encoding="utf-8")
-    formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
-    handler.setFormatter(formatter)
-
-    root_logger = logging.getLogger()
-    root_logger.handlers.clear()
-    root_logger.setLevel(logging.INFO)
-    root_logger.addHandler(handler)
-
-    return log_path
-
-
-def validate_csv_path(file_path: Path) -> None:
-    """Reject missing or non-CSV input before any output cleanup."""
-    if not file_path.is_file():
-        raise FileNotFoundError(f"Input file not found: {file_path}")
-    if file_path.suffix.lower() != ".csv":
-        raise ValueError(f"Input must be a CSV file: {file_path}")
-
-
-def read_input(file_path: Path, schema_path: Path | None = None) -> pd.DataFrame:
-    """Read and trim CSV text once, then validate it against the selected schema."""
-    validate_csv_path(file_path)
-    for encoding in ("utf-8-sig", "latin-1", "cp1252"):
-        try:
-            frame = pd.read_csv(
-                file_path,
-                sep=None,
-                encoding=encoding,
-                engine="python",
-                dtype=str,
-                keep_default_na=False,
-            )
-        except (UnicodeDecodeError, pd.errors.ParserError):
-            continue
-        LOG.info("Loaded %s rows from %s", len(frame), file_path)
-        return validate_input(normalize_dataframe(frame), schema_path)
-    raise ValueError("Could not decode CSV with common encodings or delimiters")
-
-
-def validate_input(
-    frame: pd.DataFrame, schema_path: Path | None = None
-) -> pd.DataFrame:
-    """Validate prepared values and supply empty strings for absent optional fields."""
-    descriptor = json.loads(
-        (schema_path or INPUT_SCHEMA_PATH).read_text(encoding="utf-8")
-    )
-    schema = Schema.from_descriptor(descriptor)
-    missing = [field.name for field in schema.fields if field.name not in frame.columns]
-    report = fl_validate(
-        [list(frame.columns), *frame.values.tolist()],
-        schema=schema,
-        detector=Detector(schema_sync=True),
-    )
-
-    if not report.valid:
-        errors = report.flatten(["message"])
-        raise ValueError(
-            "Input file does not conform to expected schema:\n"
-            + "\n".join(f"  - {e[0]}" for e in errors)
-        )
-
-    prepared = frame.reindex(columns=[*frame.columns, *missing], fill_value="")
-    for field in schema.fields:
-        if field.type == "date":
-            prepared[field.name] = [
-                value.isoformat() if value is not None else ""
-                for value, _ in map(field.read_cell, prepared[field.name])
-            ]
-    return prepared
-
-
-def parse_overdue_diseases(
-    raw: Any,
-    normalization: dict[str, str],
+def run_phix_validation(
+    df: pd.DataFrame,
+    output_dir: Path,
     *,
-    client_id: str,
-    warnings: set[str],
-) -> list[dict[str, object]]:
-    """Preserve configured disease names and source dose information without display wording."""
-    if not isinstance(raw, str) or not raw.strip():
-        return []
+    config: dict[str, Any],
+    config_dir: Path,
+) -> tuple[pd.DataFrame, list[str]]:
+    """Validate school names against the PHIX mapping file.
 
-    entries: list[dict[str, object]] = []
-    for token in raw.split(";"):
-        token = token.strip().replace("'", "").replace('"', "")
-        if not token:
-            continue
-        disease, separator, dose_raw = token.rpartition(" -")
-        if not separator:
-            entries.append(
-                {"disease": normalize_disease(token, normalization), "dose": None}
-            )
-            continue
-
-        disease = normalize_disease(disease, normalization)
-        dose_raw = dose_raw.strip()
-        if not disease:
-            raise ValueError(f"Empty overdue disease for client {client_id}: {token!r}")
-        if dose_raw.isdecimal() and int(dose_raw) > 0:
-            entries.append({"disease": disease, "dose": int(dose_raw)})
-            continue
-
-        warnings.add(
-            f"Invalid overdue dose for client {client_id}: {disease} - {dose_raw!r}. "
-            "Displaying disease without a dose number."
-        )
-        entries.append({"disease": disease, "dose": None, "dose_raw": dose_raw})
-
-    return entries
-
-
-def normalize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    """Prepare all CSV fields as trimmed strings, with empty strings for blanks."""
-    return df.fillna("").astype(str).apply(lambda column: column.str.strip())
-
-
-def synthesize_identifier(existing: str, source: str, prefix: str) -> str:
-    """Generate a deterministic identifier if one is not provided."""
-    existing = (existing or "").strip()
-    if existing:
-        return existing
-
-    base = (source or "").strip().lower() or "unknown"
-    digest = sha1(base.encode("utf-8")).hexdigest()[:10]
-    return f"{prefix}_{digest}"
-
-
-def parse_overdue_agents(raw: Any) -> list[str]:
-    """Keep source agent names separate from disease eligibility."""
-    if not isinstance(raw, str) or not raw.strip():
-        return []
-    return [
-        token.strip().replace("'", "").replace('"', "")
-        for token in raw.split(";")
-        if token.strip()
-    ]
-
-
-def normalize_validity_status(raw_status: Any) -> str:
-    """Normalize a raw validity token to one of three supported statuses.
-
-    Only the exact casings "valid"/"Valid" and "invalid"/"Invalid" are
-    accepted as known statuses; everything else — typos, alternate casings,
-    empty strings, None, NaN — maps to "unknown". This strict gate prevents
-    ambiguous data from silently influencing validity markers on notices.
+    Reads supplied ``phix_validation`` config. Returns the
+    DataFrame unchanged (with no warnings) when validation is disabled or
+    ``mapping_file`` is not set.
 
     Parameters
     ----------
-    raw_status : Any
-        Raw value extracted from an imms_given segment, or any value that
-        needs to be converted to a supported status. Typically a str, but
-        accepts Any so callers need not guard against None or NaN.
+    df:
+        Normalized DataFrame (output of ``check_addresses_complete``).
+    output_dir:
+        Directory where result CSVs (``phix_exact.csv``, etc.) are written.
 
     Returns
     -------
-    str
-        One of ``"valid"``, ``"invalid"``, or ``"unknown"``.
-
-    Examples
-    --------
-    >>> normalize_validity_status("Valid")
-    'valid'
-    >>> normalize_validity_status("")
-    'unknown'
-    >>> normalize_validity_status(None)
-    'unknown'
+    tuple[DataFrame, list[str]]
+        Enriched DataFrame and a (possibly empty) list of warning strings.
     """
-    status = str(raw_status).strip()
-    if status in {"valid", "Valid"}:
-        return "valid"
-    if status in {"invalid", "Invalid"}:
-        return "invalid"
-    return "unknown"
+    phix_config = config.get("phix_validation", {})
 
+    if not phix_config.get("enabled", False):
+        return df, []
 
-def collapse_validity_statuses(statuses: List[Any]) -> str:
-    """Collapse multiple validity statuses using strict precedence.
+    mapping_file = phix_config.get("mapping_file", "")
+    if not mapping_file:
+        LOG.warning("phix_validation.enabled is true but mapping_file is not set.")
+        return df, []
 
-    Precedence:
+    target_phu = phix_config.get("target_phu", "")
+    if not target_phu:
+        LOG.warning("phix_validation.target_phu is not set — skipping PHIX validation.")
+        return df, []
 
-    1. mixed (if both valid and invalid are present and no unknown)
-    2. valid (if at least one valid is present and no unknown)
-    3. invalid (if invalid is present and no unknown)
-    4. unknown (otherwise)
-    """
-    normalized = [normalize_validity_status(s) for s in statuses]
+    mapping_path = Path(mapping_file)
+    if not mapping_path.is_absolute():
+        mapping_path = (config_dir / mapping_path).resolve()
 
-    has_valid = "valid" in normalized
-    has_invalid = "invalid" in normalized
-    has_unknown = "unknown" in normalized
-
-    if has_valid and has_invalid and not has_unknown:
-        return "mixed"
-
-    # "All valid" / "all invalid" only when no unknowns are present
-    if has_valid and not has_unknown:
-        return "valid"
-    if has_invalid and not has_unknown:
-        return "invalid"
-
-    # anything involving unknown (or empty) stays unknown
-    return "unknown"
-
-
-def classify_dataset_validity(
-    imms_given_series: pd.Series,
-) -> Literal["all_present", "all_absent", "mixed"]:
-    """Scan all imms_given values and classify dataset-level validity coverage.
-
-    Performs a pre-pass over the full dataset before the per-client loop so
-    that a single, accurate dataset-level decision can be made about whether
-    to show warnings, raise errors, or proceed normally. This avoids the
-    unreliable alternative of accumulating per-record ``"unknown"`` counts,
-    which can mask a structurally inconsistent dataset.
-
-    Called once by ``build_preprocess_result`` immediately before the client
-    loop. Its return value determines which branch of the warning/error logic
-    fires; see the behaviour table in the module docstring.
-
-    Parameters
-    ----------
-    imms_given_series : pd.Series
-        The ``imms_given`` column of the normalized working DataFrame.
-        Each element is a semicolon-delimited string of dose segments such as
-        ``"May 1, 2020 - DTaP - Valid; Jun 15, 2021 - MMR"``.
-        NaN values and empty strings are silently skipped.
-
-    Returns
-    -------
-    Literal["all_present", "all_absent", "mixed"]
-        ``"all_present"``
-            Every dose segment in the dataset that contains a recognisable
-            date entry also carries a ``- Valid`` or ``- Invalid`` suffix.
-
-        ``"all_absent"``
-            No dose segment carries a validity suffix, or the series
-            contains no recognisable dose entries at all.
-
-        ``"mixed"``
-            At least one segment has a suffix and at least one does not.
-            This state causes a ``ValueError`` when
-            ``show_validity_markers`` is ``True``.
-
-    Notes
-    -----
-    - Pure scan — no side effects, no logging.
-    - O(n × d) where n is the number of rows and d is the average number
-      of dose segments per row; short-circuits as soon as ``"mixed"`` is
-      confirmed.
-    """
-    with_validity = re.compile(r" - (?:[Vv]alid|[Ii]nvalid)(?=;|$)")
-    dose_entry = re.compile(r"\w{3} \d{1,2}, \d{4}")
-
-    has_with = False
-    has_without = False
-
-    for raw in imms_given_series:
-        if not isinstance(raw, str) or not raw.strip():
-            continue
-        for segment in raw.split(";"):
-            segment = segment.strip()
-            if not dose_entry.search(segment):
-                continue
-            if with_validity.search(segment):
-                has_with = True
-            else:
-                has_without = True
-            if has_with and has_without:
-                return "mixed"
-
-    return "all_present" if has_with else "all_absent"
-
-
-def parse_dose_segments(
-    received_agents: Any, replace_unspecified: List[str]
-) -> List[Dict[str, str]]:
-    """Parse an imms_given string into a flat sorted list of individual dose entries.
-
-    Extracts individual dose entries from a semicolon-delimited string,
-    normalizes dates to ISO format, normalizes validity to one of
-    ``"valid"`` / ``"invalid"`` / ``"unknown"``, and filters unwanted
-    vaccine names.  Unlike the former ``process_received_agents``, this
-    function does *not* group by date — grouping and disease-expansion are
-    handled by ``build_received_rows``.
-
-    Parameters
-    ----------
-    received_agents : Any
-        Raw imms_given cell value.  Must be a non-empty ``str`` to be
-        parsed; any other type returns ``[]``.
-        Expected format per segment: ``"MMM D, YYYY - VaccineName"`` or
-        ``"MMM D, YYYY - VaccineName - Valid|Invalid"``.
-    replace_unspecified : List[str]
-        Vaccine names to silently drop (e.g. ``["Not Specified"]``).
-
-    Returns
-    -------
-    List[Dict[str, str]]
-        Flat list of ``{"date_given": str, "vaccine": str, "validity": str}``
-        dicts, sorted ascending by date.  Returns ``[]`` if
-        ``received_agents`` is not a parseable string or contains no
-        recognisable dose segments after filtering.
-    """
-    if not isinstance(received_agents, str) or not received_agents.strip():
-        return []
-
-    pattern = re.compile(
-        r"(\w{3} \d{1,2}, \d{4}) - (.*?)(?:\s*-\s*([Vv]alid|[Ii]nvalid))?(?=;|$)"
+    return validate_phix.validate_schools(
+        df=df,
+        mapping_path=mapping_path,
+        target_phu=target_phu,
+        output_dir=output_dir,
+        unmatched_behavior=phix_config.get("unmatched_behavior", "warn"),
+        column_prefix=phix_config.get("column_prefix", "phix_"),
     )
-
-    rows: List[Dict[str, str]] = []
-    for date_str, vaccine, raw_valid in pattern.findall(received_agents):
-        vaccine = vaccine.strip()
-        vaccine = vaccine.replace("-unspecified", "*").replace(" unspecified", "*")
-        if vaccine in replace_unspecified:
-            continue
-        rows.append(
-            {
-                "date_given": convert_date_iso(date_str.strip()),
-                "vaccine": vaccine,
-                "validity": normalize_validity_status(raw_valid),
-            }
-        )
-
-    rows.sort(key=lambda item: item["date_given"])
-    return rows
-
-
-def _deduplicate_vaccines_for_date(
-    date_doses: List[Dict[str, str]],
-    vaccine_reference: Dict[str, Any],
-) -> List[Dict[str, Any]]:
-    """Collapse same-vaccine doses and expand each unique vaccine to its diseases.
-
-    Multiple doses of the same vaccine on one date are reduced to a single
-    entry whose validity follows ``unknown > valid > invalid`` precedence:
-    any unknown status dominates (data quality signal), then any valid,
-    then all-invalid.
-
-    Parameters
-    ----------
-    date_doses : List[Dict[str, str]]
-        Flat dose entries for a single date from ``parse_dose_segments``,
-        each with ``{"vaccine": str, "validity": str}``.
-    vaccine_reference : Dict[str, Any]
-        Maps vaccine codes to a single disease name or list of disease names.
-
-    Returns
-    -------
-    List[Dict[str, Any]]
-        One entry per unique vaccine name with
-        ``{"vaccine": str, "diseases": List[str], "validity": str}``.
-    """
-    by_vaccine: Dict[str, List[str]] = {}
-    for dose in date_doses:
-        by_vaccine.setdefault(dose["vaccine"], []).append(dose["validity"])
-
-    result: List[Dict[str, Any]] = []
-    for vaccine, statuses in by_vaccine.items():
-        if "unknown" in statuses:
-            validity = "unknown"
-        elif "valid" in statuses:
-            validity = "valid"
-        else:
-            validity = "invalid"
-
-        ref = vaccine_reference.get(vaccine, vaccine)
-        diseases: List[str] = ref if isinstance(ref, list) else [ref]
-
-        result.append({"vaccine": vaccine, "diseases": diseases, "validity": validity})
-
-    return result
-
-
-def compute_column_statuses(
-    vaccines: List[Dict[str, Any]],
-    chart_diseases_header: List[str],
-) -> Dict[str, str]:
-    """Compute per-column validity status for a set of vaccine entries.
-
-    For each named disease in the header, collects the validity of all
-    vaccines that contribute to that disease and collapses using
-    ``unknown > mixed > valid > invalid`` precedence.  The ``"Other"``
-    column captures any vaccine that contributes at least one disease
-    not found in the named-disease set.
-
-    ``"mixed"`` is produced when both ``"valid"`` and ``"invalid"``
-    contribute to a column with no ``"unknown"`` — meaning different
-    vaccines have conflicting validity for that column on this date.
-
-    Parameters
-    ----------
-    vaccines : List[Dict[str, Any]]
-        Vaccine entries from ``_deduplicate_vaccines_for_date``, each
-        with ``{"vaccine": str, "diseases": List[str], "validity": str}``.
-    chart_diseases_header : List[str]
-        Ordered disease column headers.  ``"Other"`` (if present) acts
-        as a catch-all for unmapped diseases.
-
-    Returns
-    -------
-    Dict[str, str]
-        Column name → one of ``"valid"``, ``"invalid"``, ``"unknown"``,
-        or ``"mixed"``.  Only columns with at least one contributing
-        vaccine are included.
-    """
-    named = {d for d in chart_diseases_header if d != "Other"}
-    has_other_col = "Other" in chart_diseases_header
-
-    column_statuses: Dict[str, List[str]] = {}
-
-    for vax in vaccines:
-        for disease in vax["diseases"]:
-            if disease in named:
-                column_statuses.setdefault(disease, []).append(vax["validity"])
-        if has_other_col and any(d not in named for d in vax["diseases"]):
-            column_statuses.setdefault("Other", []).append(vax["validity"])
-
-    result: Dict[str, str] = {}
-    for col, statuses in column_statuses.items():
-        has_unknown = "unknown" in statuses
-        has_valid = "valid" in statuses
-        has_invalid = "invalid" in statuses
-        if has_unknown:
-            result[col] = "unknown"
-        elif has_valid and has_invalid:
-            result[col] = "mixed"
-        elif has_valid:
-            result[col] = "valid"
-        else:
-            result[col] = "invalid"
-
-    return result
-
-
-def _split_into_rows(
-    vaccines: List[Dict[str, Any]],
-    chart_diseases_header: List[str],
-) -> List[Dict[str, Any]]:
-    """Recursively split vaccines into rows so that no column has a mixed status.
-
-    When ``compute_column_statuses`` finds a ``"mixed"`` column, the
-    vaccines are partitioned: all ``"valid"`` vaccines go to the first
-    row (guaranteed non-mixed since they share no status conflicts with
-    the remaining set), and all ``"invalid"``/``"unknown"`` vaccines
-    recurse as the second row.  Because the second row contains no
-    ``"valid"`` vaccines, it can never produce ``"mixed"``; recursion
-    always terminates within one additional level.
-
-    Parameters
-    ----------
-    vaccines : List[Dict[str, Any]]
-        Vaccine entries for a single date (same shape as
-        ``_deduplicate_vaccines_for_date`` output).
-    chart_diseases_header : List[str]
-        Header order; the first mixed column in this order triggers the
-        split.
-
-    Returns
-    -------
-    List[Dict[str, Any]]
-        One or more ``{"vaccines": List[Dict], "columns": Dict[str, str]}``
-        dicts.  All column statuses are non-mixed.
-    """
-    columns = compute_column_statuses(vaccines, chart_diseases_header)
-
-    mixed_col = next(
-        (col for col in chart_diseases_header if columns.get(col) == "mixed"),
-        None,
-    )
-
-    if mixed_col is None:
-        return [{"vaccines": vaccines, "columns": columns}]
-
-    row1_vaccines = [v for v in vaccines if v["validity"] == "valid"]
-    row2_vaccines = [v for v in vaccines if v["validity"] != "valid"]
-
-    row1_columns = compute_column_statuses(row1_vaccines, chart_diseases_header)
-    return [{"vaccines": row1_vaccines, "columns": row1_columns}] + _split_into_rows(
-        row2_vaccines, chart_diseases_header
-    )
-
-
-def build_received_rows(
-    received_agents: Any,
-    replace_unspecified: List[str],
-    vaccine_reference: Dict[str, Any],
-    chart_diseases_header: List[str],
-    show_validity_markers: bool = False,
-) -> List[Dict[str, Any]]:
-    """Parse imms_given into display rows with pre-computed per-column validity.
-
-    Orchestrates ``parse_dose_segments`` → ``_deduplicate_vaccines_for_date``
-    → ``_split_into_rows`` for each administration date.  Dates whose
-    vaccines would produce a ``"mixed"`` column status are split into
-    separate rows: valid vaccines on the first row, others on subsequent
-    rows.  The ``date_rowspan`` field carries the row-merge count so that
-    Typst can render a single merged date cell spanning all rows of a date.
-
-    Parameters
-    ----------
-    received_agents : Any
-        Raw imms_given cell value.
-    replace_unspecified : List[str]
-        Vaccine names to suppress.
-    vaccine_reference : Dict[str, Any]
-        Vaccine-to-disease mapping.
-    chart_diseases_header : List[str]
-        Ordered disease column headers (used for column assignment and
-        split ordering).
-
-    Returns
-    -------
-    List[Dict[str, Any]]
-        Flat list of display rows, each with::
-
-            {
-                "date_given":   str,            # ISO date
-                "date_rowspan": int,            # N on first row, 0 on continuations
-                "vaccines":     List[str],      # display vaccine names for this row
-                "columns":      Dict[str, str], # column name → validity status
-            }
-    """
-    flat = parse_dose_segments(received_agents, replace_unspecified)
-    if not flat:
-        return []
-
-    by_date: Dict[str, List[Dict[str, str]]] = {}
-    for dose in flat:
-        by_date.setdefault(dose["date_given"], []).append(
-            {"vaccine": dose["vaccine"], "validity": dose["validity"]}
-        )
-
-    rows: List[Dict[str, Any]] = []
-    for given_date, doses in by_date.items():
-        vaccines = _deduplicate_vaccines_for_date(doses, vaccine_reference)
-        date_rows: List[Dict[str, Any]]
-        if show_validity_markers:
-            date_rows = _split_into_rows(vaccines, chart_diseases_header)
-        else:
-            columns = compute_column_statuses(vaccines, chart_diseases_header)
-            date_rows = [{"vaccines": vaccines, "columns": columns}]
-        n = len(date_rows)
-        for i, row in enumerate(date_rows):
-            rows.append(
-                {
-                    "date_given": given_date,
-                    "date_rowspan": n if i == 0 else 0,
-                    "vaccines": [v["vaccine"] for v in row["vaccines"]],
-                    "columns": row["columns"],
-                }
-            )
-
-    return rows
 
 
 def build_preprocess_result(
@@ -1075,62 +567,534 @@ def build_preprocess_result(
     )
 
 
-def run_phix_validation(
-    df: pd.DataFrame,
-    output_dir: Path,
-    *,
-    config: dict[str, Any],
-    config_dir: Path,
-) -> tuple[pd.DataFrame, list[str]]:
-    """Validate school names against the PHIX mapping file.
+def synthesize_identifier(existing: str, source: str, prefix: str) -> str:
+    """Generate a deterministic identifier if one is not provided."""
+    existing = (existing or "").strip()
+    if existing:
+        return existing
 
-    Reads supplied ``phix_validation`` config. Returns the
-    DataFrame unchanged (with no warnings) when validation is disabled or
-    ``mapping_file`` is not set.
+    base = (source or "").strip().lower() or "unknown"
+    digest = sha1(base.encode("utf-8")).hexdigest()[:10]
+    return f"{prefix}_{digest}"
+
+
+def parse_overdue_diseases(
+    raw: Any,
+    normalization: dict[str, str],
+    *,
+    client_id: str,
+    warnings: set[str],
+) -> list[dict[str, object]]:
+    """Preserve configured disease names and source dose information without display wording."""
+    if not isinstance(raw, str) or not raw.strip():
+        return []
+
+    entries: list[dict[str, object]] = []
+    for token in raw.split(";"):
+        token = token.strip().replace("'", "").replace('"', "")
+        if not token:
+            continue
+        disease, separator, dose_raw = token.rpartition(" -")
+        if not separator:
+            entries.append(
+                {"disease": normalize_disease(token, normalization), "dose": None}
+            )
+            continue
+
+        disease = normalize_disease(disease, normalization)
+        dose_raw = dose_raw.strip()
+        if not disease:
+            raise ValueError(f"Empty overdue disease for client {client_id}: {token!r}")
+        if dose_raw.isdecimal() and int(dose_raw) > 0:
+            entries.append({"disease": disease, "dose": int(dose_raw)})
+            continue
+
+        warnings.add(
+            f"Invalid overdue dose for client {client_id}: {disease} - {dose_raw!r}. "
+            "Displaying disease without a dose number."
+        )
+        entries.append({"disease": disease, "dose": None, "dose_raw": dose_raw})
+
+    return entries
+
+
+def parse_overdue_agents(raw: Any) -> list[str]:
+    """Keep source agent names separate from disease eligibility."""
+    if not isinstance(raw, str) or not raw.strip():
+        return []
+    return [
+        token.strip().replace("'", "").replace('"', "")
+        for token in raw.split(";")
+        if token.strip()
+    ]
+
+
+def calculate_age_at_date(date_of_birth, date_notice_delivery):
+    """Calculate a client's age on notice delivery date.
 
     Parameters
     ----------
-    df:
-        Normalized DataFrame (output of ``check_addresses_complete``).
-    output_dir:
-        Directory where result CSVs (``phix_exact.csv``, etc.) are written.
+    date_of_birth : str
+        Date of birth in YYYY-MM-DD format.
+    date_notice_delivery : str
+        Notice delivery date in YYYY-MM-DD format.
 
     Returns
     -------
-    tuple[DataFrame, list[str]]
-        Enriched DataFrame and a (possibly empty) list of warning strings.
+    int
+        The client's age on date_notice_delivery.
     """
-    phix_config = config.get("phix_validation", {})
 
-    if not phix_config.get("enabled", False):
-        return df, []
+    birth_datetime = datetime.strptime(date_of_birth, "%Y-%m-%d")
+    delivery_datetime = datetime.strptime(date_notice_delivery, "%Y-%m-%d")
 
-    mapping_file = phix_config.get("mapping_file", "")
-    if not mapping_file:
-        LOG.warning("phix_validation.enabled is true but mapping_file is not set.")
-        return df, []
+    age = delivery_datetime.year - birth_datetime.year
 
-    target_phu = phix_config.get("target_phu", "")
-    if not target_phu:
-        LOG.warning("phix_validation.target_phu is not set — skipping PHIX validation.")
-        return df, []
+    # Adjust if birthday hasn't occurred yet in the DOV month
+    if (delivery_datetime.month < birth_datetime.month) or (
+        delivery_datetime.month == birth_datetime.month
+        and delivery_datetime.day < birth_datetime.day
+    ):
+        age -= 1
 
-    from . import (
-        validate_phix,
-    )  # local import avoids circular dependency at module load
+    return age
 
-    mapping_path = Path(mapping_file)
-    if not mapping_path.is_absolute():
-        mapping_path = (config_dir / mapping_path).resolve()
 
-    return validate_phix.validate_schools(
-        df=df,
-        mapping_path=mapping_path,
-        target_phu=target_phu,
-        output_dir=output_dir,
-        unmatched_behavior=phix_config.get("unmatched_behavior", "warn"),
-        column_prefix=phix_config.get("column_prefix", "phix_"),
+def classify_dataset_validity(
+    imms_given_series: pd.Series,
+) -> Literal["all_present", "all_absent", "mixed"]:
+    """Scan all imms_given values and classify dataset-level validity coverage.
+
+    Performs a pre-pass over the full dataset before the per-client loop so
+    that a single, accurate dataset-level decision can be made about whether
+    to show warnings, raise errors, or proceed normally. This avoids the
+    unreliable alternative of accumulating per-record ``"unknown"`` counts,
+    which can mask a structurally inconsistent dataset.
+
+    Called once by ``build_preprocess_result`` immediately before the client
+    loop. Its return value determines which branch of the warning/error logic
+    fires; see the behaviour table in the module docstring.
+
+    Parameters
+    ----------
+    imms_given_series : pd.Series
+        The ``imms_given`` column of the normalized working DataFrame.
+        Each element is a semicolon-delimited string of dose segments such as
+        ``"May 1, 2020 - DTaP - Valid; Jun 15, 2021 - MMR"``.
+        NaN values and empty strings are silently skipped.
+
+    Returns
+    -------
+    Literal["all_present", "all_absent", "mixed"]
+        ``"all_present"``
+            Every dose segment in the dataset that contains a recognisable
+            date entry also carries a ``- Valid`` or ``- Invalid`` suffix.
+
+        ``"all_absent"``
+            No dose segment carries a validity suffix, or the series
+            contains no recognisable dose entries at all.
+
+        ``"mixed"``
+            At least one segment has a suffix and at least one does not.
+            This state causes a ``ValueError`` when
+            ``show_validity_markers`` is ``True``.
+
+    Notes
+    -----
+    - Pure scan — no side effects, no logging.
+    - O(n × d) where n is the number of rows and d is the average number
+      of dose segments per row; short-circuits as soon as ``"mixed"`` is
+      confirmed.
+    """
+    with_validity = re.compile(r" - (?:[Vv]alid|[Ii]nvalid)(?=;|$)")
+    dose_entry = re.compile(r"\w{3} \d{1,2}, \d{4}")
+
+    has_with = False
+    has_without = False
+
+    for raw in imms_given_series:
+        if not isinstance(raw, str) or not raw.strip():
+            continue
+        for segment in raw.split(";"):
+            segment = segment.strip()
+            if not dose_entry.search(segment):
+                continue
+            if with_validity.search(segment):
+                has_with = True
+            else:
+                has_without = True
+            if has_with and has_without:
+                return "mixed"
+
+    return "all_present" if has_with else "all_absent"
+
+
+def build_received_rows(
+    received_agents: Any,
+    replace_unspecified: List[str],
+    vaccine_reference: Dict[str, Any],
+    chart_diseases_header: List[str],
+    show_validity_markers: bool = False,
+) -> List[Dict[str, Any]]:
+    """Parse imms_given into display rows with pre-computed per-column validity.
+
+    Orchestrates ``parse_dose_segments`` → ``_deduplicate_vaccines_for_date``
+    → ``_split_into_rows`` for each administration date.  Dates whose
+    vaccines would produce a ``"mixed"`` column status are split into
+    separate rows: valid vaccines on the first row, others on subsequent
+    rows.  The ``date_rowspan`` field carries the row-merge count so that
+    Typst can render a single merged date cell spanning all rows of a date.
+
+    Parameters
+    ----------
+    received_agents : Any
+        Raw imms_given cell value.
+    replace_unspecified : List[str]
+        Vaccine names to suppress.
+    vaccine_reference : Dict[str, Any]
+        Vaccine-to-disease mapping.
+    chart_diseases_header : List[str]
+        Ordered disease column headers (used for column assignment and
+        split ordering).
+
+    Returns
+    -------
+    List[Dict[str, Any]]
+        Flat list of display rows, each with::
+
+            {
+                "date_given":   str,            # ISO date
+                "date_rowspan": int,            # N on first row, 0 on continuations
+                "vaccines":     List[str],      # display vaccine names for this row
+                "columns":      Dict[str, str], # column name → validity status
+            }
+    """
+    flat = parse_dose_segments(received_agents, replace_unspecified)
+    if not flat:
+        return []
+
+    by_date: Dict[str, List[Dict[str, str]]] = {}
+    for dose in flat:
+        by_date.setdefault(dose["date_given"], []).append(
+            {"vaccine": dose["vaccine"], "validity": dose["validity"]}
+        )
+
+    rows: List[Dict[str, Any]] = []
+    for given_date, doses in by_date.items():
+        vaccines = _deduplicate_vaccines_for_date(doses, vaccine_reference)
+        date_rows: List[Dict[str, Any]]
+        if show_validity_markers:
+            date_rows = _split_into_rows(vaccines, chart_diseases_header)
+        else:
+            columns = compute_column_statuses(vaccines, chart_diseases_header)
+            date_rows = [{"vaccines": vaccines, "columns": columns}]
+        n = len(date_rows)
+        for i, row in enumerate(date_rows):
+            rows.append(
+                {
+                    "date_given": given_date,
+                    "date_rowspan": n if i == 0 else 0,
+                    "vaccines": [v["vaccine"] for v in row["vaccines"]],
+                    "columns": row["columns"],
+                }
+            )
+
+    return rows
+
+
+def parse_dose_segments(
+    received_agents: Any, replace_unspecified: List[str]
+) -> List[Dict[str, str]]:
+    """Parse an imms_given string into a flat sorted list of individual dose entries.
+
+    Extracts individual dose entries from a semicolon-delimited string,
+    normalizes dates to ISO format, normalizes validity to one of
+    ``"valid"`` / ``"invalid"`` / ``"unknown"``, and filters unwanted
+    vaccine names.  Unlike the former ``process_received_agents``, this
+    function does *not* group by date — grouping and disease-expansion are
+    handled by ``build_received_rows``.
+
+    Parameters
+    ----------
+    received_agents : Any
+        Raw imms_given cell value.  Must be a non-empty ``str`` to be
+        parsed; any other type returns ``[]``.
+        Expected format per segment: ``"MMM D, YYYY - VaccineName"`` or
+        ``"MMM D, YYYY - VaccineName - Valid|Invalid"``.
+    replace_unspecified : List[str]
+        Vaccine names to silently drop (e.g. ``["Not Specified"]``).
+
+    Returns
+    -------
+    List[Dict[str, str]]
+        Flat list of ``{"date_given": str, "vaccine": str, "validity": str}``
+        dicts, sorted ascending by date.  Returns ``[]`` if
+        ``received_agents`` is not a parseable string or contains no
+        recognisable dose segments after filtering.
+    """
+    if not isinstance(received_agents, str) or not received_agents.strip():
+        return []
+
+    pattern = re.compile(
+        r"(\w{3} \d{1,2}, \d{4}) - (.*?)(?:\s*-\s*([Vv]alid|[Ii]nvalid))?(?=;|$)"
     )
+
+    rows: List[Dict[str, str]] = []
+    for date_str, vaccine, raw_valid in pattern.findall(received_agents):
+        vaccine = vaccine.strip()
+        vaccine = vaccine.replace("-unspecified", "*").replace(" unspecified", "*")
+        if vaccine in replace_unspecified:
+            continue
+        rows.append(
+            {
+                "date_given": convert_date_iso(date_str.strip()),
+                "vaccine": vaccine,
+                "validity": normalize_validity_status(raw_valid),
+            }
+        )
+
+    rows.sort(key=lambda item: item["date_given"])
+    return rows
+
+
+def convert_date_iso(date_str: str) -> str:
+    """Parse a source immunization date and return an ISO calendar date.
+
+    Expects "Mon DD, YYYY" (e.g., "May 8, 2025") in the source export.
+
+    Parameters
+    ----------
+    date_str : str
+        Date in English display format (e.g., "May 8, 2025").
+
+    Returns
+    -------
+    str
+        Date in ISO format (YYYY-MM-DD).
+    """
+    date_obj = datetime.strptime(date_str, "%b %d, %Y")
+    return date_obj.strftime("%Y-%m-%d")
+
+
+def _deduplicate_vaccines_for_date(
+    date_doses: List[Dict[str, str]],
+    vaccine_reference: Dict[str, Any],
+) -> List[Dict[str, Any]]:
+    """Collapse same-vaccine doses and expand each unique vaccine to its diseases.
+
+    Multiple doses of the same vaccine on one date are reduced to a single
+    entry whose validity follows ``unknown > valid > invalid`` precedence:
+    any unknown status dominates (data quality signal), then any valid,
+    then all-invalid.
+
+    Parameters
+    ----------
+    date_doses : List[Dict[str, str]]
+        Flat dose entries for a single date from ``parse_dose_segments``,
+        each with ``{"vaccine": str, "validity": str}``.
+    vaccine_reference : Dict[str, Any]
+        Maps vaccine codes to a single disease name or list of disease names.
+
+    Returns
+    -------
+    List[Dict[str, Any]]
+        One entry per unique vaccine name with
+        ``{"vaccine": str, "diseases": List[str], "validity": str}``.
+    """
+    by_vaccine: Dict[str, List[str]] = {}
+    for dose in date_doses:
+        by_vaccine.setdefault(dose["vaccine"], []).append(dose["validity"])
+
+    result: List[Dict[str, Any]] = []
+    for vaccine, statuses in by_vaccine.items():
+        if "unknown" in statuses:
+            validity = "unknown"
+        elif "valid" in statuses:
+            validity = "valid"
+        else:
+            validity = "invalid"
+
+        ref = vaccine_reference.get(vaccine, vaccine)
+        diseases: List[str] = ref if isinstance(ref, list) else [ref]
+
+        result.append({"vaccine": vaccine, "diseases": diseases, "validity": validity})
+
+    return result
+
+
+def compute_column_statuses(
+    vaccines: List[Dict[str, Any]],
+    chart_diseases_header: List[str],
+) -> Dict[str, str]:
+    """Compute per-column validity status for a set of vaccine entries.
+
+    For each named disease in the header, collects the validity of all
+    vaccines that contribute to that disease and collapses using
+    ``unknown > mixed > valid > invalid`` precedence.  The ``"Other"``
+    column captures any vaccine that contributes at least one disease
+    not found in the named-disease set.
+
+    ``"mixed"`` is produced when both ``"valid"`` and ``"invalid"``
+    contribute to a column with no ``"unknown"`` — meaning different
+    vaccines have conflicting validity for that column on this date.
+
+    Parameters
+    ----------
+    vaccines : List[Dict[str, Any]]
+        Vaccine entries from ``_deduplicate_vaccines_for_date``, each
+        with ``{"vaccine": str, "diseases": List[str], "validity": str}``.
+    chart_diseases_header : List[str]
+        Ordered disease column headers.  ``"Other"`` (if present) acts
+        as a catch-all for unmapped diseases.
+
+    Returns
+    -------
+    Dict[str, str]
+        Column name → one of ``"valid"``, ``"invalid"``, ``"unknown"``,
+        or ``"mixed"``.  Only columns with at least one contributing
+        vaccine are included.
+    """
+    named = {d for d in chart_diseases_header if d != "Other"}
+    has_other_col = "Other" in chart_diseases_header
+
+    column_statuses: Dict[str, List[str]] = {}
+
+    for vax in vaccines:
+        for disease in vax["diseases"]:
+            if disease in named:
+                column_statuses.setdefault(disease, []).append(vax["validity"])
+        if has_other_col and any(d not in named for d in vax["diseases"]):
+            column_statuses.setdefault("Other", []).append(vax["validity"])
+
+    result: Dict[str, str] = {}
+    for col, statuses in column_statuses.items():
+        has_unknown = "unknown" in statuses
+        has_valid = "valid" in statuses
+        has_invalid = "invalid" in statuses
+        if has_unknown:
+            result[col] = "unknown"
+        elif has_valid and has_invalid:
+            result[col] = "mixed"
+        elif has_valid:
+            result[col] = "valid"
+        else:
+            result[col] = "invalid"
+
+    return result
+
+
+def _split_into_rows(
+    vaccines: List[Dict[str, Any]],
+    chart_diseases_header: List[str],
+) -> List[Dict[str, Any]]:
+    """Recursively split vaccines into rows so that no column has a mixed status.
+
+    When ``compute_column_statuses`` finds a ``"mixed"`` column, the
+    vaccines are partitioned: all ``"valid"`` vaccines go to the first
+    row (guaranteed non-mixed since they share no status conflicts with
+    the remaining set), and all ``"invalid"``/``"unknown"`` vaccines
+    recurse as the second row.  Because the second row contains no
+    ``"valid"`` vaccines, it can never produce ``"mixed"``; recursion
+    always terminates within one additional level.
+
+    Parameters
+    ----------
+    vaccines : List[Dict[str, Any]]
+        Vaccine entries for a single date (same shape as
+        ``_deduplicate_vaccines_for_date`` output).
+    chart_diseases_header : List[str]
+        Header order; the first mixed column in this order triggers the
+        split.
+
+    Returns
+    -------
+    List[Dict[str, Any]]
+        One or more ``{"vaccines": List[Dict], "columns": Dict[str, str]}``
+        dicts.  All column statuses are non-mixed.
+    """
+    columns = compute_column_statuses(vaccines, chart_diseases_header)
+
+    mixed_col = next(
+        (col for col in chart_diseases_header if columns.get(col) == "mixed"),
+        None,
+    )
+
+    if mixed_col is None:
+        return [{"vaccines": vaccines, "columns": columns}]
+
+    row1_vaccines = [v for v in vaccines if v["validity"] == "valid"]
+    row2_vaccines = [v for v in vaccines if v["validity"] != "valid"]
+
+    row1_columns = compute_column_statuses(row1_vaccines, chart_diseases_header)
+    return [{"vaccines": row1_vaccines, "columns": row1_columns}] + _split_into_rows(
+        row2_vaccines, chart_diseases_header
+    )
+
+
+def normalize_validity_status(raw_status: Any) -> str:
+    """Normalize a raw validity token to one of three supported statuses.
+
+    Only the exact casings "valid"/"Valid" and "invalid"/"Invalid" are
+    accepted as known statuses; everything else — typos, alternate casings,
+    empty strings, None, NaN — maps to "unknown". This strict gate prevents
+    ambiguous data from silently influencing validity markers on notices.
+
+    Parameters
+    ----------
+    raw_status : Any
+        Raw value extracted from an imms_given segment, or any value that
+        needs to be converted to a supported status. Typically a str, but
+        accepts Any so callers need not guard against None or NaN.
+
+    Returns
+    -------
+    str
+        One of ``"valid"``, ``"invalid"``, or ``"unknown"``.
+
+    Examples
+    --------
+    >>> normalize_validity_status("Valid")
+    'valid'
+    >>> normalize_validity_status("")
+    'unknown'
+    >>> normalize_validity_status(None)
+    'unknown'
+    """
+    status = str(raw_status).strip()
+    if status in {"valid", "Valid"}:
+        return "valid"
+    if status in {"invalid", "Invalid"}:
+        return "invalid"
+    return "unknown"
+
+
+def collapse_validity_statuses(statuses: List[Any]) -> str:
+    """Collapse multiple validity statuses using strict precedence.
+
+    Precedence:
+
+    1. mixed (if both valid and invalid are present and no unknown)
+    2. valid (if at least one valid is present and no unknown)
+    3. invalid (if invalid is present and no unknown)
+    4. unknown (otherwise)
+    """
+    normalized = [normalize_validity_status(s) for s in statuses]
+
+    has_valid = "valid" in normalized
+    has_invalid = "invalid" in normalized
+    has_unknown = "unknown" in normalized
+
+    if has_valid and has_invalid and not has_unknown:
+        return "mixed"
+
+    # "All valid" / "all invalid" only when no unknowns are present
+    if has_valid and not has_unknown:
+        return "valid"
+    if has_invalid and not has_unknown:
+        return "invalid"
+
+    # anything involving unknown (or empty) stays unknown
+    return "unknown"
 
 
 def write_artifact(

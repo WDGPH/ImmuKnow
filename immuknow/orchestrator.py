@@ -3,8 +3,11 @@
 from __future__ import annotations
 import argparse
 import json
+import logging
 import sys
 from dataclasses import asdict
+from contextlib import contextmanager
+from collections.abc import Iterator
 from datetime import datetime, timezone
 from importlib.resources import files
 from pathlib import Path
@@ -105,6 +108,30 @@ def report_assignments(
     return diagnostic
 
 
+@contextmanager
+def run_logging(log_path: Path) -> Iterator[None]:
+    """Write this run's application messages without replacing caller logging."""
+    logger = logging.getLogger("immuknow")
+    previous_level = logger.level
+    handler = logging.FileHandler(log_path, encoding="utf-8")
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s")
+    )
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+    try:
+        logger.info("Run started")
+        yield
+        logger.info("Run completed")
+    except Exception:
+        logger.exception("Run failed")
+        raise
+    finally:
+        logger.removeHandler(handler)
+        handler.close()
+        logger.setLevel(previous_level)
+
+
 def run_pipeline(
     input_path: Path,
     output_dir: Path,
@@ -162,86 +189,90 @@ def run_pipeline(
         auto_remove=before_run.get("clear_output_directory", False),
     ):
         return None
-    metadata_dir = output_dir / "metadata"
-    metadata_dir.mkdir(exist_ok=True)
-    artifact_dir = output_dir / "artifacts"
-    try:
-        result, reconciliation = preprocess.prepare_clients(
-            input_path,
-            output_dir,
+    with run_logging(output_dir / "logs" / f"run_{run_id}.log"):
+        metadata_dir = output_dir / "metadata"
+        metadata_dir.mkdir(exist_ok=True)
+        artifact_dir = output_dir / "artifacts"
+        try:
+            result, reconciliation = preprocess.prepare_clients(
+                input_path,
+                output_dir,
+                config,
+                config_dir,
+                catalog,
+                manifest,
+                selected_notice,
+            )
+        except ReconciliationError as exc:
+            diagnostic = report_assignments(exc.result, output_dir, run_id)
+            raise ValueError(
+                f"Notice assignment preflight failed. Sensitive assignment diagnostics: {diagnostic}"
+            ) from exc
+        report_assignments(reconciliation, output_dir, run_id)
+        clients, _ = generate_qr_codes.generate_qr_codes(
+            result.clients, artifact_dir, config
+        )
+        result = PreprocessResult(clients, result.warnings)
+        artifact_path = preprocess.write_artifact(
+            artifact_dir,
             run_id,
+            result,
+        )
+        for warning in result.warnings:
+            print(f"Warning: {warning}")
+        jobs = generate_notices.prepare_render_jobs(
+            clients,
+            artifact_dir,
+            template_dir,
             config,
             config_dir,
-            catalog,
-            manifest,
-            selected_notice,
+            run_id,
         )
-    except ReconciliationError as exc:
-        diagnostic = report_assignments(exc.result, output_dir, run_id)
-        raise ValueError(
-            f"Notice assignment preflight failed. Sensitive assignment diagnostics: {diagnostic}"
-        ) from exc
-    report_assignments(reconciliation, output_dir, run_id)
-    clients, _ = generate_qr_codes.generate_qr_codes(
-        result.clients, artifact_dir, config
-    )
-    result = PreprocessResult(clients, result.warnings)
-    artifact_path = preprocess.write_artifact(
-        artifact_dir,
-        run_id,
-        result,
-    )
-    for warning in result.warnings:
-        print(f"Warning: {warning}")
-    jobs = generate_notices.prepare_render_jobs(
-        clients,
-        artifact_dir,
-        template_dir,
-        config,
-        config_dir,
-        run_id,
-    )
-    compile_notices.check_expected_notices(clients, jobs)
-    compile_notices.compile_notices(jobs, artifact_dir, config)
-    compile_notices.check_expected_notices(clients, jobs, require_files=True)
-    validate_pdfs.validate_notices(
-        [job.pdf for job in jobs],
-        enabled_rules=config.get("pdf_validation", {}).get("rules", {}),
-        json_output=metadata_dir / f"validation_{run_id}.json",
-        client_id_map={job.pdf.name: job.client_id for job in jobs},
-    )
-    encrypted = (
-        encrypt_notice.encrypt_expected_notices(clients, jobs, config)
-        if config.get("encryption", {}).get("enabled", False)
-        else []
-    )
-    bundles = bundle_pdfs.bundle_notices(clients, jobs, output_dir, run_id, config)
-    completion = {
-        "run_id": run_id,
-        "input": str(input_path),
-        "config": str(config_dir),
-        "templates": str(template_dir),
-        "notice_assignments": str(notice_assignments) if notice_assignments else None,
-        "notice_template": str(notice_template) if notice_template else None,
-        "cohort": str(artifact_path),
-        "notices": [
-            {
-                "client_id": job.client_id,
-                "sequence": job.sequence,
-                "language": job.language,
-                "version_id": job.version_id,
-                "pdf": str(job.pdf),
-            }
-            for job in jobs
-        ],
-        "encrypted": [str(path) for path in encrypted],
-        "bundles": [str(bundle.pdf_path) for bundle in bundles],
-    }
-    cleanup.cleanup_output(output_dir, config)
-    completion_path = metadata_dir / f"completion_{run_id}.json"
-    completion_path.write_text(json.dumps(completion, indent=2), encoding="utf-8")
-    print(f"Pipeline completed successfully: {len(clients)} notices. {completion_path}")
-    return completion_path
+        compile_notices.check_expected_notices(clients, jobs)
+        compile_notices.compile_notices(jobs, artifact_dir, config)
+        compile_notices.check_expected_notices(clients, jobs, require_files=True)
+        validate_pdfs.validate_notices(
+            [job.pdf for job in jobs],
+            enabled_rules=config.get("pdf_validation", {}).get("rules", {}),
+            json_output=metadata_dir / f"validation_{run_id}.json",
+            client_id_map={job.pdf.name: job.client_id for job in jobs},
+        )
+        encrypted = (
+            encrypt_notice.encrypt_expected_notices(clients, jobs, config)
+            if config.get("encryption", {}).get("enabled", False)
+            else []
+        )
+        bundles = bundle_pdfs.bundle_notices(clients, jobs, output_dir, run_id, config)
+        completion = {
+            "run_id": run_id,
+            "input": str(input_path),
+            "config": str(config_dir),
+            "templates": str(template_dir),
+            "notice_assignments": str(notice_assignments)
+            if notice_assignments
+            else None,
+            "notice_template": str(notice_template) if notice_template else None,
+            "cohort": str(artifact_path),
+            "notices": [
+                {
+                    "client_id": job.client_id,
+                    "sequence": job.sequence,
+                    "language": job.language,
+                    "version_id": job.version_id,
+                    "pdf": str(job.pdf),
+                }
+                for job in jobs
+            ],
+            "encrypted": [str(path) for path in encrypted],
+            "bundles": [str(bundle.pdf_path) for bundle in bundles],
+        }
+        cleanup.cleanup_output(output_dir, config)
+        completion_path = metadata_dir / f"completion_{run_id}.json"
+        completion_path.write_text(json.dumps(completion, indent=2), encoding="utf-8")
+        print(
+            f"Pipeline completed successfully: {len(clients)} notices. {completion_path}"
+        )
+        return completion_path
 
 
 def main() -> int:

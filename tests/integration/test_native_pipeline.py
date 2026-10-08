@@ -528,6 +528,25 @@ def test_sequential_callable_runs_keep_resources_and_assignments_isolated(
     )
     assert "LIBELLÉ LOCAL SÉLECTIONNÉ" in text
     assert "SECOND TEMPLATE SET" in text
+    first_run = json.loads(first_completion.read_text())
+    second_run = json.loads(second_completion.read_text())
+    first_log = (first_output / "logs" / f"run_{first_run['run_id']}.log").read_text(
+        encoding="utf-8"
+    )
+    second_log = (second_output / "logs" / f"run_{second_run['run_id']}.log").read_text(
+        encoding="utf-8"
+    )
+    for log, source, output in (
+        (first_log, input_path, first_output),
+        (second_log, Path(command[3]), second_output),
+    ):
+        assert "Loaded" in log and str(source) in log
+        assert "Wrote normalized artifact" in log and str(output) in log
+        assert "Generated 1 bundle(s)" in log
+    assert str(Path(command[3])) not in first_log
+    assert str(second_output) not in first_log
+    assert str(input_path) not in second_log
+    assert str(first_output) not in second_log
     for output, expected in ((first_output, first_jobs), (second_output, second_jobs)):
         manifests = [
             json.loads(path.read_text())
