@@ -7,15 +7,18 @@ on `PATH`, set `TYPST_BIN`, or configure `typst.bin` in
 
 ```bash
 uv sync
-uv run immuknow students.csv --notice-assignments ./assignments.json \
-  --input ./input --output ./output
+uv run immuknow ./input/students.csv --notice-assignments ./assignments.json \
+  --output ./output
 ```
 
 An installed package provides `immuknow` and its resources without a checkout.
 
 ## Prepare input
 
-Use one CSV extracted from Panorama/PEAR for the complete cohort. Column names
+Pass the path to one CSV extracted from Panorama/PEAR for the complete cohort.
+Relative paths start from your working directory: `students.csv` reads a file
+in that directory, while `./input/students.csv` reads it from the `input`
+subdirectory. Absolute paths are also accepted. Column names
 must match the packaged
 [input schema](input_schema.md). Required columns are:
 

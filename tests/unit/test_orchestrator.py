@@ -18,7 +18,7 @@ class TestParseArgs:
             "sys.argv", ["immuknow", "students.csv", "--notice-assignments", "a.json"]
         ):
             args = orchestrator.parse_args()
-            assert args.input_file == "students.csv"
+            assert args.input_file == Path("students.csv")
             assert args.notice_assignments == Path("a.json")
             assert not hasattr(args, "language")
 
@@ -37,11 +37,9 @@ class TestParseArgs:
             "sys.argv",
             [
                 "immuknow",
-                "test.csv",
+                "/tmp/input/test.csv",
                 "--notice-assignments",
                 "a.json",
-                "--input",
-                "/tmp/input",
                 "--output",
                 "/tmp/output",
                 "--config",
@@ -49,7 +47,7 @@ class TestParseArgs:
             ],
         ):
             args = orchestrator.parse_args()
-            assert args.input_dir == Path("/tmp/input")
+            assert args.input_file == Path("/tmp/input/test.csv")
             assert args.output_dir == Path("/tmp/output")
             assert args.config_dir == Path("/etc/config")
 
@@ -60,7 +58,6 @@ class TestParseArgs:
         ):
             args = orchestrator.parse_args()
             # Defaults should exist
-            assert args.input_dir is not None
             assert args.output_dir is not None
             assert args.config_dir is not None
             assert args.notice_template == Path("overdue_agents_v1.fr.typ")
@@ -76,21 +73,6 @@ class TestValidateArgs:
                 tmp_test_dir / "output",
                 notice_assignments=tmp_test_dir / "a.json",
             )
-
-    def test_validate_args_existing_input_file(self, tmp_test_dir: Path) -> None:
-        test_file = tmp_test_dir / "students.csv"
-        test_file.write_text("test")
-
-        args = MagicMock()
-        args.input_file = "students.csv"
-        args.input_dir = tmp_test_dir
-        args.notice_assignments = tmp_test_dir / "a.json"
-        args.notice_template = None
-        args.custom_templates = None
-        args.template_dir = None  # Use default templates
-
-        # Should not raise
-        orchestrator.validate_args(args)
 
     def test_explicit_selection_is_required(self) -> None:
         with patch("sys.argv", ["immuknow", "students.csv"]):
@@ -276,10 +258,9 @@ class TestErrorHandling:
             patch("builtins.print"),
         ):
             mock_args.return_value = MagicMock(
-                input_file="test.csv",
+                input_file=input_file,
                 notice_template=None,
                 notice_assignments=tmp_path / "assignments.json",
-                input_dir=tmp_path,
                 output_dir=tmp_path / "output",
                 config_dir=tmp_path / "config",
                 template_dir=None,
@@ -301,9 +282,8 @@ class TestErrorHandling:
             patch("builtins.print"),
         ):
             mock_args.return_value = MagicMock(
-                input_file="test.csv",
+                input_file=input_file,
                 notice_template=None,
-                input_dir=tmp_path,
                 output_dir=tmp_path / "output",
                 config_dir=tmp_path / "config",
                 template_dir=None,

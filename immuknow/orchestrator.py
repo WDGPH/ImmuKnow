@@ -30,7 +30,6 @@ from .config_loader import load_config
 from .data_models import PreprocessResult
 from .notice_versioning import NoticeVersionCatalog, load_catalog, template_identity
 
-DEFAULT_INPUT_DIR = Path.cwd() / "input"
 DEFAULT_OUTPUT_DIR = Path.cwd() / "output"
 DEFAULT_TEMPLATES_DIR = Path(str(files("immuknow").joinpath("templates")))
 DEFAULT_PHU_TEMPLATES_DIR = Path.cwd() / "phu_templates"
@@ -51,15 +50,8 @@ Examples:
 
     parser.add_argument(
         "input_file",
-        type=str,
-        help="CSV cohort filename or path (e.g., students.csv)",
-    )
-    parser.add_argument(
-        "--input",
         type=Path,
-        default=DEFAULT_INPUT_DIR,
-        dest="input_dir",
-        help=f"Input directory (default: {DEFAULT_INPUT_DIR})",
+        help="CSV cohort path, absolute or relative to the working directory",
     )
     parser.add_argument(
         "--output",
@@ -367,7 +359,7 @@ def main() -> int:
     try:
         validate_args(args)
         completed = run_pipeline(
-            args.input_dir / args.input_file,
+            args.input_file,
             args.output_dir,
             config_dir=args.config_dir,
             template_dir=args.template_dir,

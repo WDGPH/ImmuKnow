@@ -141,10 +141,15 @@ def test_unsupported_template_language_preserves_existing_output(
 
 
 @pytest.mark.parametrize(
-    "group_by,options", [(None, False), ("school", True), ("board", False)]
+    "group_by,options,input_form",
+    [
+        (None, False, "filename"),
+        ("school", True, "relative"),
+        ("board", False, "absolute"),
+    ],
 )
 def test_mixed_cohort_processed_exactly_once(
-    tmp_path: Path, group_by: str | None, options: bool
+    tmp_path: Path, group_by: str | None, options: bool, input_form: str
 ) -> None:
     """Both languages pass validation and every configured notice option."""
     command, output_dir, _ = prepare_cohort(
@@ -155,8 +160,20 @@ def test_mixed_cohort_processed_exactly_once(
         include_dose=options,
         show_validity_markers=options,
     )
+    source = Path(command[3])
+    if input_form == "filename":
+        command[3] = source.name
+    elif input_form == "relative":
+        nested = tmp_path / "input"
+        nested.mkdir()
+        source = source.rename(nested / source.name)
+        command[3] = str(source.relative_to(tmp_path))
     result = run_cli(command, tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
+    completion = json.loads(
+        next((output_dir / "metadata").glob("completion_*.json")).read_text()
+    )
+    assert completion["input"] == str(source)
     jobs = read_render_jobs(output_dir / "artifacts")
     assert len(jobs) == 2
     assert {job.language for job in jobs} == {"en", "fr"}

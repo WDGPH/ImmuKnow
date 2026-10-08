@@ -13,8 +13,8 @@ From a checkout:
 
 ```bash
 uv sync
-uv run immuknow students.csv --notice-assignments ./assignments.json \
-  --input ./input --output ./output
+uv run immuknow ./input/students.csv --notice-assignments ./assignments.json \
+  --output ./output
 ```
 
 A run selects notices in one of two ways: pass `--notice-assignments` with
