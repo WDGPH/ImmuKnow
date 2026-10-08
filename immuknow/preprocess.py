@@ -46,6 +46,61 @@ REPLACE_UNSPECIFIED = [
 INPUT_SCHEMA_PATH = CONFIG_DIR / "input_schema.json"
 
 
+def prepare_clients(
+    input_path: Path,
+    output_dir: Path,
+    run_id: str,
+    config: dict,
+    config_dir: Path,
+    catalog: NoticeVersionCatalog,
+    manifest: dict[str, ManifestRow],
+    selected_notice: tuple[str, str] | None,
+) -> tuple[PreprocessResult, ReconciliationResult]:
+    """Prepare the cohort and return its assignment findings for run reporting.
+
+    Raises ReconciliationError with findings when assignments fail preflight.
+    """
+    configure_logging(output_dir, run_id)
+    schema = config_dir / "input_schema.json"
+    validate_input(input_path, schema if schema.exists() else None)
+    frame = normalize_dataframe(read_input(input_path))
+    frame = check_addresses_complete(frame, drop_incomplete=True, output_dir=output_dir)
+    frame = check_client_info_complete(
+        frame,
+        drop_incomplete=True,
+        output_dir=output_dir,
+    )
+    frame, warnings = run_phix_validation(
+        frame, output_dir, config=config, config_dir=config_dir
+    )
+    if selected_notice is not None:
+        version_id, language = selected_notice
+        manifest = {
+            client_id: ManifestRow(
+                client_id,
+                version_id,
+                language,
+                None,
+                None,
+                assignment_source="template",
+            )
+            for client_id in frame["client_id"]
+        }
+    reference = config_dir / "vaccine_reference.json"
+    if not reference.exists():
+        reference = VACCINE_REFERENCE_PATH
+    result, reconciliation = build_preprocess_result(
+        frame,
+        json.loads(reference.read_text(encoding="utf-8")),
+        REPLACE_UNSPECIFIED,
+        config=config,
+        config_dir=config_dir,
+        catalog=catalog,
+        manifest=manifest,
+    )
+    return PreprocessResult(result.clients, warnings + result.warnings), reconciliation
+
+
 def check_addresses_complete(
     df: pd.DataFrame, drop_incomplete=True, output_dir: Path | None = None
 ) -> pd.DataFrame:

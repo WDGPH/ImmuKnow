@@ -8,6 +8,12 @@ vaccine mapping, eligibility, age, grouping, and assignment reconciliation
 remain in Python. The selected filename resolves each client's canonical
 `version_id` and language; Typst independently asserts them.
 
+`preprocess.prepare_clients` owns CSV validation, normalization, record
+filtering, Phix checks, vaccine references, and assignment reconciliation.
+It returns the prepared cohort and reconciliation findings, or raises with
+the findings when assignments fail preflight. The orchestrator reports those
+findings and controls whether the run proceeds to rendering and delivery.
+
 ```mermaid
 flowchart LR
     A[CSV cohort] --> B[Validate and normalize]

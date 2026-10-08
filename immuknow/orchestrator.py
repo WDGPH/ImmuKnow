@@ -20,7 +20,6 @@ from . import (
     validate_pdfs,
 )
 from .assignment_manifest import (
-    ManifestRow,
     ReconciliationError,
     ReconciliationResult,
     load_manifest,
@@ -28,7 +27,7 @@ from .assignment_manifest import (
 )
 from .config_loader import load_config
 from .data_models import PreprocessResult
-from .notice_versioning import NoticeVersionCatalog, load_catalog, template_identity
+from .notice_versioning import load_catalog, template_identity
 
 DEFAULT_OUTPUT_DIR = Path.cwd() / "output"
 DEFAULT_TEMPLATES_DIR = Path(str(files("immuknow").joinpath("templates")))
@@ -106,61 +105,6 @@ def report_assignments(
     return diagnostic
 
 
-def prepare_clients(
-    input_path: Path,
-    output_dir: Path,
-    run_id: str,
-    config: dict,
-    config_dir: Path,
-    catalog: NoticeVersionCatalog,
-    manifest: dict[str, ManifestRow],
-    selected_notice: tuple[str, str] | None,
-) -> PreprocessResult:
-    """Validate source records and resolve the canonical notice cohort."""
-    preprocess.configure_logging(output_dir, run_id)
-    schema = config_dir / "input_schema.json"
-    preprocess.validate_input(input_path, schema if schema.exists() else None)
-    frame = preprocess.normalize_dataframe(preprocess.read_input(input_path))
-    frame = preprocess.check_addresses_complete(
-        frame, drop_incomplete=True, output_dir=output_dir
-    )
-    frame = preprocess.check_client_info_complete(
-        frame,
-        drop_incomplete=True,
-        output_dir=output_dir,
-    )
-    frame, warnings = preprocess.run_phix_validation(
-        frame, output_dir, config=config, config_dir=config_dir
-    )
-    if selected_notice is not None:
-        version_id, language = selected_notice
-        manifest = {
-            client_id: ManifestRow(
-                client_id,
-                version_id,
-                language,
-                None,
-                None,
-                assignment_source="template",
-            )
-            for client_id in frame["client_id"]
-        }
-    reference = config_dir / "vaccine_reference.json"
-    if not reference.exists():
-        reference = DEFAULT_CONFIG_DIR / "vaccine_reference.json"
-    result, reconciliation = preprocess.build_preprocess_result(
-        frame,
-        json.loads(reference.read_text(encoding="utf-8")),
-        preprocess.REPLACE_UNSPECIFIED,
-        config=config,
-        config_dir=config_dir,
-        catalog=catalog,
-        manifest=manifest,
-    )
-    report_assignments(reconciliation, output_dir, run_id)
-    return PreprocessResult(result.clients, warnings + result.warnings)
-
-
 def run_pipeline(
     input_path: Path,
     output_dir: Path,
@@ -222,7 +166,7 @@ def run_pipeline(
     metadata_dir.mkdir(exist_ok=True)
     artifact_dir = output_dir / "artifacts"
     try:
-        result = prepare_clients(
+        result, reconciliation = preprocess.prepare_clients(
             input_path,
             output_dir,
             run_id,
@@ -237,6 +181,7 @@ def run_pipeline(
         raise ValueError(
             f"Notice assignment preflight failed. Sensitive assignment diagnostics: {diagnostic}"
         ) from exc
+    report_assignments(reconciliation, output_dir, run_id)
     clients, _ = generate_qr_codes.generate_qr_codes(
         result.clients, artifact_dir, config
     )
