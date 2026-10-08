@@ -19,14 +19,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import patch
 
 import pandas as pd
 import pytest
 import yaml
 
-from pipeline import preprocess
-from pipeline import validate_phix
+from immuknow import preprocess
+from immuknow import validate_phix
 
 
 # ---------------------------------------------------------------------------
@@ -95,7 +94,10 @@ class TestNormalizeSchoolName:
 
         Assertion: result is fully uppercased.
         """
-        assert validate_phix.normalize_school_name("Springfield Elementary") == "SPRINGFIELD ELEMENTARY"
+        assert (
+            validate_phix.normalize_school_name("Springfield Elementary")
+            == "SPRINGFIELD ELEMENTARY"
+        )
 
     def test_collapses_internal_whitespace(self):
         """Multiple spaces between words are collapsed to one.
@@ -106,7 +108,10 @@ class TestNormalizeSchoolName:
 
         Assertion: interior whitespace reduced to single space.
         """
-        assert validate_phix.normalize_school_name("SPRING  FIELD   SCHOOL") == "SPRING FIELD SCHOOL"
+        assert (
+            validate_phix.normalize_school_name("SPRING  FIELD   SCHOOL")
+            == "SPRING FIELD SCHOOL"
+        )
 
     def test_strips_leading_trailing_whitespace(self):
         """Leading/trailing whitespace is removed.
@@ -153,7 +158,9 @@ class TestParseInputEntry:
 
         Assertion: ID is the portion after the last ' - '; name retains interior dashes.
         """
-        name, fid = validate_phix.parse_input_entry("St. Jean-Baptiste Elementary - 019186")
+        name, fid = validate_phix.parse_input_entry(
+            "St. Jean-Baptiste Elementary - 019186"
+        )
         assert name == "St. Jean-Baptiste Elementary"
         assert fid == "019186"
 
@@ -200,7 +207,9 @@ class TestClassifyMatch:
         Assertion: match_type='exact', no mismatch_reason.
         """
         name_to_id, id_to_name = mapping
-        result = validate_phix.classify_match("Springfield Elementary", "001", name_to_id, id_to_name)
+        result = validate_phix.classify_match(
+            "Springfield Elementary", "001", name_to_id, id_to_name
+        )
         assert result.match_type == "exact"
         assert result.mismatch_reason is None
         assert result.matched_id == "001"
@@ -215,7 +224,9 @@ class TestClassifyMatch:
         Assertion: match_type='inexact', mismatch_reason='name_only'.
         """
         name_to_id, id_to_name = mapping
-        result = validate_phix.classify_match("Springfield Elementary", "", name_to_id, id_to_name)
+        result = validate_phix.classify_match(
+            "Springfield Elementary", "", name_to_id, id_to_name
+        )
         assert result.match_type == "inexact"
         assert result.mismatch_reason == "name_only"
 
@@ -229,7 +240,9 @@ class TestClassifyMatch:
         Assertion: match_type='inexact', mismatch_reason='id_mismatch'.
         """
         name_to_id, id_to_name = mapping
-        result = validate_phix.classify_match("Springfield Elementary", "999", name_to_id, id_to_name)
+        result = validate_phix.classify_match(
+            "Springfield Elementary", "999", name_to_id, id_to_name
+        )
         assert result.match_type == "inexact"
         assert result.mismatch_reason == "id_mismatch"
 
@@ -243,7 +256,9 @@ class TestClassifyMatch:
         Assertion: match_type='inexact', mismatch_reason='id_only', matched_name is canonical.
         """
         name_to_id, id_to_name = mapping
-        result = validate_phix.classify_match("Springfeld Elemntary", "001", name_to_id, id_to_name)
+        result = validate_phix.classify_match(
+            "Springfeld Elemntary", "001", name_to_id, id_to_name
+        )
         assert result.match_type == "inexact"
         assert result.mismatch_reason == "id_only"
         assert result.matched_name == "SPRINGFIELD ELEMENTARY"
@@ -258,7 +273,9 @@ class TestClassifyMatch:
         Assertion: match_type='no_match'.
         """
         name_to_id, id_to_name = mapping
-        result = validate_phix.classify_match("Unknown School", "999", name_to_id, id_to_name)
+        result = validate_phix.classify_match(
+            "Unknown School", "999", name_to_id, id_to_name
+        )
         assert result.match_type == "no_match"
 
 
@@ -345,7 +362,13 @@ class TestWriteCsv:
 
         assert out.exists()
         df = pd.read_csv(out)
-        assert list(df.columns) == ["input_name", "input_id", "matched_name", "matched_id", "mismatch_reason"]
+        assert list(df.columns) == [
+            "input_name",
+            "input_id",
+            "matched_name",
+            "matched_id",
+            "mismatch_reason",
+        ]
         assert df.iloc[0]["input_name"] == "Springfield Elementary"
 
 
@@ -361,14 +384,16 @@ class TestValidateSchools:
     @pytest.fixture
     def base_df(self) -> pd.DataFrame:
         """Minimal DataFrame with a school_name column for validation tests."""
-        return pd.DataFrame({
-            "school_name": [
-                "Springfield Elementary - 001",  # exact
-                "Shelbyville Middle",             # inexact/name_only (no ID)
-                "Unknown Academy",               # no_match
-            ],
-            "client_id": ["C1", "C2", "C3"],
-        })
+        return pd.DataFrame(
+            {
+                "school_name": [
+                    "Springfield Elementary - 001",  # exact
+                    "Shelbyville Middle",  # inexact/name_only (no ID)
+                    "Unknown Academy",  # no_match
+                ],
+                "client_id": ["C1", "C2", "C3"],
+            }
+        )
 
     def test_adds_phix_columns_to_dataframe(self, base_df, mapping_file, tmp_path):
         """validate_schools adds four phix_ columns to the returned DataFrame.
@@ -379,8 +404,15 @@ class TestValidateSchools:
 
         Assertion: all four columns present in result DataFrame.
         """
-        result_df, _ = validate_phix.validate_schools(base_df, mapping_file, "Test PHU", tmp_path)
-        for col in ["phix_facility_id", "phix_match_type", "phix_matched_name", "phix_matched_phu"]:
+        result_df, _ = validate_phix.validate_schools(
+            base_df, mapping_file, "Test PHU", tmp_path
+        )
+        for col in [
+            "phix_facility_id",
+            "phix_match_type",
+            "phix_matched_name",
+            "phix_matched_phu",
+        ]:
             assert col in result_df.columns
 
     def test_exact_match_row_has_correct_values(self, base_df, mapping_file, tmp_path):
@@ -388,7 +420,9 @@ class TestValidateSchools:
 
         Assertion: PHIX columns correct for the exact-match row.
         """
-        result_df, _ = validate_phix.validate_schools(base_df, mapping_file, "Test PHU", tmp_path)
+        result_df, _ = validate_phix.validate_schools(
+            base_df, mapping_file, "Test PHU", tmp_path
+        )
         exact_row = result_df[result_df["client_id"] == "C1"].iloc[0]
         assert exact_row["phix_match_type"] == "exact"
         assert exact_row["phix_facility_id"] == "001"
@@ -399,11 +433,15 @@ class TestValidateSchools:
 
         Assertion: phix_matched_phu is empty string for no_match rows.
         """
-        result_df, _ = validate_phix.validate_schools(base_df, mapping_file, "Test PHU", tmp_path)
+        result_df, _ = validate_phix.validate_schools(
+            base_df, mapping_file, "Test PHU", tmp_path
+        )
         no_match_row = result_df[result_df["client_id"] == "C3"].iloc[0]
         assert no_match_row["phix_matched_phu"] == ""
 
-    def test_warn_behavior_returns_all_rows_and_warning(self, base_df, mapping_file, tmp_path):
+    def test_warn_behavior_returns_all_rows_and_warning(
+        self, base_df, mapping_file, tmp_path
+    ):
         """unmatched_behavior='warn' keeps all rows and returns a warning string.
 
         Real-world significance:
@@ -443,14 +481,16 @@ class TestValidateSchools:
         Assertion: rows for no_match schools removed; matched rows preserved.
         """
         # Use raw values with and without ID suffix to exercise both code paths
-        df = pd.DataFrame({
-            "school_name": [
-                "Springfield Elementary - 001",  # exact  (raw value has ' - ID' suffix)
-                "Shelbyville Middle",             # inexact/name_only
-                "Unknown Academy",               # no_match
-            ],
-            "client_id": ["C1", "C2", "C3"],
-        })
+        df = pd.DataFrame(
+            {
+                "school_name": [
+                    "Springfield Elementary - 001",  # exact  (raw value has ' - ID' suffix)
+                    "Shelbyville Middle",  # inexact/name_only
+                    "Unknown Academy",  # no_match
+                ],
+                "client_id": ["C1", "C2", "C3"],
+            }
+        )
         result_df, _ = validate_phix.validate_schools(
             df, mapping_file, "Test PHU", tmp_path, unmatched_behavior="skip"
         )
@@ -467,11 +507,15 @@ class TestValidateSchools:
         Assertion: original DataFrame returned as-is; warnings empty.
         """
         df = pd.DataFrame({"OTHER_COL": ["a", "b"]})
-        result_df, warnings = validate_phix.validate_schools(df, mapping_file, "Test PHU", tmp_path)
+        result_df, warnings = validate_phix.validate_schools(
+            df, mapping_file, "Test PHU", tmp_path
+        )
         pd.testing.assert_frame_equal(result_df, df)
         assert warnings == []
 
-    def test_nan_values_in_school_column_treated_as_no_match(self, mapping_file, tmp_path):
+    def test_nan_values_in_school_column_treated_as_no_match(
+        self, mapping_file, tmp_path
+    ):
         """NaN in school_name column does not crash; those rows get no_match columns.
 
         Real-world significance:
@@ -479,11 +523,15 @@ class TestValidateSchools:
 
         Assertion: NaN rows have phix_match_type='no_match' and empty PHU.
         """
-        df = pd.DataFrame({
-            "school_name": ["Springfield Elementary - 001", None],
-            "client_id": ["C1", "C2"],
-        })
-        result_df, _ = validate_phix.validate_schools(df, mapping_file, "Test PHU", tmp_path)
+        df = pd.DataFrame(
+            {
+                "school_name": ["Springfield Elementary - 001", None],
+                "client_id": ["C1", "C2"],
+            }
+        )
+        result_df, _ = validate_phix.validate_schools(
+            df, mapping_file, "Test PHU", tmp_path
+        )
         nan_row = result_df[result_df["client_id"] == "C2"].iloc[0]
         assert nan_row["phix_match_type"] == "no_match"
         assert nan_row["phix_matched_phu"] == ""
@@ -535,19 +583,17 @@ class TestValidateSchools:
 
 @pytest.mark.unit
 class TestRunPhixValidation:
-    """Unit tests for preprocess.run_phix_validation.
-
-    These tests monkeypatch preprocess.PARAMETERS_PATH so the real
-    config/parameters.yaml (enabled: false) is not used.
-    """
+    """Preprocessing applies the selected PHIX settings directly."""
 
     @pytest.fixture
     def base_df(self) -> pd.DataFrame:
         """Minimal DataFrame for preprocess.run_phix_validation tests."""
-        return pd.DataFrame({
-            "school_name": ["Springfield Elementary - 001", "Unknown Academy"],
-            "client_id": ["C1", "C2"],
-        })
+        return pd.DataFrame(
+            {
+                "school_name": ["Springfield Elementary - 001", "Unknown Academy"],
+                "client_id": ["C1", "C2"],
+            }
+        )
 
     def test_disabled_returns_df_unchanged_and_no_warnings(self, tmp_path, base_df):
         """When phix_validation.enabled is false, DataFrame passes through unchanged.
@@ -558,11 +604,9 @@ class TestRunPhixValidation:
         Assertion: same DataFrame returned; empty warnings list.
         """
         config = {"phix_validation": {"enabled": False}}
-        params_file = tmp_path / "parameters.yaml"
-        params_file.write_text(yaml.dump(config), encoding="utf-8")
-
-        with patch.object(preprocess, "PARAMETERS_PATH", params_file):
-            result_df, warnings = preprocess.run_phix_validation(base_df, tmp_path)
+        result_df, warnings = preprocess.run_phix_validation(
+            base_df, tmp_path, config=config, config_dir=tmp_path
+        )
 
         pd.testing.assert_frame_equal(result_df, base_df)
         assert warnings == []
@@ -577,16 +621,16 @@ class TestRunPhixValidation:
         Assertion: original DataFrame returned; warnings list empty.
         """
         config = {"phix_validation": {"enabled": True, "target_phu": "Test PHU"}}
-        params_file = tmp_path / "parameters.yaml"
-        params_file.write_text(yaml.dump(config), encoding="utf-8")
-
-        with patch.object(preprocess, "PARAMETERS_PATH", params_file):
-            result_df, warnings = preprocess.run_phix_validation(base_df, tmp_path)
+        result_df, warnings = preprocess.run_phix_validation(
+            base_df, tmp_path, config=config, config_dir=tmp_path
+        )
 
         pd.testing.assert_frame_equal(result_df, base_df)
         assert warnings == []
 
-    def test_missing_target_phu_returns_df_unchanged(self, tmp_path, base_df, mapping_file):
+    def test_missing_target_phu_returns_df_unchanged(
+        self, tmp_path, base_df, mapping_file
+    ):
         """When target_phu is not set, DataFrame passes through unchanged.
 
         Real-world significance:
@@ -601,11 +645,9 @@ class TestRunPhixValidation:
                 "target_phu": "",
             }
         }
-        params_file = tmp_path / "parameters.yaml"
-        params_file.write_text(yaml.dump(config), encoding="utf-8")
-
-        with patch.object(preprocess, "PARAMETERS_PATH", params_file):
-            result_df, warnings = preprocess.run_phix_validation(base_df, tmp_path)
+        result_df, warnings = preprocess.run_phix_validation(
+            base_df, tmp_path, config=config, config_dir=tmp_path
+        )
 
         pd.testing.assert_frame_equal(result_df, base_df)
         assert warnings == []
@@ -621,11 +663,29 @@ class TestRunPhixValidation:
 
         Assertion: phix_ columns present; warnings returned for unmatched school.
         """
-        with patch.object(preprocess, "PARAMETERS_PATH", phix_config_yaml):
-            result_df, warnings = preprocess.run_phix_validation(base_df, tmp_path)
+        result_df, warnings = preprocess.run_phix_validation(
+            base_df,
+            tmp_path,
+            config=yaml.safe_load(phix_config_yaml.read_text(encoding="utf-8")),
+            config_dir=phix_config_yaml.parent,
+        )
 
         assert "phix_match_type" in result_df.columns
         assert "phix_facility_id" in result_df.columns
         # "Unknown Academy" has no match → warning issued
         assert len(warnings) > 0
 
+    def test_relative_mapping_uses_selected_config_directory(
+        self, tmp_path, base_df, mapping_file
+    ):
+        config = {
+            "phix_validation": {
+                "enabled": True,
+                "mapping_file": "phix_mapping.json",
+                "target_phu": "Test PHU",
+            }
+        }
+        result, _ = preprocess.run_phix_validation(
+            base_df, tmp_path, config=config, config_dir=mapping_file.parent
+        )
+        assert result.loc[0, "phix_facility_id"] == "001"

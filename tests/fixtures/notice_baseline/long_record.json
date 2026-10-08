@@ -7,9 +7,7 @@
     "person": {
       "first_name": "Élodie",
       "last_name": "O’Connor",
-      "date_of_birth": "2015-01-02",
       "date_of_birth_iso": "2015-01-02",
-      "date_of_birth_display": "January 2, 2015",
       "age": 9,
       "over_16": false
     },
@@ -27,15 +25,6 @@
       "province": "ON",
       "postal_code": "N1H 2T2"
     },
-    "vaccines_due": "Measles/Mumps/Rubella",
-    "vaccines_due_list": [
-      "Measles (1st dose)",
-      "Mumps",
-      "Rubella"
-    ],
-    "vaccines_due_agent_list": [
-      "MMR"
-    ],
     "received": [
       {
         "date_given": "2020-01-01",
@@ -545,6 +534,24 @@
     "metadata": {},
     "qr": {
       "payload": "https://www.test-immunization.ca/update?client_id=0000000001&dob=2015-01-02&lang=en"
-    }
+    },
+    "version_id": "overdue_standard_v1",
+    "overdue_diseases": [
+      {
+        "disease": "Measles",
+        "dose": 1
+      },
+      {
+        "disease": "Mumps",
+        "dose": null
+      },
+      {
+        "disease": "Rubella",
+        "dose": null
+      }
+    ],
+    "overdue_agents": [
+      "MMR"
+    ]
   }
 }

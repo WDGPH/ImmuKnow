@@ -15,35 +15,19 @@ Real-world significance:
 from __future__ import annotations
 
 import json
+from dataclasses import asdict
 from pathlib import Path
 
 import pytest
 
-from pipeline import bundle_pdfs
-from pipeline.data_models import PdfRecord
-from pipeline.enums import BundleStrategy, BundleType
-from pipeline.utils import deserialize_client_record
+from immuknow import bundle_pdfs
+from immuknow.data_models import ClientRecord, PdfRecord
+from immuknow.enums import BundleStrategy, BundleType
 from tests.fixtures import sample_input
 
 
 def artifact_to_dict(artifact) -> dict:
-    clients_dicts = [
-        {
-            "sequence": client.sequence,
-            "client_id": client.client_id,
-            "language": client.language,
-            "person": client.person,
-            "school": client.school,
-            "board": client.board,
-            "contact": client.contact,
-            "vaccines_due": client.vaccines_due,
-            "vaccines_due_list": client.vaccines_due_list,
-            "received": list(client.received) if client.received else [],
-            "metadata": client.metadata,
-            "qr": client.qr,
-        }
-        for client in artifact.clients
-    ]
+    clients_dicts = [asdict(client) for client in artifact.clients]
 
     return {
         "run_id": artifact.run_id,
@@ -90,7 +74,7 @@ def make_pdf_records(clients: dict, output_dir: Path) -> list[PdfRecord]:
             page_count=len(
                 PdfReader(pdf_dir / f"en_notice_{sequence}_{client_id}.pdf").pages
             ),
-            client=deserialize_client_record(client),
+            client=ClientRecord(**client),
         )
         for (sequence, client_id), client in sorted(clients.items())
     ]
@@ -518,83 +502,66 @@ class TestWriteBundle:
 
 
 @pytest.mark.unit
-class TestBundlePdfs:
-    def test_bundle_pdfs_returns_empty_when_disabled(self, tmp_path: Path) -> None:
-        artifact = sample_input.create_test_artifact_payload(
-            num_clients=2, run_id="test"
+def test_disabled_bundling_leaves_outputs_untouched(tmp_path: Path) -> None:
+    assert bundle_pdfs.bundle_notices([], [], tmp_path, "run", {}) == []
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.unit
+def test_nonempty_cohort_requires_explicit_jobs(tmp_path: Path) -> None:
+    artifact = sample_input.create_test_artifact_payload(num_clients=1)
+    with pytest.raises(ValueError, match="canonical cohort"):
+        bundle_pdfs.bundle_notices(
+            artifact.clients, [], tmp_path, "run", {"bundling": {"bundle_size": 5}}
         )
-        artifact_dir = tmp_path / "artifacts"
-        artifact_dir.mkdir()
+    assert not (tmp_path / "pdf_combined").exists()
 
-        artifact_path = artifact_dir / "preprocessed_clients_test.json"
-        with open(artifact_path, "w") as f:
-            json.dump(artifact_to_dict(artifact), f)
 
-        config = bundle_pdfs.BundleConfig(
-            output_dir=tmp_path,
-            bundle_size=0,
-            bundle_strategy=BundleStrategy.SIZE,
-            run_id="test",
+@pytest.mark.unit
+def test_missing_expected_pdf_prevents_bundling(tmp_path: Path) -> None:
+    from immuknow.data_models import RenderJob
+
+    artifact = sample_input.create_test_artifact_payload(num_clients=1)
+    client = artifact.clients[0]
+    job = RenderJob(
+        sequence=client.sequence,
+        client_id=client.client_id,
+        language=client.language,
+        version_id=client.version_id,
+        workspace=tmp_path,
+        template=tmp_path / "notice.typ",
+        data=tmp_path / "notice.json",
+        pdf=tmp_path / "missing.pdf",
+    )
+    with pytest.raises(FileNotFoundError, match="Expected notice PDF is missing"):
+        bundle_pdfs.bundle_notices(
+            artifact.clients, [job], tmp_path, "run", {"bundling": {"bundle_size": 5}}
         )
+    assert not (tmp_path / "pdf_combined").exists()
 
-        results = bundle_pdfs.bundle_pdfs(config)
 
-        assert results == []
+@pytest.mark.unit
+def test_duplicate_jobs_cannot_substitute_for_missing_client(tmp_path: Path) -> None:
+    from immuknow.data_models import RenderJob
 
-    def test_bundle_pdfs_raises_for_missing_artifact(self, tmp_path: Path) -> None:
-        config = bundle_pdfs.BundleConfig(
-            output_dir=tmp_path,
-            bundle_size=5,
-            bundle_strategy=BundleStrategy.SIZE,
-            run_id="nonexistent",
+    artifact = sample_input.create_test_artifact_payload(num_clients=2)
+    client = artifact.clients[0]
+    job = RenderJob(
+        sequence=client.sequence,
+        client_id=client.client_id,
+        language=client.language,
+        version_id=client.version_id,
+        workspace=tmp_path,
+        template=tmp_path / "notice.typ",
+        data=tmp_path / "notice.json",
+        pdf=tmp_path / "notice.pdf",
+    )
+    with pytest.raises(ValueError, match="canonical cohort"):
+        bundle_pdfs.bundle_notices(
+            artifact.clients,
+            [job, job],
+            tmp_path,
+            "run",
+            {"bundling": {"bundle_size": 5}},
         )
-
-        with pytest.raises(FileNotFoundError, match="Preprocessed artifact not found"):
-            bundle_pdfs.bundle_pdfs(config)
-
-    def test_bundle_pdfs_requires_explicit_render_jobs(self, tmp_path: Path) -> None:
-        artifact = sample_input.create_test_artifact_payload(
-            num_clients=1, language="en", run_id="test"
-        )
-        artifact_dir = tmp_path / "artifacts"
-        artifact_dir.mkdir()
-
-        artifact_path = artifact_dir / "preprocessed_clients_test.json"
-        with open(artifact_path, "w") as f:
-            json.dump(artifact_to_dict(artifact), f)
-
-        config = bundle_pdfs.BundleConfig(
-            output_dir=tmp_path,
-            bundle_size=5,
-            bundle_strategy=BundleStrategy.SIZE,
-            run_id="test",
-        )
-
-        with pytest.raises(FileNotFoundError, match="render_jobs.json"):
-            bundle_pdfs.bundle_pdfs(config)
-
-    def test_bundle_pdfs_rejects_uncompiled_nonempty_cohort(
-        self, tmp_path: Path
-    ) -> None:
-        artifact = sample_input.create_test_artifact_payload(
-            num_clients=1, run_id="test"
-        )
-        artifact_dir = tmp_path / "artifacts"
-        artifact_dir.mkdir()
-
-        artifact_path = artifact_dir / "preprocessed_clients_test.json"
-        with open(artifact_path, "w") as f:
-            json.dump(artifact_to_dict(artifact), f)
-        (artifact_dir / "render_jobs.json").write_text(
-            json.dumps({"run_id": "test", "total_clients": 1, "jobs": []})
-        )
-
-        config = bundle_pdfs.BundleConfig(
-            output_dir=tmp_path,
-            bundle_size=5,
-            bundle_strategy=BundleStrategy.SIZE,
-            run_id="test",
-        )
-
-        with pytest.raises(ValueError, match="every expected notice exactly once"):
-            bundle_pdfs.bundle_pdfs(config)
+    assert not (tmp_path / "pdf_combined").exists()

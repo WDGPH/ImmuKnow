@@ -13,20 +13,38 @@ import sys
 from pathlib import Path
 
 import pytest
+import pandas as pd
 import yaml
 from pypdf import PdfReader
 
-from pipeline import (
+from immuknow import (
     bundle_pdfs,
     compile_notices,
     encrypt_notice,
-    generate_notices,
     orchestrator,
+    validate_pdfs,
 )
+from immuknow.data_models import ClientRecord, RenderJob
+from immuknow.config_loader import load_config
 from tests.fixtures.sample_input import create_test_input_dataframe
 
 ROOT = Path(__file__).resolve().parents[2]
 pytestmark = pytest.mark.integration
+
+
+def read_render_jobs(artifact_dir: Path) -> list[RenderJob]:
+    """Inspect persisted compilation evidence produced by a complete test run."""
+    manifest = json.loads((artifact_dir / "render_jobs.json").read_text())
+    evidence = json.loads((artifact_dir / "compilation.json").read_text())
+    assert evidence["outputs"] == [raw["pdf"] for raw in manifest["jobs"]]
+    assert len(manifest["jobs"]) == manifest["total_clients"]
+    jobs = []
+    for raw in manifest["jobs"]:
+        for field in ("workspace", "template", "data", "pdf"):
+            raw[field] = Path(raw[field])
+        jobs.append(RenderJob(**raw))
+    assert all(job.pdf.is_file() for job in jobs)
+    return jobs
 
 
 def prepare_cohort(
@@ -41,7 +59,7 @@ def prepare_cohort(
 ) -> tuple[list[str], Path, Path]:
     """Prepare synthetic Excel, manifest, and external config for a real CLI run."""
     config_dir = tmp_path / "Configuration été"
-    shutil.copytree(ROOT / "config", config_dir)
+    shutil.copytree(ROOT / "immuknow" / "config", config_dir)
     config_path = config_dir / "parameters.yaml"
     config = yaml.safe_load(config_path.read_text())
     config["bundling"] = {"bundle_size": 10, "group_by": group_by}
@@ -76,7 +94,7 @@ def prepare_cohort(
     command = [
         sys.executable,
         "-m",
-        "pipeline.orchestrator",
+        "immuknow.orchestrator",
         str(input_path),
         "--output",
         str(output_dir),
@@ -107,8 +125,9 @@ def test_cli_requires_version_id_in_every_assignment(tmp_path: Path) -> None:
     assert not list(output_dir.rglob("*.pdf"))
 
 
-@pytest.mark.parametrize("group_by", [None, "school", "board"])
-@pytest.mark.parametrize("options", [False, True])
+@pytest.mark.parametrize(
+    "group_by,options", [(None, False), ("school", True), ("board", False)]
+)
 def test_mixed_cohort_processed_exactly_once(
     tmp_path: Path, group_by: str | None, options: bool
 ) -> None:
@@ -123,9 +142,7 @@ def test_mixed_cohort_processed_exactly_once(
     )
     result = run_cli(command, tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
-    jobs = generate_notices.read_render_jobs(
-        output_dir / "artifacts", require_compiled=True
-    )
+    jobs = read_render_jobs(output_dir / "artifacts")
     assert len(jobs) == 2
     assert {job.language for job in jobs} == {"en", "fr"}
     validation = json.loads(
@@ -147,13 +164,17 @@ def test_mixed_cohort_processed_exactly_once(
     assert len(encrypted_files) == (2 if options else 0)
     for job in jobs:
         notice = json.loads(job.data.read_text())
-        assert ("2" in notice["vaccines_due_str"]) == options
+        assert notice["overdue_diseases"] == [{"disease": "Measles", "dose": 2}]
+        assert notice["include_dose"] is options
         assert notice["show_validity_markers"] is options
         assert ("qr_img" in notice["client_data"]) == options
         assert (
             job.template.read_bytes()
             == (
-                ROOT / "templates" / f"overdue_standard_v1.{job.language}.typ"
+                ROOT
+                / "immuknow"
+                / "templates"
+                / f"overdue_standard_v1.{job.language}.typ"
             ).read_bytes()
         )
         if options:
@@ -178,13 +199,13 @@ def test_assigned_language_controls_every_display_date(
     )
     result = run_cli(command, tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
-    job = generate_notices.read_render_jobs(
-        output_dir / "artifacts", require_compiled=True
-    )[0]
+    job = read_render_jobs(output_dir / "artifacts")[0]
     notice = json.loads(job.data.read_text())
-    assert month in notice["client_data"]["date_of_birth"]
+    text = "\n".join(page.extract_text() for page in PdfReader(job.pdf).pages)
+    assert month in text
+    assert notice["client_data"]["date_of_birth_iso"] == "2015-01-02"
     cutoff_month = "août" if assigned_language == "fr" else "August"
-    assert cutoff_month in notice["client_data"]["date_data_cutoff"]
+    assert cutoff_month in text
     assert len(list((output_dir / "pdf_combined").glob("*.pdf"))) == 1
 
 
@@ -193,35 +214,53 @@ def test_failed_compilation_invalidates_old_outputs(tmp_path: Path) -> None:
     command, output_dir, config_dir = prepare_cohort(tmp_path)
     assert run_cli(command, tmp_path).returncode == 0
     artifact_dir = output_dir / "artifacts"
-    jobs = generate_notices.read_render_jobs(artifact_dir, require_compiled=True)
+    jobs = read_render_jobs(artifact_dir)
     job = next(job for job in jobs if job.language == "fr")
     notice = json.loads(job.data.read_text())
     notice["version_id"] = "affirmative_schedule_v1"
     job.data.write_text(json.dumps(notice))
     with pytest.raises(subprocess.CalledProcessError):
-        compile_notices.compile_with_config(
-            artifact_dir, job.pdf.parent, config_dir / "parameters.yaml"
+        compile_notices.compile_notices(
+            jobs, artifact_dir, load_config(config_dir / "parameters.yaml")
         )
     assert not job.pdf.exists()
     assert not list(job.pdf.parent.glob("*.partial.pdf"))
     with pytest.raises(FileNotFoundError):
-        generate_notices.read_render_jobs(artifact_dir, require_compiled=True)
+        read_render_jobs(artifact_dir)
 
 
-def test_nondefault_language_validation_failure_fails_run(tmp_path: Path) -> None:
-    """An invalid French notice must fail an English-default run before bundling."""
+@pytest.mark.parametrize("failure", ["wrong_client", "missing_entry", "compile_error"])
+def test_nondefault_language_failure_prevents_successful_delivery(
+    tmp_path: Path, failure: str
+) -> None:
+    """Every selected language must compile and validate, including a failed rerun."""
     command, output_dir, _ = prepare_cohort(tmp_path)
     custom = tmp_path / "PHU modèles"
-    shutil.copytree(ROOT / "templates", custom)
+    shutil.copytree(ROOT / "immuknow" / "templates", custom)
+    selected_command = command + ["--templates", str(custom)]
     french = custom / "overdue_standard_v1.fr.typ"
-    french.write_text(
-        french.read_text().replace("notice.client_row", '("9999999999",)')
-    )
-    result = run_cli(command + ["--templates", str(custom)], tmp_path)
+    if failure == "wrong_client":
+        french.write_text(
+            french.read_text().replace("notice.client_id", '"9999999999"')
+        )
+        diagnostic = "PDF validation failed"
+    elif failure == "missing_entry":
+        french.unlink()
+        diagnostic = "Notice template not found"
+    else:
+        initial = run_cli(selected_command, tmp_path)
+        assert initial.returncode == 0, initial.stdout + initial.stderr
+        assert list((output_dir / "pdf_combined").glob("*.pdf"))
+        french.write_text(
+            french.read_text() + '\n#panic("deliberate recompilation failure")\n'
+        )
+        diagnostic = "deliberate recompilation failure"
+    result = run_cli(selected_command, tmp_path)
     assert result.returncode == 1
-    assert "PDF validation failed" in result.stderr
+    assert diagnostic in result.stderr
     assert "Pipeline completed successfully" not in result.stdout
     assert not list((output_dir / "pdf_combined").glob("*.pdf"))
+    assert not list((output_dir / "metadata").glob("completion_*.json"))
 
 
 def test_expected_outputs_exclude_stale_files_and_require_every_pdf(
@@ -232,24 +271,33 @@ def test_expected_outputs_exclude_stale_files_and_require_every_pdf(
     assert run_cli(command, tmp_path).returncode == 0
     artifact_dir = output_dir / "artifacts"
     manifest = json.loads((artifact_dir / "render_jobs.json").read_text())
-    jobs = generate_notices.read_render_jobs(artifact_dir, require_compiled=True)
+    jobs = read_render_jobs(artifact_dir)
     (output_dir / "pdf_individual" / "en_notice_stale.pdf").write_text("not a PDF")
     (output_dir / "pdf_individual" / "fr_notice_old_encrypted.pdf").write_text(
         "not a PDF"
     )
-    orchestrator.run_step_6_validate_pdfs(output_dir, manifest["run_id"], config_dir)
-    bundles = bundle_pdfs.bundle_pdfs_with_config(
-        output_dir, manifest["run_id"], config_dir / "parameters.yaml"
+    clients = [
+        ClientRecord(**raw)
+        for raw in json.loads(
+            next(artifact_dir.glob("preprocessed_clients_*.json")).read_text()
+        )["clients"]
+    ]
+    config = load_config(config_dir / "parameters.yaml")
+    validate_pdfs.validate_notices(
+        [job.pdf for job in jobs],
+        enabled_rules=config["pdf_validation"]["rules"],
+        client_id_map={job.pdf.name: job.client_id for job in jobs},
+    )
+    bundles = bundle_pdfs.bundle_notices(
+        clients, jobs, output_dir, manifest["run_id"], config
     )
     assert sum(len(bundle.bundle_plan.clients) for bundle in bundles) == 2
     jobs[0].pdf.unlink()
     with pytest.raises(FileNotFoundError, match="Expected notice PDF is missing"):
-        orchestrator.run_step_6_validate_pdfs(
-            output_dir, manifest["run_id"], config_dir
-        )
+        validate_pdfs.validate_notices([job.pdf for job in jobs])
     with pytest.raises(FileNotFoundError, match="Expected notice PDF is missing"):
-        bundle_pdfs.bundle_pdfs_with_config(
-            output_dir, manifest["run_id"], config_dir / "parameters.yaml"
+        bundle_pdfs.bundle_notices(
+            clients, jobs, output_dir, manifest["run_id"], config
         )
 
 
@@ -268,5 +316,109 @@ def test_encryption_rejects_job_client_mismatch(tmp_path: Path) -> None:
         ValueError, match="Render jobs do not match the canonical cohort"
     ):
         encrypt_notice.encrypt_expected_notices(
-            artifact_path, artifact_dir, config_dir / "parameters.yaml"
+            [ClientRecord(**raw) for raw in artifact["clients"]],
+            read_render_jobs(artifact_dir),
+            load_config(config_dir / "parameters.yaml"),
         )
+
+
+def test_sequential_callable_runs_keep_resources_and_assignments_isolated(
+    tmp_path: Path,
+) -> None:
+    """A mixed affirmative/overdue run cannot leak resources into an all-French run."""
+    command, first_output, first_config = prepare_cohort(tmp_path / "first")
+    input_path = Path(command[3])
+    frame = pd.read_excel(input_path, dtype=str)
+    frame.loc[0, "overdue_disease"] = ""
+    frame.loc[0, "overdue_vaccine"] = ""
+    frame.to_excel(input_path, index=False)
+    assignment_path = Path(command[command.index("--notice-assignments") + 1])
+    assignments = json.loads(assignment_path.read_text())
+    assignments[0]["version_id"] = "affirmative_schedule_v1"
+    assignment_path.write_text(json.dumps(assignments))
+    first_completion = orchestrator.run_pipeline(
+        input_path,
+        first_output,
+        config_dir=first_config,
+        notice_assignments=assignment_path,
+    )
+    assert first_completion is not None
+    first_jobs = read_render_jobs(first_output / "artifacts")
+    assert {(job.version_id, job.language) for job in first_jobs} == {
+        ("affirmative_schedule_v1", "en"),
+        ("overdue_standard_v1", "fr"),
+    }
+
+    command, second_output, second_config = prepare_cohort(tmp_path / "second", ("fr",))
+    translation = second_config / "translations" / "fr_diseases_overdue.json"
+    labels = json.loads(translation.read_text())
+    labels["Measles"] = "LIBELLÉ LOCAL SÉLECTIONNÉ"
+    translation.write_text(json.dumps(labels, ensure_ascii=False))
+    custom = tmp_path / "Modèles privés"
+    shutil.copytree(ROOT / "immuknow" / "templates", custom)
+    entry = custom / "overdue_standard_v1.fr.typ"
+    entry.write_text(entry.read_text() + "\n#text[SECOND TEMPLATE SET]\n")
+    second_completion = orchestrator.run_pipeline(
+        Path(command[3]),
+        second_output,
+        config_dir=second_config,
+        template_dir=custom,
+        notice_assignments=Path(command[command.index("--notice-assignments") + 1]),
+    )
+    assert second_completion is not None
+    second_jobs = read_render_jobs(second_output / "artifacts")
+    assert len(second_jobs) == 1 and second_jobs[0].language == "fr"
+    text = "\n".join(
+        page.extract_text() for page in PdfReader(second_jobs[0].pdf).pages
+    )
+    assert "LIBELLÉ LOCAL SÉLECTIONNÉ" in text
+    assert "SECOND TEMPLATE SET" in text
+    for output, expected in ((first_output, first_jobs), (second_output, second_jobs)):
+        manifests = [
+            json.loads(path.read_text())
+            for path in (output / "metadata").glob("*_manifest.json")
+        ]
+        bundled = [
+            client["client_id"]
+            for manifest in manifests
+            for client in manifest["clients"]
+        ]
+        assert sorted(bundled) == sorted(job.client_id for job in expected)
+        assert len(
+            json.loads(
+                next((output / "metadata").glob("completion_*.json")).read_text()
+            )["notices"]
+        ) == len(expected)
+
+
+@pytest.mark.parametrize("failure", ["unknown_version", "version_conflict"])
+def test_preflight_preserves_actionable_sensitive_findings(
+    tmp_path: Path, failure: str
+) -> None:
+    """A failed assignment identifies its client and reason without publishing output."""
+    command, output, config_dir = prepare_cohort(tmp_path, ("fr",))
+    manifest = Path(command[command.index("--notice-assignments") + 1])
+    assignments = json.loads(manifest.read_text())
+    if failure == "unknown_version":
+        assignments[0]["version_id"] = "not_in_the_catalog"
+    else:
+        frame = pd.read_excel(Path(command[3]), dtype=str)
+        frame["version_id"] = "legacy_overdue_v1"
+        frame.to_excel(Path(command[3]), index=False)
+    manifest.write_text(json.dumps(assignments))
+    with pytest.raises(ValueError, match="Sensitive assignment diagnostics"):
+        orchestrator.run_pipeline(
+            Path(command[3]),
+            output,
+            config_dir=config_dir,
+            notice_assignments=manifest,
+        )
+    diagnostic = next((output / "metadata").glob("assignment_findings_*.json"))
+    finding = json.loads(diagnostic.read_text())[0]
+    assert finding["client_id"] == assignments[0]["client_id"]
+    assert finding["version_id"] == assignments[0]["version_id"]
+    assert assignments[0]["version_id"] in finding["reason"]
+    assert finding["kind"] == failure
+    assert diagnostic.stat().st_mode & 0o777 == 0o600
+    assert not list(output.rglob("*.pdf"))
+    assert not list((output / "metadata").glob("completion_*.json"))

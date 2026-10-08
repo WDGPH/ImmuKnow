@@ -1,0 +1,59 @@
+bundling:
+  bundle_size: 100
+  group_by: null
+phix_validation:
+  enabled: false
+  mapping_file: phix_mapping.json
+  target_phu: "Wellington-Dufferin-Guelph Public Health" # Exact PHU name as it appears as a key in the mapping JSON
+  column_prefix: "PHIX_"
+  unmatched_behavior: warn # How to handle schools with no_match: warn | error | skip
+chart_diseases_header:
+- Diphtheria
+- Tetanus
+- Pertussis
+- Polio
+- Hib
+- Pneumococcal
+- Rotavirus
+- Measles
+- Mumps
+- Rubella
+- Meningococcal
+- Varicella
+- Other
+date_data_cutoff: '2025-08-31'
+date_notice_delivery: '2025-04-08'
+encryption:
+  enabled: false
+  password:
+    template: '{date_of_birth_iso_compact}'
+ignore_agents:
+- RSVAb
+- VarIg
+- HBIg
+- RabIg
+- Ig
+pdf_validation:
+  rules:
+    client_id_presence: error
+    envelope_window_1_125: warn
+    exactly_two_pages: warn
+    signature_overflow: warn
+pipeline:
+  after_run:
+    remove_artifacts: false
+    remove_unencrypted_pdfs: false
+  before_run:
+    clear_output_directory: true
+preprocess:
+  include_dose: false
+  show_validity_markers: false
+qr:
+  enabled: false
+  payload_template: https://www.test-immunization.ca/update?client_id={client_id}&dob={date_of_birth_iso}&lang={language_code}
+typst:
+  bin: typst
+  font_path: /usr/share/fonts/truetype/freefont/
+notice_versioning:
+  extra_manifest_rows: warn
+  allow_unassigned: False

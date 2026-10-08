@@ -24,68 +24,68 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+import yaml
 
-from pipeline import preprocess
+from immuknow import preprocess
 from tests.fixtures import sample_input
 
 
+def build_result(*args, config=None, config_dir=preprocess.CONFIG_DIR, **kwargs):
+    """Supply the run configuration to focused preprocessing tests."""
+    if config is None:
+        config = yaml.safe_load((preprocess.CONFIG_DIR / "parameters.yaml").read_text())
+    return preprocess.build_preprocess_result(
+        *args, config=config, config_dir=config_dir, **kwargs
+    )
+
+
 @pytest.mark.unit
-class TestFormatVaccineDueList:
-    """Unit tests for overdue-vaccine dose formatting."""
+class TestOverdueParsing:
+    """Source dose state remains available independently of display settings."""
 
-    def test_empty_dose_suffix_displays_only_disease(self) -> None:
-        """Verify an empty dose suffix displays only the disease name.
+    def test_preserves_valid_absent_and_invalid_doses(self) -> None:
+        warnings: set[str] = set()
+        result = preprocess.parse_overdue_diseases(
+            "Poliomyelitis - 2; Measles; Mumps - ; Rubella - no dose; Tetanus - 11",
+            {"Poliomyelitis": "Polio"},
+            client_id="C001",
+            warnings=warnings,
+        )
+        assert result == [
+            {"disease": "Polio", "dose": 2},
+            {"disease": "Measles", "dose": None},
+            {"disease": "Mumps", "dose": None, "dose_raw": ""},
+            {"disease": "Rubella", "dose": None, "dose_raw": "no dose"},
+            {"disease": "Tetanus", "dose": 11},
+        ]
+        assert len(warnings) == 2
 
-        Real-world significance:
-        - Source exports can contain a separator without a dose number
-        - One malformed entry must not stop preprocessing for every client
-
-        Assertion: Blank and whitespace-only suffixes are removed from display
-        """
-        result = preprocess.format_vaccine_due_list(["Polio - ", "MMR -    "])
-
-        assert result == ["Polio", "MMR"]
-
-    def test_empty_suffix_preserves_later_invalid_dose_warning(
-        self, caplog: pytest.LogCaptureFixture
+    def test_display_option_does_not_change_canonical_doses(
+        self, default_vaccine_reference
     ) -> None:
-        """Verify an empty suffix does not suppress later invalid-dose logging.
+        frame = sample_input.create_test_input_dataframe(num_clients=1)
+        frame.loc[0, "overdue_disease"] = "Measles; Mumps - ; Polio - 2"
+        expected = [
+            {"disease": "Measles", "dose": None},
+            {"disease": "Mumps", "dose": None, "dose_raw": ""},
+            {"disease": "Polio", "dose": 2},
+        ]
+        for include_dose in (False, True):
+            config = yaml.safe_load(
+                (preprocess.CONFIG_DIR / "parameters.yaml").read_text(encoding="utf-8")
+            )
+            config["preprocess"]["include_dose"] = include_dose
+            result, _ = build_result(
+                frame,
+                language="en",
+                vaccine_reference=default_vaccine_reference,
+                replace_unspecified=[],
+                config=config,
+            )
+            assert result.clients[0].overdue_diseases == expected
 
-        Real-world significance:
-        - A malformed entry can appear before other invalid values in one export
-        - Existing warnings for out-of-range dose numbers must remain available
-
-        Assertion: The empty suffix is hidden and the later warning is emitted
-        """
-        result = preprocess.format_vaccine_due_list(["Polio - ", "MMR - 10"])
-
-        assert result == ["Polio", "MMR - 10"]
-        assert "invalid dose number: MMR - 10" in caplog.text
-
-    def test_requires_dose_bearing_schema(self) -> None:
-        """Reject dose display when the input has no dose-bearing schema.
-
-        Real-world significance:
-        - Enabling dose display promises recipients a specific overdue dose
-        - Ordinary disease-only input cannot fulfill that configuration
-
-        Assertion: Formatting a disease-only entry raises a configuration error
-        """
-        with pytest.raises(ValueError, match="include_dose requires overdue entries"):
-            preprocess.format_vaccine_due_list(["Polio"])
-
-    def test_hides_supplied_doses_and_preserves_ordinary_entries(self) -> None:
-        """Hide dose fields while preserving ordinary overdue entries.
-
-        Real-world significance:
-        - Sites that disable dose display may use either supported input schema
-        - Recipients should see the same disease list without supplied dose numbers
-
-        Assertion: Dose fields are removed and disease-only entries are unchanged
-        """
-        result = preprocess.hide_vaccine_due_doses(["Polio - 2", "MMR"])
-
-        assert result == ["Polio", "MMR"]
+    def test_agents_are_separate_from_disease_eligibility(self) -> None:
+        assert preprocess.parse_overdue_agents("MMR; IPV;") == ["MMR", "IPV"]
 
 
 @pytest.mark.unit
@@ -219,99 +219,6 @@ class TestAgeCalculation:
 
 
 @pytest.mark.unit
-class TestDateFormatting:
-    """Unit tests for date formatting functions with locale support."""
-
-    def test_format_iso_date_english(self) -> None:
-        """Verify format_iso_date_for_language formats dates in English.
-
-        Real-world significance:
-        - English notices must display dates in readable format
-        - Format should be long form, e.g., "August 31, 2025"
-        """
-        result = preprocess.format_iso_date_for_language("2025-08-31", "en")
-
-        assert "August" in result
-        assert "31" in result
-        assert "2025" in result
-
-    def test_format_iso_date_french(self) -> None:
-        """Verify format_iso_date_for_language formats dates in French.
-
-        Real-world significance:
-        - French notices must display dates in French locale format
-        - Format should be locale-specific, e.g., "31 août 2025"
-        """
-        result = preprocess.format_iso_date_for_language("2025-08-31", "fr")
-
-        assert "août" in result
-        assert "31" in result
-        assert "2025" in result
-
-    def test_format_iso_date_different_months(self) -> None:
-        """Verify formatting works correctly for all months.
-
-        Real-world significance:
-        - Date formatting must be reliable across the entire calendar year
-        """
-        # January
-        assert "January" in preprocess.format_iso_date_for_language("2025-01-15", "en")
-        # June
-        assert "June" in preprocess.format_iso_date_for_language("2025-06-15", "en")
-        # December
-        assert "December" in preprocess.format_iso_date_for_language("2025-12-15", "en")
-
-    def test_format_iso_date_leap_year(self) -> None:
-        """Verify formatting handles leap year dates.
-
-        Real-world significance:
-        - Some students may have birthdays on Feb 29
-        - Must handle leap year dates correctly
-        """
-        result = preprocess.format_iso_date_for_language("2024-02-29", "en")
-
-        assert "February" in result and "29" in result and "2024" in result
-
-    def test_format_iso_date_invalid_format_raises(self) -> None:
-        """Verify format_iso_date_for_language raises ValueError for invalid input.
-
-        Real-world significance:
-        - Invalid date formats should fail fast with clear error
-        - Prevents silent failures in template rendering
-        """
-        with pytest.raises(ValueError, match="Invalid ISO date format"):
-            preprocess.format_iso_date_for_language("31/08/2025", "en")
-
-    def test_format_iso_date_invalid_date_raises(self) -> None:
-        """Verify format_iso_date_for_language raises ValueError for impossible dates.
-
-        Real-world significance:
-        - February 30 does not exist; must reject cleanly
-        """
-        with pytest.raises(ValueError):
-            preprocess.format_iso_date_for_language("2025-02-30", "en")
-
-    def test_convert_date_string_with_locale(self) -> None:
-        """Verify convert_date_string supports locale-aware formatting.
-
-        Real-world significance:
-        - Existing convert_date_string() should work with different locales
-        - Babel formatting enables multilingual date display
-        """
-        result_en = preprocess.convert_date_string("2025-08-31", locale="en")
-        result_fr = preprocess.convert_date_string("2025-08-31", locale="fr")
-
-        assert result_en is not None
-        assert result_fr is not None
-        assert "August" in result_en
-        assert "31" in result_en
-        assert "2025" in result_en
-        assert "août" in result_fr
-        assert "31" in result_fr
-        assert "2025" in result_fr
-
-
-@pytest.mark.unit
 class TestBuildPreprocessResult:
     """Unit tests for build_preprocess_result function."""
 
@@ -326,7 +233,7 @@ class TestBuildPreprocessResult:
         """
         df = sample_input.create_test_input_dataframe(num_clients=3)
 
-        result, _ = preprocess.build_preprocess_result(
+        result, _ = build_result(
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
@@ -350,14 +257,14 @@ class TestBuildPreprocessResult:
         """
         df = sample_input.create_test_input_dataframe(num_clients=3)
 
-        result1, _ = preprocess.build_preprocess_result(
+        result1, _ = build_result(
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
             replace_unspecified=[],
         )
 
-        result2, _ = preprocess.build_preprocess_result(
+        result2, _ = build_result(
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
@@ -410,7 +317,7 @@ class TestBuildPreprocessResult:
                 "imms_given": ["", "", "", ""],
             }
         )
-        result, _ = preprocess.build_preprocess_result(
+        result, _ = build_result(
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
@@ -435,7 +342,7 @@ class TestBuildPreprocessResult:
         df = sample_input.create_test_input_dataframe(num_clients=1)
         df["imms_given"] = ["May 1, 2020 - DTaP"]
 
-        result, _ = preprocess.build_preprocess_result(
+        result, _ = build_result(
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
@@ -476,15 +383,15 @@ class TestBuildPreprocessResult:
         df["overdue_disease"] = ["DTaP - 2"]
         df["imms_given"] = ["May 1, 2020 - DTaP"]
 
-        result, _ = preprocess.build_preprocess_result(
+        result, _ = build_result(
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
             replace_unspecified=[],
-            config_path=config_path,
+            config=yaml.safe_load(config_path.read_text()),
         )
 
-        assert result.clients[0].vaccines_due_list == ["DTaP"]
+        assert result.clients[0].overdue_diseases == [{"disease": "DTaP", "dose": 2}]
         assert any(
             "no validity data was detected in the dataset" in warning
             for warning in result.warnings
@@ -517,7 +424,7 @@ class TestBuildPreprocessResult:
                 "imms_given": [""],
             }
         )
-        result, _ = preprocess.build_preprocess_result(
+        result, _ = build_result(
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
@@ -540,7 +447,7 @@ class TestBuildPreprocessResult:
         """
         df = sample_input.create_test_input_dataframe(num_clients=1, language="fr")
 
-        result, _ = preprocess.build_preprocess_result(
+        result, _ = build_result(
             df,
             language="fr",
             vaccine_reference=default_vaccine_reference,
@@ -561,7 +468,7 @@ class TestBuildPreprocessResult:
         """
         df = sample_input.create_test_input_dataframe(num_clients=1)
 
-        result, _ = preprocess.build_preprocess_result(
+        result, _ = build_result(
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
@@ -585,7 +492,7 @@ class TestBuildPreprocessResult:
         df.loc[0, "client_id"] = "C123456789"
         df.loc[1, "client_id"] = "C123456789"
 
-        result, _ = preprocess.build_preprocess_result(
+        result, _ = build_result(
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
@@ -619,7 +526,7 @@ class TestBuildPreprocessResult:
         df.loc[3, "client_id"] = "C222222222"
         df.loc[4, "client_id"] = "C222222222"
 
-        result, _ = preprocess.build_preprocess_result(
+        result, _ = build_result(
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
@@ -650,7 +557,7 @@ class TestBuildPreprocessResult:
         """
         df = sample_input.create_test_input_dataframe(num_clients=3)
 
-        result, _ = preprocess.build_preprocess_result(
+        result, _ = build_result(
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
@@ -1282,7 +1189,7 @@ class TestBuildReceivedRows:
         df = sample_input.create_test_input_dataframe(num_clients=1)
         df["imms_given"] = ["May 1, 2020 - DTaP"]
 
-        result, _ = preprocess.build_preprocess_result(
+        result, _ = build_result(
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
@@ -1780,19 +1687,31 @@ class TestCheckClientInfoComplete:
 
 
 @pytest.mark.unit
-class TestProcessVaccinesDue:
-    """Unit tests for process_vaccines_due."""
+class TestParseOverdueDiseases:
+    """Canonical matching works on disease identifiers rather than labels."""
 
     def test_normalizes_disease_names(self) -> None:
-        result = preprocess.process_vaccines_due("Poliomyelitis;Measles", "disease")
-        assert "Polio" in result
-        assert "Measles" in result
+        result = preprocess.parse_overdue_diseases(
+            "Poliomyelitis;Measles",
+            {"Poliomyelitis": "Polio"},
+            client_id="C001",
+            warnings=set(),
+        )
+        assert [item["disease"] for item in result] == ["Polio", "Measles"]
 
-    def test_empty_input_returns_empty_string(self) -> None:
-        assert preprocess.process_vaccines_due("", "disease") == ""
+    def test_empty_input_returns_empty_list(self) -> None:
+        assert (
+            preprocess.parse_overdue_diseases("", {}, client_id="C001", warnings=set())
+            == []
+        )
 
-    def test_non_string_input_returns_empty_string(self) -> None:
-        assert preprocess.process_vaccines_due(None, "disease") == ""
+    def test_non_string_input_returns_empty_list(self) -> None:
+        assert (
+            preprocess.parse_overdue_diseases(
+                None, {}, client_id="C001", warnings=set()
+            )
+            == []
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -1801,7 +1720,7 @@ class TestProcessVaccinesDue:
 
 
 def _make_catalog():
-    from pipeline.notice_versioning import (
+    from immuknow.notice_versioning import (
         NoticeKind,
         NoticeVersion,
         NoticeVersionCatalog,
@@ -1827,7 +1746,7 @@ def _make_catalog():
 
 
 def _make_manifest(*rows):
-    from pipeline.assignment_manifest import ManifestRow
+    from immuknow.assignment_manifest import ManifestRow
 
     return {r["client_id"]: ManifestRow(**r) for r in rows}
 
@@ -1856,27 +1775,25 @@ def _simple_df(num=2, with_overdue=True):
 
 @pytest.mark.unit
 class TestBuildPreprocessResultFixedMode:
-    """Fixed-mode: metadata empty, returns None as second element."""
+    """Fixed mode resolves one version and returns no reconciliation result."""
 
     def test_fixed_mode_returns_tuple_with_none_result(self, tmp_path) -> None:
-        result, reconciliation_result = preprocess.build_preprocess_result(
+        result, reconciliation_result = build_result(
             _simple_df(2), "en", {}, preprocess.REPLACE_UNSPECIFIED
         )
         assert reconciliation_result is None
 
     def test_fixed_mode_metadata_empty_for_all_clients(self, tmp_path) -> None:
-        result, _ = preprocess.build_preprocess_result(
+        result, _ = build_result(
             _simple_df(2), "en", {}, preprocess.REPLACE_UNSPECIFIED
         )
         for client in result.clients:
-            assert (
-                client.metadata["resolved_notice"]["version_id"] == "legacy_overdue_v1"
-            )
+            assert client.version_id == "legacy_overdue_v1"
 
 
 @pytest.mark.unit
 class TestBuildPreprocessResultManifestMode:
-    """Manifest-mode: metadata resolved_notice present, language set from manifest."""
+    """Manifest mode retains one resolved version and language per client."""
 
     def test_manifest_mode_returns_reconciliation_result(self, tmp_path) -> None:
         catalog = _make_catalog()
@@ -1896,7 +1813,7 @@ class TestBuildPreprocessResultManifestMode:
                 "experiment_arm": None,
             },
         )
-        result, reconciliation_result = preprocess.build_preprocess_result(
+        result, reconciliation_result = build_result(
             _simple_df(2),
             None,
             {},
@@ -1906,7 +1823,7 @@ class TestBuildPreprocessResultManifestMode:
         )
         assert reconciliation_result is not None
 
-    def test_manifest_mode_resolved_notice_in_metadata(self, tmp_path) -> None:
+    def test_manifest_mode_resolved_version_on_client(self, tmp_path) -> None:
         catalog = _make_catalog()
         manifest = _make_manifest(
             {
@@ -1924,7 +1841,7 @@ class TestBuildPreprocessResultManifestMode:
                 "experiment_arm": None,
             },
         )
-        result, _ = preprocess.build_preprocess_result(
+        result, _ = build_result(
             _simple_df(2),
             None,
             {},
@@ -1933,7 +1850,8 @@ class TestBuildPreprocessResultManifestMode:
             manifest=manifest,
         )
         for client in result.clients:
-            assert "resolved_notice" in client.metadata
+            assert client.version_id == "overdue_standard_v1"
+            assert "resolved_notice" not in client.metadata
 
     def test_manifest_mode_language_from_manifest_not_cli(self, tmp_path) -> None:
         catalog = _make_catalog()
@@ -1953,7 +1871,7 @@ class TestBuildPreprocessResultManifestMode:
                 "experiment_arm": None,
             },
         )
-        result, _ = preprocess.build_preprocess_result(
+        result, _ = build_result(
             _simple_df(2),
             None,
             {},
@@ -1986,7 +1904,7 @@ class TestBuildPreprocessResultManifestMode:
             },
         )
         with pytest.raises(ValueError, match="[Pp]reflight"):
-            preprocess.build_preprocess_result(
+            build_result(
                 _simple_df(2, with_overdue=True),
                 None,
                 {},
@@ -2014,18 +1932,21 @@ class TestBuildPreprocessResultManifestMode:
             "notice_versioning:\n  allow_unassigned: true\n  extra_manifest_rows: error\n",
             encoding="utf-8",
         )
-        result, reconciliation_result = preprocess.build_preprocess_result(
+        result, reconciliation_result = build_result(
             _simple_df(2),
             None,
             {},
             preprocess.REPLACE_UNSPECIFIED,
-            config_path=config_path,
+            config=yaml.safe_load(config_path.read_text()),
             catalog=catalog,
             manifest=manifest,
         )
         # C002 should be resolved with catalog defaults, not missing
         assert reconciliation_result is not None
-        assert "C002" not in reconciliation_result.missing_clients
+        assert not any(
+            finding.kind == "missing_assignment" and finding.client_id == "C002"
+            for finding in reconciliation_result.findings
+        )
         c002 = next(c for c in result.clients if c.client_id == "C002")
         assert c002.language == catalog.default_language
 
@@ -2043,7 +1964,7 @@ class TestBuildPreprocessResultManifestMode:
         )
         # allow_unassigned defaults to False
         with pytest.raises(ValueError, match="[Pp]reflight"):
-            preprocess.build_preprocess_result(
+            build_result(
                 _simple_df(2),
                 None,
                 {},
@@ -2084,12 +2005,12 @@ class TestBuildPreprocessResultManifestMode:
             encoding="utf-8",
         )
         with pytest.raises(ValueError, match="[Pp]reflight"):
-            preprocess.build_preprocess_result(
+            build_result(
                 _simple_df(2),
                 None,
                 {},
                 preprocess.REPLACE_UNSPECIFIED,
-                config_path=config_path,
+                config=yaml.safe_load(config_path.read_text()),
                 catalog=catalog,
                 manifest=manifest,
             )
@@ -2125,17 +2046,20 @@ class TestBuildPreprocessResultManifestMode:
             encoding="utf-8",
         )
         # Should NOT raise because extra_manifest_rows=warn
-        result, reconciliation_result = preprocess.build_preprocess_result(
+        result, reconciliation_result = build_result(
             _simple_df(2),
             None,
             {},
             preprocess.REPLACE_UNSPECIFIED,
-            config_path=config_path,
+            config=yaml.safe_load(config_path.read_text()),
             catalog=catalog,
             manifest=manifest,
         )
         assert reconciliation_result is not None
-        assert "EXTRA_CLIENT" in reconciliation_result.extra_rows
+        assert any(
+            finding.kind == "extra_manifest_row" and finding.client_id == "EXTRA_CLIENT"
+            for finding in reconciliation_result.findings
+        )
 
     def test_manifest_mode_missing_language_falls_back_to_default(
         self, tmp_path
@@ -2158,7 +2082,7 @@ class TestBuildPreprocessResultManifestMode:
                 "experiment_arm": None,
             },
         )
-        result, reconciliation_result = preprocess.build_preprocess_result(
+        result, reconciliation_result = build_result(
             _simple_df(2),
             None,
             {},
@@ -2167,7 +2091,10 @@ class TestBuildPreprocessResultManifestMode:
             manifest=manifest,
         )
         assert reconciliation_result is not None
-        assert "C001" in reconciliation_result.missing_language_clients
+        assert any(
+            finding.kind == "missing_language" and finding.client_id == "C001"
+            for finding in reconciliation_result.findings
+        )
         c001 = next(c for c in result.clients if c.client_id == "C001")
         assert c001.language == catalog.default_language
 
@@ -2177,7 +2104,7 @@ class TestWriteAssignmentMetadata:
     """write_assignment_metadata: file creation and count aggregation."""
 
     def _clients_with_resolved(self, result):
-        return [c for c in result.clients if "resolved_notice" in c.metadata]
+        return [c for c in result.clients if c.version_id]
 
     def test_writes_file_with_correct_counts(self, tmp_path) -> None:
         """Verify the metadata file is written and per-version/language counts are correct.
@@ -2205,7 +2132,7 @@ class TestWriteAssignmentMetadata:
                 "experiment_arm": None,
             },
         )
-        result, reconciliation_result = preprocess.build_preprocess_result(
+        result, reconciliation_result = build_result(
             _simple_df(2),
             None,
             {},

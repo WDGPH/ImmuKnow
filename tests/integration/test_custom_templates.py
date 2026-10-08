@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from pypdf import PdfReader
 
-from pipeline.generate_notices import select_template
+from immuknow.generate_notices import select_template
 from tests.integration.test_native_pipeline import ROOT, prepare_cohort, run_cli
 
 pytestmark = pytest.mark.integration
@@ -17,7 +17,7 @@ def test_single_language_custom_template(tmp_path: Path, language: str) -> None:
     """A PHU needs only its supported language, with its own unchanged source."""
     command, output_dir, _ = prepare_cohort(tmp_path, (language,))
     custom = tmp_path / "PHU modèles"
-    shutil.copytree(ROOT / "templates", custom)
+    shutil.copytree(ROOT / "immuknow" / "templates", custom)
     other = "fr" if language == "en" else "en"
     (custom / f"overdue_standard_v1.{other}.typ").unlink()
     entry = custom / f"overdue_standard_v1.{language}.typ"
@@ -44,4 +44,6 @@ def test_unsafe_template_version_rejected(tmp_path: Path, version: str) -> None:
 def test_missing_affirmative_translation_is_not_invented() -> None:
     """French affirmative notices remain unavailable until an author supplies one."""
     with pytest.raises(FileNotFoundError, match="fr.typ"):
-        select_template(ROOT / "templates", "affirmative_schedule_v1", "fr")
+        select_template(
+            ROOT / "immuknow" / "templates", "affirmative_schedule_v1", "fr"
+        )

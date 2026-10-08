@@ -24,7 +24,7 @@ from unittest.mock import patch
 
 import pytest
 
-from pipeline import prepare_output
+from immuknow import prepare_output
 
 
 @pytest.mark.unit
@@ -48,7 +48,7 @@ class TestPurgeOutputDirectory:
         (tmp_output_structure["artifacts"] / "test.json").write_text("test")
         (tmp_output_structure["pdf_individual"] / "test.pdf").write_text("test")
         (tmp_output_structure["metadata"] / "metadata.json").write_text("test")
-        log_file = log_dir / "pipeline.log"
+        log_file = log_dir / "immuknow.log"
         log_file.write_text("important log data")
 
         prepare_output.purge_output_directory(output_dir, log_dir)
@@ -101,8 +101,8 @@ class TestPurgeOutputDirectory:
 
         prepare_output.purge_output_directory(output_dir, log_dir)
 
-        # Verify symlink to logs is preserved
-        assert symlink.exists() or not symlink.exists()  # Depends on resolution
+        assert symlink.is_symlink()
+        assert symlink.resolve() == log_dir.resolve()
 
 
 @pytest.mark.unit
@@ -197,60 +197,6 @@ class TestPrepareOutputDirectory:
 
         assert result is False
         assert (tmp_output_structure["artifacts"] / "preserve_me.json").exists()
-
-
-@pytest.mark.unit
-class TestIsLogDirectory:
-    """Unit tests for log directory identification."""
-
-    def test_is_log_directory_identifies_exact_match(self, tmp_test_dir: Path) -> None:
-        """Verify log directory is correctly identified.
-
-        Real-world significance:
-        - Must distinguish log directory from other artifacts
-        - Ensures logs are never accidentally deleted
-        """
-        log_dir = tmp_test_dir / "logs"
-        log_dir.mkdir()
-
-        result = prepare_output.is_log_directory(log_dir, log_dir)
-
-        assert result is True
-
-    def test_is_log_directory_identifies_non_log_file(self, tmp_test_dir: Path) -> None:
-        """Verify non-log files are not identified as log directory.
-
-        Real-world significance:
-        - Should correctly identify directories that are NOT logs
-        - Allows safe deletion of non-log directories
-        """
-        log_dir = tmp_test_dir / "logs"
-        log_dir.mkdir()
-
-        other_dir = tmp_test_dir / "artifacts"
-        other_dir.mkdir()
-
-        result = prepare_output.is_log_directory(other_dir, log_dir)
-
-        assert result is False
-
-    def test_is_log_directory_handles_missing_candidate(
-        self, tmp_test_dir: Path
-    ) -> None:
-        """Verify missing candidate file is handled gracefully.
-
-        Real-world significance:
-        - Files may disappear during directory iteration
-        - Should not crash if candidate is deleted mid-scan
-        """
-        log_dir = tmp_test_dir / "logs"
-        log_dir.mkdir()
-
-        missing_path = tmp_test_dir / "nonexistent"
-
-        result = prepare_output.is_log_directory(missing_path, log_dir)
-
-        assert result is False
 
 
 @pytest.mark.unit

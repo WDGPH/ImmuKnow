@@ -3,11 +3,10 @@ requires = ["setuptools>=84.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["pipeline", "templates", "config"]
+packages = ["immuknow"]
 
 [tool.setuptools.package-data]
-templates = ["*.typ", "assets/*"]
-config = ["*.json", "*.yaml", "translations/*.json"]
+immuknow = ["templates/*.typ", "templates/assets/*", "config/*.json", "config/*.yaml", "config/translations/*.json"]
 
 [project]
 name = "ImmuKnow"
@@ -20,7 +19,6 @@ dependencies = [
     "pypdf",
     "qrcode>=7.4.2",
     "pillow>=12.3.0",
-    "babel>=2.17.0",
     "frictionless[excel,csv]"
 ]
 
@@ -37,15 +35,13 @@ docs = [
     "mkdocs>=1.6.0",
     "mkdocs-material>=9.5.15",
     "pymdown-extensions>=11.0.2",
-    "mkdocstrings>=1.0.4",
-    "mkdocstrings-python>=2.0.7",
 ]
 
 [project.scripts]
-viper = "pipeline.orchestrator:main"
+viper = "immuknow.orchestrator:main"
 
 [tool.coverage.run]
-source = ["pipeline"]
+source = ["immuknow"]
 omit = ["*/__pycache__/*", "*/site-packages/*"]
 patch = ["subprocess"]
 

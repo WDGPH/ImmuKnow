@@ -1,7 +1,7 @@
 from pathlib import Path
 import json
 
-SCHEMA_FILE = Path("config/input_schema.json")
+SCHEMA_FILE = Path("immuknow/config/input_schema.json")
 OUTPUT_FILE = Path("docs/user_guide/input_schema.md")
 
 schema = json.loads(SCHEMA_FILE.read_text())

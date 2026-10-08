@@ -11,7 +11,8 @@ from unittest.mock import patch
 
 import pytest
 
-from pipeline.assignment_manifest import (
+from immuknow.assignment_manifest import (
+    AssignmentFinding,
     ManifestRow,
     ReconciliationResult,
     has_errors,
@@ -19,8 +20,8 @@ from pipeline.assignment_manifest import (
     print_preflight_summary,
     reconcile,
 )
-from pipeline.data_models import ClientRecord
-from pipeline.notice_versioning import NoticeKind, NoticeVersion, NoticeVersionCatalog
+from immuknow.data_models import ClientRecord
+from immuknow.notice_versioning import NoticeKind, NoticeVersion, NoticeVersionCatalog
 from tests.fixtures.sample_input import create_test_client_record
 
 
@@ -29,7 +30,7 @@ from tests.fixtures.sample_input import create_test_client_record
 def test_input_version_agrees_with_manifest(input_version: str | None) -> None:
     """An input version can agree with the manifest without losing provenance."""
     client = _client("C001", ["Measles"])
-    client.metadata["version_id"] = input_version
+    client = replace(client, version_id=input_version)
     row = ManifestRow("C001", "overdue_standard_v1", None, "study", "A")
     result = reconcile([client], {"C001": row}, _catalog(), False, "error")
     resolved = result.resolved_notices["C001"]
@@ -43,12 +44,16 @@ def test_input_version_agrees_with_manifest(input_version: str | None) -> None:
 def test_input_version_conflict_is_rejected() -> None:
     """An explicit input version cannot be silently overwritten by the manifest."""
     client = _client("C001", ["Measles"])
-    client.metadata["version_id"] = "affirmative_schedule_v1"
+    client = replace(client, version_id="affirmative_schedule_v1")
     row = ManifestRow("C001", "overdue_standard_v1", "en", None, None)
-    with pytest.raises(
-        ValueError, match="Conflicting input version_id and manifest version_id"
-    ):
-        reconcile([client], {"C001": row}, _catalog(), False, "error")
+    result = reconcile([client], {"C001": row}, _catalog(), False, "error")
+    assert has_errors(result, "error")
+    assert result.resolved_notices == {}
+    finding = result.findings[0]
+    assert finding.kind == "version_conflict"
+    assert finding.client_id == "C001"
+    assert "affirmative_schedule_v1" in finding.reason
+    assert "overdue_standard_v1" in finding.reason
 
 
 # ---------------------------------------------------------------------------
@@ -84,7 +89,11 @@ def _catalog(default_version: str = "overdue_standard_v1") -> NoticeVersionCatal
 
 def _client(client_id: str, vaccines_due=None) -> ClientRecord:
     return replace(
-        create_test_client_record(client_id=client_id), vaccines_due_list=vaccines_due
+        create_test_client_record(client_id=client_id),
+        overdue_diseases=[
+            {"disease": disease, "dose": None} for disease in (vaccines_due or [])
+        ],
+        version_id=None,
     )
 
 
@@ -102,16 +111,15 @@ def _empty_result(**overrides) -> ReconciliationResult:
     defaults: dict[str, Any] = {
         "counts_by_version": {},
         "counts_by_language": {},
-        "missing_clients": [],
-        "extra_rows": [],
-        "duplicate_manifest_ids": [],
-        "unknown_versions": [],
-        "missing_language_clients": [],
-        "eligibility_conflicts": [],
+        "findings": [],
         "default_language": "en",
     }
     defaults.update(overrides)
     return ReconciliationResult(**defaults)
+
+
+def findings_for(result: ReconciliationResult, kind: str) -> list[AssignmentFinding]:
+    return [finding for finding in result.findings if finding.kind == kind]
 
 
 # ---------------------------------------------------------------------------
@@ -205,10 +213,7 @@ class TestReconcile:
             "C002": ManifestRow("C002", "overdue_standard_v1", "fr", None, None),
         }
         result = reconcile(clients, manifest, _catalog(), False, "error")
-        assert result.missing_clients == []
-        assert result.extra_rows == []
-        assert result.unknown_versions == []
-        assert result.eligibility_conflicts == []
+        assert result.findings == []
         assert result.counts_by_language.get("en", 0) == 1
         assert result.counts_by_language.get("fr", 0) == 1
 
@@ -224,7 +229,9 @@ class TestReconcile:
             allow_unassigned=False,
             extra_manifest_rows="error",
         )
-        assert "C002" in result.missing_clients
+        (finding,) = findings_for(result, "missing_assignment")
+        assert finding.client_id == "C002"
+        assert "no manifest assignment" in finding.reason
 
     def test_allow_unassigned_uses_defaults(self) -> None:
         clients = [_client("C001", ["Measles"]), _client("C002", ["Polio"])]
@@ -238,7 +245,7 @@ class TestReconcile:
             allow_unassigned=True,
             extra_manifest_rows="error",
         )
-        assert result.missing_clients == []
+        assert not findings_for(result, "missing_assignment")
         # C002 resolved with catalog defaults (overdue_standard_v1, en)
         assert result.counts_by_version.get("overdue_standard_v1 (en)", 0) >= 1
 
@@ -249,7 +256,9 @@ class TestReconcile:
             "EXTRA": ManifestRow("EXTRA", "overdue_standard_v1", "en", None, None),
         }
         result = reconcile(clients, manifest, _catalog(), False, "warn")
-        assert "EXTRA" in result.extra_rows
+        (finding,) = findings_for(result, "extra_manifest_row")
+        assert finding.client_id == "EXTRA"
+        assert finding.version_id == "overdue_standard_v1"
 
     def test_detects_unknown_versions(self) -> None:
         clients = [_client("C001", ["Measles"])]
@@ -257,9 +266,9 @@ class TestReconcile:
             "C001": ManifestRow("C001", "no_such_version", "en", None, None),
         }
         result = reconcile(clients, manifest, _catalog(), False, "error")
-        assert "no_such_version" in result.unknown_versions
-        # Client should not appear in counts
-        assert "C001" not in result.missing_clients
+        (finding,) = findings_for(result, "unknown_version")
+        assert (finding.client_id, finding.version_id) == ("C001", "no_such_version")
+        assert "notice_versions.yaml" in finding.reason
 
     def test_detects_missing_language_clients(self) -> None:
         clients = [_client("C001", ["Measles"])]
@@ -267,7 +276,9 @@ class TestReconcile:
             "C001": ManifestRow("C001", "overdue_standard_v1", None, None, None),
         }
         result = reconcile(clients, manifest, _catalog(), False, "error")
-        assert "C001" in result.missing_language_clients
+        (finding,) = findings_for(result, "missing_language")
+        assert finding.client_id == "C001"
+        assert "default 'en'" in finding.reason
         # Should still be counted with default language
         assert result.counts_by_language.get("en", 0) == 1
 
@@ -278,7 +289,12 @@ class TestReconcile:
             "C001": ManifestRow("C001", "affirmative_schedule_v1", "en", None, None),
         }
         result = reconcile(clients, manifest, _catalog(), False, "error")
-        assert "C001" in result.eligibility_conflicts
+        (finding,) = findings_for(result, "eligibility_conflict")
+        assert (finding.client_id, finding.version_id) == (
+            "C001",
+            "affirmative_schedule_v1",
+        )
+        assert "no_overdue" in finding.reason
 
     def test_counts_by_version_uses_composite_keys(self) -> None:
         clients = [_client("C001", ["Measles"]), _client("C002", ["Polio"])]
@@ -302,27 +318,41 @@ class TestHasErrors:
         assert not has_errors(_empty_result(), "error")
 
     def test_missing_clients_is_always_error(self) -> None:
-        result = _empty_result(missing_clients=["C001"])
+        result = _empty_result(
+            findings=[AssignmentFinding("missing_assignment", "C001", None, "missing")]
+        )
         assert has_errors(result, "error")
         assert has_errors(result, "warn")
 
     def test_unknown_versions_is_always_error(self) -> None:
-        result = _empty_result(unknown_versions=["bad_version"])
+        result = _empty_result(
+            findings=[
+                AssignmentFinding("unknown_version", "C001", "bad_version", "unknown")
+            ]
+        )
         assert has_errors(result, "error")
         assert has_errors(result, "warn")
 
     def test_eligibility_conflicts_is_always_error(self) -> None:
-        result = _empty_result(eligibility_conflicts=["C001"])
+        result = _empty_result(
+            findings=[
+                AssignmentFinding("eligibility_conflict", "C001", "v1", "ineligible")
+            ]
+        )
         assert has_errors(result, "error")
         assert has_errors(result, "warn")
 
     def test_extra_rows_respects_error_policy(self) -> None:
-        result = _empty_result(extra_rows=["EXTRA"])
+        result = _empty_result(
+            findings=[AssignmentFinding("extra_manifest_row", "EXTRA", "v1", "extra")]
+        )
         assert has_errors(result, "error")
         assert not has_errors(result, "warn")
 
     def test_missing_language_clients_not_an_error(self) -> None:
-        result = _empty_result(missing_language_clients=["C001"])
+        result = _empty_result(
+            findings=[AssignmentFinding("missing_language", "C001", "v1", "default")]
+        )
         assert not has_errors(result, "error")
 
 
@@ -374,7 +404,10 @@ class TestPrintPreflightSummary:
 
     def test_shows_missing_language_with_default(self) -> None:
         result = _empty_result(
-            missing_language_clients=["C001", "C002"],
+            findings=[
+                AssignmentFinding("missing_language", "C001", "v1", "default"),
+                AssignmentFinding("missing_language", "C002", "v1", "default"),
+            ],
             default_language="fr",
         )
         output = self._capture(result)

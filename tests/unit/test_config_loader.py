@@ -25,8 +25,8 @@ from typing import Any, Dict
 
 import pytest
 
-from pipeline import config_loader
-from pipeline.config_loader import validate_config
+from immuknow import config_loader
+from immuknow.config_loader import validate_config
 
 
 # Minimal valid config for sections not being tested
@@ -539,7 +539,7 @@ class TestQRTemplateFieldValidation:
                 "payload_template": (
                     "https://example.com?"
                     "id={client_id}&fn={first_name}&ln={last_name}&name={name}&"
-                    "dob={date_of_birth}&dob_iso={date_of_birth_iso}&"
+                    "dob_iso={date_of_birth_iso}&"
                     "dob_compact={date_of_birth_iso_compact}&school={school}&"
                     "board={board}&street={street_address}&city={city}&"
                     "province={province}&pc={postal_code}&lang={language_code}"
@@ -855,3 +855,24 @@ class TestTemplateValidationEdgeCases:
         # Should fail on encryption
         assert "encryption.password.template" in error_msg
         assert "invalid_field" in error_msg
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "section,key,value",
+    [
+        ("qr", "payload_template", "https://example.ca/?dob={date_of_birth}"),
+        ("encryption", "password", {"template": "{date_of_birth}"}),
+    ],
+)
+def test_ambiguous_birth_date_placeholder_rejected_at_config_load(
+    section: str, key: str, value: object
+) -> None:
+    config = {"qr": {"enabled": False}, section: {"enabled": True, key: value}}
+    with pytest.raises(ValueError) as exc_info:
+        validate_config(config)
+    message = str(exc_info.value)
+    assert f"{section}." in message
+    assert "{date_of_birth}" in message
+    assert "{date_of_birth_iso}" in message
+    assert "{date_of_birth_iso_compact}" in message

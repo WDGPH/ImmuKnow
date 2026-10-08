@@ -23,7 +23,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from pipeline import cleanup
+from immuknow import cleanup
 
 
 @pytest.mark.unit
@@ -121,7 +121,7 @@ class TestCleanupWithConfig:
         with open(config_file, "w") as f:
             yaml.dump(config, f)
 
-        cleanup.cleanup_with_config(output_dir, config_file)
+        cleanup.cleanup_output(output_dir, yaml.safe_load(config_file.read_text()))
 
         assert not tmp_output_structure["artifacts"].exists()
         assert tmp_output_structure["pdf_individual"].exists()
@@ -140,7 +140,7 @@ class TestCleanupWithConfig:
         (tmp_output_structure["artifacts"] / "test.json").write_text("data")
 
         # Config already has remove_artifacts: false by default
-        cleanup.cleanup_with_config(output_dir, config_file)
+        cleanup.cleanup_output(output_dir, yaml.safe_load(config_file.read_text()))
 
         assert (tmp_output_structure["artifacts"] / "test.json").exists()
 
@@ -173,7 +173,7 @@ class TestCleanupWithConfig:
         with open(config_file, "w") as f:
             yaml.dump(config, f)
 
-        cleanup.cleanup_with_config(output_dir, config_file)
+        cleanup.cleanup_output(output_dir, yaml.safe_load(config_file.read_text()))
 
         # Non-encrypted removed, encrypted preserved
         assert not (
@@ -210,7 +210,7 @@ class TestCleanupWithConfig:
         with open(config_file, "w") as f:
             yaml.dump(config, f)
 
-        cleanup.cleanup_with_config(output_dir, config_file)
+        cleanup.cleanup_output(output_dir, yaml.safe_load(config_file.read_text()))
 
         # PDF preserved because both encryption and batching are disabled
         assert (
@@ -247,7 +247,7 @@ class TestCleanupWithConfig:
         with open(config_file, "w") as f:
             yaml.dump(config, f)
 
-        cleanup.cleanup_with_config(output_dir, config_file)
+        cleanup.cleanup_output(output_dir, yaml.safe_load(config_file.read_text()))
 
         # Individual PDFs removed because batching is enabled
         assert not (
@@ -284,7 +284,7 @@ class TestCleanupWithConfig:
         with open(config_file, "w") as f:
             yaml.dump(config, f)
 
-        cleanup.cleanup_with_config(output_dir, config_file)
+        cleanup.cleanup_output(output_dir, yaml.safe_load(config_file.read_text()))
 
         # PDF preserved because both encryption and batching are disabled
         assert (
@@ -307,7 +307,7 @@ class TestMain:
         invalid_path.write_text("not a directory")
 
         with pytest.raises(ValueError, match="not a valid directory"):
-            cleanup.main(invalid_path)
+            cleanup.cleanup_output(invalid_path, {})
 
     def test_main_applies_cleanup_configuration(
         self, tmp_output_structure: dict, config_file: Path
@@ -329,7 +329,7 @@ class TestMain:
         with open(config_file, "w") as f:
             yaml.dump(config, f)
 
-        cleanup.main(output_dir, config_file)
+        cleanup.cleanup_output(output_dir, yaml.safe_load(config_file.read_text()))
 
         assert not tmp_output_structure["artifacts"].exists()
 
@@ -345,7 +345,7 @@ class TestMain:
         output_dir = tmp_output_structure["root"]
 
         # Should not raise (will use defaults)
-        cleanup.main(output_dir, config_path=None)
+        cleanup.cleanup_output(output_dir, {})
 
 
 @pytest.mark.unit
@@ -378,7 +378,7 @@ class TestCleanupIntegration:
         with open(config_file, "w") as f:
             yaml.dump(config, f)
 
-        cleanup.cleanup_with_config(output_dir, config_file)
+        cleanup.cleanup_output(output_dir, yaml.safe_load(config_file.read_text()))
 
         assert not (tmp_output_structure["artifacts"] / "notice_00001.typ").exists()
         assert (tmp_output_structure["pdf_individual"] / "notice_00001.pdf").exists()
@@ -402,9 +402,9 @@ class TestCleanupIntegration:
             yaml.dump(config, f)
 
         # First call
-        cleanup.cleanup_with_config(output_dir, config_file)
+        cleanup.cleanup_output(output_dir, yaml.safe_load(config_file.read_text()))
 
         # Second call should not raise
-        cleanup.cleanup_with_config(output_dir, config_file)
+        cleanup.cleanup_output(output_dir, yaml.safe_load(config_file.read_text()))
 
         assert not tmp_output_structure["artifacts"].exists()

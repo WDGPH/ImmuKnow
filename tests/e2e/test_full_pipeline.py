@@ -47,7 +47,7 @@ class TestFullPipelineExecution:
         """Use a unique external workspace for each complete pipeline run."""
         (tmp_path / "input").mkdir()
         (tmp_path / "output").mkdir()
-        shutil.copytree(project_root / "config", tmp_path / "config")
+        shutil.copytree(project_root / "immuknow" / "config", tmp_path / "config")
         return tmp_path
 
     @pytest.fixture

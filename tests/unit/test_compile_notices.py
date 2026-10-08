@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from pipeline import compile_notices
+from immuknow import compile_notices
 
 
 @pytest.mark.unit
@@ -23,7 +23,7 @@ def test_unsupported_compiler_is_rejected(version: str) -> None:
     """Older compilers and untested prereleases must fail before notice compilation."""
     result = subprocess.CompletedProcess([], 0, stdout=f"typst {version} (test)")
     with (
-        patch("pipeline.compile_notices.subprocess.run", return_value=result),
+        patch("immuknow.compile_notices.subprocess.run", return_value=result),
         pytest.raises(RuntimeError, match="Unsupported compiler"),
     ):
         compile_notices.check_compiler("typst")

@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 import pytest
 import yaml
 
-from pipeline.notice_versioning import (
+from immuknow.notice_versioning import (
     ELIGIBILITY_RULES,
     NoticeKind,
     NoticeVersion,
@@ -23,7 +23,7 @@ from pipeline.notice_versioning import (
 def test_resolved_notice_preserves_unrelated_metadata() -> None:
     """Attaching assignment and experiment details must not erase client metadata."""
     from dataclasses import replace
-    from pipeline.notice_versioning import attach_notice
+    from immuknow.notice_versioning import attach_notice
     from tests.fixtures.sample_input import create_test_client_record
 
     client = replace(
@@ -36,9 +36,10 @@ def test_resolved_notice_preserves_unrelated_metadata() -> None:
     attached = attach_notice(client, resolved)
     assert attached.metadata["source_batch"] == "example"
     assert attached.metadata["custom"] == {"flag": True}
-    assert attached.metadata["resolved_notice"]["experiment_id"] == "study"
-    assert attached.metadata["resolved_notice"]["experiment_arm"] == "B"
-    assert attached.metadata["version_id"] == "overdue_standard_v1"
+    assert attached.metadata["experiment_id"] == "study"
+    assert attached.metadata["experiment_arm"] == "B"
+    assert attached.metadata["assignment_source"] == "manifest"
+    assert attached.version_id == "overdue_standard_v1"
     assert attached.language == "fr"
     assert "resolved_notice" not in client.metadata
 
@@ -88,10 +89,10 @@ def _resolved(kind: str, version: str = "overdue_standard_v1") -> ResolvedNotice
     )
 
 
-def _client(vaccines_due_list):
+def _client(overdue_diseases):
     m = MagicMock()
     m.client_id = "C001"
-    m.vaccines_due_list = vaccines_due_list
+    m.overdue_diseases = overdue_diseases
     return m
 
 
@@ -126,6 +127,42 @@ class TestLoadCatalog:
         assert catalog.default_language == "en"
         assert "overdue_standard_v1" in catalog.versions
         assert catalog.versions["overdue_standard_v1"].kind == NoticeKind.OVERDUE
+
+    @pytest.mark.parametrize("raw", ["[]", "null", "hello", "- version: bad"])
+    def test_rejects_non_mapping_catalog(self, tmp_path: Path, raw: str) -> None:
+        (tmp_path / "notice_versions.yaml").write_text(raw, encoding="utf-8")
+        with pytest.raises(ValueError, match="must be a mapping"):
+            load_catalog(tmp_path)
+
+    @pytest.mark.parametrize("schema", [True, False, "1", 2, 1.0, None])
+    def test_rejects_invalid_schema_version(
+        self, tmp_path: Path, schema: object
+    ) -> None:
+        _write_catalog(
+            tmp_path,
+            {
+                "schema_version": schema,
+                "default_version": "v1",
+                "default_language": "en",
+                "versions": {"v1": {"kind": "overdue"}},
+            },
+        )
+        with pytest.raises(ValueError, match="schema_version.*integer 1"):
+            load_catalog(tmp_path)
+
+    @pytest.mark.parametrize("versions", [None, [], {}, {"v1": []}, {"v1": None}])
+    def test_rejects_malformed_versions(self, tmp_path: Path, versions: object) -> None:
+        _write_catalog(
+            tmp_path,
+            {
+                "schema_version": 1,
+                "default_version": "v1",
+                "default_language": "en",
+                "versions": versions,
+            },
+        )
+        with pytest.raises(ValueError, match="versions.*mapping|version 'v1'.*mapping"):
+            load_catalog(tmp_path)
 
     def test_raises_on_invalid_yaml(self, tmp_path: Path) -> None:
         (tmp_path / "notice_versions.yaml").write_text(
@@ -273,6 +310,19 @@ class TestLoadCatalog:
             },
         )
         with pytest.raises(ValueError, match="unknown requires"):
+            load_catalog(tmp_path)
+
+    def test_rejects_non_scalar_requires_with_context(self, tmp_path: Path) -> None:
+        _write_catalog(
+            tmp_path,
+            {
+                "schema_version": 1,
+                "default_version": "v1",
+                "default_language": "en",
+                "versions": {"v1": {"kind": "overdue", "requires": ["has_overdue"]}},
+            },
+        )
+        with pytest.raises(ValueError, match="version 'v1'.*unknown requires"):
             load_catalog(tmp_path)
 
 

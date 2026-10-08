@@ -24,7 +24,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from pipeline import orchestrator
+from immuknow import orchestrator
 
 
 @pytest.mark.unit
@@ -89,6 +89,7 @@ class TestValidateArgs:
         args.input_dir = tmp_test_dir
         args.notice_assignments = None
         args.language = "en"
+        args.custom_templates = None
         args.template_dir = None  # Use default templates
 
         # Should not raise
@@ -121,6 +122,7 @@ class TestValidateArgs:
         args.notice_assignments = manifest
         args.language = "en"
         args.config_dir = tmp_path
+        args.custom_templates = None
         args.template_dir = None
 
         with patch("builtins.print") as mock_print:
@@ -144,6 +146,7 @@ class TestValidateArgs:
         args.notice_assignments = tmp_path / "missing_manifest.json"
         args.language = None
         args.config_dir = tmp_path
+        args.custom_templates = None
         args.template_dir = None
 
         with pytest.raises(FileNotFoundError, match="manifest"):
@@ -161,6 +164,7 @@ class TestValidateArgs:
         args.notice_assignments = manifest
         args.language = None
         args.config_dir = tmp_path  # no notice_versions.yaml here
+        args.custom_templates = None
         args.template_dir = None
 
         with pytest.raises(ValueError, match="notice_versions.yaml"):
@@ -168,137 +172,57 @@ class TestValidateArgs:
 
 
 @pytest.mark.unit
-class TestPipelineSteps:
-    def test_run_step_1_prepare_output_success(
-        self, tmp_output_structure: dict, config_file: Path
-    ) -> None:
-        with patch("pipeline.orchestrator.prepare_output") as mock_prep:
-            mock_prep.prepare_output_directory.return_value = True
-            result = orchestrator.run_step_1_prepare_output(
-                output_dir=tmp_output_structure["root"],
-                log_dir=tmp_output_structure["logs"],
-                config_dir=config_file.parent,
-            )
-            assert result is True
-
-    def test_run_step_1_prepare_output_user_cancels(
-        self, tmp_output_structure: dict, config_file: Path
-    ) -> None:
-        with patch("pipeline.orchestrator.prepare_output") as mock_prep:
-            mock_prep.prepare_output_directory.return_value = False
-            result = orchestrator.run_step_1_prepare_output(
-                output_dir=tmp_output_structure["root"],
-                log_dir=tmp_output_structure["logs"],
-                config_dir=config_file.parent,
-            )
-            assert result is False
-
-    def test_run_step_2_passes_selected_config_path(self, tmp_path: Path) -> None:
-        preprocess_result = MagicMock(clients=[], warnings=[])
-        config_dir = tmp_path / "selected-config"
+class TestWorkflowBoundaries:
+    def test_output_cancellation_keeps_existing_files(self, tmp_path: Path) -> None:
+        source = tmp_path / "students.xlsx"
+        source.write_text("never read after cancellation")
+        output = tmp_path / "output"
+        output.mkdir()
+        existing = output / "existing.pdf"
+        existing.write_bytes(b"unchanged")
+        config_dir = tmp_path / "config"
         config_dir.mkdir()
         (config_dir / "parameters.yaml").write_text(
-            "phix_validation:\n  enabled: false\n"
+            "pipeline: {before_run: {clear_output_directory: false}}\nqr: {enabled: false}"
         )
-
-        with (
-            patch(
-                "pipeline.orchestrator.preprocess.configure_logging",
-                return_value=tmp_path / "preprocess.log",
-            ),
-            patch(
-                "pipeline.orchestrator.preprocess.read_input",
-                return_value=MagicMock(),
-            ),
-            patch("pipeline.orchestrator.preprocess.validate_input"),
-            patch(
-                "pipeline.orchestrator.preprocess.normalize_dataframe",
-                return_value=MagicMock(),
-            ),
-            patch(
-                "pipeline.orchestrator.preprocess.check_addresses_complete",
-                return_value=MagicMock(),
-            ),
-            patch(
-                "pipeline.orchestrator.preprocess.check_client_info_complete",
-                return_value=MagicMock(),
-            ) as mock_check_client_info,
-            patch(
-                "pipeline.orchestrator.preprocess.build_preprocess_result",
-                # build_preprocess_result now returns (PreprocessResult, Optional[ReconciliationResult])
-                return_value=(preprocess_result, None),
-            ) as mock_build_result,
-            patch(
-                "pipeline.orchestrator.preprocess.write_artifact",
-                return_value=tmp_path / "artifact.json",
-            ),
-            patch("builtins.print"),
-        ):
-            total_clients, reconciliation_result = orchestrator.run_step_2_preprocess(
-                input_dir=tmp_path,
-                input_file="students.xlsx",
-                output_dir=tmp_path / "output",
-                language="en",
-                run_id="test_run",
-                config_dir=config_dir,
+        with patch("builtins.input", return_value="no"):
+            assert (
+                orchestrator.run_pipeline(source, output, "en", config_dir=config_dir)
+                is None
             )
+        assert existing.read_bytes() == b"unchanged"
 
-        assert total_clients == 0
-        assert reconciliation_result is None
-        assert (
-            mock_build_result.call_args.args[0] is mock_check_client_info.return_value
-        )
-
-        assert mock_build_result.call_args.kwargs["config_path"] == (
-            config_dir / "parameters.yaml"
-        )
-
-    def test_run_step_4_passes_selected_config_path(self, tmp_path: Path) -> None:
-        output_dir = tmp_path / "output"
-        template_dir = tmp_path / "templates"
-        config_dir = tmp_path / "selected-config"
-
-        with (
-            patch(
-                "pipeline.orchestrator.generate_notices.prepare_render_jobs",
-                return_value=[],
-            ) as mock_generate,
-            patch("builtins.print"),
-        ):
-            orchestrator.run_step_4_generate_notices(
-                output_dir=output_dir,
-                run_id="test_run",
-                template_dir=template_dir,
-                config_dir=config_dir,
-            )
-
-        mock_generate.assert_called_once_with(
-            output_dir / "artifacts" / "preprocessed_clients_test_run.json",
-            output_dir / "artifacts",
-            template_dir,
-            config_path=config_dir / "parameters.yaml",
-        )
-
-    def test_run_step_3_generate_qr_codes_disabled(
-        self, tmp_output_structure: dict, config_file: Path
+    @pytest.mark.parametrize("source_kind", ["templates", "config", "input"])
+    def test_output_cannot_delete_selected_source(
+        self, tmp_path: Path, source_kind: str
     ) -> None:
-        # Create config with qr disabled
-        config_file.write_text("qr:\n  enabled: false\n")
-
-        with (
-            patch(
-                "pipeline.orchestrator.load_config",
-                return_value={"qr": {"enabled": False}},
-            ),
-            patch("builtins.print"),
-        ):
-            result = orchestrator.run_step_3_generate_qr_codes(
-                output_dir=tmp_output_structure["root"],
-                run_id="test_run",
-                config_dir=config_file.parent,
+        output = tmp_path / "output"
+        output.mkdir()
+        source = tmp_path / "students.xlsx"
+        source.write_text("source")
+        kwargs = {}
+        if source_kind == "input":
+            source = output / "students.xlsx"
+            source.write_text("source")
+        else:
+            selected = output / source_kind
+            selected.mkdir()
+            (selected / "keep").write_text("source")
+            kwargs["template_dir" if source_kind == "templates" else "config_dir"] = (
+                selected
             )
+        with pytest.raises(ValueError, match="overlap"):
+            orchestrator.run_pipeline(source, output, "en", **kwargs)
+        assert source.read_text() == "source"
+        if source_kind != "input":
+            assert (selected / "keep").read_text() == "source"
 
-        assert result == 0
+    def test_missing_source_fails_before_creating_output(self, tmp_path: Path) -> None:
+        with pytest.raises(FileNotFoundError, match="Input file not found"):
+            orchestrator.run_pipeline(
+                tmp_path / "missing.xlsx", tmp_path / "output", "en"
+            )
+        assert not (tmp_path / "output").exists()
 
 
 @pytest.mark.unit
@@ -309,10 +233,10 @@ class TestErrorHandling:
         input_file.write_text("dummy")
 
         with (
-            patch("pipeline.orchestrator.parse_args") as mock_args,
-            patch("pipeline.orchestrator.load_config", return_value={}),
+            patch("immuknow.orchestrator.parse_args") as mock_args,
+            patch("immuknow.orchestrator.load_config", return_value={}),
             patch(
-                "pipeline.orchestrator.run_step_1_prepare_output",
+                "immuknow.orchestrator.run_pipeline",
                 side_effect=Exception("Test execution failure"),
             ),
             patch("builtins.print"),
@@ -324,6 +248,7 @@ class TestErrorHandling:
                 output_dir=tmp_path / "output",
                 config_dir=tmp_path / "config",
                 template_dir=None,
+                custom_templates=None,
             )
 
             # main() catches all exceptions and returns 1
@@ -335,11 +260,9 @@ class TestErrorHandling:
         input_file.write_text("dummy")
 
         with (
-            patch("pipeline.orchestrator.parse_args") as mock_args,
-            patch("pipeline.orchestrator.load_config", return_value={}),
-            patch(
-                "pipeline.orchestrator.run_step_1_prepare_output", return_value=False
-            ),
+            patch("immuknow.orchestrator.parse_args") as mock_args,
+            patch("immuknow.orchestrator.load_config", return_value={}),
+            patch("immuknow.orchestrator.run_pipeline", return_value=None),
             patch("builtins.print"),
         ):
             mock_args.return_value = MagicMock(
@@ -349,6 +272,7 @@ class TestErrorHandling:
                 output_dir=tmp_path / "output",
                 config_dir=tmp_path / "config",
                 template_dir=None,
+                custom_templates=None,
                 notice_assignments=None,
             )
 

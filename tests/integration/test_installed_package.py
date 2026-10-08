@@ -31,21 +31,29 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
     wheel = next(distributions.glob("*.whl"))
     with zipfile.ZipFile(wheel) as archive:
         names = set(archive.namelist())
-        assert "templates/overdue_standard_v1.fr.typ" in names
-        assert "templates/affirmative_schedule_v1.en.typ" in names
-        assert "templates/assets/logo.png" in names
-        assert "templates/assets/signature.png" in names
-        assert "config/input_schema.json" in names
-        assert "config/translations/fr_diseases_chart.json" in names
+        assert "immuknow/templates/overdue_standard_v1.fr.typ" in names
+        assert "immuknow/templates/affirmative_schedule_v1.en.typ" in names
+        assert "immuknow/templates/assets/logo.png" in names
+        assert "immuknow/templates/assets/signature.png" in names
+        assert "immuknow/config/input_schema.json" in names
+        assert "immuknow/config/translations/fr_diseases_chart.json" in names
+        assert "immuknow/templates/presentation.typ" in names
+        for language in ("en", "fr"):
+            for domain in ("diseases_chart", "diseases_overdue"):
+                assert f"immuknow/config/translations/{language}_{domain}.json" in names
+        assert not any(
+            name.startswith(("pipeline/", "templates/", "config/")) for name in names
+        )
         assert not any(name.endswith("_template.py") for name in names)
     with tarfile.open(next(distributions.glob("*.tar.gz"))) as archive:
         source_names = archive.getnames()
         assert any(
-            name.endswith("templates/overdue_standard_v1.fr.typ")
+            name.endswith("immuknow/templates/overdue_standard_v1.fr.typ")
             for name in source_names
         )
         assert any(
-            name.endswith("config/vaccine_reference.json") for name in source_names
+            name.endswith("immuknow/config/vaccine_reference.json")
+            for name in source_names
         )
 
     environment = tmp_path / "Clean environment"
@@ -83,12 +91,19 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
     )
     unrelated = tmp_path / "Unrelated working directory"
     unrelated.mkdir()
+    (unrelated / "config.py").write_text(
+        'raise RuntimeError("APPLICATION CONFIG IMPORTED")'
+    )
+    (unrelated / "templates").mkdir()
+    (unrelated / "templates" / "__init__.py").write_text(
+        'raise RuntimeError("APPLICATION TEMPLATES IMPORTED")'
+    )
     inspect = run_checked(
         [
             str(python),
             "-c",
             "import json; from importlib.resources import files; "
-            "print(json.dumps([str(files(p)) for p in ('pipeline', 'templates', 'config')]))",
+            "print(json.dumps([str(files(p)) for p in ('immuknow',)]))",
         ],
         unrelated,
     )
@@ -104,46 +119,37 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
         for path in resources:
             path.chmod(0o555 if path.is_dir() else 0o444)
         command, output_dir, config_dir = prepare_cohort(tmp_path / "Manifest run")
-        command[0] = str(python)
-        result = run_checked(command, unrelated)
+        input_file = Path(command[3])
+        manifest = Path(command[command.index("--notice-assignments") + 1])
+        result = run_checked(
+            [
+                str(python),
+                "-c",
+                "from pathlib import Path; from immuknow.orchestrator import run_pipeline; "
+                f"completion=run_pipeline(Path({str(input_file)!r}), Path({str(output_dir)!r}), "
+                f"config_dir=Path({str(config_dir)!r}), notice_assignments=Path({str(manifest)!r})); "
+                "assert completion.is_file()",
+            ],
+            unrelated,
+        )
         assert "Pipeline completed successfully" in result.stdout
         assert len(list((output_dir / "pdf_individual").glob("*.pdf"))) == 2
 
-        canonical = next((output_dir / "artifacts").glob("preprocessed_clients_*.json"))
-        library_artifacts = tmp_path / "Library output" / "artifacts"
-        run_checked(
-            [
-                str(python),
-                "-c",
-                "from pathlib import Path; "
-                "from pipeline.generate_notices import prepare_render_jobs; "
-                "from pipeline.compile_notices import compile_with_config; "
-                f"a=Path({str(library_artifacts)!r}); "
-                f"c=Path({str(config_dir / 'parameters.yaml')!r}); "
-                f"jobs=prepare_render_jobs(Path({str(canonical)!r}), a, config_path=c); "
-                "assert len(jobs)==2; "
-                "assert compile_with_config(a, a.parent / 'pdf_individual', c)==2",
-            ],
-            unrelated,
+        # Exercise the opposite application-owned names through the installed CLI.
+        (unrelated / "config.py").unlink()
+        (unrelated / "config").mkdir()
+        (unrelated / "config" / "__init__.py").write_text(
+            'raise RuntimeError("APPLICATION CONFIG IMPORTED")'
         )
-
-        # Exercise the same ordinary library function as the CLI.
-        run_checked(
-            [
-                str(python),
-                "-c",
-                "from pathlib import Path; from pipeline.generate_notices import read_render_jobs; "
-                f"assert len(read_render_jobs(Path({str(output_dir / 'artifacts')!r}), require_compiled=True)) == 2",
-            ],
-            unrelated,
+        shutil.rmtree(unrelated / "templates")
+        (unrelated / "templates.py").write_text(
+            'raise RuntimeError("APPLICATION TEMPLATES IMPORTED")'
         )
-
         custom = tmp_path / "Private PHU modèles"
-        shutil.copytree(installed_dirs[1], custom)
+        shutil.copytree(installed_dirs[0] / "templates", custom)
         for directory in [custom, *custom.rglob("*")]:
             if directory.is_dir():
                 directory.chmod(0o755)
-        input_file = Path(command[3])
         fixed_output = tmp_path / "Fixed packaged configuration"
         run_checked(
             [

@@ -7,9 +7,7 @@
     "person": {
       "first_name": "Élodie",
       "last_name": "O’Connor",
-      "date_of_birth": "2015-01-02",
       "date_of_birth_iso": "2015-01-02",
-      "date_of_birth_display": "January 2, 2015",
       "age": 9,
       "over_16": false
     },
@@ -27,13 +25,13 @@
       "province": "ON",
       "postal_code": "N1H 2T2"
     },
-    "vaccines_due": "",
-    "vaccines_due_list": [],
-    "vaccines_due_agent_list": [],
     "received": [],
     "metadata": {},
     "qr": {
       "payload": "https://www.test-immunization.ca/update?client_id=0000000001&dob=2015-01-02&lang=en"
-    }
+    },
+    "version_id": "affirmative_schedule_v1",
+    "overdue_diseases": [],
+    "overdue_agents": []
   }
 }

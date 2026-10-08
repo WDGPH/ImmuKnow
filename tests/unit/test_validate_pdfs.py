@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 from pypdf import PdfWriter
 
-from pipeline import validate_pdfs
+from immuknow import validate_pdfs
 
 
 @pytest.mark.unit
@@ -157,7 +157,7 @@ class TestMainFunction:
                 writer.write(f)
 
         json_path = tmp_path / "validation.json"
-        summary = validate_pdfs.main(
+        summary = validate_pdfs.validate_notices(
             expected_pdfs=sorted(pdf_dir.glob("*.pdf")),
             enabled_rules={"exactly_two_pages": "warn"},
             json_output=json_path,
@@ -179,7 +179,7 @@ class TestMainFunction:
             writer.write(f)
 
         with pytest.raises(RuntimeError, match="PDF validation failed with errors"):
-            validate_pdfs.main(
+            validate_pdfs.validate_notices(
                 expected_pdfs=[pdf_path],
                 enabled_rules={"exactly_two_pages": "error"},
                 json_output=None,

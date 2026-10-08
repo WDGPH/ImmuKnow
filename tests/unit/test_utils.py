@@ -18,9 +18,12 @@ Real-world significance:
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
-from pipeline import utils
+from immuknow import utils
+from tests.fixtures import sample_input
 
 
 @pytest.mark.unit
@@ -278,18 +281,16 @@ class TestBuildClientContext:
         - Creates dict for template rendering
         - Used by QR code and encryption password templates
         """
-        client = {
-            "client_id": "12345",
-            "person": {
-                "first_name": "John",
-                "last_name": "Doe",
-                "date_of_birth_iso": "2015-03-15",
-            },
-            "school": {"name": "Lincoln School"},
-            "contact": {"postal_code": "M5V 3A8", "city": "Toronto"},
-        }
+        client = sample_input.create_test_client_record(
+            client_id="12345",
+            first_name="John",
+            last_name="Doe",
+            date_of_birth="2015-03-15",
+            school_name="Lincoln School",
+        )
+        client = replace(client, contact={"postal_code": "M5V 3A8", "city": "Toronto"})
 
-        context = utils.build_client_context(client, "en")
+        context = utils.build_client_context(client)
 
         assert context["client_id"] == "12345"
         assert context["first_name"] == "John"
@@ -308,11 +309,10 @@ class TestBuildClientContext:
         - First/last names are stored directly in data
         - Templates use individual name parts
         """
-        client = {
-            "person": {"first_name": "John", "last_name": "Quincy"},
-        }
-
-        context = utils.build_client_context(client, "en")
+        client = sample_input.create_test_client_record(
+            first_name="John", last_name="Quincy"
+        )
+        context = utils.build_client_context(client)
 
         assert context["first_name"] == "John"
         assert context["last_name"] == "Quincy"
@@ -326,11 +326,8 @@ class TestBuildClientContext:
         - Last name can be empty string
         - This test documents current behavior
         """
-        client = {
-            "person": {"first_name": "Cher", "last_name": ""},
-        }
-
-        context = utils.build_client_context(client, "en")
+        client = sample_input.create_test_client_record(first_name="Cher", last_name="")
+        context = utils.build_client_context(client)
 
         assert context["first_name"] == "Cher"
         assert context["last_name"] == ""
@@ -343,9 +340,9 @@ class TestBuildClientContext:
         - Some client records might be incomplete
         - Should return empty strings, not crash
         """
-        client = {"client_id": "12345"}  # Missing person, contact, etc.
-
-        context = utils.build_client_context(client, "en")
+        client = sample_input.create_test_client_record(client_id="12345")
+        client = replace(client, person={}, school={}, contact={}, board={})
+        context = utils.build_client_context(client)
 
         assert context["client_id"] == "12345"
         assert context["first_name"] == ""
@@ -359,11 +356,8 @@ class TestBuildClientContext:
         - Encryption password might use compact format
         - Should remove dashes from ISO date
         """
-        client = {
-            "person": {"date_of_birth_iso": "2015-03-15"},
-        }
-
-        context = utils.build_client_context(client, "en")
+        client = sample_input.create_test_client_record(date_of_birth="2015-03-15")
+        context = utils.build_client_context(client)
 
         assert context["date_of_birth_iso_compact"] == "20150315"
 
@@ -374,10 +368,12 @@ class TestBuildClientContext:
         - Template might format output based on language
         - Should preserve language code
         """
-        client = {"client_id": "12345"}
-
-        context_en = utils.build_client_context(client, "en")
-        context_fr = utils.build_client_context(client, "fr")
+        context_en = utils.build_client_context(
+            sample_input.create_test_client_record(language="en")
+        )
+        context_fr = utils.build_client_context(
+            sample_input.create_test_client_record(language="fr")
+        )
 
         assert context_en["language_code"] == "en"
         assert context_fr["language_code"] == "fr"
@@ -389,12 +385,10 @@ class TestBuildClientContext:
         - Excel input might have extra spaces
         - Templates should work with trimmed values
         """
-        client = {
-            "person": {"first_name": "  John", "last_name": "Doe  "},
-            "school": {"name": "  Lincoln School  "},
-        }
-
-        context = utils.build_client_context(client, "en")
+        client = sample_input.create_test_client_record(
+            first_name="  John", last_name="Doe  ", school_name="  Lincoln School  "
+        )
+        context = utils.build_client_context(client)
 
         assert context["first_name"] == "John"
         assert context["last_name"] == "Doe"
@@ -407,16 +401,17 @@ class TestBuildClientContext:
         - QR template might use various contact fields
         - Should capture all available fields
         """
-        client = {
-            "contact": {
+        client = sample_input.create_test_client_record()
+        client = replace(
+            client,
+            contact={
                 "postal_code": "M5V 3A8",
                 "city": "Toronto",
                 "province": "ON",
                 "street": "123 Main St",
             },
-        }
-
-        context = utils.build_client_context(client, "en")
+        )
+        context = utils.build_client_context(client)
 
         assert context["postal_code"] == "M5V 3A8"
         assert context["city"] == "Toronto"

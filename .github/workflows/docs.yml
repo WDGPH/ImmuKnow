@@ -21,7 +21,7 @@ on:
       - '**.png'
       - '**.svg'
       - '**.jpeg'
-      - 'config/input_schema.json'
+      - 'immuknow/config/input_schema.json'
   pull_request:
     branches:
       - main
@@ -39,7 +39,7 @@ on:
       - '**.png'
       - '**.svg'
       - '**.jpeg'
-      - 'config/input_schema.json'
+      - 'immuknow/config/input_schema.json'
 
 jobs:
   build:
