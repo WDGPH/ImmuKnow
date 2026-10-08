@@ -1,0 +1,70 @@
+{
+  "version_id": "legacy_fixed_v1",
+  "client": {
+    "sequence": "00001",
+    "client_id": "0000000001",
+    "language": "fr",
+    "person": {
+      "first_name": "Élodie",
+      "last_name": "O’Connor",
+      "date_of_birth": "2015-01-02",
+      "date_of_birth_iso": "2015-01-02",
+      "date_of_birth_display": "2 janvier 2015",
+      "age": 9,
+      "over_16": false
+    },
+    "school": {
+      "id": "sch_00001",
+      "name": "Tunnel Academy"
+    },
+    "board": {
+      "id": "brd_00001",
+      "name": "Guelph Board"
+    },
+    "contact": {
+      "street": "123 Main St",
+      "city": "Guelph",
+      "province": "ON",
+      "postal_code": "N1H 2T2"
+    },
+    "vaccines_due": "Measles/Mumps/Rubella",
+    "vaccines_due_list": [
+      "Measles (1st dose)",
+      "Mumps",
+      "Rubella"
+    ],
+    "vaccines_due_agent_list": [
+      "MMR"
+    ],
+    "received": [
+      {
+        "date_given": "2020-01-01",
+        "date_rowspan": 1,
+        "vaccines": [
+          "MMR"
+        ],
+        "columns": {
+          "Measles": "valid",
+          "Mumps": "invalid",
+          "Rubella": "valid"
+        }
+      },
+      {
+        "date_given": "2020-02-01",
+        "date_rowspan": 1,
+        "vaccines": [
+          "MMR"
+        ],
+        "columns": {
+          "Measles": "valid",
+          "Mumps": "invalid",
+          "Rubella": "valid"
+        }
+      }
+    ],
+    "metadata": {},
+    "qr": {
+      "payload": "https://www.test-immunization.ca/update?client_id=0000000001&dob=2015-01-02&lang=fr"
+    }
+  }
+}

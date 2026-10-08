@@ -1,0 +1,53 @@
+Request for Immunization 
+Record
+To Parent/Guardian of:
+Élodie O’Connor
+123 Main St
+Guelph, Ontario N1H 2T2
+Client ID: 0000000001
+Date of Birth: January 2, 2015
+Childcare Centre: Tunnel Academy
+MEASURE_CONTACT_HEIGHT:81
+As of August 31, 2025 our files show that your child is up-to-date for their immunization(s)! Their Immunization 
+Record can be viewed on page 2.
+For any future received vaccines, you can update your child’s record by using one of the following options:
+1. By visiting https://www.test-immunization.ca
+2. By emailing records@test-immunization.ca
+3. By mailing a photocopy of your child’s immunization record to Test Health, 123 Placeholder Street, Sample City, 
+ON A1A 1A1
+4. By Phone: 555-555-5555 ext. 1234
+Please update Public Health and your childcare centre every time your child receives a vaccine.
+If you have any questions, please call 555-555-5555 ext. 1234.
+Thank you for helping to keep our children safe.
+Sincerely,
+Dr. Jane Smith, MPH
+Associate Medical Officer of Health
+MARK_END_SIGNATURE_BLOCK
+1 / 2
+
+Immunization Record
+For your reference, the immunization(s) on file with Public Health are as follows:
+Date Given
+Diphtheria
+Tetanus
+Pertussis
+Polio
+Hib
+Pneumococcal
+Rotavirus
+Measles
+Mumps
+Rubella
+Meningococcal
+Varicella
+OtherVaccine(s)
+ 
+ 
+ 
+ 
+ 
+*indicates unspecified vaccine agent
+⬤ Valid dose
+○ Invalid dose
+End of immunization record
+2 / 2

@@ -6,6 +6,37 @@ This document defines the testing strategy and organizational standards for the 
 
 Tests are organized in three layers to provide different types of validation at different speeds.
 
+## Native Typst migration evidence
+
+The migration starts from PR #214 (`feat/notice-version`), verified at
+`14b24ae85a18746103baaca31da1b84a96ff47dc` on 2026-10-08. Its child branch is
+`no-more-python-generator`; the eventual merge target is `feat/notice-version`.
+
+Typst **0.15.1** was the latest stable release in the official release API at
+the start of this work. Review the [0.15 migration guide](https://typst.app/docs/changelog/0.15.0/#migration-guide)
+for baseline and list alignment changes and the requirement for forward slashes
+in document paths. The compiler upgrade is committed before the renderer changes.
+
+`tests/fixtures/notice_baseline/` contains synthetic client records and extracted
+PDF text captured from the unchanged Python templates. The seven cases cover
+all five maintained language/version combinations, a long vaccination record,
+and a long address. They use the repository branding, QR images, dose labels,
+and validity markers. The capture configuration is `config/parameters.yaml`
+with `preprocess.show_validity_markers: true`.
+
+Both Typst 0.14.2 and 0.15.1 compiled these cases. Their extracted text and page
+counts agree exactly; only one copy of that text is retained. Per-case page
+counts and single-run timings are in `compiler_comparison.json`. These timings
+are context for the comparison, not a performance claim. Generated source, PDFs,
+and page previews are retained locally in `output/native_typst_baseline/`.
+Some existing notices already occupy three pages; the migration must distinguish
+that baseline behavior from new overflow.
+
+Before implementation, `uv run pytest -q` reported **625 passed, 2 skipped**.
+`uv run ty check` reported **51 diagnostics**, including unresolved metadata
+types in rendering and preprocessing, and existing test type errors. These are
+baseline failures, not a passing type check.
+
 ## Strategic Principles (Pre-1.0 Refinement)
 
 As part of the pre-1.0 release strategy, the following principles guide the test suite:

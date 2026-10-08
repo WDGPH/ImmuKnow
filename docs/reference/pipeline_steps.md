@@ -175,7 +175,7 @@ Compiles the generated `.typ` Typst source files into individual PDF notices by 
 
 **Outputs:** PDF files in `output/pdf_individual/`
 
-This step is fail-fast: if any `.typ` file fails to compile, the pipeline halts immediately. Typst v0.14.2 is required; the binary must be on `PATH` or configured via `typst.bin`.
+This step is fail-fast: if any `.typ` file fails to compile, the pipeline halts immediately. Typst v0.15.1 is required; select the binary through `PATH`, `typst.bin`, or `TYPST_BIN`.
 
 ---
 

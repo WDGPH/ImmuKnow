@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 <!-- insertion marker -->
+## Unreleased
+
+### Changed
+
+- Pin Typst to 0.15.1 in CI and setup instructions. Capture synthetic notice
+  baselines with both 0.14.2 and 0.15.1 before migrating the Python renderer.
+
 ## [v1.1.0](https://github.com/WDGPH/ImmuKnow/releases/tag/v1.1.0) - 2026-08-27
 
 <small>[Compare with v1.0.0](https://github.com/WDGPH/ImmuKnow/compare/v1.0.0...v1.1.0)</small>

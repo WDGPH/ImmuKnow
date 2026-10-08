@@ -6,7 +6,7 @@ Before running the pipeline you need:
 
 - **Python ≥ 3.10** — managed automatically by `uv`
 - **[uv](https://github.com/astral-sh/uv)** — Python package and project manager
-- **[Typst v0.14.2](https://typst.app)** — PDF typesetting engine (must be on `PATH` or configured via `typst.bin` in `parameters.yaml`)
+- **[Typst v0.15.1](https://typst.app/docs/changelog/0.15.1/)** — PDF typesetting engine (must be on `PATH`, configured via `typst.bin` in `parameters.yaml`, or selected with `TYPST_BIN`)
 
 ## Installation
 
