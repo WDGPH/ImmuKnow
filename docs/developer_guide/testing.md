@@ -20,6 +20,22 @@ The CI test job installs 0.15.1 from its versioned official release URL and runs
 the full suite. Native acceptance tests fail when the compiler is unavailable;
 they never substitute a mock or silently skip.
 
+The PDF fixtures also require FreeFont TTF **20120503-10build1**. Font releases
+can change line wrapping even when the family name remains `FreeSans`. The
+`Install pinned notice fonts` step in `.github/workflows/test.yml` downloads
+that package from Ubuntu's archive, verifies its SHA-256 checksum, and installs
+its fonts in `/usr/share/fonts/truetype/freefont/`. Use those same font files
+for local layout comparisons. To exclude unrelated system fonts:
+
+```bash
+TYPST_FONT_PATHS=/usr/share/fonts/truetype/freefont \
+TYPST_IGNORE_SYSTEM_FONTS=true uv run pytest
+```
+
+Keep exact text and page-boundary comparisons. A deliberate font upgrade needs
+layout review before changing the fixtures; a different local font installation
+is not a reason to rewrite expected output.
+
 Use markers for focused feedback:
 
 ```bash
@@ -31,9 +47,11 @@ uv run pytest --cov=pipeline --cov-report=html
 
 ## Test boundaries
 
-Unit tests cover normalization, eligibility, assignment aliases, configuration,
+Unit tests cover normalization, eligibility, assignment conflicts, configuration,
 and precise failure diagnostics. Use ordinary records rather than deeply mocked
 objects when testing data contracts.
+Assignment tests also check that each manifest row has a valid `version_id` and
+that an explicit input `version_id` agrees with it.
 
 Integration tests compile real maintained templates from ordinary JSON. Their
 temporary directories deliberately live outside the checkout and include spaces
