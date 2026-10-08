@@ -63,6 +63,17 @@ records its original PHIX workbook in `_meta`; the pipeline reads only the
 prepared JSON list. Reports are `school_exact.csv`, `school_inexact.csv`, and
 `school_no_match.csv`, and added columns use the default `school_` prefix.
 
+## Excluding agents from the history chart
+
+`ignore_agents` lists exact, case-sensitive agent names to omit from the
+received immunization history. The bundled list contains `RSVAb`, `VarIg`,
+`HBIg`, `RabIg`, and `Ig`. Set it to `[]` to retain all named agents; unspecified
+placeholder labels are still cleaned during preparation.
+
+This setting only changes history rows. It does not change overdue diseases,
+overdue agents, or notice eligibility. Source validity checks still examine
+the complete source history before display exclusions are applied.
+
 ## QR and password placeholders
 
 QR payloads and passwords are outside document presentation. Their supported

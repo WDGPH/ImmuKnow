@@ -27,6 +27,12 @@ encryption:
   enabled: false
   password:
     template: '{date_of_birth_iso_compact}'
+ignore_agents:
+- RSVAb
+- VarIg
+- HBIg
+- RabIg
+- Ig
 pdf_validation:
   rules:
     client_id_presence: error

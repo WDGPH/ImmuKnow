@@ -35,7 +35,7 @@ VACCINE_REFERENCE_PATH = CONFIG_DIR / "vaccine_reference.json"
 
 LOG = logging.getLogger(__name__)
 
-REPLACE_UNSPECIFIED = [
+UNSPECIFIED_AGENTS = [
     "-unspecified",
     "unspecified",
     "Not Specified",
@@ -89,7 +89,7 @@ def prepare_clients(
     result, reconciliation = build_preprocess_result(
         frame,
         json.loads(reference.read_text(encoding="utf-8")),
-        REPLACE_UNSPECIFIED,
+        UNSPECIFIED_AGENTS,
         config=config,
         config_dir=config_dir,
         catalog=catalog,
@@ -323,7 +323,7 @@ def run_school_validation(
 def build_preprocess_result(
     df: pd.DataFrame,
     vaccine_reference: Dict[str, Any],
-    replace_unspecified: List[str],
+    excluded_agents: List[str],
     *,
     config: dict[str, Any],
     config_dir: Path,
@@ -421,6 +421,8 @@ def build_preprocess_result(
 
     # Client records are prepared before assigning notices or translating labels.
 
+    # Combine placeholder cleanup with the selected history-only exclusions.
+    excluded_history_agents = [*excluded_agents, *config.get("ignore_agents", [])]
     clients: List[ClientRecord] = []
     for row in sorted_df.to_dict(orient="records"):
         client_id = str(row["client_id"])
@@ -439,7 +441,7 @@ def build_preprocess_result(
 
         received = build_received_rows(
             row["imms_given"],
-            replace_unspecified,
+            excluded_history_agents,
             vaccine_reference,
             chart_diseases_header,
             show_validity_markers,
@@ -711,7 +713,7 @@ def classify_dataset_validity(
 
 def build_received_rows(
     received_agents: Any,
-    replace_unspecified: List[str],
+    excluded_agents: List[str],
     vaccine_reference: Dict[str, Any],
     chart_diseases_header: List[str],
     show_validity_markers: bool = False,
@@ -729,7 +731,7 @@ def build_received_rows(
     ----------
     received_agents : Any
         Raw imms_given cell value.
-    replace_unspecified : List[str]
+    excluded_agents : List[str]
         Vaccine names to suppress.
     vaccine_reference : Dict[str, Any]
         Vaccine-to-disease mapping.
@@ -749,7 +751,7 @@ def build_received_rows(
                 "columns":      Dict[str, str], # column name → validity status
             }
     """
-    flat = parse_dose_segments(received_agents, replace_unspecified)
+    flat = parse_dose_segments(received_agents, excluded_agents)
     if not flat:
         return []
 
@@ -783,7 +785,7 @@ def build_received_rows(
 
 
 def parse_dose_segments(
-    received_agents: Any, replace_unspecified: List[str]
+    received_agents: Any, excluded_agents: List[str]
 ) -> List[Dict[str, str]]:
     """Parse an imms_given string into a flat sorted list of individual dose entries.
 
@@ -800,7 +802,7 @@ def parse_dose_segments(
         parsed; any other type returns ``[]``.
         Expected format per segment: ``"MMM D, YYYY - VaccineName"`` or
         ``"MMM D, YYYY - VaccineName - Valid|Invalid"``.
-    replace_unspecified : List[str]
+    excluded_agents : List[str]
         Vaccine names to silently drop (e.g. ``["Not Specified"]``).
 
     Returns
@@ -821,8 +823,10 @@ def parse_dose_segments(
     rows: List[Dict[str, str]] = []
     for date_str, vaccine, raw_valid in pattern.findall(received_agents):
         vaccine = vaccine.strip()
+        if vaccine in excluded_agents:
+            continue
         vaccine = vaccine.replace("-unspecified", "*").replace(" unspecified", "*")
-        if vaccine in replace_unspecified:
+        if vaccine in excluded_agents:
             continue
         rows.append(
             {

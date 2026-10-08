@@ -17,7 +17,7 @@ from tests.fixtures import sample_input
 def build_result(
     df: pd.DataFrame,
     vaccine_reference: dict,
-    replace_unspecified: list[str],
+    excluded_agents: list[str],
     *,
     language: str = "en",
     config: dict | None = None,
@@ -49,7 +49,7 @@ def build_result(
     return preprocess.build_preprocess_result(
         prepared,
         vaccine_reference,
-        replace_unspecified,
+        excluded_agents,
         config=config,
         config_dir=config_dir,
         catalog=catalog,
@@ -97,7 +97,7 @@ class TestOverdueParsing:
                 frame,
                 language="en",
                 vaccine_reference=default_vaccine_reference,
-                replace_unspecified=[],
+                excluded_agents=[],
                 config=config,
             )
             assert result.clients[0].overdue_diseases == expected
@@ -345,7 +345,7 @@ class TestBuildPreprocessResult:
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
-            replace_unspecified=[],
+            excluded_agents=[],
         )
 
         assert len(result.clients) == 3
@@ -369,14 +369,14 @@ class TestBuildPreprocessResult:
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
-            replace_unspecified=[],
+            excluded_agents=[],
         )
 
         result2, _ = build_result(
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
-            replace_unspecified=[],
+            excluded_agents=[],
         )
 
         ids1 = [c.client_id for c in result1.clients]
@@ -429,7 +429,7 @@ class TestBuildPreprocessResult:
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
-            replace_unspecified=[],
+            excluded_agents=[],
         )
 
         # Expected order: Apple/Chloe/Jones, Apple/Diana/Jones, Zebra/Alice/Smith, Zebra/Bob/Smith
@@ -454,7 +454,7 @@ class TestBuildPreprocessResult:
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
-            replace_unspecified=[],
+            excluded_agents=[],
         )
 
         # Should have DTaP expanded to component diseases in columns dict
@@ -489,7 +489,7 @@ class TestBuildPreprocessResult:
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
-            replace_unspecified=[],
+            excluded_agents=[],
             config=yaml.safe_load(config_path.read_text()),
         )
 
@@ -530,7 +530,7 @@ class TestBuildPreprocessResult:
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
-            replace_unspecified=[],
+            excluded_agents=[],
         )
 
         assert len(result.clients) == 1
@@ -553,16 +553,16 @@ class TestBuildPreprocessResult:
             df,
             language="fr",
             vaccine_reference=default_vaccine_reference,
-            replace_unspecified=[],
+            excluded_agents=[],
         )
 
         assert len(result.clients) == 1
         assert result.clients[0].language == "fr"
 
-    def test_build_result_handles_replace_unspecified(
+    def test_build_result_handles_excluded_agents(
         self, default_vaccine_reference
     ) -> None:
-        """Verify replace_unspecified filters out unspecified vaccines.
+        """Verify excluded_agents filters out unspecified vaccines.
 
         Real-world significance:
         - Input may contain "Not Specified" vaccine agents
@@ -574,7 +574,7 @@ class TestBuildPreprocessResult:
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
-            replace_unspecified=["Not Specified", "unspecified"],
+            excluded_agents=["Not Specified", "unspecified"],
         )
 
         assert len(result.clients) == 1
@@ -598,7 +598,7 @@ class TestBuildPreprocessResult:
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
-            replace_unspecified=[],
+            excluded_agents=[],
         )
 
         # Should have 2 clients (no deduplication)
@@ -632,7 +632,7 @@ class TestBuildPreprocessResult:
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
-            replace_unspecified=[],
+            excluded_agents=[],
         )
 
         # Should have 5 clients (no deduplication)
@@ -663,7 +663,7 @@ class TestBuildPreprocessResult:
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
-            replace_unspecified=[],
+            excluded_agents=[],
         )
 
         # Should have 3 unique clients
@@ -863,7 +863,7 @@ class TestParseDoseSegments:
     - Doses without suffix → "unknown" (not silently dropped)
     - Multiple doses on the same date returned as separate flat entries
     - Entries sorted ascending by date regardless of input order
-    - replace_unspecified filtering
+    - excluded_agents filtering
 
     Real-world significance:
     - This function is the sole parser for imms_given strings; incorrect
@@ -966,8 +966,8 @@ class TestParseDoseSegments:
         assert result[0]["date_given"] == "2020-05-01"
         assert result[1]["date_given"] == "2021-06-15"
 
-    def test_replace_unspecified_filters_named_vaccines(self) -> None:
-        """Verify vaccines in replace_unspecified are excluded from output."""
+    def test_excluded_agents_filters_named_vaccines(self) -> None:
+        """Verify vaccines in excluded_agents are excluded from output."""
         result = preprocess.parse_dose_segments(
             "May 1, 2020 - Not Specified; Jun 15, 2021 - MMR",
             ["Not Specified"],
@@ -1177,7 +1177,7 @@ class TestBuildReceivedRows:
         """Assertion: empty string → []"""
         assert preprocess.build_received_rows("", [], vaccine_ref, header) == []
 
-    def test_replace_unspecified_filters_vaccine(self, vaccine_ref, header) -> None:
+    def test_excluded_agents_filters_vaccine(self, vaccine_ref, header) -> None:
         """Filtered vaccine absent from output; remaining vaccine present."""
         rows = preprocess.build_received_rows(
             "May 1, 2020 - Not Specified; May 1, 2020 - DTaP - Valid",
@@ -1204,7 +1204,7 @@ class TestBuildReceivedRows:
             df,
             language="en",
             vaccine_reference=default_vaccine_reference,
-            replace_unspecified=[],
+            excluded_agents=[],
         )
 
         client = result.clients[0]
@@ -1750,7 +1750,7 @@ class TestBuildPreprocessResultManifestMode:
         result, reconciliation = build_result(
             _simple_df(1),
             {},
-            preprocess.REPLACE_UNSPECIFIED,
+            preprocess.UNSPECIFIED_AGENTS,
             catalog=_make_catalog(),
             manifest=manifest,
         )
@@ -1783,7 +1783,7 @@ class TestBuildPreprocessResultManifestMode:
         _, reconciliation_result = build_result(
             _simple_df(2),
             {},
-            preprocess.REPLACE_UNSPECIFIED,
+            preprocess.UNSPECIFIED_AGENTS,
             catalog=catalog,
             manifest=manifest,
         )
@@ -1814,7 +1814,7 @@ class TestBuildPreprocessResultManifestMode:
         result, _ = build_result(
             _simple_df(2),
             {},
-            preprocess.REPLACE_UNSPECIFIED,
+            preprocess.UNSPECIFIED_AGENTS,
             catalog=catalog,
             manifest=manifest,
         )
@@ -1843,7 +1843,7 @@ class TestBuildPreprocessResultManifestMode:
         result, _ = build_result(
             _simple_df(2),
             {},
-            preprocess.REPLACE_UNSPECIFIED,
+            preprocess.UNSPECIFIED_AGENTS,
             catalog=catalog,
             manifest=manifest,
         )
@@ -1875,7 +1875,7 @@ class TestBuildPreprocessResultManifestMode:
             build_result(
                 _simple_df(2, with_overdue=True),
                 {},
-                preprocess.REPLACE_UNSPECIFIED,
+                preprocess.UNSPECIFIED_AGENTS,
                 catalog=catalog,
                 manifest=manifest,
             )
@@ -1896,7 +1896,7 @@ class TestBuildPreprocessResultManifestMode:
             build_result(
                 _simple_df(2),
                 {},
-                preprocess.REPLACE_UNSPECIFIED,
+                preprocess.UNSPECIFIED_AGENTS,
                 catalog=catalog,
                 manifest=manifest,
             )
@@ -1936,7 +1936,7 @@ class TestBuildPreprocessResultManifestMode:
             build_result(
                 _simple_df(2),
                 {},
-                preprocess.REPLACE_UNSPECIFIED,
+                preprocess.UNSPECIFIED_AGENTS,
                 config=yaml.safe_load(config_path.read_text()),
                 catalog=catalog,
                 manifest=manifest,
@@ -1976,7 +1976,7 @@ class TestBuildPreprocessResultManifestMode:
         _, reconciliation_result = build_result(
             _simple_df(2),
             {},
-            preprocess.REPLACE_UNSPECIFIED,
+            preprocess.UNSPECIFIED_AGENTS,
             config=yaml.safe_load(config_path.read_text()),
             catalog=catalog,
             manifest=manifest,

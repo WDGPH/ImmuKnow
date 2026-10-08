@@ -118,7 +118,9 @@ class TestNormalizeSchoolName:
 
         Assertion: result has no leading or trailing spaces.
         """
-        assert validate_schools.normalize_school_name("  SCHOOL NAME  ") == "SCHOOL NAME"
+        assert (
+            validate_schools.normalize_school_name("  SCHOOL NAME  ") == "SCHOOL NAME"
+        )
 
     def test_empty_string_returns_empty(self):
         """Empty string input returns empty string without error.
@@ -293,7 +295,9 @@ class TestLoadMapping:
 
         Assertion: name_to_id and id_to_name populated from the target PHU only.
         """
-        name_to_id, id_to_name = validate_schools.load_mapping(reference_file, "Test PHU")
+        name_to_id, id_to_name = validate_schools.load_mapping(
+            reference_file, "Test PHU"
+        )
         assert name_to_id["SPRINGFIELD ELEMENTARY"] == "001"
         assert id_to_name["001"] == "SPRINGFIELD ELEMENTARY"
         assert "OTHER SCHOOL" not in name_to_id  # Other PHU not included
@@ -415,7 +419,9 @@ class TestValidateSchools:
         ]:
             assert col in result_df.columns
 
-    def test_exact_match_row_has_correct_values(self, base_df, reference_file, tmp_path):
+    def test_exact_match_row_has_correct_values(
+        self, base_df, reference_file, tmp_path
+    ):
         """Exact-match row has facility ID, match_type='exact', and PHU set.
 
         Assertion: school match columns correct for the exact-match row.
@@ -468,7 +474,11 @@ class TestValidateSchools:
         """
         with pytest.raises(ValueError, match="no school reference match"):
             validate_schools.validate_schools(
-                base_df, reference_file, "Test PHU", tmp_path, unmatched_behavior="error"
+                base_df,
+                reference_file,
+                "Test PHU",
+                tmp_path,
+                unmatched_behavior="error",
             )
 
     def test_skip_behavior_filters_unmatched_rows(self, reference_file, tmp_path):

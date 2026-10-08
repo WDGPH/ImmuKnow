@@ -604,3 +604,48 @@ def test_preflight_preserves_actionable_sensitive_findings(
     assert diagnostic.stat().st_mode & 0o777 == 0o600
     assert not list(output.rglob("*.pdf"))
     assert not list((output / "metadata").glob("completion_*.json"))
+
+
+@pytest.mark.parametrize("ignored_agents", [["RSVAb", "Ig"], []])
+def test_history_exclusions_reach_pdf_without_changing_assessment(
+    tmp_path: Path, ignored_agents: list[str]
+) -> None:
+    """Selected exclusions remove history entries while preserving overdue facts."""
+    config_dir = tmp_path / "config"
+    shutil.copytree(ROOT / "immuknow" / "config", config_dir)
+    config_path = config_dir / "parameters.yaml"
+    config = yaml.safe_load(config_path.read_text())
+    config["ignore_agents"] = ignored_agents
+    config["bundling"]["bundle_size"] = 0
+    config_path.write_text(yaml.safe_dump(config))
+
+    frame = create_test_input_dataframe(num_clients=1)
+    frame["imms_given"] = (
+        "May 1, 2020 - MMR; May 2, 2020 - RSVAb; May 3, 2020 - Ig; May 4, 2020 - IgA"
+    )
+    frame["overdue_disease"] = "Measles - 2"
+    frame["overdue_agent"] = "RSVAb; Ig"
+    source = tmp_path / "clients.csv"
+    frame.to_csv(source, index=False)
+    output = tmp_path / "output"
+    completion = orchestrator.run_pipeline(
+        source,
+        output,
+        config_dir=config_dir,
+        notice_template=ROOT / "immuknow/templates/overdue_diseases_v1.en.typ",
+    )
+    assert completion is not None
+    record = json.loads(completion.read_text())
+    client = json.loads(Path(record["cohort"]).read_text())["clients"][0]
+    expected = ["MMR", "IgA"] if ignored_agents else ["MMR", "RSVAb", "Ig", "IgA"]
+    assert [
+        agent for row in client["received"] for agent in row["vaccines"]
+    ] == expected
+    assert client["overdue_agents"] == ["RSVAb", "Ig"]
+    assert client["overdue_diseases"] == [{"disease": "Measles", "dose": 2}]
+    pdf_text = "\n".join(
+        page.extract_text() for page in PdfReader(record["notices"][0]["pdf"]).pages
+    )
+    assert ("RSVAb" in pdf_text) == (not ignored_agents)
+    assert "MMR" in pdf_text
+    assert "IgA" in pdf_text

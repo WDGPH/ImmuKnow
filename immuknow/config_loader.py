@@ -160,6 +160,12 @@ def validate_config(config: Dict[str, Any]) -> None:
     - All error messages are clear and actionable
     - Config is validated once at load time, not per-step
     """
+    ignored_agents = config.get("ignore_agents", [])
+    if not isinstance(ignored_agents, list) or any(
+        not isinstance(agent, str) or not agent.strip() for agent in ignored_agents
+    ):
+        raise ValueError("ignore_agents must be a list of non-empty agent names")
+
     # Validate QR config
     qr_config = config.get("qr", {})
     qr_enabled = qr_config.get("enabled", True)

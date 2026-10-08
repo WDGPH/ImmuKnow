@@ -273,3 +273,10 @@ def test_supported_bundle_groupings_are_accepted(group_by: str | None) -> None:
             "bundling": {"bundle_size": 25, "group_by": group_by},
         }
     )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("ignored_agents", ["Ig", None, [1], [""]])
+def test_invalid_history_exclusions_fail_before_a_run(ignored_agents) -> None:
+    with pytest.raises(ValueError, match="ignore_agents must be a list"):
+        validate_config({"qr": {"enabled": False}, "ignore_agents": ignored_agents})

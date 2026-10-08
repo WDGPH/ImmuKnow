@@ -365,9 +365,13 @@ def validate_schools(
             before = len(df)
             df = df[df[school_column].isin(matched_inputs)]
             skipped = before - len(df)
-            warnings.append(f"Skipped {skipped} record(s) with no school reference match.")
+            warnings.append(
+                f"Skipped {skipped} record(s) with no school reference match."
+            )
             LOG.info(
-                "Skipped %d records with no school reference match, %d remaining.", skipped, len(df)
+                "Skipped %d records with no school reference match, %d remaining.",
+                skipped,
+                len(df),
             )
 
     return df, warnings
