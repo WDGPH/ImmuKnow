@@ -13,3 +13,10 @@ English and French PDFs for presentation changes.
 In the pull request, explain the resulting behavior, verification, and
 remaining limits. Git history and the pull request carry change history.
 Do not commit private PHU materials or real client data.
+
+Keep pipeline stage imports in `orchestrator.py` in the order of the main
+workflow: output preparation, client preparation, QR codes, render inputs,
+compilation, PDF validation, encryption, bundling, and cleanup. The marked
+`isort: off` / `isort: on` block is a deliberate exception to alphabetical
+sorting. Imports make modules available; calls inside `run_pipeline` determine
+execution order. Keep supporting imports outside that block.

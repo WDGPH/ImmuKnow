@@ -11,17 +11,6 @@ from collections.abc import Iterator
 from datetime import datetime, timezone
 from importlib.resources import files
 from pathlib import Path
-from . import (
-    bundle_pdfs,
-    cleanup,
-    compile_notices,
-    encrypt_notice,
-    generate_notices,
-    generate_qr_codes,
-    prepare_output,
-    preprocess,
-    validate_pdfs,
-)
 from .assignment_manifest import (
     ReconciliationError,
     ReconciliationResult,
@@ -31,6 +20,21 @@ from .assignment_manifest import (
 from .config_loader import load_config
 from .data_models import PreprocessResult
 from .notice_versioning import load_catalog, template_identity
+
+# Pipeline stages follow the main workflow below; imports do not run the stages.
+# isort: off
+from . import (
+    prepare_output,
+    preprocess,
+    generate_qr_codes,
+    generate_notices,
+    compile_notices,
+    validate_pdfs,
+    encrypt_notice,
+    bundle_pdfs,
+    cleanup,
+)
+# isort: on
 
 DEFAULT_OUTPUT_DIR = Path.cwd() / "output"
 DEFAULT_TEMPLATES_DIR = Path(str(files("immuknow").joinpath("templates")))
@@ -148,6 +152,7 @@ def run_pipeline(
     cleanup returns None; any failed preparation, rendering, validation, or
     delivery operation raises and leaves no successful completion record.
     """
+    # 1. Resolve inputs and check paths before clearing previous output.
     if (notice_assignments is None) == (notice_template is None):
         raise ValueError("Choose exactly one of notice_assignments or notice_template")
     selected_notice = None
@@ -181,6 +186,7 @@ def run_pipeline(
         raise ValueError(
             f"Selected version {selected_notice[0]!r} is absent from notice_versions.yaml"
         )
+    # 2. Prepare the output directory and start this run's log.
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f")
     before_run = config.get("pipeline", {}).get("before_run", {})
     if not prepare_output.prepare_output_directory(
@@ -193,8 +199,9 @@ def run_pipeline(
         metadata_dir = output_dir / "metadata"
         metadata_dir.mkdir(exist_ok=True)
         artifact_dir = output_dir / "artifacts"
+        # 3. Prepare client records and confirm every notice assignment.
         try:
-            result, reconciliation = preprocess.prepare_clients(
+            prepared_result, reconciliation = preprocess.prepare_clients(
                 input_path,
                 output_dir,
                 config,
@@ -209,18 +216,20 @@ def run_pipeline(
                 f"Notice assignment preflight failed. Sensitive assignment diagnostics: {diagnostic}"
             ) from exc
         report_assignments(reconciliation, output_dir, run_id)
+        # 4. Add optional QR links and save the prepared client records.
         clients, _ = generate_qr_codes.generate_qr_codes(
-            result.clients, artifact_dir, config
+            prepared_result.clients, artifact_dir, config
         )
-        result = PreprocessResult(clients, result.warnings)
-        artifact_path = preprocess.write_artifact(
+        prepared_result = PreprocessResult(clients, prepared_result.warnings)
+        prepared_clients_path = preprocess.write_artifact(
             artifact_dir,
             run_id,
-            result,
+            prepared_result,
         )
-        for warning in result.warnings:
+        for warning in prepared_result.warnings:
             print(f"Warning: {warning}")
-        jobs = generate_notices.prepare_render_jobs(
+        # 5. Prepare one template and data file per notice, then compile PDFs.
+        render_jobs = generate_notices.prepare_render_jobs(
             clients,
             artifact_dir,
             template_dir,
@@ -228,21 +237,26 @@ def run_pipeline(
             config_dir,
             run_id,
         )
-        compile_notices.check_expected_notices(clients, jobs)
-        compile_notices.compile_notices(jobs, artifact_dir, config)
-        compile_notices.check_expected_notices(clients, jobs, require_files=True)
+        compile_notices.check_expected_notices(clients, render_jobs)
+        compile_notices.compile_notices(render_jobs, artifact_dir, config)
+        compile_notices.check_expected_notices(clients, render_jobs, require_files=True)
+        # 6. Check the completed PDFs before delivering any notices.
         validate_pdfs.validate_notices(
-            [job.pdf for job in jobs],
+            [job.pdf for job in render_jobs],
             enabled_rules=config.get("pdf_validation", {}).get("rules", {}),
             json_output=metadata_dir / f"validation_{run_id}.json",
-            client_id_map={job.pdf.name: job.client_id for job in jobs},
+            client_id_map={job.pdf.name: job.client_id for job in render_jobs},
         )
-        encrypted = (
-            encrypt_notice.encrypt_expected_notices(clients, jobs, config)
+        # 7. Make optional encrypted copies and grouped PDF bundles.
+        encrypted_pdfs = (
+            encrypt_notice.encrypt_expected_notices(clients, render_jobs, config)
             if config.get("encryption", {}).get("enabled", False)
             else []
         )
-        bundles = bundle_pdfs.bundle_notices(clients, jobs, output_dir, run_id, config)
+        bundle_results = bundle_pdfs.bundle_notices(
+            clients, render_jobs, output_dir, run_id, config
+        )
+        # 8. Record the outputs; publish completion only after cleanup succeeds.
         completion = {
             "run_id": run_id,
             "input": str(input_path),
@@ -252,7 +266,7 @@ def run_pipeline(
             if notice_assignments
             else None,
             "notice_template": str(notice_template) if notice_template else None,
-            "cohort": str(artifact_path),
+            "cohort": str(prepared_clients_path),
             "notices": [
                 {
                     "client_id": job.client_id,
@@ -261,10 +275,10 @@ def run_pipeline(
                     "version_id": job.version_id,
                     "pdf": str(job.pdf),
                 }
-                for job in jobs
+                for job in render_jobs
             ],
-            "encrypted": [str(path) for path in encrypted],
-            "bundles": [str(bundle.pdf_path) for bundle in bundles],
+            "encrypted": [str(path) for path in encrypted_pdfs],
+            "bundles": [str(bundle.pdf_path) for bundle in bundle_results],
         }
         cleanup.cleanup_output(output_dir, config)
         completion_path = metadata_dir / f"completion_{run_id}.json"

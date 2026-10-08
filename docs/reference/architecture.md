@@ -6,6 +6,20 @@ and validates every expected PDF, then completes delivery. The selected
 filename sets each client's `version_id` and language. Typst independently
 checks both.
 
+For a first read, start with `run_pipeline` and follow its numbered comments:
+check inputs, prepare output, prepare clients, add QR codes, compile notices,
+validate PDFs, deliver copies and bundles, then record completion. Optional
+steps stay in that sequence and use configuration to decide whether to act.
+
+The names describe different points in that sequence:
+
+- A **client record** contains prepared source information and its assigned
+  notice version and language.
+- A **render job** pairs that client with the template, data file, and expected
+  PDF path. Preparing a job does not create the PDF.
+- A **bundle** combines completed individual PDFs for delivery.
+- The **completion record** lists the outputs of a successful run.
+
 The preparation flow follows the source record through these steps:
 
 1. Read the CSV once as text, trim surrounding whitespace once, and validate
