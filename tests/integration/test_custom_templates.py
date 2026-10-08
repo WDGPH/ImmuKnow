@@ -19,8 +19,8 @@ def test_single_language_custom_template(tmp_path: Path, language: str) -> None:
     custom = tmp_path / "PHU modèles"
     shutil.copytree(ROOT / "templates", custom)
     other = "fr" if language == "en" else "en"
-    (custom / "overdue_standard_v1" / f"{other}.typ").unlink()
-    entry = custom / "overdue_standard_v1" / f"{language}.typ"
+    (custom / f"overdue_standard_v1.{other}.typ").unlink()
+    entry = custom / f"overdue_standard_v1.{language}.typ"
     entry.write_text(entry.read_text() + "\n#text(size: 8pt)[PHU CUSTOM TEMPLATE]\n")
     result = run_cli(command + ["--templates", str(custom)], tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
@@ -36,7 +36,7 @@ def test_python_only_custom_template_has_migration_error(tmp_path: Path) -> None
     """Private Python templates are never imported or silently replaced."""
     (tmp_path / "en_template.py").write_text('raise RuntimeError("must not execute")')
     with pytest.raises(FileNotFoundError, match="Migrate en_template.py"):
-        select_template(tmp_path, "legacy_fixed_v1", "en")
+        select_template(tmp_path, "legacy_overdue_v1", "en")
 
 
 @pytest.mark.parametrize(

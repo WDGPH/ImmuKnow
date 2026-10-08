@@ -35,7 +35,7 @@ _DOSE_LABEL_PATTERN = re.compile(
     r"^(?P<disease>.+) \((?P<dose_label>(?P<number>\d+)(?:st|nd|rd|th) dose)\)$"
 )
 
-LEGACY_VERSION = "legacy_fixed_v1"
+LEGACY_VERSION = "legacy_overdue_v1"
 
 
 def select_template(template_dir: Path, version_id: str, language: str) -> Path:
@@ -46,7 +46,7 @@ def select_template(template_dir: Path, version_id: str, language: str) -> Path:
     template_dir : Path
         Selected built-in or custom template directory.
     version_id : str
-        Resolved notice identity; legacy fixed notices use ``legacy_fixed_v1``.
+        Resolved notice identity; legacy fixed notices use ``legacy_overdue_v1``.
     language : str
         Resolved notice language.
 
@@ -64,12 +64,12 @@ def select_template(template_dir: Path, version_id: str, language: str) -> Path:
     """
     Language.from_string(language)
     validate_version_id(version_id)
-    directory = (
-        template_dir if version_id == LEGACY_VERSION else template_dir / version_id
-    )
-    template = directory / f"{language}.typ"
+    template = template_dir / f"{version_id}.{language}.typ"
     if not template.is_file():
-        legacy = directory / f"{language}_template.py"
+        old_directory = (
+            template_dir if version_id == LEGACY_VERSION else template_dir / version_id
+        )
+        legacy = old_directory / f"{language}_template.py"
         migration = (
             f" Migrate {legacy.name} to a static .typ template using the template authoring guide."
             if legacy.exists()

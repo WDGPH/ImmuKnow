@@ -1308,14 +1308,14 @@ def build_preprocess_result(
         fixed_clients = []
         for client in clients:
             input_version = client.metadata.get("version_id")
-            if input_version and input_version != "legacy_fixed_v1":
+            if input_version and input_version != "legacy_overdue_v1":
                 raise ValueError(
                     f"Client {client.client_id} specifies version_id {input_version!r}. "
                     "Use an assignment manifest and catalog for versioned notices. "
-                    "Fixed mode uses legacy_fixed_v1."
+                    "Fixed mode uses legacy_overdue_v1."
                 )
             resolved = ResolvedNotice(
-                version_id="legacy_fixed_v1",
+                version_id="legacy_overdue_v1",
                 notice_kind="overdue",
                 language=source_language,
                 experiment_id=None,

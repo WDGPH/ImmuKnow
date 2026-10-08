@@ -60,10 +60,9 @@ def prepare_case(workspace: Path, case: str) -> tuple[Path, Path, dict]:
     assert client.qr is not None
     qrcode.make(client.qr["payload"]).save(workspace / "qr.png")
     notice["client_data"]["qr_img"] = "/qr.png"
-    version_dir = (
-        "" if fixture["version_id"] == "legacy_fixed_v1" else fixture["version_id"]
+    template = (
+        workspace / "templates" / f"{fixture['version_id']}.{client.language}.typ"
     )
-    template = workspace / "templates" / version_dir / f"{client.language}.typ"
     data_file = workspace / "notice.json"
     data_file.write_text(json.dumps(notice, ensure_ascii=False))
     return template, data_file, notice

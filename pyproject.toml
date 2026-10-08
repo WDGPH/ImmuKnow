@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 packages = ["pipeline", "templates", "config"]
 
 [tool.setuptools.package-data]
-templates = ["*.typ", "*/*.typ", "assets/*"]
+templates = ["*.typ", "assets/*"]
 config = ["*.json", "*.yaml", "translations/*.json"]
 
 [project]

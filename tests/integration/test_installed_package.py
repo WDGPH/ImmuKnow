@@ -31,8 +31,8 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
     wheel = next(distributions.glob("*.whl"))
     with zipfile.ZipFile(wheel) as archive:
         names = set(archive.namelist())
-        assert "templates/overdue_standard_v1/fr.typ" in names
-        assert "templates/affirmative_schedule_v1/en.typ" in names
+        assert "templates/overdue_standard_v1.fr.typ" in names
+        assert "templates/affirmative_schedule_v1.en.typ" in names
         assert "templates/assets/logo.png" in names
         assert "templates/assets/signature.png" in names
         assert "config/input_schema.json" in names
@@ -41,7 +41,7 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
     with tarfile.open(next(distributions.glob("*.tar.gz"))) as archive:
         source_names = archive.getnames()
         assert any(
-            name.endswith("templates/overdue_standard_v1/fr.typ")
+            name.endswith("templates/overdue_standard_v1.fr.typ")
             for name in source_names
         )
         assert any(
@@ -108,6 +108,24 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
         result = run_checked(command, unrelated)
         assert "Pipeline completed successfully" in result.stdout
         assert len(list((output_dir / "pdf_individual").glob("*.pdf"))) == 2
+
+        canonical = next((output_dir / "artifacts").glob("preprocessed_clients_*.json"))
+        library_artifacts = tmp_path / "Library output" / "artifacts"
+        run_checked(
+            [
+                str(python),
+                "-c",
+                "from pathlib import Path; "
+                "from pipeline.generate_notices import prepare_render_jobs; "
+                "from pipeline.compile_notices import compile_with_config; "
+                f"a=Path({str(library_artifacts)!r}); "
+                f"c=Path({str(config_dir / 'parameters.yaml')!r}); "
+                f"jobs=prepare_render_jobs(Path({str(canonical)!r}), a, config_path=c); "
+                "assert len(jobs)==2; "
+                "assert compile_with_config(a, a.parent / 'pdf_individual', c)==2",
+            ],
+            unrelated,
+        )
 
         # Exercise the same ordinary library function as the CLI.
         run_checked(

@@ -600,7 +600,7 @@ class TestRuleResultsAndMeasurements:
         # Should have measurements including page_count
         assert result.measurements is not None
         assert "page_count" in result.measurements
-        assert type(result.measurements["page_count"]) == int
+        assert isinstance(result.measurements["page_count"], int)
         assert result.measurements["page_count"] == 2
 
     def test_rule_results_include_all_rules(self, tmp_path: Path) -> None:

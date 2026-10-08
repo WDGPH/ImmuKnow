@@ -1,5 +1,5 @@
 #let notice = json(sys.inputs.at("data"))
-#let template-version = "legacy_fixed_v1"
+#let template-version = "legacy_overdue_v1"
 #let template-language = "en"
 #assert(notice.version_id == template-version, message: "Notice version does not match this template")
 #assert(notice.language == template-language, message: "Notice language does not match this template")

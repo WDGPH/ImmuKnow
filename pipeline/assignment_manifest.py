@@ -113,7 +113,7 @@ def load_manifest(path: Path) -> Dict[str, ManifestRow]:
 
         language = item.get("language") or None
         if language is not None:
-            Language.from_string(language)
+            language = Language.from_string(language).value
         experiment_id = item.get("experiment_id") or None
         experiment_arm = item.get("experiment_arm") or None
 
@@ -171,7 +171,7 @@ def reconcile(
             unknown_versions_set.add(version)
             continue
         lang = (row.language if row else None) or catalog.default_language
-        Language.from_string(lang)
+        lang = Language.from_string(lang).value
         if row and not row.language:
             missing_language_clients.append(cid)
         resolved = ResolvedNotice(

@@ -69,7 +69,7 @@ class ResolvedNotice:
 
 
 def validate_version_id(version_id: str) -> None:
-    """Reject version identifiers that cannot safely name a template directory."""
+    """Reject version identifiers that cannot safely name a template entry point."""
     if not isinstance(version_id, str) or not re.fullmatch(
         r"[A-Za-z0-9][A-Za-z0-9_-]*", version_id
     ):
@@ -121,7 +121,7 @@ def load_catalog(config_dir: Path) -> Optional[NoticeVersionCatalog]:
         raise ValueError(
             "notice_versions.yaml: default_language must be a non-empty string"
         )
-    Language.from_string(default_language)
+    default_language = Language.from_string(default_language).value
 
     raw_versions = raw.get("versions", {})
     if not isinstance(raw_versions, dict):

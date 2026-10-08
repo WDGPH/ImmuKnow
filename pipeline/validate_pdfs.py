@@ -12,7 +12,7 @@ results to JSON metadata for downstream processing and optional console warnings
 
 **Output Contract:**
 
-- Writes validation results to JSON: output/metadata/{language}_validation_{run_id}.json
+- Writes validation results to JSON: output/metadata/validation_{run_id}.json
 - Records per-PDF validations: page counts, layout warnings, structural issues
 - Aggregate statistics: total PDFs, warnings by type, pass/fail counts
 - Optional console output (controlled by config: pdf_validation.print_warnings)

@@ -123,7 +123,7 @@ def test_mixed_cohort_processed_exactly_once(
         assert (
             job.template.read_bytes()
             == (
-                ROOT / "templates" / "overdue_standard_v1" / f"{job.language}.typ"
+                ROOT / "templates" / f"overdue_standard_v1.{job.language}.typ"
             ).read_bytes()
         )
         if options:
@@ -183,7 +183,7 @@ def test_nondefault_language_validation_failure_fails_run(tmp_path: Path) -> Non
     command, output_dir, _ = prepare_cohort(tmp_path)
     custom = tmp_path / "PHU modèles"
     shutil.copytree(ROOT / "templates", custom)
-    french = custom / "overdue_standard_v1" / "fr.typ"
+    french = custom / "overdue_standard_v1.fr.typ"
     french.write_text(
         french.read_text().replace("notice.client_row", '("9999999999",)')
     )

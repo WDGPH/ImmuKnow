@@ -621,13 +621,13 @@ class TestUnsupportedLanguageDetection:
         # Verify renderer dispatch works for valid languages
         en = Language.from_string("en")
         en_renderer = generate_notices.select_template(
-            templates_dir, "legacy_fixed_v1", en.value
+            templates_dir, "legacy_overdue_v1", en.value
         )
         assert en_renderer.is_file()
 
         fr = Language.from_string("fr")
         fr_renderer = generate_notices.select_template(
-            templates_dir, "legacy_fixed_v1", fr.value
+            templates_dir, "legacy_overdue_v1", fr.value
         )
         assert fr_renderer.is_file()
 
@@ -647,7 +647,7 @@ class TestUnsupportedLanguageDetection:
         en_lang = Language.from_string("en")
         assert en_lang == Language.ENGLISH
         en_renderer = generate_notices.select_template(
-            templates_dir, "legacy_fixed_v1", en_lang.value
+            templates_dir, "legacy_overdue_v1", en_lang.value
         )
         assert en_renderer.is_file()
 
@@ -655,7 +655,7 @@ class TestUnsupportedLanguageDetection:
         fr_lang = Language.from_string("fr")
         assert fr_lang == Language.FRENCH
         fr_renderer = generate_notices.select_template(
-            templates_dir, "legacy_fixed_v1", fr_lang.value
+            templates_dir, "legacy_overdue_v1", fr_lang.value
         )
         assert fr_renderer.is_file()
 
@@ -764,6 +764,6 @@ class TestLanguageFailurePathDocumentation:
         # Verify renderer dispatch works as documented
         en = Language.from_string("en")
         en_renderer = generate_notices.select_template(
-            templates_dir, "legacy_fixed_v1", en.value
+            templates_dir, "legacy_overdue_v1", en.value
         )
         assert en_renderer.is_file()

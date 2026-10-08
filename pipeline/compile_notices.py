@@ -83,24 +83,20 @@ def compile_with_config(
     artifact_dir: Path,
     output_dir: Path,
     config_path: Path | None = None,
-    template_dir: Path | None = None,
 ) -> int:
-    """Compile Typst files using configuration from parameters.yaml.
+    """Compile the explicit render jobs using the selected configuration.
 
     Reads typst configuration (binary path, font path) from parameters.yaml
-    and compiles all Typst files in the artifact directory.
+    and compiles only the expected notices recorded in render_jobs.json.
 
     Parameters
     ----------
     artifact_dir : Path
-        Directory containing Typst template files
+        Directory containing render_jobs.json and the staged render workspace.
     output_dir : Path
         Directory where compiled PDFs will be written
     config_path : Path, optional
         Path to parameters.yaml. If not provided, uses default location.
-    template_dir : Path, optional
-        Template directory for dynamic template loading. Typst compilation always
-        uses PROJECT_ROOT as --root to find both templates and output artifacts.
 
     Returns
     -------
@@ -147,7 +143,6 @@ def main(
     artifact_dir: Path,
     output_dir: Path,
     config_path: Path | None = None,
-    template_dir: Path | None = None,
 ) -> int:
     """Main entry point for Typst compilation.
 
@@ -159,16 +154,13 @@ def main(
         Directory for output PDFs.
     config_path : Path, optional
         Path to parameters.yaml configuration file.
-    template_dir : Path, optional
-        Template directory containing conf.typ and assets/. Used as Typst --root.
-        If not provided, defaults to project root.
 
     Returns
     -------
     int
         Number of files compiled.
     """
-    compiled = compile_with_config(artifact_dir, output_dir, config_path, template_dir)
+    compiled = compile_with_config(artifact_dir, output_dir, config_path)
     if compiled:
         print(f"Compiled {compiled} Typst file(s) to PDFs in {output_dir}.")
     return compiled

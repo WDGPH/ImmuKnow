@@ -50,6 +50,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+from importlib.resources import files
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import quote
@@ -69,9 +70,7 @@ from .config_loader import load_config
 from .enums import TemplateField
 from .utils import build_client_context, validate_and_format_template
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-ROOT_DIR = SCRIPT_DIR.parent
-CONFIG_DIR = ROOT_DIR / "config"
+CONFIG_DIR = Path(str(files("config")))
 PARAMETERS_PATH = CONFIG_DIR / "parameters.yaml"
 
 LOG = logging.getLogger(__name__)
@@ -337,15 +336,10 @@ def generate_qr_codes(
             generated_files.append(qr_path)
 
             # Store the QR payload in the client record
-            try:
-                rel_path = qr_path.relative_to(ROOT_DIR)
-            except ValueError:
-                # For testing: if path is not under ROOT_DIR, use as-is
-                rel_path = qr_path
             client["qr"] = {
                 "payload": qr_payload,
                 "filename": f"qr_code_{sequence}_{client_id}.png",
-                "path": str(rel_path),
+                "path": str(qr_path.resolve()),
             }
 
             LOG.info("Generated QR code for client %s: %s", client_id, qr_path)

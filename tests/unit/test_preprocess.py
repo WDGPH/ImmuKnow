@@ -1874,7 +1874,9 @@ class TestBuildPreprocessResultFixedMode:
             _simple_df(2), "en", {}, preprocess.REPLACE_UNSPECIFIED
         )
         for client in result.clients:
-            assert client.metadata["resolved_notice"]["version_id"] == "legacy_fixed_v1"
+            assert (
+                client.metadata["resolved_notice"]["version_id"] == "legacy_overdue_v1"
+            )
 
 
 @pytest.mark.unit

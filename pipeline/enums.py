@@ -56,7 +56,7 @@ class Language(Enum):
 
     Each language corresponds to:
 
-    - A template renderer in templates/ (en_template.py, fr_template.py, etc.)
+    - A template renderer in templates/ (en.typ, fr.typ, etc.)
     - Localization of dates, disease names, and notice formatting
     - An artifact language code stored in preprocessed data
 
@@ -65,9 +65,9 @@ class Language(Enum):
     Attributes
     ----------
     ENGLISH : str
-        English language code ('en'). Templates: templates/en_template.py
+        English language code ('en'). Templates: templates/en.typ
     FRENCH : str
-        French language code ('fr'). Templates: templates/fr_template.py
+        French language code ('fr'). Templates: templates/fr.typ
 
     See Also
     --------
@@ -198,7 +198,7 @@ class TemplateField(Enum):
 
     POSTAL_CODE : str
         Postal/ZIP code.
-        
+
     LANGUAGE_CODE : str
         ISO 639-1 language code: 'en' or 'fr'.
 
