@@ -18,13 +18,11 @@ from pathlib import Path
 from typing import Any
 
 from .data_models import ClientRecord, RenderJob
-from .enums import Language
-from .notice_versioning import validate_version_id
+from .notice_versioning import Language, validate_version_id
 
 LOG = logging.getLogger(__name__)
 
 TRANSLATION_DOMAINS = ("diseases_chart", "diseases_overdue")
-LANGUAGES = ("en", "fr")
 
 
 def reject_overlap(source: Path, destination: Path) -> None:
@@ -136,7 +134,7 @@ def prepare_render_jobs(
         Path(str(files("immuknow").joinpath("config"))) / "translations"
     )
     selected_translations: dict[str, Path] = {}
-    for language in LANGUAGES:
+    for language in sorted(Language.all_codes()):
         for domain in TRANSLATION_DOMAINS:
             name = f"{language}_{domain}.json"
             selected = config_dir / "translations" / name

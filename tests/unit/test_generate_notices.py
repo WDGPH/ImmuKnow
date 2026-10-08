@@ -93,3 +93,14 @@ def test_nested_template_link_cannot_copy_the_workspace_into_itself(
             [], artifact_dir, templates, {}, tmp_path / "config", "run"
         )
     assert sentinel.read_text() == "preserve"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("language", [None, "EN", "Fr", "", "es"])
+def test_template_selection_requires_explicit_lowercase_language(
+    tmp_path: Path, language
+) -> None:
+    # Even an existing filename cannot bypass the notice-language contract.
+    (tmp_path / f"overdue_diseases_v1.{language}.typ").touch()
+    with pytest.raises(ValueError, match="Unsupported language"):
+        generate_notices.select_template(tmp_path, "overdue_diseases_v1", language)

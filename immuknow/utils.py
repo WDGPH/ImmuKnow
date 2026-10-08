@@ -7,6 +7,28 @@ from typing import Any
 
 from .data_models import ClientRecord
 
+# Names allowed inside {...} in configured QR links and PDF passwords.
+# build_client_context supplies their values from one prepared client record.
+# Checking this list at configuration load catches typos before processing clients;
+# it does not define fields available to the Typst notice templates.
+CLIENT_PLACEHOLDERS = frozenset(
+    {
+        "client_id",
+        "first_name",
+        "last_name",
+        "name",
+        "date_of_birth_iso",
+        "date_of_birth_iso_compact",
+        "school",
+        "board",
+        "street_address",
+        "city",
+        "province",
+        "postal_code",
+        "language_code",
+    }
+)
+
 # Template formatter for extracting field names from format strings
 _FORMATTER = Formatter()
 
@@ -65,7 +87,7 @@ def extract_template_fields(template: str) -> set[str]:
 def validate_and_format_template(
     template: str,
     context: dict[str, str],
-    allowed_fields: set[str] | None = None,
+    allowed_fields: set[str] | frozenset[str] | None = None,
 ) -> str:
     """Format template and validate placeholders against allowed set.
 

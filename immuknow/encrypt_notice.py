@@ -12,8 +12,11 @@ from pypdf import PdfReader, PdfWriter
 
 from .compile_notices import check_expected_notices
 from .data_models import ClientRecord, RenderJob
-from .enums import TemplateField
-from .utils import build_client_context, validate_and_format_template
+from .utils import (
+    CLIENT_PLACEHOLDERS,
+    build_client_context,
+    validate_and_format_template,
+)
 
 
 def encrypt_pdf(file_path: str, context: dict, *, config: dict) -> str:
@@ -42,7 +45,7 @@ def encrypt_pdf(file_path: str, context: dict, *, config: dict) -> str:
 
     try:
         password = validate_and_format_template(
-            template, context, allowed_fields=TemplateField.all_values()
+            template, context, allowed_fields=CLIENT_PLACEHOLDERS
         )
     except (KeyError, ValueError) as e:
         raise ValueError(f"Invalid password template: {e}") from e

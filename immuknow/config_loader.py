@@ -11,8 +11,7 @@ from typing import Any, Dict, Optional
 import yaml
 
 from .bundle_pdfs import BundleGrouping
-from .enums import TemplateField
-from .utils import extract_template_fields
+from .utils import CLIENT_PLACEHOLDERS, extract_template_fields
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG_PATH = (
@@ -70,7 +69,7 @@ def validate_template_fields(
     """Validate that all placeholders in a template are supported fields.
 
     Checks template string placeholders against the centralized whitelist of
-    allowed template fields (TemplateField enum). Raises ValueError if any
+    allowed QR and password placeholders. Raises ValueError if any
     unsupported placeholders are found.
 
     This validation catches configuration errors early (at config load time)
@@ -102,7 +101,7 @@ def validate_template_fields(
     Config key: qr.payload_template
     Supported fields: client_id, first_name, last_name, ...
     """
-    allowed_fields = TemplateField.all_values()
+    allowed_fields = CLIENT_PLACEHOLDERS
 
     try:
         placeholders = extract_template_fields(template)

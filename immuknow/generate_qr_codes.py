@@ -19,13 +19,13 @@ except ImportError:
     Image = None
 
 from .data_models import ClientRecord
-from .enums import TemplateField
-from .utils import build_client_context, validate_and_format_template
+from .utils import (
+    CLIENT_PLACEHOLDERS,
+    build_client_context,
+    validate_and_format_template,
+)
 
 LOG = logging.getLogger(__name__)
-
-# Allowed template fields for QR payloads (from centralized enum)
-SUPPORTED_QR_TEMPLATE_FIELDS = TemplateField.all_values()
 
 
 def encode_qr_payload_url(payload_url: str) -> str:
@@ -160,7 +160,7 @@ def generate_qr_codes(
             qr_payload = validate_and_format_template(
                 payload_template,
                 qr_context,
-                allowed_fields=SUPPORTED_QR_TEMPLATE_FIELDS,
+                allowed_fields=CLIENT_PLACEHOLDERS,
             )
             # Properly URL-encode the payload for QR code
             qr_payload = encode_qr_payload_url(qr_payload)

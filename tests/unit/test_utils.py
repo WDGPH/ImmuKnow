@@ -291,6 +291,7 @@ class TestBuildClientContext:
         client = replace(client, contact={"postal_code": "M5V 3A8", "city": "Toronto"})
 
         context = utils.build_client_context(client)
+        assert context.keys() == utils.CLIENT_PLACEHOLDERS
 
         assert context["client_id"] == "12345"
         assert context["first_name"] == "John"

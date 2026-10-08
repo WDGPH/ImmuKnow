@@ -78,3 +78,9 @@ validation, and final delivery. Client-linked diagnostics are sensitive; store
 them with the run's output. Installed library resources come from the
 `immuknow` package; selected PHU configuration and templates can live
 elsewhere. Writes go to the caller's output directory.
+
+Shared definitions live with the behavior they describe: notice language and
+kind in `notice_versioning.py`, bundle grouping in `bundle_pdfs.py`, and QR
+and password placeholders in `utils.py` beside their client-value builder.
+Notice languages must be explicit lowercase `en` or `fr` throughout preparation
+and rendering, matching the template filename contract.

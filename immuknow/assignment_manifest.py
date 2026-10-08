@@ -17,8 +17,8 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional
 
-from .enums import Language
 from .notice_versioning import (
+    Language,
     NoticeVersionCatalog,
     ResolvedNotice,
     template_identity,

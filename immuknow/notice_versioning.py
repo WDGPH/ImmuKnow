@@ -10,10 +10,30 @@ from typing import TYPE_CHECKING, Callable, Dict, Optional
 
 import yaml
 
-from .enums import Language
-
 if TYPE_CHECKING:
     from .data_models import ClientRecord
+
+
+class Language(Enum):
+    """Explicit language codes used in notice filenames and assignments."""
+
+    ENGLISH = "en"
+    FRENCH = "fr"
+
+    @classmethod
+    def from_string(cls, value: str) -> Language:
+        """Require an exact supported code, with no default or case conversion."""
+        try:
+            return cls(value)
+        except ValueError as exc:
+            raise ValueError(
+                f"Unsupported language: {value!r}. Valid options: en, fr"
+            ) from exc
+
+    @classmethod
+    def all_codes(cls) -> set[str]:
+        """Return the codes accepted in a notice template filename."""
+        return {language.value for language in cls}
 
 
 class NoticeKind(str, Enum):
