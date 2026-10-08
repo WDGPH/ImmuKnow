@@ -198,7 +198,7 @@ def build_language_renderers(template_dir: Path) -> dict:
     building a mapping of language codes to their render_notice functions.
 
     **Validation Contract:**
-    
+
     - Only languages with corresponding template files are included
     - Each available template must have valid render_notice() function
     - Raises immediately if any template file exists but is invalid
@@ -412,9 +412,13 @@ def to_typ_value(value) -> str:
             inner = ", ".join(items)
         return f"({inner})"
     if isinstance(value, Mapping):
+
         def _typ_key(k: str) -> str:
             return k if _TYP_IDENT_RE.match(k) else f'"{escape_string(k)}"'
-        items = ", ".join(f"{_typ_key(key)}: {to_typ_value(val)}" for key, val in value.items())
+
+        items = ", ".join(
+            f"{_typ_key(key)}: {to_typ_value(val)}" for key, val in value.items()
+        )
         return f"({items})"
     raise TypeError(f"Unsupported value type for Typst conversion: {type(value)!r}")
 
@@ -489,12 +493,12 @@ def _localize_vaccine_due_label(label: str, language: str) -> str:
     return f"{disease} ({match.group('dose_label')})"
 
 
-def build_template_context(
+def build_notice_data(
     client: ClientRecord,
     qr_output_dir: Path | None = None,
     config_path: Path | None = None,
-) -> Dict[str, str]:
-    """Build template context from client data.
+) -> dict:
+    """Prepare ordinary JSON values for a notice in its resolved language.
 
     Translates disease names in vaccines_due_list and received records to
     localized display strings using the configured translation files.
@@ -517,9 +521,7 @@ def build_template_context(
     """
     config = load_config(config_path)
     preprocess_cfg: Dict[str, object] = config.get("preprocess", {})
-    show_validity_markers = bool(
-        preprocess_cfg.get("show_validity_markers", False)
-    )
+    show_validity_markers = bool(preprocess_cfg.get("show_validity_markers", False))
 
     # Load and format date_data_cutoff for the client's language
     date_data_cutoff_iso = config.get("date_data_cutoff")
@@ -537,10 +539,15 @@ def build_template_context(
         "address": client.contact["street"],
         "city": client.contact["city"],
         "postal_code": client.contact["postal_code"],
-        "date_of_birth": client.person["date_of_birth_display"],
+        "date_of_birth": format_iso_date_for_language(
+            client.person["date_of_birth_iso"], client.language
+        )
+        if client.person["date_of_birth_iso"]
+        else "",
+        "date_of_birth_iso": client.person["date_of_birth_iso"],
         "school": client.school["name"],
         "date_data_cutoff": date_data_cutoff_formatted,
-        "over_16": client.person["over_16"]
+        "over_16": client.person["over_16"],
     }
 
     # Check if QR code PNG exists from prior generation step
@@ -599,16 +606,30 @@ def build_template_context(
             received_translated.append(translated_record)
 
     return {
-        "client_row": to_typ_value([client.client_id]),
-        "client_data": to_typ_value(client_data),
-        "vaccines_due_str": to_typ_value(vaccines_due_str_translated),
-        "vaccines_due_array": to_typ_value(vaccines_due_array_translated),
-        "vaccines_due_agents_str": to_typ_value(vaccines_due_agents_str),
-        "vaccines_due_agents_array": to_typ_value(vaccines_due_agents_array),
-        "received": to_typ_value(received_translated),
-        "num_rows": str(len(received_translated)),
-        "chart_diseases_translated": to_typ_value(chart_diseases_translated),
-        "show_validity_markers": to_typ_value(show_validity_markers),
+        "language": client.language,
+        "client_row": [client.client_id],
+        "client_data": client_data,
+        "date_data_cutoff_iso": date_data_cutoff_iso,
+        "vaccines_due_str": vaccines_due_str_translated,
+        "vaccines_due_array": vaccines_due_array_translated,
+        "vaccines_due_agents_str": vaccines_due_agents_str,
+        "vaccines_due_agents_array": vaccines_due_agents_array,
+        "received": received_translated,
+        "num_rows": len(received_translated),
+        "chart_diseases_translated": chart_diseases_translated,
+        "show_validity_markers": show_validity_markers,
+    }
+
+
+def build_template_context(
+    client: ClientRecord,
+    qr_output_dir: Path | None = None,
+    config_path: Path | None = None,
+) -> Dict[str, str]:
+    """Adapt display data for the legacy renderer until its callers migrate."""
+    return {
+        key: to_typ_value(value)
+        for key, value in build_notice_data(client, qr_output_dir, config_path).items()
     }
 
 

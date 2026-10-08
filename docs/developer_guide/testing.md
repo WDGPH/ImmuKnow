@@ -32,6 +32,14 @@ and page previews are retained locally in `output/native_typst_baseline/`.
 Some existing notices already occupy three pages; the migration must distinguish
 that baseline behavior from new overflow.
 
+`tests/integration/test_native_templates.py` compiles all five maintained static
+entry points in an external path containing spaces and Unicode. It compares all
+seven cases with the captured text, checks validation markers, directly tests
+language/version mismatches and missing agent data, and exercises literal Typst
+punctuation in JSON. The compiler is required; these tests do not skip when it is
+missing. The legacy fixed entry points declare `legacy_fixed_v1`, keeping their
+disease list distinct from the versioned overdue templates' agent list.
+
 Before implementation, `uv run pytest -q` reported **625 passed, 2 skipped**.
 `uv run ty check` reported **51 diagnostics**, including unresolved metadata
 types in rendering and preprocessing, and existing test type errors. These are
