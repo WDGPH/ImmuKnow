@@ -82,6 +82,31 @@ check. The migration replaced tests of deleted source serialization and dynamic
 imports with tests of native compilation; raw test counts are not a coverage
 comparison.
 
+## Final local checks
+
+After the native migration and removal of obsolete code and tests, the full suite
+reported **514 passed, no skips** on 2026-10-08. Type checking, repository-wide
+Ruff lint, formatting of all changed Python files, and the strict documentation
+build passed. The suite includes the installed-wheel CLI and library checks with
+read-only package resources.
+
+Local coverage measured **94.7% of executable lines** and **89.1% of branches**
+(93.4% combined). Coverage now traces CLI subprocesses through
+`patch = ["subprocess"]`; the earlier 82% report omitted those processes and is
+not a comparable measure of test quality. Generate the local report with:
+
+```bash
+uv run pytest --cov=pipeline --cov-branch --cov-report=html
+```
+
+Open `htmlcov/index.html` to inspect gaps. Uncovered paths include QR error
+recovery, interactive CLI choices, thin wrappers, and invalid external artifact
+or configuration branches. The cleanup retained real rendering and failure
+checks, removed tests for retired APIs and repeated implementation assertions,
+and added checks for duplicate or missing jobs and encryption/client mismatches.
+Coverage was used to review these boundaries, not as a target for adding tests
+to every line. These are local results; no hosted CI run is claimed.
+
 ## Semantic and visual comparison
 
 The native templates reproduce the captured text exactly for every case. All
