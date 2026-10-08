@@ -73,3 +73,23 @@ def test_overlap_resolution_catches_symlink_and_both_ancestor_directions(
             generate_notices.reject_overlap(source, destination)
         with pytest.raises(ValueError, match="overlaps output workspace"):
             generate_notices.reject_overlap(destination, source)
+
+
+@pytest.mark.unit
+def test_nested_template_link_cannot_copy_the_workspace_into_itself(
+    tmp_path: Path,
+) -> None:
+    """Copying a source-tree link must not recurse into a newly created render root."""
+    templates = tmp_path / "templates"
+    templates.mkdir()
+    artifact_dir = tmp_path / "artifacts"
+    workspace = artifact_dir / "render"
+    workspace.mkdir(parents=True)
+    sentinel = workspace / "keep"
+    sentinel.write_text("preserve")
+    (templates / "nested").symlink_to(workspace, target_is_directory=True)
+    with pytest.raises(ValueError, match="overlaps output workspace"):
+        generate_notices.prepare_render_jobs(
+            [], artifact_dir, templates, {}, tmp_path / "config", "run"
+        )
+    assert sentinel.read_text() == "preserve"

@@ -28,13 +28,21 @@ LANGUAGES = ("en", "fr")
 
 
 def reject_overlap(source: Path, destination: Path) -> None:
-    """Reject equality or either ancestor relationship after resolving symlinks."""
+    """Reject source overlap, including nested links followed during template copying."""
     source = source.resolve()
     destination = destination.resolve()
-    if source.is_relative_to(destination) or destination.is_relative_to(source):
-        raise ValueError(
-            f"Selected source {source} overlaps output workspace {destination}"
+    candidates = [source]
+    if source.is_dir():
+        candidates.extend(
+            path.resolve() for path in source.rglob("*") if path.is_symlink()
         )
+    for candidate in candidates:
+        if candidate.is_relative_to(destination) or destination.is_relative_to(
+            candidate
+        ):
+            raise ValueError(
+                f"Selected source {candidate} overlaps output workspace {destination}"
+            )
 
 
 def select_template(template_dir: Path, version_id: str, language: str) -> Path:
