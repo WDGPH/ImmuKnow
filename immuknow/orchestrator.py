@@ -24,7 +24,7 @@ from .notice_versioning import load_catalog, template_identity
 # Pipeline stages follow the main workflow below; imports do not run the stages.
 # isort: off
 from . import (
-    output_files,
+    output_directory,
     preprocess,
     generate_qr_codes,
     generate_notices,
@@ -188,7 +188,7 @@ def run_pipeline(
     # 2. Prepare the output directory and start this run's log.
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f")
     before_run = config.get("pipeline", {}).get("before_run", {})
-    if not output_files.prepare_output_directory(
+    if not output_directory.prepare_output_directory(
         output_dir,
         output_dir / "logs",
         auto_remove=before_run.get("clear_output_directory", False),
@@ -279,7 +279,7 @@ def run_pipeline(
             "encrypted": [str(path) for path in encrypted_pdfs],
             "bundles": [str(bundle.pdf_path) for bundle in bundle_results],
         }
-        output_files.cleanup_output(output_dir, config)
+        output_directory.cleanup_output(output_dir, config)
         completion_path = metadata_dir / f"completion_{run_id}.json"
         completion_path.write_text(json.dumps(completion, indent=2), encoding="utf-8")
         print(

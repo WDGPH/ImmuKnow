@@ -85,7 +85,7 @@ and password placeholders in `client_placeholders.py` beside their client-value 
 Notice languages must be explicit lowercase `en` or `fr` throughout preparation
 and rendering, matching the template filename contract.
 
-`output_files.py` owns the output directory before and after the run.
+`output_directory.py` owns the output directory before and after the run.
 `run_pipeline` calls `prepare_output_directory` before processing clients and
 `cleanup_output` only after delivery succeeds. Preparation preserves previous
 logs; final cleanup follows `pipeline.after_run` retention settings.

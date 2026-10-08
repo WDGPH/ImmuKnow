@@ -8,7 +8,7 @@ from unittest.mock import patch
 import pytest
 import yaml
 
-from immuknow import output_files
+from immuknow import output_directory
 
 
 @pytest.mark.unit
@@ -35,7 +35,7 @@ class TestPurgeOutputDirectory:
         log_file = log_dir / "immuknow.log"
         log_file.write_text("important log data")
 
-        output_files.purge_output_directory(output_dir, log_dir)
+        output_directory.purge_output_directory(output_dir, log_dir)
 
         # Verify non-log files removed
         assert not (tmp_output_structure["artifacts"] / "test.json").exists()
@@ -62,7 +62,7 @@ class TestPurgeOutputDirectory:
         nested.mkdir(parents=True, exist_ok=True)
         (nested / "code.png").write_text("image")
 
-        output_files.purge_output_directory(output_dir, log_dir)
+        output_directory.purge_output_directory(output_dir, log_dir)
 
         # Verify entire artifacts directory is removed
         assert not tmp_output_structure["artifacts"].exists()
@@ -83,7 +83,7 @@ class TestPurgeOutputDirectory:
         symlink = output_dir / "logs_link"
         symlink.symlink_to(log_dir)
 
-        output_files.purge_output_directory(output_dir, log_dir)
+        output_directory.purge_output_directory(output_dir, log_dir)
 
         assert symlink.is_symlink()
         assert symlink.resolve() == log_dir.resolve()
@@ -103,7 +103,7 @@ class TestPrepareOutputDirectory:
         output_dir = tmp_test_dir / "new_output"
         log_dir = output_dir / "logs"
 
-        result = output_files.prepare_output_directory(
+        result = output_directory.prepare_output_directory(
             output_dir, log_dir, auto_remove=False
         )
 
@@ -128,7 +128,7 @@ class TestPrepareOutputDirectory:
         (tmp_output_structure["artifacts"] / "old.json").write_text("old")
         (log_dir / "important.log").write_text("logs")
 
-        result = output_files.prepare_output_directory(
+        result = output_directory.prepare_output_directory(
             output_dir, log_dir, auto_remove=True
         )
 
@@ -152,7 +152,7 @@ class TestPrepareOutputDirectory:
         def mock_prompt(path: Path) -> bool:
             return True
 
-        result = output_files.prepare_output_directory(
+        result = output_directory.prepare_output_directory(
             output_dir, log_dir, auto_remove=False, prompt=mock_prompt
         )
 
@@ -175,7 +175,7 @@ class TestPrepareOutputDirectory:
         def mock_prompt(path: Path) -> bool:
             return False
 
-        result = output_files.prepare_output_directory(
+        result = output_directory.prepare_output_directory(
             output_dir, log_dir, auto_remove=False, prompt=mock_prompt
         )
 
@@ -195,7 +195,7 @@ class TestDefaultPrompt:
         - Lowercase letter should work
         """
         with patch("builtins.input", return_value="y"):
-            result = output_files.default_prompt(tmp_test_dir)
+            result = output_directory.default_prompt(tmp_test_dir)
             assert result is True
 
     def test_default_prompt_accepts_yes(self, tmp_test_dir: Path) -> None:
@@ -206,7 +206,7 @@ class TestDefaultPrompt:
         - Common user response pattern
         """
         with patch("builtins.input", return_value="yes"):
-            result = output_files.default_prompt(tmp_test_dir)
+            result = output_directory.default_prompt(tmp_test_dir)
             assert result is True
 
     def test_default_prompt_rejects_n(self, tmp_test_dir: Path) -> None:
@@ -217,7 +217,7 @@ class TestDefaultPrompt:
         - Default is No if user is uncertain
         """
         with patch("builtins.input", return_value="n"):
-            result = output_files.default_prompt(tmp_test_dir)
+            result = output_directory.default_prompt(tmp_test_dir)
             assert result is False
 
     def test_default_prompt_rejects_empty(self, tmp_test_dir: Path) -> None:
@@ -228,7 +228,7 @@ class TestDefaultPrompt:
         - Safety default: don't delete unless explicitly confirmed
         """
         with patch("builtins.input", return_value=""):
-            result = output_files.default_prompt(tmp_test_dir)
+            result = output_directory.default_prompt(tmp_test_dir)
             assert result is False
 
     def test_default_prompt_rejects_invalid(self, tmp_test_dir: Path) -> None:
@@ -239,7 +239,7 @@ class TestDefaultPrompt:
         - Only 'y', 'yes', 'Y', 'YES' should trigger
         """
         with patch("builtins.input", return_value="maybe"):
-            result = output_files.default_prompt(tmp_test_dir)
+            result = output_directory.default_prompt(tmp_test_dir)
             assert result is False
 
 
@@ -257,7 +257,7 @@ class TestSafeDelete:
         test_file = tmp_test_dir / "test.typ"
         test_file.write_text("content")
 
-        output_files.safe_delete(test_file)
+        output_directory.safe_delete(test_file)
 
         assert not test_file.exists()
 
@@ -274,7 +274,7 @@ class TestSafeDelete:
         (test_dir / "subdir").mkdir()
         (test_dir / "subdir" / "file2.json").write_text("data")
 
-        output_files.safe_delete(test_dir)
+        output_directory.safe_delete(test_dir)
 
         assert not test_dir.exists()
 
@@ -288,7 +288,7 @@ class TestSafeDelete:
         missing_file = tmp_test_dir / "nonexistent.typ"
 
         # Should not raise
-        output_files.safe_delete(missing_file)
+        output_directory.safe_delete(missing_file)
 
         assert not missing_file.exists()
 
@@ -304,7 +304,7 @@ class TestSafeDelete:
         missing_dir = tmp_test_dir / "artifacts"
 
         # Should not raise
-        output_files.safe_delete(missing_dir)
+        output_directory.safe_delete(missing_dir)
 
         assert not missing_dir.exists()
 
@@ -338,7 +338,9 @@ class TestCleanupWithConfig:
         with open(config_file, "w") as f:
             yaml.dump(config, f)
 
-        output_files.cleanup_output(output_dir, yaml.safe_load(config_file.read_text()))
+        output_directory.cleanup_output(
+            output_dir, yaml.safe_load(config_file.read_text())
+        )
 
         assert not tmp_output_structure["artifacts"].exists()
         assert tmp_output_structure["pdf_individual"].exists()
@@ -357,7 +359,9 @@ class TestCleanupWithConfig:
         (tmp_output_structure["artifacts"] / "test.json").write_text("data")
 
         # Config already has remove_artifacts: false by default
-        output_files.cleanup_output(output_dir, yaml.safe_load(config_file.read_text()))
+        output_directory.cleanup_output(
+            output_dir, yaml.safe_load(config_file.read_text())
+        )
 
         assert (tmp_output_structure["artifacts"] / "test.json").exists()
 
@@ -390,7 +394,9 @@ class TestCleanupWithConfig:
         with open(config_file, "w") as f:
             yaml.dump(config, f)
 
-        output_files.cleanup_output(output_dir, yaml.safe_load(config_file.read_text()))
+        output_directory.cleanup_output(
+            output_dir, yaml.safe_load(config_file.read_text())
+        )
 
         # Non-encrypted removed, encrypted preserved
         assert not (
@@ -427,7 +433,9 @@ class TestCleanupWithConfig:
         with open(config_file, "w") as f:
             yaml.dump(config, f)
 
-        output_files.cleanup_output(output_dir, yaml.safe_load(config_file.read_text()))
+        output_directory.cleanup_output(
+            output_dir, yaml.safe_load(config_file.read_text())
+        )
 
         # PDF preserved because both encryption and bundling are disabled
         assert (
@@ -464,7 +472,9 @@ class TestCleanupWithConfig:
         with open(config_file, "w") as f:
             yaml.dump(config, f)
 
-        output_files.cleanup_output(output_dir, yaml.safe_load(config_file.read_text()))
+        output_directory.cleanup_output(
+            output_dir, yaml.safe_load(config_file.read_text())
+        )
 
         # Individual PDFs removed because bundling is enabled
         assert not (
@@ -501,7 +511,9 @@ class TestCleanupWithConfig:
         with open(config_file, "w") as f:
             yaml.dump(config, f)
 
-        output_files.cleanup_output(output_dir, yaml.safe_load(config_file.read_text()))
+        output_directory.cleanup_output(
+            output_dir, yaml.safe_load(config_file.read_text())
+        )
 
         # PDF preserved because both encryption and bundling are disabled
         assert (
@@ -524,7 +536,7 @@ class TestMain:
         invalid_path.write_text("not a directory")
 
         with pytest.raises(ValueError, match="not a valid directory"):
-            output_files.cleanup_output(invalid_path, {})
+            output_directory.cleanup_output(invalid_path, {})
 
     def test_main_applies_cleanup_configuration(
         self, tmp_output_structure: dict, config_file: Path
@@ -546,7 +558,9 @@ class TestMain:
         with open(config_file, "w") as f:
             yaml.dump(config, f)
 
-        output_files.cleanup_output(output_dir, yaml.safe_load(config_file.read_text()))
+        output_directory.cleanup_output(
+            output_dir, yaml.safe_load(config_file.read_text())
+        )
 
         assert not tmp_output_structure["artifacts"].exists()
 
@@ -562,7 +576,7 @@ class TestMain:
         output_dir = tmp_output_structure["root"]
 
         # Should not raise (will use defaults)
-        output_files.cleanup_output(output_dir, {})
+        output_directory.cleanup_output(output_dir, {})
 
 
 @pytest.mark.unit
@@ -595,7 +609,9 @@ class TestCleanupIntegration:
         with open(config_file, "w") as f:
             yaml.dump(config, f)
 
-        output_files.cleanup_output(output_dir, yaml.safe_load(config_file.read_text()))
+        output_directory.cleanup_output(
+            output_dir, yaml.safe_load(config_file.read_text())
+        )
 
         assert not (tmp_output_structure["artifacts"] / "notice_00001.typ").exists()
         assert (tmp_output_structure["pdf_individual"] / "notice_00001.pdf").exists()
@@ -619,9 +635,13 @@ class TestCleanupIntegration:
             yaml.dump(config, f)
 
         # First call
-        output_files.cleanup_output(output_dir, yaml.safe_load(config_file.read_text()))
+        output_directory.cleanup_output(
+            output_dir, yaml.safe_load(config_file.read_text())
+        )
 
         # Second call should not raise
-        output_files.cleanup_output(output_dir, yaml.safe_load(config_file.read_text()))
+        output_directory.cleanup_output(
+            output_dir, yaml.safe_load(config_file.read_text())
+        )
 
         assert not tmp_output_structure["artifacts"].exists()
