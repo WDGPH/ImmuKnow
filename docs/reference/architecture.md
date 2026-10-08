@@ -84,3 +84,8 @@ kind in `notice_versioning.py`, bundle grouping in `bundle_pdfs.py`, and QR
 and password placeholders in `client_placeholders.py` beside their client-value builder.
 Notice languages must be explicit lowercase `en` or `fr` throughout preparation
 and rendering, matching the template filename contract.
+
+`output_files.py` owns the output directory before and after the run.
+`run_pipeline` calls `prepare_output_directory` before processing clients and
+`cleanup_output` only after delivery succeeds. Preparation preserves previous
+logs; final cleanup follows `pipeline.after_run` retention settings.

@@ -16,7 +16,8 @@ Do not commit private PHU materials or real client data.
 
 Keep pipeline stage imports in `orchestrator.py` in the order of the main
 workflow: output preparation, client preparation, QR codes, render inputs,
-compilation, PDF validation, encryption, bundling, and cleanup. The marked
+compilation, PDF validation, encryption, and bundling. `output_files` is
+imported once for preparation and used again for cleanup after delivery. The marked
 `isort: off` / `isort: on` block is a deliberate exception to alphabetical
 sorting. Imports make modules available; calls inside `run_pipeline` determine
 execution order. Keep supporting imports outside that block.

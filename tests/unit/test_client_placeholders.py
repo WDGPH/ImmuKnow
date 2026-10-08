@@ -108,7 +108,9 @@ class TestExtractTemplateFields:
         - Static templates with no variables
         - Should return empty set
         """
-        result = client_placeholders.extract_template_fields("https://example.com/fixed-url")
+        result = client_placeholders.extract_template_fields(
+            "https://example.com/fixed-url"
+        )
         assert result == set()
 
     def test_extract_nested_braces(self) -> None:
