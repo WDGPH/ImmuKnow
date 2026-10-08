@@ -24,7 +24,7 @@ from immuknow import (
     orchestrator,
     validate_pdfs,
 )
-from immuknow.config_loader import load_config
+from immuknow.load_config import load_config
 from immuknow.data_models import ClientRecord, RenderJob
 from tests.fixtures.sample_input import create_test_input_dataframe
 

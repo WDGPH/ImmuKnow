@@ -17,7 +17,7 @@ from .assignment_manifest import (
     load_manifest,
     print_preflight_summary,
 )
-from .config_loader import load_config
+from .load_config import load_config
 from .data_models import PreprocessResult
 from .version_notices import load_catalog, template_identity
 

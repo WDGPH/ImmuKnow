@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from immuknow.config_loader import load_config, validate_config
+from immuknow.load_config import load_config, validate_config
 
 
 @pytest.mark.unit
