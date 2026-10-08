@@ -30,14 +30,13 @@ copytree(Path(str(files("immuknow").joinpath("templates"))), Path("/path/to/my-p
 
 Manifest rows name entry-point files such as
 `overdue_agents_v1.fr.typ`, without paths. The pipeline resolves each name
-inside the complete selected tree. With a manifest, the shorter
-`--template my_phu` selects
-`phu_templates/my_phu/` beneath the caller's working directory. To use one
-file for the whole accepted cohort, pass its path instead:
+inside the complete tree selected with `--templates DIRECTORY`. Relative
+directory paths resolve from the working directory. To use one file for the whole accepted cohort, pass its
+path instead:
 
 ```bash
 uv run immuknow students.csv \
-  --notice-template /path/to/my-phu/overdue_diseases_v1.en.typ
+  --template /path/to/my-phu/overdue_diseases_v1.en.typ
 ```
 
 Both selectors use the `<version_id>.<language>.typ` filename contract, with
@@ -45,8 +44,8 @@ supported `en` or `fr`; Typst still asserts literal identity. The selected
 file's name supplies the version and language; its version must be
 registered in the selected catalog and eligible for every accepted client.
 Its containing tree supplies the entry point, helpers, and assets. The
-single-file option cannot be combined with `--notice-assignments`,
-`--templates`, or `--template`. Selected trees are isolated; missing
+single-file option cannot be combined with `--notice-assignments` or
+`--templates`. Selected trees are isolated; missing
 resources do not fall back to built-ins. Writes stay in the run output,
 not the installed package. Template/output overlap is rejected before copying
 or cleanup.
@@ -60,7 +59,7 @@ uses the canonical overdue disease list.
 
 The affirmative example is never selected automatically. Assign
 `affirmative_schedule_v1.en.typ` in a manifest, or select that file with
-`--notice-template` for a whole cohort. Its catalog `no_overdue` rule
+`--template` for a whole cohort. Its catalog `no_overdue` rule
 requires `overdue_diseases` to be empty for every selected client, based
 on the source assessment. An ineligible assignment fails preflight. No French affirmative
 example ships. Add one only after its wording and layout are reviewed.

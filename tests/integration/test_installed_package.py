@@ -161,7 +161,7 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
             [
                 str(environment / "bin" / "immuknow"),
                 str(input_file),
-                "--notice-template",
+                "--template",
                 str(custom / "overdue_diseases_v1.fr.typ"),
                 "--output",
                 str(custom_output),

@@ -130,7 +130,7 @@ def load_catalog(config_dir: Path) -> NoticeVersionCatalog:
     if "default_version" in raw or "default_language" in raw:
         raise ValueError(
             "notice_versions.yaml: default_version and default_language are no longer "
-            "supported; select a .typ file in assignments or with --notice-template"
+            "supported; select a .typ file in assignments or with --template"
         )
 
     raw_versions = raw.get("versions")

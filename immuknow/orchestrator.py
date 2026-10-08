@@ -32,7 +32,6 @@ from .notice_versioning import NoticeVersionCatalog, load_catalog, template_iden
 
 DEFAULT_OUTPUT_DIR = Path.cwd() / "output"
 DEFAULT_TEMPLATES_DIR = Path(str(files("immuknow").joinpath("templates")))
-DEFAULT_PHU_TEMPLATES_DIR = Path.cwd() / "phu_templates"
 DEFAULT_CONFIG_DIR = Path(str(files("immuknow").joinpath("config")))
 
 
@@ -41,10 +40,11 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run the ImmuKnow immunization notice generation pipeline",
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        allow_abbrev=False,
         epilog="""
 Examples:
   %(prog)s students.csv --notice-assignments assignments.json
-  %(prog)s students.csv --notice-template ./my-phu/overdue_agents_v1.fr.typ
+  %(prog)s students.csv --template ./my-phu/overdue_agents_v1.fr.typ
         """,
     )
 
@@ -68,19 +68,11 @@ Examples:
         help=f"Config directory (default: {DEFAULT_CONFIG_DIR})",
     )
     parser.add_argument(
-        "--template",
-        type=str,
-        default=None,
-        dest="template_dir",
-        help="PHU template name within phu_templates/ (e.g., 'wdgph'). "
-        "Use with --notice-assignments; defaults to packaged templates.",
-    )
-    parser.add_argument(
         "--templates",
         type=Path,
         default=None,
-        dest="custom_templates",
-        help="Path to an external directory of native Typst templates and assets.",
+        dest="template_dir",
+        help="Template directory for --notice-assignments (default: packaged examples).",
     )
     selection = parser.add_mutually_exclusive_group(required=True)
     selection.add_argument(
@@ -89,59 +81,13 @@ Examples:
         help="JSON assignments with client_id and a template filename for each client.",
     )
     selection.add_argument(
-        "--notice-template",
+        "--template",
         type=Path,
+        dest="notice_template",
         help="One <version_id>.<language>.typ entry point for every client.",
     )
 
     return parser.parse_args()
-
-
-def validate_args(args: argparse.Namespace) -> None:
-    """Validate command-line arguments and raise errors if invalid."""
-    if args.notice_template is not None:
-        if args.template_dir is not None or args.custom_templates is not None:
-            raise ValueError(
-                "--notice-template supplies its own directory; do not combine it "
-                "with --template or --templates"
-            )
-        return
-    # --- Resolve template directory ---
-    custom_templates = getattr(args, "custom_templates", None)
-    if custom_templates is not None:
-        if args.template_dir is not None:
-            raise ValueError("Choose either --template NAME or --templates PATH")
-        args.template_dir = custom_templates.resolve()
-    elif args.template_dir is None:
-        args.template_dir = DEFAULT_TEMPLATES_DIR
-    else:
-        if (
-            args.template_dir in (".", "..")
-            or "/" in args.template_dir
-            or "\\" in args.template_dir
-        ):
-            raise ValueError(
-                f"Template name cannot contain path separators: {args.template_dir}\n"
-                f"Expected a simple name like 'wdgph' or 'my_phu', not a path."
-            )
-
-        phu_template_path = DEFAULT_PHU_TEMPLATES_DIR / args.template_dir
-        if not phu_template_path.exists():
-            raise FileNotFoundError(
-                f"PHU template directory not found: {phu_template_path}\n"
-                f"Expected location: phu_templates/{args.template_dir}\n"
-                f"Ensure the directory exists and contains required template files."
-            )
-        if not phu_template_path.is_dir():
-            raise NotADirectoryError(
-                f"PHU template path is not a directory: {phu_template_path}"
-            )
-        args.template_dir = phu_template_path
-
-    if not args.template_dir.is_dir():
-        raise NotADirectoryError(
-            f"Template path is not a directory: {args.template_dir}"
-        )
 
 
 def report_assignments(
@@ -357,7 +303,6 @@ def main() -> int:
     """Translate CLI options into one complete pipeline call."""
     args = parse_args()
     try:
-        validate_args(args)
         completed = run_pipeline(
             args.input_file,
             args.output_dir,

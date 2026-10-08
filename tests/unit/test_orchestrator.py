@@ -54,7 +54,7 @@ class TestParseArgs:
     def test_parse_args_defaults(self) -> None:
         with patch(
             "sys.argv",
-            ["immuknow", "file.csv", "--notice-template", "overdue_agents_v1.fr.typ"],
+            ["immuknow", "file.csv", "--template", "overdue_agents_v1.fr.typ"],
         ):
             args = orchestrator.parse_args()
             # Defaults should exist
@@ -65,8 +65,8 @@ class TestParseArgs:
 
 
 @pytest.mark.unit
-class TestValidateArgs:
-    def test_validate_args_missing_input_file(self, tmp_test_dir: Path) -> None:
+class TestInputAndSelectionValidation:
+    def test_missing_input_file(self, tmp_test_dir: Path) -> None:
         with pytest.raises(FileNotFoundError, match="Input file not found"):
             orchestrator.run_pipeline(
                 tmp_test_dir / "nonexistent.csv",
@@ -88,7 +88,7 @@ class TestValidateArgs:
                 "students.csv",
                 "--notice-assignments",
                 "a.json",
-                "--notice-template",
+                "--template",
                 "v.fr.typ",
             ],
         ):
@@ -160,24 +160,38 @@ class TestWorkflowBoundaries:
             )
         assert not (tmp_path / "output").exists()
 
-    @pytest.mark.parametrize("option", ["--template", "--templates"])
     def test_explicit_template_cannot_select_a_different_directory(
-        self, option: str
+        self, capsys: pytest.CaptureFixture
     ) -> None:
         with patch(
             "sys.argv",
             [
                 "immuknow",
                 "students.csv",
-                "--notice-template",
+                "--template",
                 "v.fr.typ",
-                option,
+                "--templates",
                 "another-tree",
             ],
         ):
-            args = orchestrator.parse_args()
-        with pytest.raises(ValueError, match="supplies its own directory"):
-            orchestrator.validate_args(args)
+            assert orchestrator.main() == 1
+        assert "supplies its own directory" in capsys.readouterr().err
+
+    def test_removed_notice_template_option_is_rejected(self) -> None:
+        with patch(
+            "sys.argv",
+            [
+                "immuknow",
+                "students.csv",
+                "--notice-assignments",
+                "a.json",
+                "--notice-template",
+                "my_phu",
+            ],
+        ):
+            with pytest.raises(SystemExit) as failure:
+                orchestrator.parse_args()
+            assert failure.value.code == 2
 
     def test_output_cancellation_keeps_existing_files(self, tmp_path: Path) -> None:
         source = tmp_path / "students.csv"
@@ -264,7 +278,6 @@ class TestErrorHandling:
                 output_dir=tmp_path / "output",
                 config_dir=tmp_path / "config",
                 template_dir=None,
-                custom_templates=None,
             )
 
             # main() catches all exceptions and returns 1
@@ -287,7 +300,6 @@ class TestErrorHandling:
                 output_dir=tmp_path / "output",
                 config_dir=tmp_path / "config",
                 template_dir=None,
-                custom_templates=None,
                 notice_assignments=tmp_path / "assignments.json",
             )
 

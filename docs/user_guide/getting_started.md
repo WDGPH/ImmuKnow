@@ -40,7 +40,7 @@ Select exactly one route for the whole CSV:
   needs a `client_id` and a `template` filename such as
   `overdue_agents_v1.fr.typ`. The filename selects version and language
   within the packaged or selected complete template tree.
-- `--notice-template PATH` selects one such `.typ` file for all accepted
+- `--template PATH` selects one such `.typ` file for all accepted
   clients. Its filename supplies the version and language. The version must
   exist in the catalog and satisfy its eligibility rule for every client.
 
@@ -50,7 +50,7 @@ uv run immuknow students.csv \
   --output /path/to/notices
 
 uv run immuknow students.csv \
-  --notice-template /path/to/my-phu/overdue_diseases_v1.en.typ \
+  --template /path/to/my-phu/overdue_diseases_v1.en.typ \
   --output /path/to/notices
 ```
 
@@ -61,9 +61,8 @@ language in the derived JSON. The packaged `notice_versions.yaml` defines
 eligible versions. Use
 `--config /path/to/config` for your own catalog and settings. With a
 manifest, `--templates /path/to/my-phu` selects a complete external Typst
-tree, or `--template NAME` selects `phu_templates/NAME/` beneath the
-working directory. Those directory choices cannot be combined with
-`--notice-template`, which supplies its containing template tree. Each
+tree. It cannot be combined with `--template`, which supplies its
+containing template tree. Each
 entry point declares its identity and language and checks the derived JSON.
 An explicit source `version_id` must agree with the selected notice.
 

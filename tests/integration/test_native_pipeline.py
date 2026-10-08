@@ -293,7 +293,7 @@ def test_single_template_cannot_bypass_eligibility_or_native_language(
             str(output),
             "--config",
             str(config),
-            "--notice-template",
+            "--template",
             str(template),
         ],
         tmp_path,

@@ -19,35 +19,34 @@ uv run immuknow ./input/students.csv --notice-assignments ./assignments.json \
 
 A run selects notices in one of two ways: pass `--notice-assignments` with
 one `template` filename per client, or pass one
-`--notice-template PATH` for all accepted clients:
+`--template PATH` for all accepted clients:
 
 ```bash
 uv run immuknow students.csv \
-  --notice-template immuknow/templates/overdue_diseases_v1.en.typ \
+  --template immuknow/templates/overdue_diseases_v1.en.typ \
   --output ./output
 ```
 
 Every selected file must be named `<version_id>.<language>.typ`, with
 `en` or `fr`, and its version must be registered in the notice catalog for
-eligibility checks. An installed
-package supplies the same command, catalog, and resources. Use
+eligibility checks. An installed package supplies the same command,
+catalog, and resources. Use
 `--config /path/to/config` to select your own configuration and catalog.
 
 Each manifest `template` is a filename within the selected complete tree;
 paths in manifest rows are rejected. The filename supplies canonical version
 and language, and Typst independently asserts both. Use
-`--templates /path/to/my-phu` for a complete PHU template directory, or
-`--template NAME` for `phu_templates/NAME/` beneath the working directory.
-The single-file option uses the selected file's containing tree and cannot be
-combined with either directory option. No missing entry, helper, or asset falls
-back to built-ins.
+`--templates /path/to/my-phu` to select a complete PHU template directory
+for manifest rows. The single-file option uses its file's containing tree
+and cannot be combined with `--templates`. Missing entry points, helpers,
+and assets do not fall back to built-ins.
 
 The maintained examples are `overdue_diseases_v1` (English/French),
 which displays overdue diseases; `overdue_agents_v1` (English/French),
 which displays vaccine agents; and `affirmative_schedule_v1` (English),
-which reports that the child's immunizations are up to date. Both overdue examples use the canonical
-overdue disease list for eligibility. The affirmative example is selected
-explicitly in the manifest or with `--notice-template`; it is never chosen
+which reports that the child's immunizations are up to date. Both overdue
+examples use the canonical overdue disease list for eligibility. The affirmative example is selected
+explicitly in the manifest or with `--template`; it is never chosen
 automatically when no diseases are due. Its catalog `no_overdue` rule
 requires an empty `overdue_diseases` list from the source assessment.
 An ineligible assignment fails preflight. No French affirmative example ships.

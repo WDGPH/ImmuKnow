@@ -89,7 +89,7 @@ templates yourself; the pipeline does not silently reinterpret them.
 
 Every run takes one CSV cohort and exactly one selector:
 `--notice-assignments PATH` for explicit per-client assignments, or
-`--notice-template PATH` for one named Typst entry point used by every
+`--template PATH` for one named Typst entry point used by every
 accepted client. The selected version must be registered in a mapping-shaped
 `notice_versions.yaml` with integer `schema_version: 1`:
 
@@ -111,7 +111,7 @@ canonical overdue diseases, even when a template displays vaccine agents.
 The catalog does not choose a language or assign a version to a client.
 The affirmative version's `no_overdue` rule checks an empty canonical
 `overdue_diseases` list from the source assessment. An affirmative notice
-is selected only by an explicit manifest row or `--notice-template`; it is
+is selected only by an explicit manifest row or `--template`; it is
 not inferred from an empty list. An eligibility conflict fails preflight.
 
 For per-client selection, the JSON manifest is an array with one
@@ -141,18 +141,18 @@ For one version and language across the accepted cohort, pass the entry file:
 
 ```bash
 immuknow students.csv \
-  --notice-template /path/to/my-phu/overdue_diseases_v1.en.typ
+  --template /path/to/my-phu/overdue_diseases_v1.en.typ
 ```
 
 The filename must be `<version_id>.<language>.typ`, with a version in the
 catalog. The file's containing template tree supplies its helpers and assets.
 Each accepted client must satisfy that version's eligibility rule. The
-`--notice-template` option cannot be combined with
-`--notice-assignments`, `--templates`, or `--template`.
+`--template` option cannot be combined with
+`--notice-assignments` or `--templates`.
 
-Manifest selection can use packaged entry points, `--templates PATH` for
-an external complete tree, or `--template NAME` for
-`phu_templates/NAME/` beneath the working directory. The maintained examples
+Manifest selection uses packaged entry points by default, or
+`--templates DIRECTORY` for an external complete tree. The maintained
+examples
 include disease and agent overdue notices in English and French, and an
 English affirmative notice. A missing version/language pair fails; no other
 language or PHU directory is substituted. Every entry point declares
