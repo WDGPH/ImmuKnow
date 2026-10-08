@@ -27,7 +27,7 @@ The preparation flow follows the source record through these steps:
    rejects the whole file.
 2. Exclude incomplete mailing addresses and write their CSV report. Essential
    client fields have already passed the required schema checks.
-3. Check school names against the reference list and load vaccine references, then build client records with
+3. Check school names against the reference list and load the vaccine-to-disease mapping, then build client records with
    normalized disease names, age and eligibility, and parsed history.
 4. Reconcile notice assignments. The orchestrator then saves the prepared
    client artifact.

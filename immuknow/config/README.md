@@ -184,7 +184,9 @@ for the native contract.
 
 ## Updating reference data
 
-Keep vaccine mappings and normalization keyed by configured disease names.
+`vaccine_reference.json` maps vaccine codes to configured disease names.
+`disease_normalization.json` maps source disease names to configured disease
+names. Keep their output names consistent with the chart and translations.
 Translation files map each configured disease name to one approved display
 label;
 chart and overdue contexts may use different wording. Update reference data

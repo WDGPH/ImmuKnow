@@ -29,7 +29,7 @@ def build_result(
         config = yaml.safe_load((preprocess.CONFIG_DIR / "parameters.yaml").read_text())
     if catalog is None:
         catalog = _make_catalog()
-    prepared = preprocess.normalize_dataframe(df)
+    prepared = preprocess.clean_csv_text(df)
     if manifest is None:
         manifest = {
             str(row["client_id"]): ManifestRow(
@@ -220,46 +220,46 @@ class TestReadInput:
 
 
 @pytest.mark.unit
-class TestNormalizeDataFrame:
-    """Unit tests for normalize_dataframe function."""
+class TestCleanCsvText:
+    """Unit tests for clean_csv_text function."""
 
-    def test_normalize_dataframe_passes_valid_dataframe(self) -> None:
-        """Verify valid DataFrame passes normalization without errors."""
+    def test_clean_csv_text_passes_valid_dataframe(self) -> None:
+        """Valid source text passes through text cleanup."""
         df = sample_input.create_test_input_dataframe(num_clients=3)
 
-        result = preprocess.normalize_dataframe(df)
+        result = preprocess.clean_csv_text(df)
 
         assert result is not None
         assert len(result) == 3
 
-    def test_normalize_dataframe_handles_missing_values(self) -> None:
+    def test_clean_csv_text_handles_missing_values(self) -> None:
         """Verify NaN/None values in string columns are filled."""
         df = sample_input.create_test_input_dataframe(num_clients=3)
         df.loc[0, "street_address_line_2"] = None
         df.loc[1, "postal_code"] = float("nan")
 
-        result = preprocess.normalize_dataframe(df)
+        result = preprocess.clean_csv_text(df)
 
         assert result["street_address_line_2"].iloc[0] == ""
         assert result["postal_code"].iloc[1] == ""
 
-    def test_normalize_dataframe_preserves_date_text(self) -> None:
+    def test_clean_csv_text_preserves_date_text(self) -> None:
         """Calendar interpretation belongs to validation, not cleanup."""
         df = sample_input.create_test_input_dataframe(num_clients=2)
         df["date_of_birth"] = ["2015-01-02", "2014-05-06"]
 
-        result = preprocess.normalize_dataframe(df)
+        result = preprocess.clean_csv_text(df)
 
         assert result["date_of_birth"].tolist() == ["2015-01-02", "2014-05-06"]
         assert result["date_of_birth"].map(type).eq(str).all()
 
-    def test_normalize_dataframe_trims_whitespace(self) -> None:
+    def test_clean_csv_text_trims_whitespace(self) -> None:
         """Verify string columns have leading/trailing whitespace stripped."""
         df = sample_input.create_test_input_dataframe(num_clients=1)
         df["first_name"] = ["  Alice  "]
         df["last_name"] = ["  Zephyr  "]
 
-        result = preprocess.normalize_dataframe(df)
+        result = preprocess.clean_csv_text(df)
 
         assert result["first_name"].iloc[0] == "Alice"
         assert result["last_name"].iloc[0] == "Zephyr"
@@ -974,7 +974,7 @@ class TestBuildReceivedRows:
     """
 
     @pytest.fixture
-    def vaccine_ref(self) -> dict:
+    def vaccine_reference(self) -> dict:
         return {
             "DTaP": ["Diphtheria", "Tetanus", "Pertussis"],
             "MMR": ["Measles", "Mumps", "Rubella"],
@@ -987,10 +987,10 @@ class TestBuildReceivedRows:
     def header(self) -> list:
         return ["Diphtheria", "Tetanus", "Pertussis", "Polio", "Measles", "Other"]
 
-    def test_single_vaccine_single_date(self, vaccine_ref, header) -> None:
+    def test_single_vaccine_single_date(self, vaccine_reference, header) -> None:
         """One vaccine, one date → one row with correct column status."""
         rows = preprocess.build_received_rows(
-            "May 1, 2020 - DTaP - Valid", [], vaccine_ref, header
+            "May 1, 2020 - DTaP - Valid", [], vaccine_reference, header
         )
         assert len(rows) == 1
         assert rows[0]["date_given"] == "2020-05-01"
@@ -1001,12 +1001,12 @@ class TestBuildReceivedRows:
         assert "vaccines" in rows[0]
         assert "DTaP" in rows[0]["vaccines"]
 
-    def test_two_dates_two_rows_no_split(self, vaccine_ref, header) -> None:
+    def test_two_dates_two_rows_no_split(self, vaccine_reference, header) -> None:
         """Two distinct dates each produce one row; date_rowspan == 1 on both."""
         rows = preprocess.build_received_rows(
             "May 1, 2020 - DTaP - Valid; Jun 15, 2021 - IPV - Invalid",
             [],
-            vaccine_ref,
+            vaccine_reference,
             header,
         )
         assert len(rows) == 2
@@ -1014,47 +1014,53 @@ class TestBuildReceivedRows:
         assert rows[0]["columns"]["Diphtheria"] == "valid"
         assert rows[1]["columns"]["Polio"] == "invalid"
 
-    def test_same_vaccine_deduplication_unknown_wins(self, vaccine_ref, header) -> None:
+    def test_same_vaccine_deduplication_unknown_wins(
+        self, vaccine_reference, header
+    ) -> None:
         """Two doses of same vaccine: unknown + valid → unknown (data quality signal)."""
         rows = preprocess.build_received_rows(
             "May 1, 2020 - DTaP; May 1, 2020 - DTaP - Valid",
             [],
-            vaccine_ref,
+            vaccine_reference,
             header,
         )
         assert len(rows) == 1
         assert rows[0]["columns"]["Diphtheria"] == "unknown"
 
     def test_same_vaccine_deduplication_valid_over_invalid(
-        self, vaccine_ref, header
+        self, vaccine_reference, header
     ) -> None:
         """Two doses of same vaccine: valid + invalid → valid."""
         rows = preprocess.build_received_rows(
             "May 1, 2020 - DTaP - Valid; May 1, 2020 - DTaP - Invalid",
             [],
-            vaccine_ref,
+            vaccine_reference,
             header,
         )
         assert len(rows) == 1
         assert rows[0]["columns"]["Diphtheria"] == "valid"
 
-    def test_same_vaccine_deduplication_all_invalid(self, vaccine_ref, header) -> None:
+    def test_same_vaccine_deduplication_all_invalid(
+        self, vaccine_reference, header
+    ) -> None:
         """Two doses of same vaccine: invalid + invalid → invalid."""
         rows = preprocess.build_received_rows(
             "May 1, 2020 - DTaP - Invalid; May 1, 2020 - DTaP - Invalid",
             [],
-            vaccine_ref,
+            vaccine_reference,
             header,
         )
         assert len(rows) == 1
         assert rows[0]["columns"]["Diphtheria"] == "invalid"
 
-    def test_two_vaccines_same_date_no_mixed_column(self, vaccine_ref, header) -> None:
+    def test_two_vaccines_same_date_no_mixed_column(
+        self, vaccine_reference, header
+    ) -> None:
         """Two vaccines, same date, same validity → single row, no split."""
         rows = preprocess.build_received_rows(
             "May 1, 2020 - DTaP - Valid; May 1, 2020 - IPV - Valid",
             [],
-            vaccine_ref,
+            vaccine_reference,
             header,
         )
         assert len(rows) == 1
@@ -1063,14 +1069,14 @@ class TestBuildReceivedRows:
         assert rows[0]["columns"]["Polio"] == "valid"
 
     def test_mixed_column_triggers_split_into_two_rows(
-        self, vaccine_ref, header
+        self, vaccine_reference, header
     ) -> None:
         """DTaP(valid) + IPV(invalid) on same date → Diphtheria=valid, Polio=invalid,
         no mixed → single row (different columns, not same column)."""
         rows = preprocess.build_received_rows(
             "May 1, 2020 - DTaP - Valid; May 1, 2020 - IPV - Invalid",
             [],
-            vaccine_ref,
+            vaccine_reference,
             header,
         )
         # DTaP and IPV map to different columns — no mixed, one row
@@ -1114,12 +1120,12 @@ class TestBuildReceivedRows:
         )
         assert rows[1]["date_rowspan"] == 0
 
-    def test_other_column_mixed_triggers_split(self, vaccine_ref, header) -> None:
+    def test_other_column_mixed_triggers_split(self, vaccine_reference, header) -> None:
         """HBV(valid) + HPV(invalid) both map to Other → Other is mixed → split."""
         rows = preprocess.build_received_rows(
             "May 1, 2020 - HBV - Valid; May 1, 2020 - HPV - Invalid",
             [],
-            vaccine_ref,
+            vaccine_reference,
             header,
             show_validity_markers=True,
         )
@@ -1127,12 +1133,12 @@ class TestBuildReceivedRows:
         assert rows[0]["columns"].get("Other") == "valid"
         assert rows[1]["columns"].get("Other") == "invalid"
 
-    def test_other_column_all_valid(self, vaccine_ref, header) -> None:
+    def test_other_column_all_valid(self, vaccine_reference, header) -> None:
         """HBV(valid) + HPV(valid) → Other == valid, single row."""
         rows = preprocess.build_received_rows(
             "May 1, 2020 - HBV - Valid; May 1, 2020 - HPV - Valid",
             [],
-            vaccine_ref,
+            vaccine_reference,
             header,
         )
         assert len(rows) == 1
@@ -1151,16 +1157,16 @@ class TestBuildReceivedRows:
         assert len(rows) == 1
         assert rows[0]["columns"]["Diphtheria"] == "unknown"
 
-    def test_empty_input_returns_empty_list(self, vaccine_ref, header) -> None:
+    def test_empty_input_returns_empty_list(self, vaccine_reference, header) -> None:
         """Assertion: empty string → []"""
-        assert preprocess.build_received_rows("", [], vaccine_ref, header) == []
+        assert preprocess.build_received_rows("", [], vaccine_reference, header) == []
 
-    def test_excluded_agents_filters_vaccine(self, vaccine_ref, header) -> None:
+    def test_excluded_agents_filters_vaccine(self, vaccine_reference, header) -> None:
         """Filtered vaccine absent from output; remaining vaccine present."""
         rows = preprocess.build_received_rows(
             "May 1, 2020 - Not Specified; May 1, 2020 - DTaP - Valid",
             ["Not Specified"],
-            vaccine_ref,
+            vaccine_reference,
             header,
         )
         assert len(rows) == 1
@@ -1228,7 +1234,7 @@ class TestCheckAddressesComplete:
                 "postal_code": ["N1H 2T2", "N1H 2T3", "N1K 1B2"],
             }
         )
-        return preprocess.normalize_dataframe(frame)
+        return preprocess.clean_csv_text(frame)
 
     @pytest.fixture
     def mixed_df(self) -> pd.DataFrame:
@@ -1245,7 +1251,7 @@ class TestCheckAddressesComplete:
                 "postal_code": ["N1H 2T2", "N1H 2T3", float("nan")],
             }
         )
-        return preprocess.normalize_dataframe(frame)
+        return preprocess.clean_csv_text(frame)
 
     def test_all_complete_returns_all_rows(self, complete_df) -> None:
         """Verify all rows are returned when every address is fully populated.
@@ -1351,7 +1357,7 @@ class TestCheckAddressesComplete:
         )
 
         result = preprocess.check_addresses_complete(
-            preprocess.normalize_dataframe(df), output_dir=output_dir
+            preprocess.clean_csv_text(df), output_dir=output_dir
         )
 
         assert len(result) == 0
@@ -1396,7 +1402,7 @@ class TestCheckClientInfoComplete:
                 "overdue_agent": ["MMR", "IPV"],
             }
         )
-        return preprocess.normalize_dataframe(frame)
+        return preprocess.clean_csv_text(frame)
 
     @pytest.fixture
     def complete_manifest_df(self) -> pd.DataFrame:
@@ -1418,7 +1424,7 @@ class TestCheckClientInfoComplete:
                 "overdue_agent": ["", ""],
             }
         )
-        return preprocess.normalize_dataframe(frame)
+        return preprocess.clean_csv_text(frame)
 
     def test_all_complete_returns_all_rows(self, complete_df) -> None:
         """Verify all rows are returned when every required field is present.
@@ -1465,7 +1471,7 @@ class TestCheckClientInfoComplete:
         )
 
         result = preprocess.check_client_info_complete(
-            preprocess.normalize_dataframe(df), output_dir=output_dir
+            preprocess.clean_csv_text(df), output_dir=output_dir
         )
 
         assert len(result) == 1
@@ -1497,7 +1503,7 @@ class TestCheckClientInfoComplete:
 
         with caplog.at_level("WARNING"):
             preprocess.check_client_info_complete(
-                preprocess.normalize_dataframe(df), output_dir=output_dir
+                preprocess.clean_csv_text(df), output_dir=output_dir
             )
 
         assert (
@@ -1528,7 +1534,7 @@ class TestCheckClientInfoComplete:
         )
 
         preprocess.check_client_info_complete(
-            preprocess.normalize_dataframe(df), output_dir=output_dir
+            preprocess.clean_csv_text(df), output_dir=output_dir
         )
 
         csv_path = output_dir / "incomplete_clients.csv"
@@ -1559,7 +1565,7 @@ class TestCheckClientInfoComplete:
         )
 
         result = preprocess.check_client_info_complete(
-            preprocess.normalize_dataframe(df),
+            preprocess.clean_csv_text(df),
             drop_incomplete=False,
             output_dir=output_dir,
         )
@@ -1602,7 +1608,7 @@ class TestCheckClientInfoComplete:
         )
 
         result = preprocess.check_client_info_complete(
-            preprocess.normalize_dataframe(df), output_dir=output_dir
+            preprocess.clean_csv_text(df), output_dir=output_dir
         )
 
         assert len(result) == 0

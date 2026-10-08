@@ -82,12 +82,12 @@ def prepare_clients(
             )
             for client_id in frame["client_id"]
         }
-    reference = config_dir / "vaccine_reference.json"
-    if not reference.exists():
-        reference = VACCINE_REFERENCE_PATH
+    vaccine_reference_path = config_dir / "vaccine_reference.json"
+    if not vaccine_reference_path.exists():
+        vaccine_reference_path = VACCINE_REFERENCE_PATH
     result, reconciliation = build_preprocess_result(
         frame,
-        json.loads(reference.read_text(encoding="utf-8")),
+        json.loads(vaccine_reference_path.read_text(encoding="utf-8")),
         UNSPECIFIED_AGENTS,
         config=config,
         config_dir=config_dir,
@@ -121,11 +121,11 @@ def read_input(file_path: Path) -> pd.DataFrame:
         except (UnicodeDecodeError, pd.errors.ParserError):
             continue
         LOG.info("Loaded %s rows from %s", len(frame), file_path)
-        return validate_input(normalize_dataframe(frame))
+        return validate_input(clean_csv_text(frame))
     raise ValueError("Could not decode CSV with common encodings or delimiters")
 
 
-def normalize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+def clean_csv_text(df: pd.DataFrame) -> pd.DataFrame:
     """Prepare all CSV fields as trimmed strings, with empty strings for blanks."""
     return df.fillna("").astype(str).apply(lambda column: column.str.strip())
 
@@ -892,8 +892,10 @@ def _deduplicate_vaccines_for_date(
         else:
             validity = "invalid"
 
-        ref = vaccine_reference.get(vaccine, vaccine)
-        diseases: List[str] = ref if isinstance(ref, list) else [ref]
+        mapped_diseases = vaccine_reference.get(vaccine, vaccine)
+        diseases: List[str] = (
+            mapped_diseases if isinstance(mapped_diseases, list) else [mapped_diseases]
+        )
 
         result.append({"vaccine": vaccine, "diseases": diseases, "validity": validity})
 

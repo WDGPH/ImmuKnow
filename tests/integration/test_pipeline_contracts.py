@@ -47,7 +47,7 @@ def test_prepared_client_data_survive_artifact_round_trip(
     }
 
     result, _ = preprocess.build_preprocess_result(
-        preprocess.normalize_dataframe(df),
+        preprocess.clean_csv_text(df),
         default_vaccine_reference,
         [],
         config=config,
@@ -89,7 +89,7 @@ def test_school_mapping_from_selected_config_preserves_prepared_clients(
     }
 
     enriched, warnings = preprocess.run_school_validation(
-        preprocess.normalize_dataframe(df), tmp_path, config=config, config_dir=tmp_path
+        preprocess.clean_csv_text(df), tmp_path, config=config, config_dir=tmp_path
     )
     result, _ = preprocess.build_preprocess_result(
         enriched,
@@ -122,7 +122,7 @@ def test_mixed_validity_with_markers_is_rejected(
         ValueError, match="mix of records with and without validity indicators"
     ):
         preprocess.build_preprocess_result(
-            preprocess.normalize_dataframe(df),
+            preprocess.clean_csv_text(df),
             default_vaccine_reference,
             [],
             config={"preprocess": {"show_validity_markers": True}},
