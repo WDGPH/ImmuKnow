@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 import logging
 import re
-import sys
 import shutil
 from dataclasses import asdict
 from importlib.resources import files
@@ -34,8 +33,6 @@ LOG = logging.getLogger(__name__)
 _DOSE_LABEL_PATTERN = re.compile(
     r"^(?P<disease>.+) \((?P<dose_label>(?P<number>\d+)(?:st|nd|rd|th) dose)\)$"
 )
-
-LEGACY_VERSION = "legacy_overdue_v1"
 
 
 def select_template(template_dir: Path, version_id: str, language: str) -> Path:
@@ -66,16 +63,7 @@ def select_template(template_dir: Path, version_id: str, language: str) -> Path:
     validate_version_id(version_id)
     template = template_dir / f"{version_id}.{language}.typ"
     if not template.is_file():
-        old_directory = (
-            template_dir if version_id == LEGACY_VERSION else template_dir / version_id
-        )
-        legacy = old_directory / f"{language}_template.py"
-        migration = (
-            f" Migrate {legacy.name} to a static .typ template using the template authoring guide."
-            if legacy.exists()
-            else " No language or PHU fallback is applied."
-        )
-        raise FileNotFoundError(f"Notice template not found: {template}.{migration}")
+        raise FileNotFoundError(f"Notice template not found: {template}")
     return template
 
 
@@ -501,18 +489,3 @@ def build_notice_data(
         "chart_diseases_translated": chart_diseases_translated,
         "show_validity_markers": show_validity_markers,
     }
-
-
-if __name__ == "__main__":
-    import sys
-
-    print(
-        "⚠️  Direct invocation: This module is typically executed via orchestrator.py.\n"
-        "   Re-running a single step is valid when pipeline artifacts are retained on disk,\n"
-        "   allowing you to skip earlier steps and regenerate output.\n"
-        "   Note: Output will overwrite any previous files.\n"
-        "\n"
-        "   For typical usage, run: uv run viper <input> <language>\n",
-        file=sys.stderr,
-    )
-    sys.exit(1)

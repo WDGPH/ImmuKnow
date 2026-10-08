@@ -188,12 +188,12 @@ class PdfRecord:
         Absolute path to the generated PDF file.
     page_count : int
         Number of pages in the PDF (usually 2 for immunization notices).
-    client : Dict[str, Any]
-        Full client data dict for manifest generation and batching.
+    client : ClientRecord
+        Canonical client record for manifest generation and batching.
     """
 
     sequence: str
     client_id: str
     pdf_path: Path
     page_count: int
-    client: Dict[str, Any]
+    client: ClientRecord

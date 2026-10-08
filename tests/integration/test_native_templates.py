@@ -22,9 +22,7 @@ from pipeline.utils import deserialize_client_record
 
 ROOT = Path(__file__).resolve().parents[2]
 BASELINES = ROOT / "tests" / "fixtures" / "notice_baseline"
-CASES = sorted(
-    path.stem for path in BASELINES.glob("*.json") if path.stem != "compiler_comparison"
-)
+CASES = sorted(path.stem for path in BASELINES.glob("*.json"))
 pytestmark = pytest.mark.integration
 
 
@@ -86,6 +84,7 @@ def compile_notice(
         cwd=workspace,
         capture_output=True,
         text=True,
+        check=False,
     )
 
 

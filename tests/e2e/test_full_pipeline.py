@@ -25,7 +25,6 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
-from collections.abc import Generator
 from pathlib import Path
 
 import pytest
@@ -44,29 +43,12 @@ class TestFullPipelineExecution:
         return Path(__file__).resolve().parent.parent.parent
 
     @pytest.fixture
-    def e2e_workdir(
-        self, project_root: Path, tmp_path_factory: pytest.TempPathFactory
-    ) -> Generator[Path, None, None]:
-        """Create a temporary working directory within the project root.
-
-        Typst requires absolute paths relative to the project root for asset
-        resolution (QR codes, logos). This workdir is inside project root
-        to satisfy that constraint while maintaining isolation.
-        """
-        workdir = project_root / f"tmp_e2e_{tmp_path_factory.mktemp('e2e').name}"
-        workdir.mkdir(parents=True, exist_ok=True)
-        (workdir / "input").mkdir(exist_ok=True)
-        (workdir / "output").mkdir(exist_ok=True)
-
-        # Copy base config to workdir
-        config_dir = workdir / "config"
-        shutil.copytree(project_root / "config", config_dir)
-
-        yield workdir
-
-        # Cleanup
-        if workdir.exists():
-            shutil.rmtree(workdir)
+    def e2e_workdir(self, project_root: Path, tmp_path: Path) -> Path:
+        """Use a unique external workspace for each complete pipeline run."""
+        (tmp_path / "input").mkdir()
+        (tmp_path / "output").mkdir()
+        shutil.copytree(project_root / "config", tmp_path / "config")
+        return tmp_path
 
     @pytest.fixture
     def pipeline_input_file(self, e2e_workdir: Path) -> Path:

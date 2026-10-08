@@ -22,6 +22,7 @@ import pytest
 from pipeline import bundle_pdfs
 from pipeline.data_models import PdfRecord
 from pipeline.enums import BundleStrategy, BundleType
+from pipeline.utils import deserialize_client_record
 from tests.fixtures import sample_input
 
 
@@ -55,6 +56,14 @@ def artifact_to_dict(artifact) -> dict:
     }
 
 
+def client_lookup(artifact: dict) -> dict:
+    """Select canonical clients for grouping fixtures."""
+    return {
+        (client["sequence"], client["client_id"]): client
+        for client in artifact["clients"]
+    }
+
+
 def create_test_pdf(path: Path, num_pages: int = 1) -> None:
     """Create a minimal test PDF file using PyPDF utilities."""
     from pypdf import PdfWriter
@@ -81,7 +90,7 @@ def make_pdf_records(clients: dict, output_dir: Path) -> list[PdfRecord]:
             page_count=len(
                 PdfReader(pdf_dir / f"en_notice_{sequence}_{client_id}.pdf").pages
             ),
-            client=client,
+            client=deserialize_client_record(client),
         )
         for (sequence, client_id), client in sorted(clients.items())
     ]
@@ -143,61 +152,6 @@ class TestSlugify:
 
 
 @pytest.mark.unit
-class TestLoadArtifact:
-    def test_load_artifact_reads_preprocessed_file(self, tmp_path: Path) -> None:
-        run_id = "test_001"
-        artifact = sample_input.create_test_artifact_payload(
-            num_clients=2, run_id=run_id
-        )
-        artifact_dir = tmp_path / "artifacts"
-        artifact_dir.mkdir()
-
-        artifact_path = artifact_dir / f"preprocessed_clients_{run_id}.json"
-        with open(artifact_path, "w") as f:
-            json.dump(artifact_to_dict(artifact), f)
-
-        loaded = bundle_pdfs.load_artifact(tmp_path, run_id)
-
-        assert loaded["run_id"] == run_id
-        assert isinstance(loaded["clients"], list)
-        assert len(loaded["clients"]) == 2
-
-    def test_load_artifact_missing_file_raises_error(self, tmp_path: Path) -> None:
-        with pytest.raises(FileNotFoundError, match="not found"):
-            bundle_pdfs.load_artifact(tmp_path, "nonexistent_run")
-
-
-@pytest.mark.unit
-class TestBuildClientLookup:
-    def test_build_client_lookup_creates_dict(self) -> None:
-        artifact = sample_input.create_test_artifact_payload(
-            num_clients=3, run_id="test"
-        )
-        artifact_dict = artifact_to_dict(artifact)
-        lookup = bundle_pdfs.build_client_lookup(artifact_dict)
-
-        assert len(lookup) == 3
-        # Verify keys are (sequence, client_id) tuples
-        for key in lookup:
-            assert isinstance(key, tuple)
-            assert len(key) == 2
-
-    def test_build_client_lookup_preserves_client_data(self) -> None:
-        artifact = sample_input.create_test_artifact_payload(
-            num_clients=1, run_id="test"
-        )
-        artifact_dict = artifact_to_dict(artifact)
-        lookup = bundle_pdfs.build_client_lookup(artifact_dict)
-
-        client = artifact_dict["clients"][0]
-        sequence = client["sequence"]
-        client_id = client["client_id"]
-        key = (sequence, client_id)
-
-        assert lookup[key] == client
-
-
-@pytest.mark.unit
 class TestEnsureIds:
     def test_ensure_ids_passes_when_all_ids_present(self, tmp_path: Path) -> None:
         artifact = sample_input.create_test_artifact_payload(
@@ -213,7 +167,7 @@ class TestEnsureIds:
             pdf_path = pdf_dir / f"en_notice_{seq}_{cid}.pdf"
             create_test_pdf(pdf_path, num_pages=1)
 
-        clients = bundle_pdfs.build_client_lookup(artifact_dict)
+        clients = client_lookup(artifact_dict)
         records = make_pdf_records(clients, tmp_path)
 
         # Should not raise
@@ -236,7 +190,7 @@ class TestEnsureIds:
         pdf_path = pdf_dir / f"en_notice_{client.sequence}_{client.client_id}.pdf"
         create_test_pdf(pdf_path, num_pages=1)
 
-        clients = bundle_pdfs.build_client_lookup(artifact_dict)
+        clients = client_lookup(artifact_dict)
         records = make_pdf_records(clients, tmp_path)
 
         with pytest.raises(ValueError, match="Missing school"):
@@ -264,7 +218,7 @@ class TestGroupRecords:
             pdf_path = pdf_dir / f"en_notice_{seq}_{cid}.pdf"
             create_test_pdf(pdf_path, num_pages=1)
 
-        clients = bundle_pdfs.build_client_lookup(artifact_dict)
+        clients = client_lookup(artifact_dict)
         records = make_pdf_records(clients, tmp_path)
 
         grouped = bundle_pdfs.group_records(records, "school")
@@ -290,7 +244,7 @@ class TestGroupRecords:
             pdf_path = pdf_dir / f"en_notice_{seq}_{cid}.pdf"
             create_test_pdf(pdf_path, num_pages=1)
 
-        clients = bundle_pdfs.build_client_lookup(artifact_dict)
+        clients = client_lookup(artifact_dict)
         records = make_pdf_records(clients, tmp_path)
 
         grouped = bundle_pdfs.group_records(records, "school")
@@ -315,7 +269,7 @@ class TestPlanBundles:
             pdf_path = pdf_dir / f"en_notice_{seq}_{cid}.pdf"
             create_test_pdf(pdf_path, num_pages=1)
 
-        clients = bundle_pdfs.build_client_lookup(artifact_dict)
+        clients = client_lookup(artifact_dict)
         records = make_pdf_records(clients, tmp_path)
 
         config = bundle_pdfs.BundleConfig(
@@ -350,7 +304,7 @@ class TestPlanBundles:
             pdf_path = pdf_dir / f"en_notice_{seq}_{cid}.pdf"
             create_test_pdf(pdf_path, num_pages=1)
 
-        clients = bundle_pdfs.build_client_lookup(artifact_dict)
+        clients = client_lookup(artifact_dict)
         records = make_pdf_records(clients, tmp_path)
 
         config = bundle_pdfs.BundleConfig(
@@ -382,7 +336,7 @@ class TestPlanBundles:
             pdf_path = pdf_dir / f"en_notice_{seq}_{cid}.pdf"
             create_test_pdf(pdf_path, num_pages=1)
 
-        clients = bundle_pdfs.build_client_lookup(artifact_dict)
+        clients = client_lookup(artifact_dict)
         records = make_pdf_records(clients, tmp_path)
 
         config = bundle_pdfs.BundleConfig(
@@ -412,7 +366,7 @@ class TestPlanBundles:
             pdf_path = pdf_dir / f"en_notice_{seq}_{cid}.pdf"
             create_test_pdf(pdf_path, num_pages=1)
 
-        clients = bundle_pdfs.build_client_lookup(artifact_dict)
+        clients = client_lookup(artifact_dict)
         records = make_pdf_records(clients, tmp_path)
 
         config = bundle_pdfs.BundleConfig(
@@ -471,7 +425,7 @@ class TestWriteBundle:
             pdf_path = pdf_dir / f"en_notice_{seq}_{cid}.pdf"
             create_test_pdf(pdf_path, num_pages=1)
 
-        clients = bundle_pdfs.build_client_lookup(artifact_dict)
+        clients = client_lookup(artifact_dict)
         records = make_pdf_records(clients, tmp_path)
 
         combined_dir = tmp_path / "pdf_combined"
@@ -520,7 +474,7 @@ class TestWriteBundle:
         pdf_path = pdf_dir / f"en_notice_{seq}_{cid}.pdf"
         create_test_pdf(pdf_path, num_pages=1)
 
-        clients = bundle_pdfs.build_client_lookup(artifact_dict)
+        clients = client_lookup(artifact_dict)
         records = make_pdf_records(clients, tmp_path)
 
         combined_dir = tmp_path / "pdf_combined"

@@ -13,14 +13,14 @@ from dataclasses import dataclass
 from hashlib import sha256
 from itertools import islice
 from pathlib import Path
-from typing import Dict, Iterator, List, Sequence, TypeVar
+from typing import Iterator, List, Sequence, TypeVar
 
 from pypdf import PdfReader, PdfWriter
 
 from .config_loader import load_config
 from .data_models import PdfRecord
 from .enums import BundleStrategy, BundleType
-from .generate_notices import read_render_jobs
+from .generate_notices import read_artifact, read_render_jobs
 
 LOG = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -193,60 +193,10 @@ def slugify(value: str) -> str:
     return re.sub(r"_+", "_", cleaned).strip("_").lower() or "unknown"
 
 
-def load_artifact(output_dir: Path, run_id: str) -> Dict[str, object]:
-    """Load the preprocessed artifact JSON from the output directory.
-
-    Parameters
-    ----------
-    output_dir : Path
-        Root output directory containing artifacts.
-    run_id : str
-        Pipeline run identifier matching the artifact filename.
-
-    Returns
-    -------
-    Dict[str, object]
-        Parsed preprocessed artifact with clients and metadata.
-
-    Raises
-    ------
-    FileNotFoundError
-        If the preprocessed artifact file does not exist.
-    """
-    artifact_path = output_dir / "artifacts" / f"preprocessed_clients_{run_id}.json"
-    if not artifact_path.exists():
-        raise FileNotFoundError(f"Preprocessed artifact not found at {artifact_path}")
-    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
-    return payload
-
-
-def build_client_lookup(
-    artifact: Dict[str, object],
-) -> Dict[tuple[str, str], dict]:
-    """Build a lookup table from artifact clients dict.
-
-    Parameters
-    ----------
-    artifact : Dict[str, object]
-        Preprocessed artifact dictionary
-
-    Returns
-    -------
-    Dict[tuple[str, str], dict]
-        Lookup table keyed by (sequence, client_id)
-    """
-    clients_obj = artifact.get("clients", [])
-    clients = clients_obj if isinstance(clients_obj, list) else []
-    lookup: Dict[tuple[str, str], dict] = {}
-    for client in clients:
-        sequence = client.get("sequence")  # type: ignore[attr-defined]
-        client_id = client.get("client_id")  # type: ignore[attr-defined]
-        lookup[(sequence, client_id)] = client  # type: ignore[typeddict-item]
-    return lookup
-
-
 def ensure_ids(records: Sequence[PdfRecord], *, attr: str, log_path: Path) -> None:
-    missing = [record for record in records if not record.client[attr].get("id")]
+    missing = [
+        record for record in records if not getattr(record.client, attr).get("id")
+    ]
     if missing:
         sample = missing[0]
         raise ValueError(
@@ -260,10 +210,10 @@ def ensure_ids(records: Sequence[PdfRecord], *, attr: str, log_path: Path) -> No
         )
 
 
-def group_records(records: Sequence[PdfRecord], key: str) -> Dict[str, List[PdfRecord]]:
-    grouped: Dict[str, List[PdfRecord]] = {}
+def group_records(records: Sequence[PdfRecord], key: str) -> dict[str, List[PdfRecord]]:
+    grouped: dict[str, List[PdfRecord]] = {}
     for record in records:
-        identifier = record.client[key]["id"]
+        identifier = getattr(record.client, key)["id"]
         grouped.setdefault(identifier, []).append(record)
     return dict(sorted(grouped.items(), key=lambda item: item[0]))
 
@@ -385,7 +335,7 @@ def write_bundle(
     artifact_path: Path,
 ) -> BundleResult:
     # Generate filename based on bundle type and identifiers
-    languages = sorted({record.client["language"] for record in plan.clients})
+    languages = sorted({record.client.language for record in plan.clients})
     prefix = languages[0] if len(languages) == 1 else "notices"
     if plan.bundle_type == BundleType.SCHOOL_GROUPED:
         identifier_slug = slugify(plan.bundle_identifier or "unknown")
@@ -425,13 +375,13 @@ def write_bundle(
                     filter(
                         None,
                         [
-                            record.client["person"]["first_name"],
-                            record.client["person"]["last_name"],
+                            record.client.person["first_name"],
+                            record.client.person["last_name"],
                         ],
                     )
                 ).strip(),
-                "school": record.client["school"]["name"],
-                "board": record.client["board"]["name"],
+                "school": record.client.school["name"],
+                "board": record.client.board["name"],
                 "pdf_path": relative(record.pdf_path, config.output_dir),
                 "artifact_path": relative(artifact_path, config.output_dir),
                 "pages": record.page_count,
@@ -455,8 +405,10 @@ def bundle_pdfs(config: BundleConfig) -> List[BundleResult]:
     artifact_path = (
         config.output_dir / "artifacts" / f"preprocessed_clients_{config.run_id}.json"
     )
-    artifact = load_artifact(config.output_dir, config.run_id)
-    clients = build_client_lookup(artifact)
+    clients = {
+        (client.sequence, client.client_id): client
+        for client in read_artifact(artifact_path).clients
+    }
     jobs = read_render_jobs(config.output_dir / "artifacts", require_compiled=True)
     if {(job.sequence, job.client_id) for job in jobs} != set(clients):
         raise ValueError("Render jobs do not match the canonical cohort")

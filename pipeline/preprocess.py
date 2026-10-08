@@ -1544,18 +1544,3 @@ def write_assignment_metadata(
     out_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     LOG.info("Wrote assignment metadata to %s", out_path)
     return out_path
-
-
-if __name__ == "__main__":
-    import sys
-
-    print(
-        "⚠️  Direct invocation: This module is typically executed via orchestrator.py.\n"
-        "   Re-running a single step is valid when pipeline artifacts are retained on disk,\n"
-        "   allowing you to skip earlier steps and regenerate output.\n"
-        "   Note: Output will overwrite any previous files.\n"
-        "\n"
-        "   For typical usage, run: uv run viper <input> <language>\n",
-        file=sys.stderr,
-    )
-    sys.exit(1)
