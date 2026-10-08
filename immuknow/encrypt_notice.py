@@ -1,4 +1,4 @@
-"""Encrypt the compiled notice cohort with passwords from canonical client data.
+"""Encrypt the compiled notice cohort with passwords from prepared client data.
 
 Render jobs identify every expected PDF. Encryption failures halt this optional
 stage, leaving its unencrypted input available for diagnosis or rerun.
@@ -69,7 +69,7 @@ def encrypt_pdf(file_path: str, context: dict, *, config: dict) -> str:
 def encrypt_expected_notices(
     clients: list[ClientRecord], jobs: list[RenderJob], config: dict
 ) -> list[Path]:
-    """Encrypt the complete validated notice cohort in canonical order."""
+    """Encrypt the complete validated notice cohort in client order."""
     check_expected_notices(clients, jobs, require_files=True)
     clients_by_key = {(client.sequence, client.client_id): client for client in clients}
     outputs = []

@@ -20,7 +20,7 @@ def make_pdf(path: Path) -> None:
         writer.write(stream)
 
 
-def test_password_from_canonical_birth_date_opens_pdf(tmp_path: Path) -> None:
+def test_password_from_client_birth_date_opens_pdf(tmp_path: Path) -> None:
     """The expected client password opens the encrypted output."""
     pdf = tmp_path / "notice.pdf"
     make_pdf(pdf)

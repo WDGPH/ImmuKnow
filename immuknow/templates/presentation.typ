@@ -1,4 +1,4 @@
-// Shared presentation for the two supported notice languages. Keys stay canonical.
+// Shared presentation for the two supported notice languages. Disease identifiers stay the same in both languages.
 #let month-names = (
   en: ("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"),
   fr: ("janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"),

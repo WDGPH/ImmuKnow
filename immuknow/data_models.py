@@ -10,7 +10,7 @@ from typing import Any
 
 @dataclass(frozen=True)
 class RenderJob:
-    """Map one canonical client to its static template, JSON input, and PDF.
+    """Map one prepared client to its static template, JSON input, and PDF.
 
     All paths are absolute filesystem paths. ``workspace`` bounds Typst reads;
     the compiler translates ``data`` into a path relative to that root.
@@ -28,7 +28,7 @@ class RenderJob:
 
 @dataclass(frozen=True)
 class ClientRecord:
-    """Canonical source facts and one resolved language/version assignment.
+    """Prepared client data and one resolved language/version assignment.
 
     ``person["date_of_birth_iso"]`` is an ISO date or empty when absent;
     Typst owns its display format. Overdue disease entries keep an optional
@@ -52,14 +52,14 @@ class ClientRecord:
 
 @dataclass(frozen=True)
 class PreprocessResult:
-    """Canonical cohort and nonfatal source warnings."""
+    """Prepared client list and nonfatal source warnings."""
 
     clients: list[ClientRecord]
     warnings: list[str]
 
 
 @dataclass(frozen=True)
-class PdfRecord:
+class PDFRecord:
     """One validated PDF and its source client for bundling."""
 
     sequence: str

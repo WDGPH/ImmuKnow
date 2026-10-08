@@ -29,7 +29,7 @@ def test_render_jobs_reject_duplicate_expected_pdf(tmp_path: Path) -> None:
         )
         for client in clients
     ]
-    with pytest.raises(ValueError, match="canonical cohort exactly once"):
+    with pytest.raises(ValueError, match="prepared client list exactly once"):
         check_expected_notices(clients, jobs)
 
 

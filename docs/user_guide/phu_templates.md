@@ -1,7 +1,7 @@
 # Authoring native Typst notices
 
 A notice is an authored `.typ` entry point that reads one JSON payload.
-Python supplies validated canonical facts and the resolved assignment. Typst
+Python supplies validated client data and the selected notice. Typst
 owns the document's prose, layout, dates, disease labels, dose wording, and
 visible chart headings. The included branding and contacts are samples that a
 PHU must review.
@@ -31,8 +31,8 @@ copytree(Path(str(files("immuknow").joinpath("templates"))), Path("/path/to/my-p
 Manifest rows name entry-point files such as
 `overdue_agents_v1.fr.typ`, without paths. The pipeline resolves each name
 inside the complete tree selected with `--templates DIRECTORY`. Relative
-directory paths resolve from the working directory. To use one file for the whole accepted cohort, pass its
-path instead:
+directory paths resolve from the working directory. To use one file for the
+whole accepted cohort, pass its path instead:
 
 ```bash
 uv run immuknow students.csv \
@@ -55,14 +55,15 @@ The maintained examples have flat entry points:
 `overdue_agents_v1.en.typ`, `overdue_agents_v1.fr.typ`, and
 `affirmative_schedule_v1.en.typ`. The disease example displays overdue
 diseases; the agent example displays vaccine agents. Eligibility for both
-uses the canonical overdue disease list.
+uses the overdue disease list.
 
 The affirmative example is never selected automatically. Assign
 `affirmative_schedule_v1.en.typ` in a manifest, or select that file with
 `--template` for a whole cohort. Its catalog `no_overdue` rule
 requires `overdue_diseases` to be empty for every selected client, based
-on the source assessment. An ineligible assignment fails preflight. No French affirmative
-example ships. Add one only after its wording and layout are reviewed.
+on the source assessment. An ineligible assignment fails preflight.
+No French affirmative example ships. Add one only after its wording and
+layout are reviewed.
 
 ## Assert the notice identity
 
@@ -91,11 +92,11 @@ The renderer gives each entry point one small, derived JSON file:
 | `version_id`, `language`, `client_id` | Resolved identity and client identifier |
 | `client_data` | `name`, `address`, `city`, `postal_code`, `school`, `over_16`, and `date_of_birth_iso`; optional `qr_img` and `qr_url` |
 | `date_data_cutoff_iso` | ISO extract date or blank when absent |
-| `overdue_diseases` | Canonical `{disease, dose}` entries; invalid dose also has `dose_raw` |
+| `overdue_diseases` | Normalized disease names and doses as `{disease, dose}`; invalid dose also has `dose_raw` |
 | `overdue_agents` | Vaccine agents available to agent-based notices |
 | `include_dose` | Whether Typst shows available numeric doses |
-| `received` | History rows with `date_given`, `date_rowspan`, `vaccines`, and canonical `columns` validity statuses |
-| `chart_diseases` | Canonical chart identifiers in configured order |
+| `received` | History rows with `date_given`, `date_rowspan`, `vaccines`, and validity statuses in `columns` keyed by disease name |
+| `chart_diseases` | Configured disease names in chart order |
 | `show_validity_markers` | Whether the history distinguishes validity |
 | `logo_path`, `signature_path` | Assets beneath the bounded Typst root |
 
@@ -105,7 +106,7 @@ An absent dose has `dose: null`; an invalid source dose also retains
 and shared headings for English and French. A blank optional cutoff stays
 blank; a required invalid date fails. The history retains its compact date
 format. Translation dictionaries are staged once under `/translations/` and
-looked up by canonical key. Uncatalogued source labels stay visible unchanged.
+looked up by disease name. Uncatalogued source labels stay visible unchanged.
 A label present only in the other language is an error. Chart membership is
 never inferred from translated labels.
 

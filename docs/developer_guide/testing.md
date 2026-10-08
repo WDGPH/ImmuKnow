@@ -1,7 +1,7 @@
 # Testing
 
 Use tests to prove the complete notice workflow at its real boundaries:
-canonical clients, resolved assignments, structured render inputs, compiled
+prepared client records, selected notices, structured render inputs, compiled
 PDFs, and complete downstream accounting.
 
 ## Run the checks

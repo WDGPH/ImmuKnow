@@ -21,7 +21,7 @@ from pathlib import Path
 import pytest
 
 from immuknow import bundle_pdfs
-from immuknow.data_models import ClientRecord, PdfRecord
+from immuknow.data_models import ClientRecord, PDFRecord
 from immuknow.enums import BundleStrategy, BundleType
 from tests.fixtures import sample_input
 
@@ -41,7 +41,7 @@ def artifact_to_dict(artifact) -> dict:
 
 
 def client_lookup(artifact: dict) -> dict:
-    """Select canonical clients for grouping fixtures."""
+    """Select prepared clients for grouping fixtures."""
     return {
         (client["sequence"], client["client_id"]): client
         for client in artifact["clients"]
@@ -61,13 +61,13 @@ def create_test_pdf(path: Path, num_pages: int = 1) -> None:
         writer.write(f)
 
 
-def make_pdf_records(clients: dict, output_dir: Path) -> list[PdfRecord]:
-    """Pair canonical client records with the PDFs created by a test."""
+def make_pdf_records(clients: dict, output_dir: Path) -> list[PDFRecord]:
+    """Pair prepared client records with the PDFs created by a test."""
     from pypdf import PdfReader
 
     pdf_dir = output_dir / "pdf_individual"
     return [
-        PdfRecord(
+        PDFRecord(
             sequence=sequence,
             client_id=client_id,
             pdf_path=pdf_dir / f"en_notice_{sequence}_{client_id}.pdf",
@@ -510,7 +510,7 @@ def test_disabled_bundling_leaves_outputs_untouched(tmp_path: Path) -> None:
 @pytest.mark.unit
 def test_nonempty_cohort_requires_explicit_jobs(tmp_path: Path) -> None:
     artifact = sample_input.create_test_artifact_payload(num_clients=1)
-    with pytest.raises(ValueError, match="canonical cohort"):
+    with pytest.raises(ValueError, match="prepared client list"):
         bundle_pdfs.bundle_notices(
             artifact.clients, [], tmp_path, "run", {"bundling": {"bundle_size": 5}}
         )
@@ -556,7 +556,7 @@ def test_duplicate_jobs_cannot_substitute_for_missing_client(tmp_path: Path) -> 
         data=tmp_path / "notice.json",
         pdf=tmp_path / "notice.pdf",
     )
-    with pytest.raises(ValueError, match="canonical cohort"):
+    with pytest.raises(ValueError, match="prepared client list"):
         bundle_pdfs.bundle_notices(
             artifact.clients,
             [job, job],

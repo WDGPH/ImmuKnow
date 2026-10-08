@@ -80,7 +80,7 @@ def compile_render_job(
 def check_expected_notices(
     clients: list[ClientRecord], jobs: list[RenderJob], *, require_files: bool = False
 ) -> None:
-    """Require exactly one uniquely named job per resolved canonical client."""
+    """Require exactly one uniquely named render job for each prepared client."""
     expected = [
         (client.sequence, client.client_id, client.language, client.version_id)
         for client in clients
@@ -94,7 +94,9 @@ def check_expected_notices(
         or set(expected) != set(actual)
         or len({job.pdf for job in jobs}) != len(jobs)
     ):
-        raise ValueError("Render jobs do not match the canonical cohort exactly once")
+        raise ValueError(
+            "Render jobs do not match the prepared client list exactly once"
+        )
     if require_files:
         for job in jobs:
             if not job.pdf.is_file():

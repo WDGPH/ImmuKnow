@@ -1,6 +1,6 @@
 """Prepare localized notice JSON and stage maintained Typst templates once per run.
 
-The canonical cohort supplies every resolved version and language. The render-job
+The prepared client list supplies every resolved version and language. The render-job
 manifest maps each client to its unchanged template, JSON input, and expected PDF.
 All writes stay in the caller's output directory. Document source belongs to Typst.
 """
@@ -91,7 +91,7 @@ def prepare_render_jobs(
     Parameters
     ----------
     clients : list[ClientRecord]
-        Canonical cohort with resolved notice assignments.
+        Prepared client list with resolved notice assignments.
     artifact_dir : Path
         Writable output directory for the bounded render workspace and manifest.
     template_dir : Path
@@ -101,14 +101,14 @@ def prepare_render_jobs(
     config_dir : Path
         Caller-selected configuration resources.
     run_id : str
-        Canonical cohort identifier.
+        Identifier for this run.
     pdf_dir : Path, optional
         Expected PDF directory; defaults to a sibling ``pdf_individual`` directory.
 
     Returns
     -------
     list[RenderJob]
-        One job per client in canonical sequence order. No Typst source is generated.
+        One job per client in client sequence order. No Typst source is generated.
     """
     artifact_dir = artifact_dir.resolve()
     template_dir = template_dir.resolve()
@@ -235,7 +235,7 @@ def prepare_render_jobs(
 
 
 def build_notice_data(client: ClientRecord, config: dict[str, Any]) -> dict[str, Any]:
-    """Supply canonical facts and the resolved assignment to one notice."""
+    """Supply prepared client data and the resolved assignment to one notice."""
     client_data: dict[str, Any] = {
         "name": " ".join(
             filter(None, [client.person["first_name"], client.person["last_name"]])

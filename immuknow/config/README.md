@@ -3,7 +3,7 @@
 The package ships `immuknow/config/` as its default configuration directory.
 Pass `--config PATH` to select a PHU-owned directory. It must contain the
 required reference files; installed resources remain read-only. The command and
-callable workflow are described in [getting started](https://WDGPH.github.io/ImmuKnow/user_guide/getting_started/).
+callable workflow are described in [getting started][getting-started].
 
 ## Files and responsibilities
 
@@ -11,20 +11,21 @@ callable workflow are described in [getting started](https://WDGPH.github.io/Imm
 |---|---|
 | `parameters.yaml` | Run options, chart order, dates, QR, validation, encryption, and delivery |
 | `input_schema.json` | Required source columns and types |
-| `vaccine_reference.json` | Vaccine code to canonical disease identifiers |
-| `disease_normalization.json` | Source disease variants to canonical identifiers |
+| `vaccine_reference.json` | Vaccine code to configured disease names |
+| `disease_normalization.json` | Source disease variants to configured disease names |
 | `phix_mapping.json` | PHU school and facility reference |
 | `translations/{en,fr}_diseases_{chart,overdue}.json` | Approved display labels for Typst |
 | `notice_versions.yaml` | Registered notice versions and eligibility rules |
 
 Python uses the reference mappings to normalize records and decide eligibility.
 Typst loads the selected display dictionaries once from the staged render
-workspace. Chart membership and order use canonical disease identifiers, never
-translated labels; two identifiers with the same label remain distinct.
+workspace. Chart membership and order use configured disease names as keys,
+never
+translated labels; two different names with the same label remain separate.
 Uncatalogued source labels remain visible unchanged. If an approved label exists
 in the other language but is absent from the selected language, rendering fails
 instead of switching languages. Update both language/domain dictionaries when
-adding a canonical disease.
+adding a configured disease name.
 
 ## Run options
 
@@ -34,7 +35,7 @@ Set options in `parameters.yaml`. Common choices:
 |---|---|
 | `date_notice_delivery` | ISO reference date for age and delivery decisions |
 | `date_data_cutoff` | ISO extract date shown in notices; may be blank when absent |
-| `chart_diseases_header` | Canonical chart identifiers in display order; unlisted diseases group under `Other` |
+| `chart_diseases_header` | Configured disease names in chart order; unlisted diseases group under `Other` |
 | `preprocess.include_dose` | Show numeric overdue doses when available; facts retain doses either way |
 | `preprocess.show_validity_markers` | Mark valid and invalid received doses in the history |
 | `ignore_agents` | Agent codes excluded from assessment processing |
@@ -51,8 +52,7 @@ Set options in `parameters.yaml`. Common choices:
 `envelope_window_1_125`. The first compares the extracted client ID to the
 expected render job; the others use page count or native Typst markers.
 An error-level finding stops the run. The validation report is written under
-`metadata/`. [PDF validation](https://WDGPH.github.io/ImmuKnow/user_guide/pdf_validation/) explains
-the measurements.
+`metadata/`. [PDF validation][pdf-validation] explains the measurements.
 
 For school matching, set `phix_validation.enabled: true`,
 `target_phu` to the exact key in `phix_mapping.json`, and
@@ -107,9 +107,9 @@ versions:
 Kinds `overdue`, `affirmative`, and `informational` imply
 `has_overdue`, `no_overdue`, and `any` eligibility. A version can set
 `requires` explicitly to one of those values. Eligibility always follows
-canonical overdue diseases, even when a template displays vaccine agents.
+the overdue disease list, even when a template displays vaccine agents.
 The catalog does not choose a language or assign a version to a client.
-The affirmative version's `no_overdue` rule checks an empty canonical
+The affirmative version's `no_overdue` rule checks an empty
 `overdue_diseases` list from the source assessment. An affirmative notice
 is selected only by an explicit manifest row or `--template`; it is
 not inferred from an empty list. An eligibility conflict fails preflight.
@@ -128,7 +128,7 @@ The `template` value is a basename, not a path. It resolves only within the
 packaged or selected complete template directory. Both selection routes parse
 `<version_id>.<language>.typ` with supported ISO 639-1 language codes
 `en` and `fr`; missing or unsupported language codes and path components
-are rejected. The filename supplies canonical `version_id` and language.
+are rejected. The filename supplies `version_id` and language.
 The authored Typst entry point independently asserts that same identity.
 Optional `experiment_id` and `experiment_arm` are retained as provenance.
 An explicit source `version_id` must agree with the filename. Missing client
@@ -162,9 +162,13 @@ for the native contract.
 
 ## Updating reference data
 
-Keep vaccine mappings and normalization keyed by canonical disease names.
-Translation files map each canonical identifier to one approved display label;
+Keep vaccine mappings and normalization keyed by configured disease names.
+Translation files map each configured disease name to one approved display
+label;
 chart and overdue contexts may use different wording. Update reference data
 and the relevant real-render tests together. A new language also needs an
 authored and reviewed entry point; adding dictionaries alone does not create
 a notice.
+
+[getting-started]: https://WDGPH.github.io/ImmuKnow/user_guide/getting_started/
+[pdf-validation]: https://WDGPH.github.io/ImmuKnow/user_guide/pdf_validation/

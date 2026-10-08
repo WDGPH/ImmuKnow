@@ -408,7 +408,7 @@ def test_encryption_rejects_job_client_mismatch(tmp_path: Path) -> None:
     artifact_path.write_text(json.dumps(artifact))
 
     with pytest.raises(
-        ValueError, match="Render jobs do not match the canonical cohort"
+        ValueError, match="Render jobs do not match the prepared client list"
     ):
         encrypt_notice.encrypt_expected_notices(
             [ClientRecord(**raw) for raw in artifact["clients"]],

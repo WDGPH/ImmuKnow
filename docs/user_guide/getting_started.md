@@ -79,7 +79,7 @@ The complete run writes beneath `--output`:
 output/
   pdf_individual/  # one expected notice per accepted client
   pdf_combined/    # optional bundles
-  artifacts/       # canonical cohort, render jobs, staged inputs when retained
+  artifacts/       # prepared clients, render jobs, staged inputs when retained
   metadata/        # validation and completion evidence
   logs/
 ```

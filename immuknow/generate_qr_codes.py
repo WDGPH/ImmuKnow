@@ -131,7 +131,7 @@ def generate_qr_codes(
     output_dir: Path,
     config: dict,
 ) -> tuple[list[ClientRecord], list[Path]]:
-    """Generate QR PNGs and return updated records in canonical order."""
+    """Generate QR PNGs and return updated records in client order."""
     qr_config = config.get("qr", {})
     qr_enabled = qr_config.get("enabled", False)
 

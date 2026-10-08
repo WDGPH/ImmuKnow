@@ -34,7 +34,7 @@ def catalog():
 
 
 @pytest.mark.integration
-def test_preprocessed_canonical_facts_survive_artifact_round_trip(
+def test_prepared_client_data_survive_artifact_round_trip(
     tmp_path: Path, default_vaccine_reference: dict
 ) -> None:
     df = sample_input.create_test_input_dataframe(num_clients=1)
@@ -54,7 +54,7 @@ def test_preprocessed_canonical_facts_survive_artifact_round_trip(
         catalog=catalog(),
         manifest=assigned_manifest(df, "fr"),
     )
-    path = preprocess.write_artifact(tmp_path, "canonical", result)
+    path = preprocess.write_artifact(tmp_path, "prepared-clients", result)
     payload = json.loads(path.read_text(encoding="utf-8"))
     client = ClientRecord(**payload["clients"][0])
 
@@ -71,7 +71,7 @@ def test_preprocessed_canonical_facts_survive_artifact_round_trip(
 
 
 @pytest.mark.integration
-def test_phix_mapping_from_selected_config_preserves_canonical_cohort(
+def test_phix_mapping_from_selected_config_preserves_prepared_clients(
     tmp_path: Path, default_vaccine_reference: dict
 ) -> None:
     df = sample_input.create_test_input_dataframe(num_clients=1)

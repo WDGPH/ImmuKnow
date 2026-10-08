@@ -360,7 +360,7 @@ def test_uncatalogued_source_label_remains_visible(tmp_path: Path) -> None:
 
 
 def test_duplicate_display_labels_do_not_merge_chart_cells(tmp_path: Path) -> None:
-    """Two canonical keys can share a heading while their record cells stay distinct."""
+    """Two disease identifiers can share a heading while their record cells stay distinct."""
     workspace = tmp_path / "duplicate display labels"
     template, data_file, notice = prepare_case(workspace, "overdue_diseases_fr")
     chart_path = workspace / "translations" / "fr_diseases_chart.json"

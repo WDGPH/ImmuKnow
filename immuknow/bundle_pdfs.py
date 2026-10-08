@@ -17,10 +17,9 @@ from typing import Iterator, List, Sequence, TypeVar
 
 from pypdf import PdfReader, PdfWriter
 
-from .data_models import PdfRecord
 from .enums import BundleStrategy, BundleType
 from .compile_notices import check_expected_notices
-from .data_models import ClientRecord, RenderJob
+from .data_models import ClientRecord, PDFRecord, RenderJob
 
 LOG = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -62,7 +61,7 @@ class BundlePlan:
         Sequential bundle number
     total_bundles : int
         Total number of bundles in this operation
-    clients : List[PdfRecord]
+    clients : List[PDFRecord]
         List of PDFs and metadata in this bundle
     """
 
@@ -70,7 +69,7 @@ class BundlePlan:
     bundle_identifier: str | None
     bundle_number: int
     total_bundles: int
-    clients: List[PdfRecord]
+    clients: List[PDFRecord]
 
 
 @dataclass(frozen=True)
@@ -154,7 +153,7 @@ def slugify(value: str) -> str:
     return re.sub(r"_+", "_", cleaned).strip("_").lower() or "unknown"
 
 
-def ensure_ids(records: Sequence[PdfRecord], *, attr: str, log_path: Path) -> None:
+def ensure_ids(records: Sequence[PDFRecord], *, attr: str, log_path: Path) -> None:
     missing = [
         record for record in records if not getattr(record.client, attr).get("id")
     ]
@@ -171,8 +170,8 @@ def ensure_ids(records: Sequence[PdfRecord], *, attr: str, log_path: Path) -> No
         )
 
 
-def group_records(records: Sequence[PdfRecord], key: str) -> dict[str, List[PdfRecord]]:
-    grouped: dict[str, List[PdfRecord]] = {}
+def group_records(records: Sequence[PDFRecord], key: str) -> dict[str, List[PDFRecord]]:
+    grouped: dict[str, List[PDFRecord]] = {}
     for record in records:
         identifier = getattr(record.client, key)["id"]
         grouped.setdefault(identifier, []).append(record)
@@ -180,7 +179,7 @@ def group_records(records: Sequence[PdfRecord], key: str) -> dict[str, List[PdfR
 
 
 def plan_bundles(
-    config: BundleConfig, records: List[PdfRecord], log_path: Path
+    config: BundleConfig, records: List[PDFRecord], log_path: Path
 ) -> List[BundlePlan]:
     """Plan how to group PDFs into bundles based on configuration.
 
@@ -188,7 +187,7 @@ def plan_bundles(
     ----------
     config : BundleConfig
         Bundling configuration including strategy and bundle size
-    records : List[PdfRecord]
+    records : List[PDFRecord]
         List of PDF records to bundle
     log_path : Path
         Path to logging file
@@ -379,7 +378,7 @@ def bundle_notices(
     artifact_path = output_dir / "artifacts" / f"preprocessed_clients_{run_id}.json"
     client_map = {(client.sequence, client.client_id): client for client in clients}
     records = [
-        PdfRecord(
+        PDFRecord(
             sequence=job.sequence,
             client_id=job.client_id,
             pdf_path=job.pdf,

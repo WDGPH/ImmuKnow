@@ -12,6 +12,10 @@ failures. Use types and examples when they clarify behavior. Test names and
 docstrings should identify the user-visible behavior protected, especially
 for compilation, mixed cohorts, and missing outputs.
 
+Use plain words that tell readers what a field or step actually does.
+Prefer "prepared client records", "disease names", or "selected version"
+over abstract labels when those are the facts meant.
+
 Keep point-in-time results and implementation rationale in the pull request
 and Git history. Repository guides describe current behavior and repeatable
 checks.

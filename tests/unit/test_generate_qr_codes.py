@@ -1,4 +1,4 @@
-"""QR images and payloads produced from canonical clients."""
+"""QR images and payloads produced from prepared clients."""
 
 from __future__ import annotations
 

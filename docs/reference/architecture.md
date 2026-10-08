@@ -2,11 +2,11 @@
 
 `immuknow.orchestrator.run_pipeline` owns a complete run; `immuknow` is its CLI.
 It loads selected configuration, validates source records and notice
-template filenames or one selected notice file, and prepares an ordered
-canonical cohort. Disease normalization,
-vaccine mapping, eligibility, age, grouping, and assignment reconciliation
-remain in Python. The selected filename resolves each client's canonical
-`version_id` and language; Typst independently asserts them.
+template filenames or one selected notice file, and prepares an ordered list
+of accepted clients. Python normalizes disease names, maps vaccines to diseases,
+checks eligibility and age, groups records, and checks assignments. The
+selected filename sets each client's `version_id` and language. Typst
+independently checks both.
 
 `preprocess.prepare_clients` owns CSV validation, normalization, record
 filtering, Phix checks, vaccine references, and assignment reconciliation.
@@ -18,7 +18,7 @@ findings and controls whether the run proceeds to rendering and delivery.
 flowchart LR
     A[CSV cohort] --> B[Validate and normalize]
     M[Manifest or one notice file] --> B
-    B --> C[Canonical cohort]
+    B --> C[Prepared client records]
     C --> D[Per-notice JSON and render jobs]
     T[Selected Typst templates and labels] --> D
     D --> E[Compile all expected PDFs]
@@ -30,8 +30,9 @@ flowchart LR
 The cohort and render jobs persist under `artifacts/` when configured to retain
 them. A render job names the client, sequence, version, language, selected
 template, data path, bounded workspace, and expected PDF. Small JSON payloads
-supply canonical facts; Typst formats dates, labels, dose wording, headings,
-and notice prose. The selected template tree and language dictionaries are
+supply validated client data. Typst formats dates, labels, dose wording,
+headings, and notice prose. The selected template tree and language
+dictionaries are
 staged once per run. No generated Typst source or client-specific wrapper is
 needed. The [authoring guide](../user_guide/phu_templates.md) defines the JSON.
 

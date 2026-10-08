@@ -1,4 +1,4 @@
-"""Read source records, apply health rules, and build the canonical cohort."""
+"""Read source records, apply health rules, and build the prepared client list."""
 
 from __future__ import annotations
 
@@ -367,7 +367,7 @@ def parse_overdue_diseases(
     client_id: str,
     warnings: set[str],
 ) -> list[dict[str, object]]:
-    """Preserve canonical disease and source dose state without display wording."""
+    """Preserve configured disease names and source dose information without display wording."""
     if not isinstance(raw, str) or not raw.strip():
         return []
 
@@ -459,7 +459,7 @@ def parse_overdue_agents(raw: Any) -> list[str]:
 
 
 def normalize_validity_status(raw_status: Any) -> str:
-    """Normalize a raw validity token to one of three canonical statuses.
+    """Normalize a raw validity token to one of three supported statuses.
 
     Only the exact casings "valid"/"Valid" and "invalid"/"Invalid" are
     accepted as known statuses; everything else — typos, alternate casings,
@@ -470,7 +470,7 @@ def normalize_validity_status(raw_status: Any) -> str:
     ----------
     raw_status : Any
         Raw value extracted from an imms_given segment, or any value that
-        needs to be coerced to a canonical status. Typically a str, but
+        needs to be converted to a supported status. Typically a str, but
         accepts Any so callers need not guard against None or NaN.
 
     Returns
@@ -1017,7 +1017,7 @@ def build_preprocess_result(
             "Default indicators will be used."
         )
 
-    # Canonical records are normalized before assignment or localization.
+    # Client records are prepared before assigning notices or translating labels.
 
     clients: List[ClientRecord] = []
     for row in sorted_df.to_dict(orient="records"):

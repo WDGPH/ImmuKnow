@@ -24,7 +24,7 @@ def test_selected_normalization_resource_is_used_per_run(tmp_path: Path) -> None
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("invalid", [[], {"Raw": 1}, {"Raw": ["Canonical"]}])
+@pytest.mark.parametrize("invalid", [[], {"Raw": 1}, {"Raw": ["Configured"]}])
 def test_malformed_normalization_resource_fails(
     tmp_path: Path, invalid: object
 ) -> None:

@@ -247,13 +247,13 @@ class TestClassifyMatch:
         assert result.mismatch_reason == "id_mismatch"
 
     def test_inexact_id_only_when_id_found_under_different_name(self, mapping):
-        """Name not found, but provided ID exists under a different canonical name → inexact/id_only.
+        """Name not found, but provided ID exists under a different name in the school mapping → inexact/id_only.
 
         Real-world significance:
         - The school may have been renamed; the ID is trustworthy but the name
           needs updating in the source system.
 
-        Assertion: match_type='inexact', mismatch_reason='id_only', matched_name is canonical.
+        Assertion: match_type='inexact', mismatch_reason='id_only', matched_name comes from the school mapping.
         """
         name_to_id, id_to_name = mapping
         result = validate_phix.classify_match(

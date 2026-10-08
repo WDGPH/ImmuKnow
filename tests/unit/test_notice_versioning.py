@@ -170,7 +170,7 @@ def test_catalog_rejects_invalid_yaml(tmp_path: Path) -> None:
         ("info_v1", NoticeKind.INFORMATIONAL, ["Measles"], True),
     ],
 )
-def test_eligibility_uses_canonical_overdue_diseases(
+def test_eligibility_uses_prepared_overdue_diseases(
     version: str, kind: NoticeKind, diseases: list[str], allowed: bool
 ) -> None:
     record = client(diseases)

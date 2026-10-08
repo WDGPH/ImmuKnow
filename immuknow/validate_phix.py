@@ -83,7 +83,7 @@ class PHIXMatchResult:
     input_name: str
     input_id: str  # "" when not provided in input
     match_type: str  # "exact" | "inexact" | "no_match"
-    matched_name: str | None = None  # canonical name from mapping
+    matched_name: str | None = None  # name from the school mapping
     matched_id: str | None = None  # facility ID from mapping
     mismatch_reason: str | None = None  # "name_only" | "id_mismatch" | "id_only"
 
@@ -199,12 +199,12 @@ def classify_match(
 
     # Name not found — try reverse ID lookup
     if input_id and input_id in id_to_name:
-        canonical_name = id_to_name[input_id]
+        mapped_name = id_to_name[input_id]
         return PHIXMatchResult(
             input_name=input_name,
             input_id=input_id,
             match_type="inexact",
-            matched_name=canonical_name,
+            matched_name=mapped_name,
             matched_id=input_id,
             mismatch_reason="id_only",
         )
@@ -261,7 +261,7 @@ def validate_schools(
 
     - ``{prefix}facility_id`` :   Matched facility ID, or ``""``
     - ``{prefix}match_type`` :    ``"exact"`` | ``"inexact"`` | ``"no_match"``
-    - ``{prefix}matched_name`` :  Canonical name from mapping, or ``""``
+    - ``{prefix}matched_name`` :  Name from the school mapping, or ``""``
     - ``{prefix}matched_phu`` :   *target_phu* for matched rows, ``""`` otherwise
 
 

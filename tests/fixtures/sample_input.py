@@ -1,4 +1,4 @@
-"""Synthetic source rows and canonical clients for pipeline tests."""
+"""Synthetic source rows and prepared clients for pipeline tests."""
 
 from __future__ import annotations
 
@@ -146,7 +146,7 @@ def create_test_client_record(
     board_name : str, default "Guelph Board"
         School board name
     overdue_diseases : Optional[List[str]], default None
-        Canonical diseases requiring immunization.
+        Disease identifiers requiring immunization.
     has_received_vaccines : bool, default False
         Whether to include mock vaccination history
 

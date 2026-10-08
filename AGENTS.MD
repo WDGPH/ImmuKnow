@@ -18,7 +18,7 @@ output checks, and delivery. Internal signatures and intermediate schemas may
 change together. Preserve user-facing configuration semantics and complete
 end-to-end results, not obsolete step APIs.
 
-Python owns source validation, canonical disease and dose facts, assessment,
+Python owns source validation, normalized disease names, dose facts, assessment,
 eligibility, assignment reconciliation, QR payloads, encryption, and grouping.
 Typst owns notice prose, labels, dates, dose wording, chart headings, and
 layout. The authored entry points and assets live under
@@ -27,7 +27,7 @@ layout. The authored entry points and assets live under
 Use a bounded run workspace and never write into installed package files.
 
 Keep one authoritative resolved `version_id` and language per notice.
-Persist the canonical cohort, selected resources, expected outputs, and
+Persist the prepared client list, selected resources, expected outputs, and
 successful completion where they help reproduce a run. Pass validated objects
 between internal responsibilities instead of writing files solely to separate
 functions. Compilation, validation, encryption, and bundling must account for

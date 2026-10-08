@@ -1,4 +1,4 @@
-"""Canonical disease normalization used when reading source data."""
+"""Match source disease names to the names used in configuration."""
 
 from __future__ import annotations
 
@@ -18,6 +18,6 @@ def load_normalization(path: Path) -> dict[str, str]:
 
 
 def normalize_disease(token: str, normalization: dict[str, str]) -> str:
-    """Map a raw disease label to its canonical identifier."""
+    """Look up the configured disease name, keeping unlisted names unchanged."""
     token = token.strip()
     return normalization.get(token, token)

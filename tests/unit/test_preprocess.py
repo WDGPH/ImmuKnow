@@ -1,4 +1,4 @@
-"""Tests for source normalization and canonical notice facts."""
+"""Tests for source normalization and prepared notice data."""
 
 from __future__ import annotations
 
@@ -77,7 +77,7 @@ class TestOverdueParsing:
         ]
         assert len(warnings) == 2
 
-    def test_display_option_does_not_change_canonical_doses(
+    def test_display_option_does_not_change_source_doses(
         self, default_vaccine_reference
     ) -> None:
         frame = sample_input.create_test_input_dataframe(num_clients=1)
@@ -602,7 +602,7 @@ class TestValidityStatusHandling:
 
     Covers:
     - Accepted casings ("valid", "Valid", "invalid", "Invalid") and their
-      canonical lowercase output
+      lowercase output
     - Fallback to "unknown" for typos, alternate casings, empty values, and
       None/NaN inputs
 
@@ -623,7 +623,7 @@ class TestValidityStatusHandling:
         - Only the exact casings "valid"/"Valid" and "invalid"/"Invalid" are
           authoritative; anything else must fall to "unknown"
 
-        Assertion: Each accepted casing maps to its lowercase canonical form
+        Assertion: Each accepted casing maps to its lowercase form
         """
         assert preprocess.normalize_validity_status("valid") == "valid"
         assert preprocess.normalize_validity_status("Valid") == "valid"
@@ -640,7 +640,7 @@ class TestValidityStatusHandling:
           by classify_dataset_validity, which drives warning/error behaviour in
           build_preprocess_result rather than reacting per-record
 
-        Assertion: All non-canonical inputs produce "unknown"
+        Assertion: All unrecognized inputs produce "unknown"
         """
         assert preprocess.normalize_validity_status("VALID") == "unknown"
         assert preprocess.normalize_validity_status("true") == "unknown"
@@ -1652,7 +1652,7 @@ class TestCheckClientInfoComplete:
 
 @pytest.mark.unit
 class TestParseOverdueDiseases:
-    """Canonical matching works on disease identifiers rather than labels."""
+    """Disease matching uses identifiers rather than translated labels."""
 
     def test_normalizes_disease_names(self) -> None:
         result = preprocess.parse_overdue_diseases(
