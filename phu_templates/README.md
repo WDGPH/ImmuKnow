@@ -6,13 +6,14 @@ Files beneath this directory are ignored by Git, apart from this README and
 
 ```bash
 cp -r immuknow/templates phu_templates/my_phu
-uv run immuknow students.xlsx en --template my_phu
+uv run immuknow students.csv --notice-assignments assignments.json --template my_phu
 ```
 
 For an installed package or an external location:
 
 ```bash
-immuknow students.xlsx en --templates "/path/to/my PHU templates"
+immuknow students.csv --notice-assignments assignments.json \
+  --templates "/path/to/my PHU templates"
 ```
 
 The selected directory supplies its own entry points, helpers, and assets.

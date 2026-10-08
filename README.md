@@ -13,21 +13,19 @@ From a checkout:
 
 ```bash
 uv sync
-uv run immuknow students.xlsx en --input ./input --output ./output
+uv run immuknow students.csv --notice-assignments ./assignments.json \
+  --input ./input --output ./output
 ```
 
-The positional `en` or `fr` selects a fixed legacy overdue notice. An installed
-package supplies the same command and built-in resources. For a mixed cohort,
-provide a notice catalog and manifest:
-
-```bash
-immuknow /path/to/students.xlsx \
-  --notice-assignments /path/to/assignments.json \
-  --config /path/to/config --output /path/to/notices
-```
+Use a CSV cohort and an assignment manifest. An installed package supplies the
+same `immuknow` command, built-in notice catalog, and resources. Use
+`--config /path/to/config` to select your own configuration and catalog.
 
 Each manifest row identifies a client by `client_id` and assigns one
 `version_id`; `language` is optional and otherwise comes from the catalog.
+These select `<version_id>.<language>.typ`. Each authored entry point declares
+its own language and rejects mismatched data; there is no cohort-wide CLI
+language argument in this workflow.
 An explicit source `version_id` must agree with the manifest. The maintained
 notices are legacy overdue (English/French), standard overdue (English/French),
 and affirmative schedule (English). The legacy notice displays overdue
@@ -54,9 +52,9 @@ from pathlib import Path
 from immuknow.orchestrator import run_pipeline
 
 completion = run_pipeline(
-    Path("students.xlsx"),
+    Path("students.csv"),
     Path("notices"),
-    language="en",
+    notice_assignments=Path("assignments.json"),
 )
 ```
 

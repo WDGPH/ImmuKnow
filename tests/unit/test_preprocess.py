@@ -92,6 +92,22 @@ class TestOverdueParsing:
 class TestReadInput:
     """Unit tests for read_input function."""
 
+    def test_csv_preserves_identifiers_for_assignment_matching(
+        self, tmp_path: Path
+    ) -> None:
+        """CSV identifiers retain leading zeros through input normalization."""
+        source = sample_input.create_test_input_dataframe(num_clients=1)
+        source["school_id"] = "0012"
+        source["board_id"] = "0034"
+        path = tmp_path / "students.csv"
+        source.to_csv(path, index=False, encoding="utf-8-sig")
+
+        actual = preprocess.normalize_dataframe(preprocess.read_input(path))
+
+        assert actual.loc[0, "client_id"] == "0000000001"
+        assert actual.loc[0, "school_id"] == "0012"
+        assert actual.loc[0, "board_id"] == "0034"
+
     def test_read_input_xlsx_file(self, tmp_test_dir: Path) -> None:
         """Verify reading Excel (.xlsx) files works correctly.
 

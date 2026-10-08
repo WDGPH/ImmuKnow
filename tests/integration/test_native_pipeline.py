@@ -57,7 +57,7 @@ def prepare_cohort(
     include_dose: bool = False,
     show_validity_markers: bool = False,
 ) -> tuple[list[str], Path, Path]:
-    """Prepare synthetic Excel, manifest, and external config for a real CLI run."""
+    """Prepare synthetic CSV, manifest, and external config for a real CLI run."""
     config_dir = tmp_path / "Configuration été"
     shutil.copytree(ROOT / "immuknow" / "config", config_dir)
     config_path = config_dir / "parameters.yaml"
@@ -75,8 +75,8 @@ def prepare_cohort(
 
     frame = create_test_input_dataframe(num_clients=len(languages))
     frame["overdue_disease"] = "Measles - 2"
-    input_path = tmp_path / "Élèves synthétiques.xlsx"
-    frame.to_excel(input_path, index=False)
+    input_path = tmp_path / "Élèves synthétiques.csv"
+    frame.to_csv(input_path, index=False)
     manifest_path = tmp_path / "Assignments.json"
     manifest_path.write_text(
         json.dumps(
@@ -328,10 +328,10 @@ def test_sequential_callable_runs_keep_resources_and_assignments_isolated(
     """A mixed affirmative/overdue run cannot leak resources into an all-French run."""
     command, first_output, first_config = prepare_cohort(tmp_path / "first")
     input_path = Path(command[3])
-    frame = pd.read_excel(input_path, dtype=str)
+    frame = pd.read_csv(input_path, dtype=str)
     frame.loc[0, "overdue_disease"] = ""
     frame.loc[0, "overdue_vaccine"] = ""
-    frame.to_excel(input_path, index=False)
+    frame.to_csv(input_path, index=False)
     assignment_path = Path(command[command.index("--notice-assignments") + 1])
     assignments = json.loads(assignment_path.read_text())
     assignments[0]["version_id"] = "affirmative_schedule_v1"
@@ -402,9 +402,9 @@ def test_preflight_preserves_actionable_sensitive_findings(
     if failure == "unknown_version":
         assignments[0]["version_id"] = "not_in_the_catalog"
     else:
-        frame = pd.read_excel(Path(command[3]), dtype=str)
+        frame = pd.read_csv(Path(command[3]), dtype=str)
         frame["version_id"] = "legacy_overdue_v1"
-        frame.to_excel(Path(command[3]), index=False)
+        frame.to_csv(Path(command[3]), index=False)
     manifest.write_text(json.dumps(assignments))
     with pytest.raises(ValueError, match="Sensitive assignment diagnostics"):
         orchestrator.run_pipeline(

@@ -44,24 +44,22 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s students.xlsx en
-  %(prog)s students.xlsx fr
-  %(prog)s students.xlsx --notice-assignments assignments.json
+  %(prog)s students.csv --notice-assignments assignments.json
+  %(prog)s students.csv --notice-assignments assignments.json --templates ./my-phu
         """,
     )
 
     parser.add_argument(
         "input_file",
         type=str,
-        help="Name of the input file (e.g., students.xlsx)",
+        help="CSV cohort filename or path (e.g., students.csv)",
     )
     parser.add_argument(
         "language",
         nargs="?",
         choices=sorted(Language.all_codes()),
         default=None,
-        help=f"Language for output ({', '.join(sorted(Language.all_codes()))}). "
-        "Required unless --notice-assignments is provided.",
+        help="Legacy fixed-notice language. Omit when using --notice-assignments.",
     )
     parser.add_argument(
         "--input",

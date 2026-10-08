@@ -87,8 +87,7 @@ templates yourself; the pipeline does not silently reinterpret them.
 
 ## Versions and assignments
 
-Fixed mode takes `en` or `fr` as a positional argument and selects
-`legacy_overdue_v1`. Manifest mode uses `--notice-assignments PATH`
+The CSV cohort workflow uses `--notice-assignments PATH`
 and a mapping-shaped `notice_versions.yaml` with integer
 `schema_version: 1`:
 
@@ -128,14 +127,20 @@ findings in the run output.
 client. If true, missing rows use the source `version_id` when present or
 the catalog default, with the default language. Set
 `notice_versioning.extra_manifest_rows` to `error` or `warn`
-for rows without a matching source client. A positional language in manifest
-mode does not override resolved per-client languages.
+for rows without a matching source client.
 
 The maintained files are `<version_id>.<language>.typ`. The package includes
 legacy overdue (English/French), standard overdue (English/French), and an
 English affirmative entry point. A missing version/language pair fails; no
-other language or PHU directory is substituted. See
+other language or PHU directory is substituted. Each `.typ` entry point declares
+its language and rejects an assignment that does not match. See
 [template authoring](https://WDGPH.github.io/ImmuKnow/user_guide/phu_templates/) for the JSON contract.
+
+The implementation still accepts Excel input and a legacy fixed mode:
+without `--notice-assignments`, positional `en` or `fr` selects
+`legacy_overdue_v1`. These paths are separate from the CSV assignment workflow
+shown in the current guides. A positional language supplied with a manifest
+is ignored with a warning; it cannot override per-client assignments.
 
 ## Updating reference data
 

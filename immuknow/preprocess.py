@@ -314,7 +314,9 @@ def read_input(file_path: Path) -> pd.DataFrame:
             for enc in ["utf-8-sig", "latin-1", "cp1252"]:
                 try:
                     # Let pandas sniff the delimiter
-                    df = pd.read_csv(file_path, sep=None, encoding=enc, engine="python")
+                    df = pd.read_csv(
+                        file_path, sep=None, encoding=enc, engine="python", dtype=str
+                    )
                     break
                 except (UnicodeDecodeError, pd.errors.ParserError):
                     continue

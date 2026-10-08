@@ -8,8 +8,8 @@ remain in Python. Each client has one resolved `version_id` and language.
 
 ```mermaid
 flowchart LR
-    A[Excel or CSV] --> B[Validate and normalize]
-    M[Optional assignment manifest] --> B
+    A[CSV cohort] --> B[Validate and normalize]
+    M[Assignment manifest] --> B
     B --> C[Canonical cohort]
     C --> D[Per-notice JSON and render jobs]
     T[Selected Typst templates and labels] --> D

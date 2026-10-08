@@ -7,15 +7,16 @@ on `PATH`, set `TYPST_BIN`, or configure `typst.bin` in
 
 ```bash
 uv sync
-uv run immuknow students.xlsx en --input ./input --output ./output
+uv run immuknow students.csv --notice-assignments ./assignments.json \
+  --input ./input --output ./output
 ```
 
 An installed package provides `immuknow` and its resources without a checkout.
 
 ## Prepare input
 
-Input is one Excel worksheet (`.xlsx` or `.xls`) or a CSV extracted from
-Panorama/PEAR. Column names must match the packaged
+Use one CSV extracted from Panorama/PEAR for the complete cohort. Column names
+must match the packaged
 [input schema](input_schema.md). Required columns are:
 
 | Client and location | Assessment and history |
@@ -30,23 +31,21 @@ and `version_id`. Missing required columns fail before notices are produced.
 
 ## Select notices
 
-Fixed mode uses the legacy overdue notice and requires a positional language:
+Assign versions and languages per client with a JSON manifest. The packaged
+configuration includes `notice_versions.yaml`; use `--config` for your own
+catalog and settings:
 
 ```bash
-uv run immuknow students.xlsx fr --output /path/to/notices
-```
-
-To assign versions and languages per client, supply a JSON manifest and a
-configuration directory with `notice_versions.yaml`:
-
-```bash
-uv run immuknow students.xlsx \
+uv run immuknow students.csv \
   --notice-assignments /path/to/assignments.json \
   --config /path/to/config --output /path/to/notices
 ```
 
 The manifest uses `client_id` and `version_id`; optional `language` uses
-the catalog default. An explicit source `version_id` must agree. The
+the catalog default. Together, version and language select an authored `.typ`
+entry point. That file declares the document language and checks that the
+assignment matches. Do not split the CSV or pass a positional language for
+this workflow. An explicit source `version_id` must agree. The
 [configuration guide](configuration.md) defines defaults, eligibility,
 reconciliation, QR/password fields, and validation rules. Use
 `--templates /path/to/my-phu` for a complete external Typst tree, or

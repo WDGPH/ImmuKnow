@@ -14,7 +14,8 @@ The package owns `immuknow/templates/`. Copy its entry points, `conf.typ`,
 
 ```bash
 cp -r immuknow/templates /path/to/my-phu
-uv run immuknow students.xlsx en --templates /path/to/my-phu
+uv run immuknow students.csv --notice-assignments assignments.json \
+  --templates /path/to/my-phu
 ```
 
 For an installed wheel:
