@@ -12,6 +12,30 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - Pin Typst to 0.15.1 in CI and setup instructions. Capture synthetic notice
   baselines with both 0.14.2 and 0.15.1 before migrating the Python renderer.
+- Replace all five Python notice generators with static Typst templates and
+  per-notice JSON. Each entry point asserts its own language and version.
+- Resolve assignments once using canonical `version_id`, retaining the manifest's
+  `notice_version` spelling. Conflicting explicit aliases now fail. Preserve
+  experiment details and unrelated metadata; localize dates after assignment.
+- Validate, encrypt, and bundle the explicit expected PDFs across all languages.
+  Missing outputs and failed compilation cannot become successful empty runs.
+- Package templates, assets, and reference resources. Support external configuration,
+  output, and `--templates PATH` with an installed, read-only source tree.
+
+### Migration
+
+- Fixed mode uses `legacy_overdue_v1`, retaining its disease-based notice wording.
+  Other explicit input versions require manifest mode. Versioned overdue templates
+  keep their agent lists and reject missing agent data.
+- Private Python templates must move to `.typ` entry points. See the
+  [authoring guide](docs/user_guide/phu_templates.md); no Python renderer remains.
+- Resolved notice and assignment output metadata use `version_id`. Display birth
+  dates move to the per-notice payload; the cohort keeps canonical ISO dates.
+  Mixed cohort headers have `language: null`; validation reports are named
+  `validation_<run_id>.json`. Render jobs and compilation evidence replace
+  per-client generated Typst files.
+- Synthetic semantic and visual comparisons preserve the prior output, including
+  existing three-page overflow in some notices. No French affirmative notice was added.
 
 ## [v1.1.0](https://github.com/WDGPH/ImmuKnow/releases/tag/v1.1.0) - 2026-08-27
 

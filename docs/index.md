@@ -24,7 +24,7 @@ The pipeline runs nine sequential, stateless steps. Each step reads its inputs f
 | 1 | `prepare_output.py` | Output directory setup |
 | 2 | `preprocess.py` | Data validation & normalization → JSON artifact |
 | 3 | `generate_qr_codes.py` | QR code PNG generation (optional) |
-| 4 | `generate_notices.py` | Typst template rendering |
+| 4 | `generate_notices.py` | Localized JSON and static template preparation |
 | 5 | `compile_notices.py` | Typst → PDF compilation |
 | 6 | `validate_pdfs.py` | PDF validation (rules, summary, JSON report) |
 | 7 | `encrypt_notice.py` | PDF encryption (optional) |

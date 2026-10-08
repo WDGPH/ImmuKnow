@@ -1,87 +1,88 @@
-# Pipeline Architecture
+# Pipeline architecture
 
-## Overview
-
-The ImmuKnow pipeline transforms raw vaccination records exported from Panorama/PEAR into bilingual (EN/FR) PDF immunization notices and history charts for children overdue under CCEYA and ISPA.
-
-The pipeline follows a **sequential, stateless step architecture**: each step reads its inputs fresh from disk and writes its outputs to disk. No in-memory state is passed between steps through the orchestrator. This design ensures that steps are independently testable and re-runnable — if Step 5 fails, you can fix the issue and re-run Steps 5–9 without reprocessing the input data.
-
-## Pipeline flow
+Python validates and normalizes the source records, resolves each notice's
+version and language, and prepares localized display data. Maintained Typst
+templates own the document source. Every expected PDF then passes through
+validation and, when enabled, encryption and bundling.
 
 ```mermaid
 flowchart LR
-    A[Excel Input] --> S1[1. Prepare Output]
-    S1 --> S2[2. Preprocess]
-    S2 --> S3[3. Generate QR Codes]
-    S3 --> S4[4. Generate Notices]
-    S4 --> S5[5. Compile Notices]
-    S5 --> S6[6. Validate PDFs]
-    S6 --> S7[7. Encrypt PDFs]
-    S7 --> S8[8. Bundle PDFs]
-    S8 --> S9[9. Cleanup]
-    S9 --> Z[Output Directory]
-
-    style S3 stroke-dasharray: 5 5
-    style S7 stroke-dasharray: 5 5
-    style S8 stroke-dasharray: 5 5
+    A[Source records] --> B[Normalize and resolve assignments]
+    B --> C[Canonical cohort JSON]
+    C --> D[Prepare notice JSON and render jobs]
+    T[Static Typst templates] --> D
+    D --> E[Compile each expected PDF]
+    E --> F[Validate every expected PDF]
+    F --> G[Optional encryption and bundling]
 ```
 
-Steps shown with dashed borders are optional — they are skipped when disabled in `config/parameters.yaml`.
+## Disk contracts
 
-## Step summary
+The orchestrator passes paths and configuration between steps. Each step reads
+its own disk inputs. The canonical cohort is ordered by school, last name, first
+name, and client ID; its sequence numbers persist through all outputs.
 
-| Step | Module | Key Inputs | Key Outputs |
-|------|--------|-----------|-------------|
-| 1 | `prepare_output.py` | Config flags | Clean `output/` directory |
-| 2 | `preprocess.py` | Excel file, `vaccine_reference.json`, `disease_normalization.json`, optional `notice_versions.yaml` + assignment manifest | `preprocessed_clients_<run_id>.json`; `notice_assignments_<run_id>.json` (manifest mode) |
-| 3 | `generate_qr_codes.py` | Preprocessed JSON, QR config | PNG files in `output/artifacts/qr_codes/` |
-| 4 | `generate_notices.py` | Preprocessed JSON, Typst templates (per-version subdirectories in manifest mode) | `.typ` files in `output/artifacts/typst/` |
-| 5 | `compile_notices.py` | `.typ` files | PDF files in `output/pdf_individual/` |
-| 6 | `validate_pdfs.py` | PDFs, artifact JSON | Console summary, `output/metadata/<lang>_validation_<run_id>.json` |
-| 7 | `encrypt_notice.py` | Individual PDFs, encryption config | Encrypted PDFs in `output/pdf_individual/` |
-| 8 | `bundle_pdfs.py` | Individual PDFs, bundling config | Bundle PDFs in `output/pdf_combined/` |
-| 9 | `cleanup.py` | Cleanup config | Removes intermediate artifacts |
+| Step | Module | Output |
+|---|---|---|
+| 1 | `prepare_output.py` | Caller-selected output directories |
+| 2 | `preprocess.py` | Canonical cohort and assignment metadata |
+| 3 | `generate_qr_codes.py` | Optional QR PNGs |
+| 4 | `generate_notices.py` | Per-notice JSON, staged static templates, `render_jobs.json` |
+| 5 | `compile_notices.py` | Expected PDFs and whole-stage `compilation.json` |
+| 6 | `validate_pdfs.py` | `metadata/validation_<run_id>.json` |
+| 7 | `encrypt_notice.py` | Optional encrypted copies of expected PDFs |
+| 8 | `bundle_pdfs.py` | Optional bundles and client-level manifests |
+| 9 | `cleanup.py` | Configured removal of run-local intermediates |
 
-## Design principles
+## Assignment precedes presentation
 
-**Stateless steps**
-Each step reads its inputs from disk and writes outputs to disk. The orchestrator never passes in-memory objects between steps. This means same input always produces the same output, and any step can be re-run independently.
+The external manifest retains `notice_version`. The canonical record,
+resolved notice, render payload, and render job use `version_id`. An explicit
+input `version_id` must agree with the manifest's value. Reconciliation resolves
+the assignment once and retains the result for preprocessing to attach without
+discarding unrelated metadata.
 
-**Normalized JSON artifact**
-Preprocessing produces a single `preprocessed_clients_<run_id>.json` artifact that serves as the canonical source of truth for all downstream steps. Client records are deterministically ordered by school → last name → first name → client ID, and each client receives a stable sequence number (`00001`, `00002`, etc.) that persists through all downstream operations.
+Catalog defaults apply only at this boundary. Each client then carries its own
+language through localization, QR construction, compilation, validation,
+encryption, and bundling. The cohort header's `language` is the common language
+when one exists, otherwise null. It is never a file-selection rule.
 
-**Bilingual support**
-Both English and French are first-class concerns. Disease names, notice text, and date formatting are all localized before being passed to Typst. In fixed mode the `language` argument selects a single rendering path shared by all clients. In manifest mode each client carries its own resolved language from the assignment manifest, enabling mixed-language runs.
+Fixed mode declares `legacy_overdue_v1` and needs no catalog. Its disease-based
+notices remain distinct from the agent-based `overdue_standard_v1` notices.
+Eligibility uses overdue diseases regardless of a template's presentation choice.
 
-**Notice versioning (manifest mode)**
-When `config/notice_versions.yaml` is present and `--notice-assignments` is supplied, the pipeline enters manifest mode. Each client is mapped to a specific notice version (e.g., `overdue_standard_v1`, `affirmative_schedule_v1`) and language. A preflight gate after preprocessing catches missing clients, unknown version IDs, and eligibility conflicts before any PDF is generated. When the catalog file is absent, the pipeline behaves identically to fixed mode.
+## Explicit rendering and output accounting
 
-**Fail-fast vs. per-item recovery**
-Critical steps (Preprocessing, Notice Generation, Compilation, PDF Validation) implement fail-fast: any error halts the pipeline immediately. Optional steps (QR Codes, Encryption, Bundling) implement per-item recovery: individual item failures are logged and skipped, and the pipeline continues processing remaining items.
+A `RenderJob` connects a canonical client to an unchanged entry point, a small
+JSON input, a bounded workspace, and an expected PDF. Step 4 stages the selected
+template tree once per run. No client-specific Typst source, wrapper script,
+dynamic Python import, or source substitution is involved.
 
-## Module organization
+Typst 0.15.1 checks each template's literal version and language against the
+payload. The compiler receives a data-file reference through `sys.inputs`.
+All template imports, assets, JSON files, and QR images are beneath
+`artifacts/render/`; the filesystem root is never used as Typst's file root.
 
-```
-pipeline/
-├── orchestrator.py         # CLI entry point (viper), coordinates 9 steps
-├── prepare_output.py       # Step 1
-├── preprocess.py           # Step 2
-├── generate_qr_codes.py    # Step 3 (optional)
-├── generate_notices.py     # Step 4
-├── compile_notices.py      # Step 5
-├── validate_pdfs.py        # Step 6
-├── encrypt_notice.py       # Step 7 (optional)
-├── bundle_pdfs.py          # Step 8 (optional)
-├── cleanup.py              # Step 9
-├── config_loader.py        # Configuration loading and validation
-├── data_models.py          # Dataclasses for client records and artifacts
-├── enums.py                # Language, BundleStrategy, TemplateField enums
-├── translation_helpers.py  # Disease name normalization and translation
-├── validate_phix.py        # PHIX school name validation (called from preprocess)
-├── notice_versioning.py    # Notice version catalog loader and eligibility validation
-├── assignment_manifest.py  # Assignment manifest loader, reconciliation, and preflight summary
-└── utils.py                # Template rendering and context building utilities
+Compilation removes old expected outputs and publishes each new PDF only after
+its command succeeds. The whole-stage completion record appears only after all
+jobs succeed. Assignment metadata alone is not evidence of compilation.
+A failed job prevents downstream processing even when earlier jobs produced PDFs.
 
-templates/                  # Built-in Typst templates (EN/FR)
-phu_templates/              # PHU-specific template overrides (gitignored)
-```
+Validation consumes the expected paths and client IDs. Encryption uses the
+same sequence/client mapping. Bundling verifies that the canonical cohort and
+render jobs agree and that each expected notice appears exactly once in its
+plans. Missing outputs fail; stale PDFs and encrypted copies are excluded.
+Size, school, and board grouping remain unchanged, with no automatic language
+split. A mixed-language bundle lists its actual languages in its manifest.
+
+## Resources and custom templates
+
+The wheel and source distribution include the templates, assets, and reference
+configuration. Defaults are accessed through package resources. Input and output
+defaults belong to the caller's working directory, not site-packages.
+External configuration and `--templates PATH` work without a checkout.
+
+A PHU's selected template directory is isolated. Shared helpers and assets stay
+with its entry points. Read-only installed resources are copied into a removable,
+run-local workspace. See the [authoring guide](../user_guide/phu_templates.md)
+for the JSON contract and a single-notice compilation command.

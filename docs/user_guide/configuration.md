@@ -113,7 +113,7 @@ The mapping file should be re-generated whenever a new PHIX reference workbook i
 | Key | Type | Description |
 |---|---|---|
 | `enabled` | bool | Set to `false` to skip PHIX validation entirely (default: `true`) |
-| `mapping_file` | string | Path to `phix_mapping.json`, relative to project root or absolute |
+| `mapping_file` | string | Path to `phix_mapping.json`, relative to the selected configuration directory, or absolute |
 | `target_phu` | string | Exact PHU name as it appears as a key in the mapping file |
 | `column_prefix` | string | Prefix for DataFrame output columns (default: `"PHIX_"`) |
 | `unmatched_behavior` | string | How to handle `no_match` results: `warn`, `error`, or `skip` |
@@ -416,7 +416,7 @@ pdf_validation:
 Behavior:
 
 - The validation summary is always printed to the console.
-- A JSON report is written to `output/metadata/<lang>_validation_<run_id>.json` with per-PDF results and aggregates.
+- A JSON report is written to `output/metadata/validation_<run_id>.json` with per-PDF results and aggregates.
 - If any rule is set to `error` and fails, the pipeline stops with a clear error message listing failing rules and counts.
 - The validation logic is implemented in `pipeline/validate_pdfs.py` and invoked by the orchestrator.
 - The validation uses invisible markers embedded by the Typst templates to detect signature placement without affecting appearance.
@@ -458,116 +458,104 @@ All templates are validated at runtime to catch configuration errors early and p
 
 ## Notice Versioning
 
-The notice versioning feature allows a single pipeline run to send different notice types (overdue, affirmative, informational) in different languages, by mapping each client to a specific notice version via a JSON assignment manifest. The feature is entirely **opt-in**: it is disabled when `config/notice_versions.yaml` is absent, and the pipeline behaves byte-for-byte identically to the fixed-mode default.
+Manifest mode is enabled by `--notice-assignments PATH` and requires a catalog
+in the selected configuration directory. Fixed mode instead takes a positional
+language and uses the legacy notice; it needs neither file.
 
 ### `notice_versions.yaml`
-
-**Purpose**: Catalog of notice version IDs and their eligibility kinds.
-
-**Location**: `config/notice_versions.yaml`
-
-**Format**:
 
 ```yaml
 schema_version: 1
 default_version: overdue_standard_v1
 default_language: en
-
 versions:
   overdue_standard_v1:
     kind: overdue
   affirmative_schedule_v1:
     kind: affirmative
-  informational_v1:
-    kind: informational
 ```
 
-**Fields**:
+A version may declare `requires: has_overdue`, `no_overdue`, or `any`.
+When omitted, the kind supplies that rule: overdue requires diseases due,
+affirmative requires none, and informational accepts either. The model supports
+informational versions, but no informational template ships with the package.
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `schema_version` | int | Must be `1` |
-| `default_version` | str | Version ID used for clients absent from the manifest when `allow_unassigned: true` |
-| `default_language` | str | Language used for unassigned clients and as a fallback when a manifest row omits `language` |
-| `versions` | map | Version ID → `{kind}` definition |
+Eligibility always uses the canonical overdue disease list. It does not depend
+on the agent list a particular template displays. An agent-based overdue template
+fails compilation when its required agent data is missing.
 
-**Notice kinds**:
-
-| Kind | Description | Eligibility rule |
-|------|-------------|-----------------|
-| `overdue` | Standard overdue notice | Client must have at least one vaccine due |
-| `affirmative` | Notice for up-to-date clients | Client must have no vaccines due |
-| `informational` | General informational notice | No eligibility constraint |
-
-Eligibility conflicts (e.g., assigning an `affirmative` notice to a client with vaccines due) are caught at preflight and halt the pipeline before any PDF is generated.
-
-### Assignment manifest format
-
-The assignment manifest is a JSON array passed via `--notice-assignments`. Each entry maps a client ID to a version and language:
+### Assignment manifest
 
 ```json
 [
-  {"client_id": "1009876545", "notice_version": "overdue_standard_v1", "language": "en"},
-  {"client_id": "2001234567", "notice_version": "affirmative_schedule_v1", "language": "fr"},
-  {"client_id": "3009876543", "notice_version": "overdue_standard_v1"}
+  {"client_id": "1009876545", "notice_version": "overdue_standard_v1", "language": "fr"},
+  {"client_id": "2001234567", "notice_version": "affirmative_schedule_v1", "language": "en"}
 ]
 ```
 
-**Fields**:
+`client_id` and `notice_version` are required. Optional `language` uses the
+catalog default when absent. Optional `experiment_id` and `experiment_arm`
+are retained with assignment provenance.
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `client_id` | Yes | Must match a client ID in the input file |
-| `notice_version` | Yes | Must match a version ID in `notice_versions.yaml` |
-| `language` | No | ISO 639-1 language code; falls back to `default_language` when omitted |
-| `experiment_id` | No | Optional experiment identifier (passed through to assignment metadata) |
-| `experiment_arm` | No | Optional experiment arm (passed through to assignment metadata) |
+The external manifest keeps `notice_version` for compatibility. Internally,
+resolved notices and output metadata use **`version_id`**. An explicit source
+input `version_id` must agree with its client's manifest `notice_version`.
+A conflicting pair fails before rendering; unrelated client metadata is preserved.
 
-### `parameters.yaml` — `notice_versioning` section
+Language defaults are applied once at assignment. Birth dates, cutoff dates,
+disease labels, chart headings, dose wording, and QR links use the resolved
+client language. Compilation and downstream PDF handling never reapply defaults.
 
-Optional behavior controls for manifest mode:
+### Reconciliation policy
 
 ```yaml
 notice_versioning:
-  allow_unassigned: false       # true: unassigned clients use catalog defaults; false: error (default)
-  extra_manifest_rows: error    # "error" or "warn" for manifest rows with no matching client
+  allow_unassigned: false
+  extra_manifest_rows: error
 ```
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `allow_unassigned` | bool | `false` | When `true`, clients with no manifest row receive the catalog's `default_version` and `default_language` |
-| `extra_manifest_rows` | str | `"error"` | When `"error"`, manifest rows for clients not in the input file halt the pipeline; when `"warn"`, they are logged and skipped |
+With `allow_unassigned: false`, a client without a manifest row fails preflight.
+When true, an absent row uses the input's explicit `version_id`, if supplied,
+otherwise the catalog's `default_version`; language uses `default_language`.
+The resulting version must be in the catalog and satisfy its eligibility rule.
 
-### CLI usage
+Extra manifest rows follow `extra_manifest_rows: error|warn`. Unknown versions,
+conflicting aliases, unsupported languages, unsafe version identifiers, and
+eligibility conflicts fail the run.
+
+### Templates and fixed mode
+
+```text
+templates/
+  legacy_overdue_v1.en.typ
+  legacy_overdue_v1.fr.typ
+  overdue_standard_v1.en.typ
+  overdue_standard_v1.fr.typ
+  affirmative_schedule_v1.en.typ
+  conf.typ
+  assets/
+    logo.png
+    signature.png
+```
+
+Fixed mode declares `legacy_overdue_v1` and retains its disease-based notice.
+A different explicit input version requires manifest mode; it is never silently
+mapped to the legacy wording. The versioned overdue templates display agents.
+There is no built-in French affirmative notice.
+
+Version identifiers use letters, digits, underscores, and hyphens, starting with
+a letter or digit. Template lookup requires a supported language (`en` or `fr`)
+and an existing native entry point. It never falls back to another language or PHU.
 
 ```bash
-# Manifest mode — omit language, provide assignment file and catalog
-uv run viper students.xlsx --notice-assignments assignments.json --template my_phu
-
-# If --template is omitted in manifest mode, built-in templates/ is used
-# (requires a subdirectory per version ID in templates/)
+viper students.xlsx --notice-assignments assignments.json \
+  --config /path/to/config --templates /path/to/my-phu
 ```
 
-The `language` argument is **not required** in manifest mode. If supplied alongside `--notice-assignments`, it is ignored with a warning.
-
-### Template directory layout for manifest mode
-
-Each notice version must have its own subdirectory within the template directory:
-
-```
-phu_templates/my_phu/
-├── overdue_standard_v1/
-│   ├── en_template.py
-│   └── fr_template.py
-├── affirmative_schedule_v1/
-│   ├── en_template.py
-│   └── fr_template.py
-└── conf.typ
-```
-
-The pipeline validates all required `(version_id, language)` pairs exist before rendering any client. Missing template paths are reported together so all gaps can be fixed in one pass.
-
----
+Supplying a positional language in manifest mode produces a warning and leaves
+language selection to assignments and catalog defaults. A missing template fails
+before payload preparation. Follow the template authoring guide for the JSON
+contract, native assertions, and private-template migration.
 
 ## Adding New Configurations
 

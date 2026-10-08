@@ -4,9 +4,9 @@
 ## Read first
 
 * **Standards**:
-    * `docs/DOCUMENTATION_STANDARDS.md`
-    * `docs/TESTING_STANDARDS.md`
-    * `docs/CODE_ANALYSIS_STANDARDS.md`
+    * `docs/developer_guide/documentation.md`
+    * `docs/developer_guide/testing.md`
+    * `docs/developer_guide/code_analysis.md`
 
 ---
 
@@ -33,7 +33,7 @@
 
 * **Orchestrator:** `pipeline/orchestrator.py` is the `viper` CLI entry point and coordinates 9 steps.
 * **Steps:** Modules are organized by steps 1–9, not by functional themes.
-* **Templates:** `templates/` contains default language templates (`en_template.py`, `fr_template.py`), Typst config (`conf.typ`), and assets. `phu_templates/` is the container for PHU-specific template customizations (gitignored). Templates are loaded dynamically at runtime via `build_language_renderers()` in `generate_notices.py`. The `--template` CLI argument expects a template name within `phu_templates/` (e.g., `--template wdgph` → `phu_templates/wdgph/`). Template names cannot contain path separators (no nesting). Each template module must define a `render_notice()` function. Template directory isolation: templates, conf.typ, and assets stay together. Typesetting is separate from orchestration.
+* **Templates:** `templates/` contains authored `.typ` entry points, shared `conf.typ`, and assets. Python prepares JSON and render jobs; Typst owns document source and asserts each notice identity. `--templates PATH` selects an external PHU directory; `--template NAME` selects `phu_templates/NAME/` beneath the working directory. Private PHU materials remain ignored. See the template authoring guide for the JSON contract and migration.
 
 ---
 
@@ -78,7 +78,7 @@ Single source of truth: `uv.lock`.
   ```
 * Use type hints, f‑strings, docstrings, dataclasses.
 * No wildcard imports.
-* Depth and significance guidance lives in `docs/CODE_ANALYSIS_STANDARDS.md`.
+* Depth and significance guidance lives in `docs/developer_guide/code_analysis.md`.
 
 ---
 
@@ -132,11 +132,11 @@ Applies at all times. Compatibility posture is noted where behaviour differs bef
 2. **Clear boundaries and reuse.** Colocate helpers with the step that uses them. Extract to `utils.py` only when reused by ≥2 modules and clarity improves. Prefer pure, side‑effect‑free helpers with action‑oriented names.
 3. **Deterministic, step‑isolated pipeline.** Steps read inputs from disk and write outputs to disk. Do not pass in‑memory state via the orchestrator. Same input → same output, including ordering and filenames.
 4. **Contracts over defensiveness.** Centralize input validation in preprocessing and output checks in dedicated validation steps. Fail fast with precise exceptions. Do not add silent fallbacks.
-5. **Naming and public surface.** Functions use `snake_case` with verbs (e.g., `generate_typst_files`). Do not rely on leading underscores for privacy; document intent. Only the orchestrator exposes a CLI; no per‑module parsers.
+5. **Naming and public surface.** Functions use `snake_case` with verbs (e.g., `prepare_render_jobs`). Do not rely on leading underscores for privacy; document intent. Only the orchestrator exposes a CLI; no per‑module parsers.
 6. **Dependencies are locked.** Write to the APIs in `uv.lock`. If an API changes, upgrade and re‑lock. Do not branch at runtime to support multiple versions.
 7. **Errors and logging.** Catch only exceptions you can handle meaningfully. Raise actionable messages. Log at step boundaries and major operations. Informative, not noisy.
 8. **Parallel development without drift.** Keep core steps stable (preprocess, notices, compile, validate). Optional steps (encryption, batching, cleanup) may evolve independently if contracts hold. Update tests and docs with any schema or layout change.
-9. **Tests are the spec.** Update tests with behavior changes. Use integration tests for quick feedback and E2E tests for coverage. Keep E2E tests project‑root aware.
+9. **Tests are the spec.** Update tests with behavior changes. Use integration tests for quick feedback and E2E tests for coverage. Test native rendering outside the checkout with a bounded run-local file root.
 10. **Documentation placement.** Enduring standards live here and in `docs/`. Point‑in‑time analyses and refactor plans live in `docs/`.
     - **Single canonical working document per initiative.** During a feature or refactor effort, maintain one authoritative document (e.g., `docs/DEFENSIVE_CODE_AND_HELPERS_PLAN.md`). Append progress (phases, decisions, status) to that file instead of creating new phase‑specific Markdown files.
     - Prefer sections like "Status", "Decision Log", and dated "Updates" within the canonical doc over new files such as `PHASE_X_START.md` or `PHASE_X_COMPLETION.md`.

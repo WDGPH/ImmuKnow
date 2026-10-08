@@ -70,20 +70,22 @@ ImmuKnow/
 uv run viper <input_file> <language> [options]
 ```
 
-**Required arguments:**
+**Positional arguments:**
 
 | Argument | Description |
 |----------|-------------|
-| `<input_file>` | Name of the Excel file in `input/` (e.g., `students.xlsx`) |
-| `<language>` | Language code: `en` (English) or `fr` (French) |
+| `<input_file>` | Excel path, or a filename within `--input` |
+| `<language>` | `en` or `fr`; required in fixed mode, optional with manifest assignments |
 
 **Common options:**
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--input PATH` | `../input` | Input directory |
-| `--output PATH` | `../output` | Output directory |
-| `--config PATH` | `../config` | Configuration directory |
+| `--input PATH` | `./input` | Input directory |
+| `--output PATH` | `./output` | Output directory |
+| `--config PATH` | Packaged config | Configuration directory |
+| `--templates PATH` | Built-in templates | External PHU template directory |
+| `--notice-assignments PATH` | None | Assignment manifest; selects manifest mode |
 | `--template NAME` | Built-in `templates/` | PHU template name within `phu_templates/` |
 
 **Examples:**
@@ -107,7 +109,7 @@ All outputs are written to `output/` (or the path given by `--output`):
 output/
 ├── pdf_individual/      # One PDF per client
 ├── pdf_combined/        # Bundled PDFs (if bundling is enabled)
-├── artifacts/           # Intermediate files (QR codes, Typst sources)
+├── artifacts/           # Render jobs, JSON, unchanged templates and QR codes
 ├── metadata/            # Validation reports and run metadata
 └── logs/                # Per-run log files
 ```

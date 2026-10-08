@@ -114,48 +114,33 @@ All template placeholders are validated at config-load time against the `Templat
 
 ---
 
-## Step 4 — Notice Generation
+## Step 4 — Notice Data Preparation
 
 **Module:** `pipeline/generate_notices.py`
 
-Renders Typst source files (`.typ`) for each client by combining the preprocessed JSON artifact with PHU-specific language templates. This step is always run.
+Read the canonical cohort and select each client's native entry point. All
+requested templates must exist before notice preparation begins. The selected
+template tree is copied unchanged once into `artifacts/render/templates/`.
 
-**Configuration keys read:**
+Python prepares ordinary JSON values in the already resolved client language:
+birth dates, cutoff dates, disease labels, chart headings, and dose wording.
+Canonical ISO dates remain separate. Existing QR images are staged under the
+same bounded workspace when QR generation is enabled.
 
-| Key | Type | Description |
-|-----|------|-------------|
-| `chart_diseases_header` | list | Chart column disease names (translated per language) |
+**Inputs:** canonical cohort, selected static templates and assets, configured
+display options, translation resources, and optional QR images.
 
-**Inputs:**
+**Outputs:**
 
-- `output/artifacts/preprocessed_clients_<run_id>.json`
-- `output/artifacts/qr_codes/<sequence>.png` (if QR codes were generated)
-- Language template module (`templates/` or `phu_templates/<name>/`)
-- `config/translations/{lang}_diseases_chart.json`
-- `config/translations/{lang}_diseases_overdue.json`
+- `artifacts/render/data/<notice>.json`: one payload per client.
+- `artifacts/render/templates/`: unchanged entry points, helpers, and assets.
+- `artifacts/render/qr_codes/`: required QR images.
+- `artifacts/render_jobs.json`: client identity and sequence mapped to template,
+  data file, bounded workspace, and expected PDF.
 
-**Outputs:** `.typ` source files in `output/artifacts/typst/`
-
-Templates are loaded dynamically at runtime. The `--template` CLI argument selects a directory under `phu_templates/`. When omitted, the built-in `templates/` directory is used. Each template module must define a `render_notice()` function.
-
-Disease names are translated into the target language in Python before being passed to Typst — no runtime lookups occur in the Typst templates themselves.
-
-**Manifest mode template layout**
-
-When running in manifest mode, each notice version requires its own template subdirectory:
-
-```
-phu_templates/my_phu/
-├── overdue_standard_v1/
-│   ├── en_template.py
-│   └── fr_template.py
-├── affirmative_schedule_v1/
-│   ├── en_template.py
-│   └── fr_template.py
-└── conf.typ
-```
-
-The pipeline builds a registry of all `(version_id, language)` pairs needed by the client list, verifies every required template exists before generating any file, and then dispatches each client to its resolved template. Missing templates are reported as a single error listing all absent paths.
+No Typst source is generated. The selected template determines whether to display
+diseases or agents. Eligibility remains based on overdue diseases.
+See the [authoring guide](../user_guide/phu_templates.md) for the payload contract.
 
 ---
 
@@ -163,19 +148,23 @@ The pipeline builds a registry of all `(version_id, language)` pairs needed by t
 
 **Module:** `pipeline/compile_notices.py`
 
-Compiles the generated `.typ` Typst source files into individual PDF notices by invoking the `typst` command-line tool as a subprocess.
+Compile the explicit render jobs with **Typst 0.15.1**. Select the executable
+through `PATH`, `typst.bin`, or `TYPST_BIN`; the environment variable takes
+precedence. An unsupported or missing executable produces installation guidance.
+`typst.font_path` supplies an optional font directory.
 
-**Configuration keys read:**
+Every maintained entry point loads its JSON through `sys.inputs` and checks
+literal language and version identities. The command line carries a file
+reference, not client details. The file root is `artifacts/render/`.
 
-| Key | Type | Description |
-|-----|------|-------------|
-| `typst.bin` | str | Path to the Typst binary (default: `typst`) |
+**Inputs:** `render_jobs.json`, static templates, and per-notice JSON.
 
-**Inputs:** `.typ` files from `output/artifacts/typst/`
+**Outputs:** expected individual PDFs and `artifacts/compilation.json`.
 
-**Outputs:** PDF files in `output/pdf_individual/`
-
-This step is fail-fast: if any `.typ` file fails to compile, the pipeline halts immediately. Typst v0.15.1 is required; select the binary through `PATH`, `typst.bin`, or `TYPST_BIN`.
+Before a rerun, old completion evidence and expected PDFs are invalidated. A new
+PDF is published only after its command succeeds. Whole-stage evidence is written
+only after all jobs succeed. Assertions and other compiler failures halt the run;
+partially completed jobs cannot authorize validation or bundling.
 
 ---
 
@@ -197,13 +186,13 @@ Severity levels: `disabled` (skip), `warn` (log only), `error` (halt pipeline).
 
 **Inputs:**
 
-- PDFs from `output/pdf_individual/`
-- `output/artifacts/preprocessed_clients_<run_id>.json` (source of truth for expected client IDs)
+- Expected PDFs and client IDs from `artifacts/render_jobs.json`, backed by
+  whole-stage `compilation.json`. Stale files and encrypted copies are excluded.
 
 **Outputs:**
 
 - Console summary with per-rule pass/fail counts
-- `output/metadata/<lang>_validation_<run_id>.json` — per-PDF results and measurements
+- `output/metadata/validation_<run_id>.json` — per-PDF results and measurements
 
 For a full explanation of how markers work and how to add new rules, see [PDF Validation](../user_guide/pdf_validation.md).
 
@@ -222,11 +211,12 @@ Encrypts individual PDFs using a per-client password generated from a configurab
 | `encryption.enabled` | bool | Enable/disable PDF encryption |
 | `encryption.password.template` | str | Password template with `{field}` placeholders |
 
-**Inputs:** PDFs from `output/pdf_individual/`
+**Inputs:** Expected compiled PDFs and their canonical client records.
 
-**Outputs:** Encrypted PDFs in `output/pdf_individual/` (replace originals or alongside them)
+**Outputs:** Copies with an `_encrypted.pdf` suffix in `output/pdf_individual/`.
 
-Per-item recovery: if individual PDF encryption fails, the failure is logged and processing continues for remaining PDFs.
+An encryption failure fails the run. The selected configuration controls password
+formatting; client identity is read from the job mapping, not parsed from filenames.
 
 ---
 
@@ -243,11 +233,15 @@ Combines individual PDFs into multi-client bundles, optionally grouping by schoo
 | `bundling.bundle_size` | int | Max clients per bundle (0 = disabled) |
 | `bundling.group_by` | str\|null | Grouping strategy: `null`, `school`, or `board` |
 
-**Inputs:** PDFs from `output/pdf_individual/`
+**Inputs:** Expected unencrypted PDFs and their canonical client records.
 
 **Outputs:** Bundle PDFs in `output/pdf_combined/` with a manifest JSON
 
-This step runs independently of encryption — both can be enabled simultaneously. Per-item recovery applies.
+This step runs independently of encryption. It verifies that every expected notice
+appears exactly once in its plans. Missing outputs fail the run. Existing sequence,
+size, school, and board ordering is preserved without splitting by language.
+Mixed-language manifests list the actual languages and use a `notices_` filename
+prefix; single-language bundles retain their language prefix.
 
 ---
 
@@ -261,7 +255,7 @@ Removes intermediate files after a successful pipeline run. Behavior is controll
 
 | Key | Type | Description |
 |-----|------|-------------|
-| `pipeline.after_run.remove_artifacts` | bool | Remove `output/artifacts/` (QR codes, Typst files) |
+| `pipeline.after_run.remove_artifacts` | bool | Remove run-local cohort JSON, render inputs, staged templates, and QR images |
 | `pipeline.after_run.remove_unencrypted_pdfs` | bool | Remove unencrypted individual PDFs after encryption/bundling |
 
 When `remove_unencrypted_pdfs: true` and neither encryption nor bundling is enabled, individual PDFs are assumed to be the final output and are preserved regardless of this setting.

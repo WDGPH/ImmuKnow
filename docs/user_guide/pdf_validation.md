@@ -89,7 +89,7 @@ Validation rules:
 Detailed validation results: output/metadata/en_validation_<timestamp>.json
 ```
 
-JSON summary is written to `output/metadata/{language}_validation_{run_id}.json` and has:
+JSON summary is written to `output/metadata/validation_{run_id}.json` and has:
 
 - `rule_results`: per-rule pass/fail with severity
 - `results`: per-PDF details, warnings, and measurements
