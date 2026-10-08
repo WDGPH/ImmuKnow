@@ -36,9 +36,9 @@ name, and client ID; its sequence numbers persist through all outputs.
 
 ## Assignment precedes presentation
 
-The external manifest retains `notice_version`. The canonical record,
-resolved notice, render payload, and render job use `version_id`. An explicit
-input `version_id` must agree with the manifest's value. Reconciliation resolves
+The external manifest, canonical record, resolved notice, render payload, and
+render job all use `version_id`. An explicit input `version_id` must agree with
+the manifest's value. Reconciliation resolves
 the assignment once and retains the result for preprocessing to attach without
 discarding unrelated metadata.
 

@@ -65,7 +65,7 @@ def prepare_cohort(
             [
                 {
                     "client_id": str(client_id),
-                    "notice_version": "overdue_standard_v1",
+                    "version_id": "overdue_standard_v1",
                     "language": language,
                 }
                 for client_id, language in zip(frame["client_id"], languages)
@@ -91,6 +91,20 @@ def prepare_cohort(
 def run_cli(command: list[str], cwd: Path) -> subprocess.CompletedProcess:
     """Run from an unrelated directory, without inheriting a checkout path."""
     return subprocess.run(command, cwd=cwd, capture_output=True, text=True, check=False)
+
+
+def test_cli_requires_version_id_in_every_assignment(tmp_path: Path) -> None:
+    """An old field alone cannot silently assign the catalog's default version."""
+    command, output_dir, _ = prepare_cohort(tmp_path, languages=("en",))
+    manifest_path = Path(command[command.index("--notice-assignments") + 1])
+    assignments = json.loads(manifest_path.read_text())
+    assignments[0]["notice_version"] = assignments[0].pop("version_id")
+    manifest_path.write_text(json.dumps(assignments), encoding="utf-8")
+
+    result = run_cli(command, tmp_path)
+    assert result.returncode != 0
+    assert "required field 'version_id'" in result.stdout + result.stderr
+    assert not list(output_dir.rglob("*.pdf"))
 
 
 @pytest.mark.parametrize("group_by", [None, "school", "board"])

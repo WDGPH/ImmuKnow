@@ -43,16 +43,16 @@ viper /path/to/students.xlsx \
   --output /path/to/notices
 ```
 
-The manifest keeps the existing `notice_version` spelling:
+The manifest uses `version_id` for each assigned notice:
 
 ```json
 [
-  {"client_id": "1009876545", "notice_version": "overdue_standard_v1", "language": "en"},
-  {"client_id": "2001234567", "notice_version": "overdue_standard_v1", "language": "fr"}
+  {"client_id": "1009876545", "version_id": "overdue_standard_v1", "language": "en"},
+  {"client_id": "2001234567", "version_id": "overdue_standard_v1", "language": "fr"}
 ]
 ```
 
-The resolved record uses `version_id`. If the source input also supplies
+The resolved record also uses `version_id`. If the source input supplies
 `version_id`, it must agree with the manifest. Defaults apply once during
 assignment. Every later step uses the resolved client language.
 

@@ -26,8 +26,8 @@ from tests.fixtures.sample_input import create_test_client_record
 
 @pytest.mark.unit
 @pytest.mark.parametrize("input_version", [None, "overdue_standard_v1"])
-def test_input_alias_agrees_with_manifest(input_version: str | None) -> None:
-    """Both spellings resolve to one version while preserving experiment provenance."""
+def test_input_version_agrees_with_manifest(input_version: str | None) -> None:
+    """An input version can agree with the manifest without losing provenance."""
     client = _client("C001", ["Measles"])
     client.metadata["version_id"] = input_version
     row = ManifestRow("C001", "overdue_standard_v1", None, "study", "A")
@@ -40,13 +40,13 @@ def test_input_alias_agrees_with_manifest(input_version: str | None) -> None:
 
 
 @pytest.mark.unit
-def test_input_alias_conflict_is_rejected() -> None:
+def test_input_version_conflict_is_rejected() -> None:
     """An explicit input version cannot be silently overwritten by the manifest."""
     client = _client("C001", ["Measles"])
     client.metadata["version_id"] = "affirmative_schedule_v1"
     row = ManifestRow("C001", "overdue_standard_v1", "en", None, None)
     with pytest.raises(
-        ValueError, match="Conflicting version_id and manifest notice_version"
+        ValueError, match="Conflicting input version_id and manifest version_id"
     ):
         reconcile([client], {"C001": row}, _catalog(), False, "error")
 
@@ -93,7 +93,7 @@ def _row(
 ) -> dict:
     return {
         "client_id": client_id,
-        "notice_version": version,
+        "version_id": version,
         "language": language,
     }
 
@@ -130,18 +130,32 @@ class TestLoadManifest:
 
     def test_raises_on_non_list_json(self, tmp_path: Path) -> None:
         p = tmp_path / "assignments.json"
-        p.write_text('{"client_id": "C001", "notice_version": "v1"}', encoding="utf-8")
+        p.write_text('{"client_id": "C001", "version_id": "v1"}', encoding="utf-8")
         with pytest.raises(ValueError, match="must be a JSON array"):
             load_manifest(p)
 
     def test_raises_missing_client_id(self, tmp_path: Path) -> None:
-        p = _write_manifest(tmp_path, [{"notice_version": "overdue_standard_v1"}])
+        p = _write_manifest(tmp_path, [{"version_id": "overdue_standard_v1"}])
         with pytest.raises(ValueError, match="client_id"):
             load_manifest(p)
 
-    def test_raises_missing_notice_version(self, tmp_path: Path) -> None:
+    def test_raises_missing_version_id(self, tmp_path: Path) -> None:
         p = _write_manifest(tmp_path, [{"client_id": "C001"}])
-        with pytest.raises(ValueError, match="notice_version"):
+        with pytest.raises(ValueError, match="required field 'version_id'"):
+            load_manifest(p)
+
+    def test_old_field_without_version_id_fails_clearly(self, tmp_path: Path) -> None:
+        p = _write_manifest(
+            tmp_path,
+            [{"client_id": "C001", "notice_version": "overdue_standard_v1"}],
+        )
+        with pytest.raises(ValueError, match="required field 'version_id'"):
+            load_manifest(p)
+
+    @pytest.mark.parametrize("invalid", ["", 123, [], {}])
+    def test_rejects_invalid_version_id(self, tmp_path: Path, invalid: object) -> None:
+        p = _write_manifest(tmp_path, [{"client_id": "C001", "version_id": invalid}])
+        with pytest.raises(ValueError, match="invalid version_id"):
             load_manifest(p)
 
     def test_raises_on_duplicate_client_ids(self, tmp_path: Path) -> None:
@@ -150,7 +164,7 @@ class TestLoadManifest:
             load_manifest(p)
 
     def test_optional_fields_default_to_none(self, tmp_path: Path) -> None:
-        p = _write_manifest(tmp_path, [{"client_id": "C001", "notice_version": "v1"}])
+        p = _write_manifest(tmp_path, [{"client_id": "C001", "version_id": "v1"}])
         result = load_manifest(p)
         assert result["C001"].language is None
         assert result["C001"].experiment_id is None
@@ -160,7 +174,7 @@ class TestLoadManifest:
         rows = [
             {
                 "client_id": "C001",
-                "notice_version": "v1",
+                "version_id": "v1",
                 "experiment_id": "exp_a",
                 "experiment_arm": "treatment",
             }

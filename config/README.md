@@ -490,19 +490,19 @@ fails compilation when its required agent data is missing.
 
 ```json
 [
-  {"client_id": "1009876545", "notice_version": "overdue_standard_v1", "language": "fr"},
-  {"client_id": "2001234567", "notice_version": "affirmative_schedule_v1", "language": "en"}
+  {"client_id": "1009876545", "version_id": "overdue_standard_v1", "language": "fr"},
+  {"client_id": "2001234567", "version_id": "affirmative_schedule_v1", "language": "en"}
 ]
 ```
 
-`client_id` and `notice_version` are required. Optional `language` uses the
+`client_id` and `version_id` are required. Optional `language` uses the
 catalog default when absent. Optional `experiment_id` and `experiment_arm`
 are retained with assignment provenance.
 
-Assignment manifests use `notice_version`. Resolved notices and output metadata
-use **`version_id`**. An explicit source
-input `version_id` must agree with its client's manifest `notice_version`.
-A conflicting pair fails before rendering; unrelated client metadata is preserved.
+Assignment manifests, resolved notices, and output metadata use `version_id`.
+An explicit source input `version_id` must agree with its client's manifest
+`version_id`. A conflicting pair fails before rendering; unrelated client
+metadata is preserved.
 
 Language defaults are applied once at assignment. Birth dates, cutoff dates,
 disease labels, chart headings, dose wording, and QR links use the resolved
@@ -522,7 +522,7 @@ otherwise the catalog's `default_version`; language uses `default_language`.
 The resulting version must be in the catalog and satisfy its eligibility rule.
 
 Extra manifest rows follow `extra_manifest_rows: error|warn`. Unknown versions,
-conflicting aliases, unsupported languages, unsafe version identifiers, and
+conflicting assignments, unsupported languages, unsafe version identifiers, and
 eligibility conflicts fail the run.
 
 ### Templates and fixed mode

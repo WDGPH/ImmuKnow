@@ -1829,12 +1829,7 @@ def _make_catalog():
 def _make_manifest(*rows):
     from pipeline.assignment_manifest import ManifestRow
 
-    return {
-        r["client_id"]: ManifestRow(
-            **{("version_id" if k == "notice_version" else k): v for k, v in r.items()}
-        )
-        for r in rows
-    }
+    return {r["client_id"]: ManifestRow(**r) for r in rows}
 
 
 def _simple_df(num=2, with_overdue=True):
@@ -1888,14 +1883,14 @@ class TestBuildPreprocessResultManifestMode:
         manifest = _make_manifest(
             {
                 "client_id": "C001",
-                "notice_version": "overdue_standard_v1",
+                "version_id": "overdue_standard_v1",
                 "language": "en",
                 "experiment_id": None,
                 "experiment_arm": None,
             },
             {
                 "client_id": "C002",
-                "notice_version": "overdue_standard_v1",
+                "version_id": "overdue_standard_v1",
                 "language": "fr",
                 "experiment_id": None,
                 "experiment_arm": None,
@@ -1916,14 +1911,14 @@ class TestBuildPreprocessResultManifestMode:
         manifest = _make_manifest(
             {
                 "client_id": "C001",
-                "notice_version": "overdue_standard_v1",
+                "version_id": "overdue_standard_v1",
                 "language": "en",
                 "experiment_id": None,
                 "experiment_arm": None,
             },
             {
                 "client_id": "C002",
-                "notice_version": "overdue_standard_v1",
+                "version_id": "overdue_standard_v1",
                 "language": "en",
                 "experiment_id": None,
                 "experiment_arm": None,
@@ -1945,14 +1940,14 @@ class TestBuildPreprocessResultManifestMode:
         manifest = _make_manifest(
             {
                 "client_id": "C001",
-                "notice_version": "overdue_standard_v1",
+                "version_id": "overdue_standard_v1",
                 "language": "en",
                 "experiment_id": None,
                 "experiment_arm": None,
             },
             {
                 "client_id": "C002",
-                "notice_version": "overdue_standard_v1",
+                "version_id": "overdue_standard_v1",
                 "language": "fr",
                 "experiment_id": None,
                 "experiment_arm": None,
@@ -1977,14 +1972,14 @@ class TestBuildPreprocessResultManifestMode:
         manifest = _make_manifest(
             {
                 "client_id": "C001",
-                "notice_version": "affirmative_schedule_v1",
+                "version_id": "affirmative_schedule_v1",
                 "language": "en",
                 "experiment_id": None,
                 "experiment_arm": None,
             },
             {
                 "client_id": "C002",
-                "notice_version": "affirmative_schedule_v1",
+                "version_id": "affirmative_schedule_v1",
                 "language": "en",
                 "experiment_id": None,
                 "experiment_arm": None,
@@ -2007,7 +2002,7 @@ class TestBuildPreprocessResultManifestMode:
         manifest = _make_manifest(
             {
                 "client_id": "C001",
-                "notice_version": "overdue_standard_v1",
+                "version_id": "overdue_standard_v1",
                 "language": "en",
                 "experiment_id": None,
                 "experiment_arm": None,
@@ -2040,7 +2035,7 @@ class TestBuildPreprocessResultManifestMode:
         manifest = _make_manifest(
             {
                 "client_id": "C001",
-                "notice_version": "overdue_standard_v1",
+                "version_id": "overdue_standard_v1",
                 "language": "en",
                 "experiment_id": None,
                 "experiment_arm": None,
@@ -2063,21 +2058,21 @@ class TestBuildPreprocessResultManifestMode:
         manifest = _make_manifest(
             {
                 "client_id": "C001",
-                "notice_version": "overdue_standard_v1",
+                "version_id": "overdue_standard_v1",
                 "language": "en",
                 "experiment_id": None,
                 "experiment_arm": None,
             },
             {
                 "client_id": "C002",
-                "notice_version": "overdue_standard_v1",
+                "version_id": "overdue_standard_v1",
                 "language": "en",
                 "experiment_id": None,
                 "experiment_arm": None,
             },
             {
                 "client_id": "EXTRA_CLIENT",
-                "notice_version": "overdue_standard_v1",
+                "version_id": "overdue_standard_v1",
                 "language": "en",
                 "experiment_id": None,
                 "experiment_arm": None,
@@ -2104,21 +2099,21 @@ class TestBuildPreprocessResultManifestMode:
         manifest = _make_manifest(
             {
                 "client_id": "C001",
-                "notice_version": "overdue_standard_v1",
+                "version_id": "overdue_standard_v1",
                 "language": "en",
                 "experiment_id": None,
                 "experiment_arm": None,
             },
             {
                 "client_id": "C002",
-                "notice_version": "overdue_standard_v1",
+                "version_id": "overdue_standard_v1",
                 "language": "en",
                 "experiment_id": None,
                 "experiment_arm": None,
             },
             {
                 "client_id": "EXTRA_CLIENT",
-                "notice_version": "overdue_standard_v1",
+                "version_id": "overdue_standard_v1",
                 "language": "en",
                 "experiment_id": None,
                 "experiment_arm": None,
@@ -2150,14 +2145,14 @@ class TestBuildPreprocessResultManifestMode:
         manifest = _make_manifest(
             {
                 "client_id": "C001",
-                "notice_version": "overdue_standard_v1",
+                "version_id": "overdue_standard_v1",
                 "language": None,
                 "experiment_id": None,
                 "experiment_arm": None,
             },
             {
                 "client_id": "C002",
-                "notice_version": "overdue_standard_v1",
+                "version_id": "overdue_standard_v1",
                 "language": "fr",
                 "experiment_id": None,
                 "experiment_arm": None,
@@ -2197,14 +2192,14 @@ class TestWriteAssignmentMetadata:
         manifest = _make_manifest(
             {
                 "client_id": "C001",
-                "notice_version": "overdue_standard_v1",
+                "version_id": "overdue_standard_v1",
                 "language": "en",
                 "experiment_id": None,
                 "experiment_arm": None,
             },
             {
                 "client_id": "C002",
-                "notice_version": "overdue_standard_v1",
+                "version_id": "overdue_standard_v1",
                 "language": "fr",
                 "experiment_id": None,
                 "experiment_arm": None,

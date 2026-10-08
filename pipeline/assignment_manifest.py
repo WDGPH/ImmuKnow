@@ -64,7 +64,7 @@ def load_manifest(path: Path) -> Dict[str, ManifestRow]:
     Raises ValueError for:
 
     - content that is not a JSON array
-    - rows missing client_id or notice_version
+    - rows missing client_id or version_id
     - duplicate client_id entries
     """
     try:
@@ -93,17 +93,18 @@ def load_manifest(path: Path) -> Dict[str, ManifestRow]:
                 f"Assignment manifest row {idx} is missing required field 'client_id': {path}"
             )
 
-        notice_version = item.get("notice_version")
-        if not notice_version or not isinstance(notice_version, str):
+        version_id = item.get("version_id")
+        if version_id is None:
             raise ValueError(
                 f"Assignment manifest row {idx} (client_id={client_id!r}) is missing "
-                f"required field 'notice_version': {path}"
+                f"required field 'version_id': {path}"
             )
-        validate_version_id(notice_version)
-        if item.get("version_id") and item["version_id"] != notice_version:
+        if not isinstance(version_id, str) or not version_id:
             raise ValueError(
-                f"Conflicting version_id and notice_version for client {client_id}"
+                f"Assignment manifest row {idx} (client_id={client_id!r}) has invalid "
+                f"version_id: {version_id!r}: {path}"
             )
+        validate_version_id(version_id)
 
         if client_id in seen:
             raise ValueError(
@@ -120,7 +121,7 @@ def load_manifest(path: Path) -> Dict[str, ManifestRow]:
 
         result[client_id] = ManifestRow(
             client_id=client_id,
-            version_id=notice_version,
+            version_id=version_id,
             language=language,
             experiment_id=experiment_id,
             experiment_arm=experiment_arm,
@@ -164,7 +165,7 @@ def reconcile(
         input_version = client.metadata.get("version_id")
         if row is not None and input_version and input_version != row.version_id:
             raise ValueError(
-                f"Conflicting version_id and manifest notice_version for client {cid}: "
+                f"Conflicting input version_id and manifest version_id for client {cid}: "
                 f"{input_version!r} != {row.version_id!r}"
             )
         version = row.version_id if row else (input_version or catalog.default_version)
