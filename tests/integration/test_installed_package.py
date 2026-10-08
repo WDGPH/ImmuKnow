@@ -37,7 +37,8 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
         assert "immuknow/templates/affirmative_schedule_v1.en.typ" in names
         assert "immuknow/templates/assets/logo.png" in names
         assert "immuknow/templates/assets/signature.png" in names
-        assert "immuknow/config/input_schema.json" in names
+        assert "immuknow/schemas/input_schema.json" in names
+        assert "immuknow/config/input_schema.json" not in names
         assert "immuknow/config/translations/fr_diseases_chart.json" in names
         assert "immuknow/templates/presentation.typ" in names
         for language in ("en", "fr"):
@@ -56,6 +57,10 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
         assert any(
             name.endswith("immuknow/config/vaccine_reference.json")
             for name in source_names
+        )
+
+        assert any(
+            name.endswith("immuknow/schemas/input_schema.json") for name in source_names
         )
 
     environment = tmp_path / "Clean environment"
@@ -123,6 +128,8 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
         for path in resources:
             path.chmod(0o555 if path.is_dir() else 0o444)
         command, output_dir, config_dir = prepare_cohort(tmp_path / "Manifest run")
+        # A configuration-local schema cannot replace the installed contract.
+        (config_dir / "input_schema.json").write_text("not a schema")
         input_file = Path(command[3])
         manifest = Path(command[command.index("--notice-assignments") + 1])
         result = run_checked(

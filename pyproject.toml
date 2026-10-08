@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 packages = ["immuknow"]
 
 [tool.setuptools.package-data]
-immuknow = ["templates/*.typ", "templates/assets/*", "config/*.json", "config/*.yaml", "config/translations/*.json"]
+immuknow = ["schemas/*.json", "templates/*.typ", "templates/assets/*", "config/*.json", "config/*.yaml", "config/translations/*.json"]
 
 [project]
 name = "ImmuKnow"

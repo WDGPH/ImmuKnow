@@ -23,10 +23,10 @@ The names describe different points in that sequence:
 The preparation flow follows the source record through these steps:
 
 1. Read the CSV once as text, trim surrounding whitespace once, and validate
-   those prepared values against the selected schema. A required schema error
+   those prepared values against the packaged input schema. A required schema error
    rejects the whole file.
-2. Exclude incomplete addresses and clients that pass a permissive custom
-   schema with incomplete essential fields. Write separate CSV reports.
+2. Exclude incomplete mailing addresses and write their CSV report. Essential
+   client fields have already passed the required schema checks.
 3. Check school names against the reference list and load vaccine references, then build client records with
    normalized disease names, age and eligibility, and parsed history.
 4. Reconcile notice assignments. The orchestrator then saves the prepared
@@ -89,3 +89,7 @@ and rendering, matching the template filename contract.
 `run_pipeline` calls `prepare_output_directory` before processing clients and
 `cleanup_output` only after delivery succeeds. Preparation preserves previous
 logs; final cleanup follows `pipeline.after_run` retention settings.
+
+The input contract lives in `immuknow/schemas/input_schema.json` and is loaded
+from the installed package. Changes to its fields and rules must be reviewed
+with preprocessing and its tests. PHU configuration cannot override it.

@@ -33,15 +33,15 @@ select a notice.
 
 The CSV is read as text, and surrounding whitespace is removed once before
 validation. Blank cells stay blank; literal `NA`, `nan`, and `NULL` stay as
-text. The selected schema validates these prepared values, and accepted dates
+text. The packaged input schema validates these prepared values, and accepted dates
 are formatted as `YYYY-MM-DD` for notices, QR codes, and passwords. A missing required
 column or invalid required value, including a whitespace-only value, rejects
 the whole file before address and client completeness checks. A blank street
 address, province, or postal code passes the packaged schema. Mailing still
 requires at least one street line, plus city, province, and postal code. Rows
 without a complete address are excluded and written to
-`incomplete_addresses.csv`. If a custom schema permits blank essential client
-fields, those rows are excluded and written to `incomplete_clients.csv`.
+`incomplete_addresses.csv`. The input schema is part of the pipeline and
+cannot be replaced through `--config`.
 
 ## Select notices
 

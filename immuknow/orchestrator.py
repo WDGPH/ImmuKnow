@@ -166,6 +166,7 @@ def run_pipeline(
     input_path, output_dir = input_path.resolve(), output_dir.resolve()
     config_dir = config_dir.resolve()
     template_dir = (template_dir or DEFAULT_TEMPLATES_DIR).resolve()
+    # Check the source path before clearing output; read and validate its data later.
     preprocess.validate_csv_path(input_path)
     if not template_dir.is_dir():
         raise NotADirectoryError(f"Template path is not a directory: {template_dir}")

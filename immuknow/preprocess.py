@@ -43,7 +43,7 @@ UNSPECIFIED_AGENTS = [
     "Not Specified-unspecified",
 ]
 
-INPUT_SCHEMA_PATH = CONFIG_DIR / "input_schema.json"
+INPUT_SCHEMA_PATH = Path(str(files("immuknow").joinpath("schemas/input_schema.json")))
 
 
 def prepare_clients(
@@ -59,8 +59,7 @@ def prepare_clients(
 
     Raises ReconciliationError with findings when assignments fail preflight.
     """
-    schema = config_dir / "input_schema.json"
-    frame = read_input(input_path, schema if schema.exists() else None)
+    frame = read_input(input_path)
     frame = check_addresses_complete(frame, drop_incomplete=True, output_dir=output_dir)
     frame = check_client_info_complete(
         frame,
@@ -99,15 +98,15 @@ def prepare_clients(
 
 
 def validate_csv_path(file_path: Path) -> None:
-    """Reject missing or non-CSV input before any output cleanup."""
+    """Require an existing file with a .csv extension; do not read its contents."""
     if not file_path.is_file():
         raise FileNotFoundError(f"Input file not found: {file_path}")
     if file_path.suffix.lower() != ".csv":
         raise ValueError(f"Input must be a CSV file: {file_path}")
 
 
-def read_input(file_path: Path, schema_path: Path | None = None) -> pd.DataFrame:
-    """Read and trim CSV text once, then validate it against the selected schema."""
+def read_input(file_path: Path) -> pd.DataFrame:
+    """Read and trim CSV text once, then validate it against the packaged input contract."""
     validate_csv_path(file_path)
     for encoding in ("utf-8-sig", "latin-1", "cp1252"):
         try:
@@ -122,7 +121,7 @@ def read_input(file_path: Path, schema_path: Path | None = None) -> pd.DataFrame
         except (UnicodeDecodeError, pd.errors.ParserError):
             continue
         LOG.info("Loaded %s rows from %s", len(frame), file_path)
-        return validate_input(normalize_dataframe(frame), schema_path)
+        return validate_input(normalize_dataframe(frame))
     raise ValueError("Could not decode CSV with common encodings or delimiters")
 
 
@@ -131,13 +130,9 @@ def normalize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     return df.fillna("").astype(str).apply(lambda column: column.str.strip())
 
 
-def validate_input(
-    frame: pd.DataFrame, schema_path: Path | None = None
-) -> pd.DataFrame:
+def validate_input(frame: pd.DataFrame) -> pd.DataFrame:
     """Validate prepared values and supply empty strings for absent optional fields."""
-    descriptor = json.loads(
-        (schema_path or INPUT_SCHEMA_PATH).read_text(encoding="utf-8")
-    )
+    descriptor = json.loads(INPUT_SCHEMA_PATH.read_text(encoding="utf-8"))
     schema = Schema.from_descriptor(descriptor)
     missing = [field.name for field in schema.fields if field.name not in frame.columns]
     report = fl_validate(

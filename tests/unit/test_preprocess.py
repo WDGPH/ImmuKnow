@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pandas as pd
@@ -218,27 +217,6 @@ class TestReadInput:
 
         assert actual.loc[0, "street_address_line_2"] == ""
         assert actual.loc[0, "client_id"] == "0000000001"
-
-    def test_selected_schema_validates_trimmed_values(self, tmp_path: Path) -> None:
-        """The caller's schema governs values after the single cleanup pass."""
-        descriptor = json.loads(preprocess.INPUT_SCHEMA_PATH.read_text())
-        first_name = next(
-            field for field in descriptor["fields"] if field["name"] == "first_name"
-        )
-        first_name["constraints"]["pattern"] = "^Alice$"
-        schema_path = tmp_path / "selected-schema.json"
-        schema_path.write_text(json.dumps(descriptor), encoding="utf-8")
-        source = sample_input.create_test_input_dataframe(num_clients=1)
-        path = tmp_path / "students.csv"
-        source.loc[0, "first_name"] = "  Alice  "
-        source.to_csv(path, index=False)
-
-        assert preprocess.read_input(path, schema_path).loc[0, "first_name"] == "Alice"
-
-        source.loc[0, "first_name"] = "  Bob  "
-        source.to_csv(path, index=False)
-        with pytest.raises(ValueError, match="first_name"):
-            preprocess.read_input(path, schema_path)
 
 
 @pytest.mark.unit

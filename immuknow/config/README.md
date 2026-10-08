@@ -5,12 +5,16 @@ Pass `--config PATH` to select a PHU-owned directory. It must contain the
 required reference files; installed resources remain read-only. The command and
 callable workflow are described in [getting started][getting-started].
 
+The CSV input contract is packaged separately at
+`immuknow/schemas/input_schema.json`. It is maintained with preprocessing code;
+`--config` cannot replace its field names, types, or validation rules. A file
+named `input_schema.json` in a configuration directory is not used.
+
 ## Files and responsibilities
 
 | File | Purpose |
 |---|---|
 | `parameters.yaml` | Run options, chart order, dates, QR, validation, encryption, and delivery |
-| `input_schema.json` | Required source columns and types |
 | `vaccine_reference.json` | Vaccine code to configured disease names |
 | `disease_normalization.json` | Source disease variants to configured disease names |
 | `school_reference.json` | PHU school and facility reference |

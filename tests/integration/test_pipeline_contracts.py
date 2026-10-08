@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import nullcontext
 from pathlib import Path
 
 import pytest
@@ -129,3 +130,34 @@ def test_mixed_validity_with_markers_is_rejected(
             catalog=catalog(),
             manifest=assigned_manifest(df, "en"),
         )
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("first_name", ["Alice", "   "])
+def test_configuration_cannot_replace_the_packaged_input_contract(
+    tmp_path: Path, first_name: str
+) -> None:
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    # A deliberately permissive local descriptor must have no effect.
+    (config_dir / "input_schema.json").write_text('{"fields": []}')
+    frame = sample_input.create_test_input_dataframe(num_clients=1)
+    frame["first_name"] = first_name
+    source = tmp_path / "clients.csv"
+    frame.to_csv(source, index=False)
+    expected = (
+        pytest.raises(ValueError, match="first_name")
+        if not first_name.strip()
+        else nullcontext()
+    )
+    with expected:
+        result, _ = preprocess.prepare_clients(
+            source,
+            tmp_path / "output",
+            {},
+            config_dir,
+            catalog(),
+            {},
+            ("overdue_diseases_v1", "en"),
+        )
+        assert result.clients[0].person["first_name"] == "Alice"

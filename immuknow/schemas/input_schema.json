@@ -1,13 +1,13 @@
 {
   "$schema": "https://datapackage.org/profiles/2.0/tableschema.json",
   "title": "input_schema",
-  "description": "Schema for input file for automated notice generation.",
+  "description": "Required input contract for the ImmuKnow notice pipeline.",
   "fieldsMatch": ["subset"],
   "fields": [
     {
       "name": "school_name",
       "type": "string",
-      "description": "School name with PHIX ID (if available) in format 'SCHOOL NAME - PHIX ID'",
+      "description": "School name, optionally followed by a facility ID in the format 'SCHOOL NAME - FACILITY ID'",
       "stripWhitespace": true,
       "constraints": {
         "required": true
@@ -84,13 +84,13 @@
     },
     {
       "name": "overdue_disease",
-      "description": "Comma-separated list of overdue diseases for client",
+      "description": "Semicolon-separated list of overdue diseases for client",
       "type": "string",
       "stripWhitespace": true
     },
     {
       "name": "overdue_agent",
-      "description": "Comma-separated list of overdue agents for client",
+      "description": "Semicolon-separated list of overdue agents for client",
       "type": "string",
       "stripWhitespace": true
     },
