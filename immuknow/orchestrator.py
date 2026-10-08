@@ -20,6 +20,7 @@ from . import (
     validate_pdfs,
 )
 from .assignment_manifest import (
+    ManifestRow,
     ReconciliationError,
     ReconciliationResult,
     load_manifest,
@@ -27,7 +28,6 @@ from .assignment_manifest import (
 )
 from .config_loader import load_config
 from .data_models import PreprocessResult
-from .enums import Language
 from .notice_versioning import NoticeVersionCatalog, load_catalog
 
 DEFAULT_INPUT_DIR = Path.cwd() / "input"
@@ -45,7 +45,7 @@ def parse_args() -> argparse.Namespace:
         epilog="""
 Examples:
   %(prog)s students.csv --notice-assignments assignments.json
-  %(prog)s students.csv --notice-assignments assignments.json --templates ./my-phu
+  %(prog)s students.csv --notice-template ./my-phu/overdue_standard_v1.fr.typ
         """,
     )
 
@@ -53,13 +53,6 @@ Examples:
         "input_file",
         type=str,
         help="CSV cohort filename or path (e.g., students.csv)",
-    )
-    parser.add_argument(
-        "language",
-        nargs="?",
-        choices=sorted(Language.all_codes()),
-        default=None,
-        help="Legacy fixed-notice language. Omit when using --notice-assignments.",
     )
     parser.add_argument(
         "--input",
@@ -88,7 +81,7 @@ Examples:
         default=None,
         dest="template_dir",
         help="PHU template name within phu_templates/ (e.g., 'wdgph'). "
-        "If not specified, pipeline is run in testing mode, defaulting to the templates/ directory.",
+        "Use with --notice-assignments; defaults to packaged templates.",
     )
     parser.add_argument(
         "--templates",
@@ -97,12 +90,16 @@ Examples:
         dest="custom_templates",
         help="Path to an external directory of native Typst templates and assets.",
     )
-    parser.add_argument(
+    selection = parser.add_mutually_exclusive_group(required=True)
+    selection.add_argument(
         "--notice-assignments",
         type=Path,
-        default=None,
-        dest="notice_assignments",
-        help="Path to JSON assignment manifest for notice versioning.",
+        help="JSON assignments with client_id, version_id, and language for each client.",
+    )
+    selection.add_argument(
+        "--notice-template",
+        type=Path,
+        help="One <version_id>.<language>.typ entry point for every client.",
     )
 
     return parser.parse_args()
@@ -110,35 +107,13 @@ Examples:
 
 def validate_args(args: argparse.Namespace) -> None:
     """Validate command-line arguments and raise errors if invalid."""
-    # --- Language / manifest mutual validation ---
-    if args.notice_assignments is None and args.language is None:
-        raise ValueError("language is required when not using --notice-assignments")
-
-    if args.notice_assignments is not None and args.language is not None:
-        print(
-            f"Warning: CLI language argument '{args.language}' is ignored in manifest "
-            "mode. Language is governed by the manifest and catalog default_language."
-        )
-        args.language = None
-
-    if args.notice_assignments is not None:
-        if not args.notice_assignments.exists():
-            raise FileNotFoundError(
-                f"Assignment manifest not found: {args.notice_assignments}"
-            )
-        catalog_path = args.config_dir / "notice_versions.yaml"
-        if not catalog_path.exists():
+    if args.notice_template is not None:
+        if args.template_dir is not None or args.custom_templates is not None:
             raise ValueError(
-                "--notice-assignments requires notice_versions.yaml in the config "
-                f"directory ({args.config_dir})"
+                "--notice-template supplies its own directory; do not combine it "
+                "with --template or --templates"
             )
-
-    # --- Input file ---
-    if args.input_file and not (args.input_dir / args.input_file).exists():
-        raise FileNotFoundError(
-            f"Input file not found: {args.input_dir / args.input_file}"
-        )
-
+        return
     # --- Resolve template directory ---
     custom_templates = getattr(args, "custom_templates", None)
     if custom_templates is not None:
@@ -196,12 +171,12 @@ def report_assignments(
 def prepare_clients(
     input_path: Path,
     output_dir: Path,
-    language: str | None,
     run_id: str,
     config: dict,
     config_dir: Path,
-    catalog: NoticeVersionCatalog | None,
-    manifest: dict | None,
+    catalog: NoticeVersionCatalog,
+    manifest: dict[str, ManifestRow],
+    selected_notice: tuple[str, str] | None,
 ) -> PreprocessResult:
     """Validate source records and resolve the canonical notice cohort."""
     preprocess.configure_logging(output_dir, run_id)
@@ -213,19 +188,30 @@ def prepare_clients(
     )
     frame = preprocess.check_client_info_complete(
         frame,
-        "manifest" if manifest is not None else "fixed",
         drop_incomplete=True,
         output_dir=output_dir,
     )
     frame, warnings = preprocess.run_phix_validation(
         frame, output_dir, config=config, config_dir=config_dir
     )
+    if selected_notice is not None:
+        version_id, language = selected_notice
+        manifest = {
+            client_id: ManifestRow(
+                client_id,
+                version_id,
+                language,
+                None,
+                None,
+                assignment_source="template",
+            )
+            for client_id in frame["client_id"]
+        }
     reference = config_dir / "vaccine_reference.json"
     if not reference.exists():
         reference = DEFAULT_CONFIG_DIR / "vaccine_reference.json"
     result, reconciliation = preprocess.build_preprocess_result(
         frame,
-        language,
         json.loads(reference.read_text(encoding="utf-8")),
         preprocess.REPLACE_UNSPECIFIED,
         config=config,
@@ -233,45 +219,57 @@ def prepare_clients(
         catalog=catalog,
         manifest=manifest,
     )
-    if reconciliation is not None:
-        report_assignments(reconciliation, output_dir, run_id)
+    report_assignments(reconciliation, output_dir, run_id)
     return PreprocessResult(result.clients, warnings + result.warnings)
 
 
 def run_pipeline(
     input_path: Path,
     output_dir: Path,
-    language: str | None = None,
     *,
-    config_dir: Path = DEFAULT_CONFIG_DIR,
-    template_dir: Path = DEFAULT_TEMPLATES_DIR,
     notice_assignments: Path | None = None,
+    notice_template: Path | None = None,
+    config_dir: Path = DEFAULT_CONFIG_DIR,
+    template_dir: Path | None = None,
 ) -> Path | None:
     """Run one complete notice cohort and return its completion record.
 
-    Configuration and resources are selected once per call. A cancelled output
+    Select exactly one assignment manifest or notice template. Configuration
+    and resources are selected once per call. A cancelled output
     cleanup returns None; any failed preparation, rendering, validation, or
     delivery operation raises and leaves no successful completion record.
     """
+    if (notice_assignments is None) == (notice_template is None):
+        raise ValueError("Choose exactly one of notice_assignments or notice_template")
+    selected_notice = None
+    if notice_template is not None:
+        if template_dir is not None:
+            raise ValueError(
+                "notice_template supplies its own directory; omit template_dir"
+            )
+        notice_template = notice_template.resolve()
+        selected_notice = generate_notices.template_identity(notice_template)
+        template_dir = notice_template.parent
     input_path, output_dir = input_path.resolve(), output_dir.resolve()
-    config_dir, template_dir = config_dir.resolve(), template_dir.resolve()
-    if not input_path.is_file():
-        raise FileNotFoundError(f"Input file not found: {input_path}")
+    config_dir = config_dir.resolve()
+    template_dir = (template_dir or DEFAULT_TEMPLATES_DIR).resolve()
+    preprocess.validate_csv_path(input_path)
     if not template_dir.is_dir():
         raise NotADirectoryError(f"Template path is not a directory: {template_dir}")
     for source in (input_path, config_dir, template_dir):
         generate_notices.reject_overlap(source, output_dir)
     if notice_assignments is not None:
+        notice_assignments = notice_assignments.resolve()
         generate_notices.reject_overlap(notice_assignments, output_dir)
-    elif language is None:
-        raise ValueError("language is required when not using --notice-assignments")
-    if language is not None:
-        Language.from_string(language)
     config = load_config(config_dir / "parameters.yaml")
-    catalog = load_catalog(config_dir) if notice_assignments is not None else None
+    catalog = load_catalog(config_dir)
     manifest = (
-        load_manifest(notice_assignments) if notice_assignments is not None else None
+        load_manifest(notice_assignments) if notice_assignments is not None else {}
     )
+    if selected_notice is not None and selected_notice[0] not in catalog.versions:
+        raise ValueError(
+            f"Selected version {selected_notice[0]!r} is absent from notice_versions.yaml"
+        )
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f")
     before_run = config.get("pipeline", {}).get("before_run", {})
     if not prepare_output.prepare_output_directory(
@@ -287,30 +285,26 @@ def run_pipeline(
         result = prepare_clients(
             input_path,
             output_dir,
-            language,
             run_id,
             config,
             config_dir,
             catalog,
             manifest,
+            selected_notice,
         )
     except ReconciliationError as exc:
         diagnostic = report_assignments(exc.result, output_dir, run_id)
         raise ValueError(
-            f"Manifest preflight failed. Sensitive assignment diagnostics: {diagnostic}"
+            f"Notice assignment preflight failed. Sensitive assignment diagnostics: {diagnostic}"
         ) from exc
     clients, _ = generate_qr_codes.generate_qr_codes(
         result.clients, artifact_dir, config
     )
     result = PreprocessResult(clients, result.warnings)
-    languages = {client.language for client in clients}
     artifact_path = preprocess.write_artifact(
         artifact_dir,
-        next(iter(languages)) if len(languages) == 1 else None,
         run_id,
         result,
-        assignment_mode="manifest" if manifest is not None else "fixed",
-        default_version=catalog.default_version if catalog is not None else None,
     )
     for warning in result.warnings:
         print(f"Warning: {warning}")
@@ -342,6 +336,8 @@ def run_pipeline(
         "input": str(input_path),
         "config": str(config_dir),
         "templates": str(template_dir),
+        "notice_assignments": str(notice_assignments) if notice_assignments else None,
+        "notice_template": str(notice_template) if notice_template else None,
         "cohort": str(artifact_path),
         "notices": [
             {
@@ -371,10 +367,10 @@ def main() -> int:
         completed = run_pipeline(
             args.input_dir / args.input_file,
             args.output_dir,
-            args.language,
             config_dir=args.config_dir,
             template_dir=args.template_dir,
             notice_assignments=args.notice_assignments,
+            notice_template=args.notice_template,
         )
         return 0 if completed is not None else 2
     except Exception as exc:

@@ -8,8 +8,29 @@ from pathlib import Path
 import pytest
 
 from immuknow import preprocess
+from immuknow.assignment_manifest import ManifestRow
 from immuknow.data_models import ClientRecord
+from immuknow.notice_versioning import load_catalog
 from tests.fixtures import sample_input
+
+
+def assigned_manifest(df, language: str) -> dict[str, ManifestRow]:
+    return {
+        client_id: ManifestRow(
+            client_id=client_id,
+            version_id="overdue_standard_v1",
+            language=language,
+            experiment_id=None,
+            experiment_arm=None,
+        )
+        for client_id in df["client_id"]
+    }
+
+
+def catalog():
+    selected = load_catalog(preprocess.CONFIG_DIR)
+    assert selected is not None
+    return selected
 
 
 @pytest.mark.integration
@@ -26,17 +47,18 @@ def test_preprocessed_canonical_facts_survive_artifact_round_trip(
 
     result, _ = preprocess.build_preprocess_result(
         df,
-        "fr",
         default_vaccine_reference,
         [],
         config=config,
         config_dir=preprocess.CONFIG_DIR,
+        catalog=catalog(),
+        manifest=assigned_manifest(df, "fr"),
     )
-    path = preprocess.write_artifact(tmp_path, "fr", "canonical", result)
+    path = preprocess.write_artifact(tmp_path, "canonical", result)
     payload = json.loads(path.read_text(encoding="utf-8"))
     client = ClientRecord(**payload["clients"][0])
 
-    assert client.version_id == "legacy_overdue_v1"
+    assert client.version_id == "overdue_standard_v1"
     assert client.language == "fr"
     assert client.overdue_diseases == [
         {"disease": "Polio", "dose": 12},
@@ -68,11 +90,12 @@ def test_phix_mapping_from_selected_config_preserves_canonical_cohort(
     )
     result, _ = preprocess.build_preprocess_result(
         enriched,
-        "en",
         default_vaccine_reference,
         [],
         config=config,
         config_dir=preprocess.CONFIG_DIR,
+        catalog=catalog(),
+        manifest=assigned_manifest(enriched, "en"),
     )
 
     assert not warnings
@@ -97,9 +120,10 @@ def test_mixed_validity_with_markers_is_rejected(
     ):
         preprocess.build_preprocess_result(
             df,
-            "en",
             default_vaccine_reference,
             [],
             config={"preprocess": {"show_validity_markers": True}},
             config_dir=preprocess.CONFIG_DIR,
+            catalog=catalog(),
+            manifest=assigned_manifest(df, "en"),
         )

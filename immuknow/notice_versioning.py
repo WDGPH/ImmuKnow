@@ -1,9 +1,4 @@
-"""Notice versioning models and catalog loader for the immunization pipeline.
-
-Supports the optional assignment manifest feature. When notice_versions.yaml is
-absent from the config directory the feature is off and all callers receive None
-from load_catalog(), leaving fixed-mode behaviour unchanged.
-"""
+"""Notice identities, eligibility rules, and the required assignment catalog."""
 
 from __future__ import annotations
 
@@ -53,8 +48,6 @@ class NoticeVersion:
 @dataclasses.dataclass(frozen=True)
 class NoticeVersionCatalog:
     schema_version: int
-    default_version: str
-    default_language: str
     versions: Dict[str, NoticeVersion]
 
 
@@ -65,7 +58,7 @@ class ResolvedNotice:
     language: str
     experiment_id: Optional[str]
     experiment_arm: Optional[str]
-    assignment_source: str  # "manifest" | "default"
+    assignment_source: str  # "manifest" | "template"
 
 
 def validate_version_id(version_id: str) -> None:
@@ -94,15 +87,14 @@ def attach_notice(client: "ClientRecord", resolved: ResolvedNotice) -> "ClientRe
     )
 
 
-def load_catalog(config_dir: Path) -> Optional[NoticeVersionCatalog]:
+def load_catalog(config_dir: Path) -> NoticeVersionCatalog:
     """Load notice version catalog from config_dir/notice_versions.yaml.
 
-    Returns None when the file is absent (feature stays off).
-    Raises ValueError with an actionable message if the file exists but is invalid.
+    Raises FileNotFoundError when absent and ValueError when invalid.
     """
     catalog_path = config_dir / "notice_versions.yaml"
-    if not catalog_path.exists():
-        return None
+    if not catalog_path.is_file():
+        raise FileNotFoundError(f"Notice catalog not found: {catalog_path}")
 
     try:
         raw = yaml.safe_load(catalog_path.read_text(encoding="utf-8"))
@@ -121,29 +113,11 @@ def load_catalog(config_dir: Path) -> Optional[NoticeVersionCatalog]:
             "notice_versions.yaml: schema_version must be the supported integer 1"
         )
 
-    if "default_version" not in raw:
+    if "default_version" in raw or "default_language" in raw:
         raise ValueError(
-            "notice_versions.yaml is missing required field: default_version"
+            "notice_versions.yaml: default_version and default_language are no longer "
+            "supported; select version and language in assignments or a notice template"
         )
-
-    default_version = raw["default_version"]
-    if not isinstance(default_version, str) or not default_version:
-        raise ValueError(
-            "notice_versions.yaml: default_version must be a non-empty string"
-        )
-    validate_version_id(default_version)
-
-    default_language = raw.get("default_language")
-    if not isinstance(default_language, str) or not default_language:
-        raise ValueError(
-            "notice_versions.yaml: default_language must be a non-empty string"
-        )
-    try:
-        default_language = Language.from_string(default_language).value
-    except ValueError as exc:
-        raise ValueError(
-            f"notice_versions.yaml: invalid default_language {default_language!r}: {exc}"
-        ) from exc
 
     raw_versions = raw.get("versions")
     if not isinstance(raw_versions, dict) or not raw_versions:
@@ -187,16 +161,8 @@ def load_catalog(config_dir: Path) -> Optional[NoticeVersionCatalog]:
             version_id=version_id, kind=kind, requires=requires
         )
 
-    if default_version not in versions:
-        raise ValueError(
-            f"notice_versions.yaml: default_version {default_version!r} is not in "
-            f"versions. Available versions: {', '.join(sorted(versions.keys()))}"
-        )
-
     return NoticeVersionCatalog(
         schema_version=raw["schema_version"],
-        default_version=default_version,
-        default_language=default_language,
         versions=versions,
     )
 

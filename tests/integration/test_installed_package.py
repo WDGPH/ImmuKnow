@@ -19,7 +19,9 @@ pytestmark = pytest.mark.integration
 
 def run_checked(command: list[str], cwd: Path) -> subprocess.CompletedProcess:
     """Keep build and installed-process diagnostics available when a check fails."""
-    result = subprocess.run(command, cwd=cwd, capture_output=True, text=True)
+    result = subprocess.run(
+        command, cwd=cwd, capture_output=True, text=True, check=False
+    )
     assert result.returncode == 0, result.stdout + result.stderr
     return result
 
@@ -102,8 +104,10 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
         [
             str(python),
             "-c",
-            "import json; from importlib.resources import files; "
-            "print(json.dumps([str(files(p)) for p in ('immuknow',)]))",
+            (
+                "import json; from importlib.resources import files; "
+                "print(json.dumps([str(files(p)) for p in ('immuknow',)]))"
+            ),
         ],
         unrelated,
     )
@@ -125,10 +129,12 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
             [
                 str(python),
                 "-c",
-                "from pathlib import Path; from immuknow.orchestrator import run_pipeline; "
-                f"completion=run_pipeline(Path({str(input_file)!r}), Path({str(output_dir)!r}), "
-                f"config_dir=Path({str(config_dir)!r}), notice_assignments=Path({str(manifest)!r})); "
-                "assert completion.is_file()",
+                (
+                    "from pathlib import Path; from immuknow.orchestrator import run_pipeline; "
+                    f"completion=run_pipeline(Path({str(input_file)!r}), Path({str(output_dir)!r}), "
+                    f"config_dir=Path({str(config_dir)!r}), notice_assignments=Path({str(manifest)!r})); "
+                    "assert completion.is_file()"
+                ),
             ],
             unrelated,
         )
@@ -150,20 +156,19 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
         for directory in [custom, *custom.rglob("*")]:
             if directory.is_dir():
                 directory.chmod(0o755)
-        fixed_output = tmp_path / "Fixed packaged configuration"
+        custom_output = tmp_path / "Custom installed templates"
         run_checked(
             [
                 str(environment / "bin" / "immuknow"),
                 str(input_file),
-                "fr",
+                "--notice-template",
+                str(custom / "legacy_overdue_v1.fr.typ"),
                 "--output",
-                str(fixed_output),
-                "--templates",
-                str(custom),
+                str(custom_output),
             ],
             unrelated,
         )
-        assert len(list((fixed_output / "pdf_individual").glob("*.pdf"))) == 2
+        assert len(list((custom_output / "pdf_individual").glob("*.pdf"))) == 2
         assert not (unrelated / "output").exists()
     finally:
         for path, mode in original_modes.items():

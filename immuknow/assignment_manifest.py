@@ -33,9 +33,10 @@ if TYPE_CHECKING:
 class ManifestRow:
     client_id: str
     version_id: str
-    language: Optional[str]
+    language: str
     experiment_id: Optional[str]
     experiment_arm: Optional[str]
+    assignment_source: str = "manifest"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -51,7 +52,6 @@ class ReconciliationResult:
     counts_by_version: Dict[str, int]
     counts_by_language: Dict[str, int]
     findings: List[AssignmentFinding]
-    default_language: str
     resolved_notices: Dict[str, ResolvedNotice] = dataclasses.field(
         default_factory=dict
     )
@@ -62,7 +62,9 @@ class ReconciliationError(ValueError):
 
     def __init__(self, result: ReconciliationResult):
         self.result = result
-        super().__init__("Manifest preflight failed; inspect assignment findings")
+        super().__init__(
+            "Notice assignment preflight failed; inspect assignment findings"
+        )
 
 
 def load_manifest(path: Path) -> Dict[str, ManifestRow]:
@@ -71,9 +73,11 @@ def load_manifest(path: Path) -> Dict[str, ManifestRow]:
     Raises ValueError for:
 
     - content that is not a JSON array
-    - rows missing client_id or version_id
+    - rows missing client_id, version_id, or language
     - duplicate client_id entries
     """
+    if not path.is_file():
+        raise FileNotFoundError(f"Assignment manifest not found: {path}")
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
@@ -120,9 +124,13 @@ def load_manifest(path: Path) -> Dict[str, ManifestRow]:
             )
         seen[client_id] = idx
 
-        language = item.get("language") or None
-        if language is not None:
-            language = Language.from_string(language).value
+        language = item.get("language")
+        if not isinstance(language, str) or not language.strip():
+            raise ValueError(
+                f"Assignment manifest row {idx} (client_id={client_id!r}) "
+                "requires an explicit language ('en' or 'fr')"
+            )
+        language = Language.from_string(language).value
         experiment_id = item.get("experiment_id") or None
         experiment_arm = item.get("experiment_arm") or None
 
@@ -141,7 +149,6 @@ def reconcile(
     clients: "List[ClientRecord]",
     manifest: Dict[str, ManifestRow],
     catalog: NoticeVersionCatalog,
-    allow_unassigned: bool,
     extra_manifest_rows: str,  # "error" | "warn"
 ) -> ReconciliationResult:
     """Reconcile a cohort against a manifest and return a populated ReconciliationResult.
@@ -169,29 +176,29 @@ def reconcile(
         cid = client.client_id
         row = manifest.get(cid)
 
-        if row is None and not allow_unassigned:
+        if row is None:
             findings.append(
                 AssignmentFinding(
                     "missing_assignment",
                     cid,
                     client.version_id,
-                    "Source client has no manifest assignment; add a row or enable allow_unassigned",
+                    "Source client has no manifest assignment; add a row with version_id and language",
                 )
             )
             continue
 
         input_version = client.version_id
-        if row is not None and input_version and input_version != row.version_id:
+        if input_version and input_version != row.version_id:
             findings.append(
                 AssignmentFinding(
                     "version_conflict",
                     cid,
                     row.version_id,
-                    f"Conflicting input version_id {input_version!r} and manifest version_id {row.version_id!r}",
+                    f"Conflicting input version_id {input_version!r} and assigned version_id {row.version_id!r}",
                 )
             )
             continue
-        version = row.version_id if row else (input_version or catalog.default_version)
+        version = row.version_id
         validate_version_id(version)
         if version not in catalog.versions:
             findings.append(
@@ -203,26 +210,14 @@ def reconcile(
                 )
             )
             continue
-        lang = (row.language if row else None) or catalog.default_language
-        lang = Language.from_string(lang).value
-        if row and not row.language:
-            findings.append(
-                AssignmentFinding(
-                    "missing_language",
-                    cid,
-                    version,
-                    f"Manifest language is absent; using catalog default {catalog.default_language!r}",
-                )
-            )
+        lang = Language.from_string(row.language).value
         resolved = ResolvedNotice(
             version_id=version,
             notice_kind=catalog.versions[version].kind.value,
             language=lang,
-            experiment_id=row.experiment_id if row else None,
-            experiment_arm=row.experiment_arm if row else None,
-            assignment_source="manifest"
-            if row
-            else ("input" if input_version else "default"),
+            experiment_id=row.experiment_id,
+            experiment_arm=row.experiment_arm,
+            assignment_source=row.assignment_source,
         )
         try:
             validate_eligibility(client, resolved, catalog)
@@ -245,7 +240,6 @@ def reconcile(
         counts_by_version=counts_by_version,
         counts_by_language=counts_by_language,
         findings=findings,
-        default_language=catalog.default_language,
         resolved_notices=resolved_notices,
     )
 
@@ -284,7 +278,7 @@ def print_preflight_summary(result: ReconciliationResult) -> None:
         }
         for finding in result.findings
     )
-    print("Assignment mode: manifest")
+    print("Notice assignments")
     print(f"Clients: {total}")
     for composite_key, count in sorted(result.counts_by_version.items()):
         print(f"  {composite_key}: {count}")
@@ -294,7 +288,6 @@ def print_preflight_summary(result: ReconciliationResult) -> None:
             "missing_assignment",
             "extra_manifest_row",
             "unknown_version",
-            "missing_language",
             "eligibility_conflict",
             "version_conflict",
         )
@@ -302,9 +295,5 @@ def print_preflight_summary(result: ReconciliationResult) -> None:
     print(f"Missing clients (no manifest row): {counts['missing_assignment']}")
     print(f"Extra manifest rows (not in cohort): {counts['extra_manifest_row']}")
     print(f"Unknown versions: {counts['unknown_version']}")
-    print(
-        f"Clients missing language (falling back to default "
-        f"'{result.default_language}'): {counts['missing_language']}"
-    )
     print(f"Eligibility conflicts: {counts['eligibility_conflict']}")
     print(f"Explicit version conflicts: {counts['version_conflict']}")

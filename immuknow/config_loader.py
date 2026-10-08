@@ -255,11 +255,10 @@ def validate_config(config: Dict[str, Any]) -> None:
     # Validate optional notice_versioning config
     notice_versioning_config = config.get("notice_versioning", {})
     if notice_versioning_config:
-        allow_unassigned = notice_versioning_config.get("allow_unassigned")
-        if allow_unassigned is not None and not isinstance(allow_unassigned, bool):
+        if "allow_unassigned" in notice_versioning_config:
             raise ValueError(
-                f"notice_versioning.allow_unassigned must be a boolean, "
-                f"got {type(allow_unassigned).__name__}"
+                "notice_versioning.allow_unassigned is no longer supported; "
+                "assign every client or select one notice template for the cohort"
             )
 
         extra_manifest_rows = notice_versioning_config.get("extra_manifest_rows")

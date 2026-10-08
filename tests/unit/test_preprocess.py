@@ -1,22 +1,4 @@
-"""Unit tests for preprocess module - data normalization and client artifact generation.
-
-Tests cover:
-- Schema validation (required columns, data types)
-- Data cleaning (dates, addresses, vaccine history)
-- Client sorting and sequencing
-- Artifact structure consistency
-- Error handling for invalid inputs
-- Date conversion and age calculation
-- Vaccine mapping and normalization
-- Language support (English and French)
-
-Real-world significance:
-- Step 2 of pipeline: transforms Excel input into normalized client data
-- Preprocessing correctness directly affects accuracy of all downstream notices
-- Client sorting must be deterministic for reproducible output
-- Vaccine mapping must correctly expand component diseases
-- Age calculation affects notice recipient determination
-"""
+"""Tests for source normalization and canonical notice facts."""
 
 from __future__ import annotations
 
@@ -27,15 +9,50 @@ import pytest
 import yaml
 
 from immuknow import preprocess
+from immuknow.assignment_manifest import ManifestRow
 from tests.fixtures import sample_input
 
 
-def build_result(*args, config=None, config_dir=preprocess.CONFIG_DIR, **kwargs):
-    """Supply the run configuration to focused preprocessing tests."""
+def build_result(
+    df: pd.DataFrame,
+    vaccine_reference: dict,
+    replace_unspecified: list[str],
+    *,
+    language: str = "en",
+    config: dict | None = None,
+    config_dir: Path = preprocess.CONFIG_DIR,
+    catalog=None,
+    manifest: dict[str, ManifestRow] | None = None,
+):
+    """Run source rules with explicit synthetic notice assignments."""
     if config is None:
         config = yaml.safe_load((preprocess.CONFIG_DIR / "parameters.yaml").read_text())
+    if catalog is None:
+        catalog = _make_catalog()
+    if manifest is None:
+        manifest = {
+            str(row["client_id"]): ManifestRow(
+                client_id=str(row["client_id"]),
+                version_id=(
+                    "overdue_standard_v1"
+                    if pd.notna(row.get("overdue_disease"))
+                    and str(row.get("overdue_disease")).strip()
+                    else "affirmative_schedule_v1"
+                ),
+                language=language,
+                experiment_id=None,
+                experiment_arm=None,
+            )
+            for _, row in df.iterrows()
+        }
     return preprocess.build_preprocess_result(
-        *args, config=config, config_dir=config_dir, **kwargs
+        df,
+        vaccine_reference,
+        replace_unspecified,
+        config=config,
+        config_dir=config_dir,
+        catalog=catalog,
+        manifest=manifest,
     )
 
 
@@ -108,16 +125,11 @@ class TestReadInput:
         assert actual.loc[0, "school_id"] == "0012"
         assert actual.loc[0, "board_id"] == "0034"
 
-    def test_read_input_xlsx_file(self, tmp_test_dir: Path) -> None:
-        """Verify reading Excel (.xlsx) files works correctly.
-
-        Real-world significance:
-        - School district input is provided in .xlsx format
-        - Must handle openpyxl engine properly
-        """
+    def test_read_input_csv_file(self, tmp_test_dir: Path) -> None:
+        """Read a supported CSV source."""
         df_original = sample_input.create_test_input_dataframe(num_clients=3)
-        input_path = tmp_test_dir / "test_input.xlsx"
-        df_original.to_excel(input_path, index=False)
+        input_path = tmp_test_dir / "test_input.csv"
+        df_original.to_csv(input_path, index=False)
 
         df_read = preprocess.read_input(input_path)
 
@@ -130,7 +142,7 @@ class TestReadInput:
         Real-world significance:
         - Must fail early if user provides incorrect input path
         """
-        missing_path = tmp_test_dir / "nonexistent.xlsx"
+        missing_path = tmp_test_dir / "nonexistent.csv"
 
         with pytest.raises(FileNotFoundError):
             preprocess.read_input(missing_path)
@@ -138,15 +150,11 @@ class TestReadInput:
     def test_read_input_unsupported_file_type_raises_error(
         self, tmp_test_dir: Path
     ) -> None:
-        """Verify error for unsupported file types.
-
-        Real-world significance:
-        - Pipeline should reject non-Excel/CSV files early
-        """
-        unsupported_path = tmp_test_dir / "test.txt"
+        """Reject formats other than CSV."""
+        unsupported_path = tmp_test_dir / "test.xlsx"
         unsupported_path.write_text("some data")
 
-        with pytest.raises(ValueError, match="Unsupported file type"):
+        with pytest.raises(ValueError, match="CSV"):
             preprocess.read_input(unsupported_path)
 
 
@@ -461,7 +469,7 @@ class TestBuildPreprocessResult:
         - Preprocessing must handle both language variants
         - Dates must convert to French format for display
         """
-        df = sample_input.create_test_input_dataframe(num_clients=1, language="fr")
+        df = sample_input.create_test_input_dataframe(num_clients=1)
 
         result, _ = build_result(
             df,
@@ -1401,22 +1409,7 @@ class TestCheckAddressesComplete:
 
 @pytest.mark.unit
 class TestCheckClientInfoComplete:
-    """Unit tests for check_client_info_complete().
-
-    Covers:
-    - All client fields present → all rows returned, no warning
-    - Missing required field → warning logged, incomplete rows dropped by default
-    - drop_incomplete=False → all rows returned regardless of completeness
-    - assignment_mode="fixed" requires overdue_disease and overdue_agent
-    - assignment_mode="manifest" does not require overdue columns
-    - Incomplete rows written to CSV side-effect
-    - Blank strings and whitespace-only values treated as missing
-
-    Real-world significance:
-    - check_client_info_complete is the gate before client records enter the
-      pipeline proper; a record with a missing name or date of birth cannot
-      produce a correct notice and must be excluded and reported.
-    """
+    """Required identity fields gate the assigned notice cohort."""
 
     @pytest.fixture
     def output_dir(self, tmp_path, monkeypatch) -> Path:
@@ -1432,12 +1425,8 @@ class TestCheckClientInfoComplete:
         return out
 
     @pytest.fixture
-    def complete_fixed_df(self) -> pd.DataFrame:
-        """Two rows with all fields required by fixed-mode assignment.
-
-        imms_given must be non-empty; the normalisation step converts "" to pd.NA,
-        which would flag the row as incomplete.
-        """
+    def complete_df(self) -> pd.DataFrame:
+        """Two rows with complete identity fields."""
         return pd.DataFrame(
             {
                 "school_name": ["Tunnel Academy", "River School"],
@@ -1472,33 +1461,29 @@ class TestCheckClientInfoComplete:
             }
         )
 
-    def test_all_complete_fixed_returns_all_rows(self, complete_fixed_df) -> None:
-        """Verify all rows are returned when every required field is present (fixed mode).
+    def test_all_complete_returns_all_rows(self, complete_df) -> None:
+        """Verify all rows are returned when every required field is present.
 
         Assertion: Output has the same row count as input
         """
-        result = preprocess.check_client_info_complete(
-            complete_fixed_df, assignment_mode="fixed"
-        )
+        result = preprocess.check_client_info_complete(complete_df)
 
-        assert len(result) == len(complete_fixed_df)
+        assert len(result) == len(complete_df)
 
-    def test_all_complete_fixed_no_warning(
-        self, complete_fixed_df, caplog: pytest.LogCaptureFixture
+    def test_all_complete_no_warning(
+        self, complete_df, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Verify no warning is logged when all client info is present.
 
         Assertion: No warning message is emitted
         """
         with caplog.at_level("WARNING"):
-            preprocess.check_client_info_complete(
-                complete_fixed_df, assignment_mode="fixed"
-            )
+            preprocess.check_client_info_complete(complete_df)
 
         assert "incomplete" not in caplog.text.lower()
 
-    def test_missing_required_field_drops_row_fixed(self, output_dir) -> None:
-        """Verify rows with a missing required field are excluded (fixed mode).
+    def test_missing_required_field_drops_row(self, output_dir) -> None:
+        """Verify rows with a missing required field are excluded.
 
         Real-world significance:
         - A notice without a last name cannot be addressed and must not be
@@ -1520,7 +1505,7 @@ class TestCheckClientInfoComplete:
             }
         )
 
-        result = preprocess.check_client_info_complete(df, assignment_mode="fixed")
+        result = preprocess.check_client_info_complete(df)
 
         assert len(result) == 1
         assert result.iloc[0]["client_id"] == "C001"
@@ -1550,7 +1535,7 @@ class TestCheckClientInfoComplete:
         )
 
         with caplog.at_level("WARNING"):
-            preprocess.check_client_info_complete(df, assignment_mode="fixed")
+            preprocess.check_client_info_complete(df)
 
         assert (
             "There are 1 records with incomplete/invalid client information"
@@ -1579,9 +1564,7 @@ class TestCheckClientInfoComplete:
             }
         )
 
-        preprocess.check_client_info_complete(
-            df, assignment_mode="fixed", output_dir=output_dir
-        )
+        preprocess.check_client_info_complete(df, output_dir=output_dir)
 
         csv_path = output_dir / "incomplete_clients.csv"
         assert csv_path.exists()
@@ -1610,43 +1593,12 @@ class TestCheckClientInfoComplete:
             }
         )
 
-        result = preprocess.check_client_info_complete(
-            df, assignment_mode="fixed", drop_incomplete=False
-        )
+        result = preprocess.check_client_info_complete(df, drop_incomplete=False)
 
         assert len(result) == 2
 
-    def test_fixed_mode_requires_overdue_columns(self, output_dir) -> None:
-        """Verify fixed mode treats empty overdue fields as incomplete.
-
-        Real-world significance:
-        - In fixed mode every client must have an overdue disease and agent;
-          a record without them cannot produce a valid overdue notice.
-
-        Assertion: Row with empty overdue_disease and overdue_agent is dropped
-        """
-        df = pd.DataFrame(
-            {
-                "school_name": ["Tunnel Academy", "River School"],
-                "client_id": ["C001", "C002"],
-                "first_name": ["Alice", "Bob"],
-                "last_name": ["Zephyr", "Smith"],
-                "date_of_birth": ["2015-01-01", "2014-06-15"],
-                "imms_given": ["May 1, 2020 - DTaP", "Apr 10, 2019 - IPV"],
-                "overdue_disease": ["Measles", ""],
-                "overdue_agent": ["MMR", ""],
-            }
-        )
-
-        result = preprocess.check_client_info_complete(df, assignment_mode="fixed")
-
-        assert len(result) == 1
-        assert result.iloc[0]["client_id"] == "C001"
-
-    def test_manifest_mode_does_not_require_overdue_columns(
-        self, complete_manifest_df
-    ) -> None:
-        """Verify manifest mode accepts records with empty overdue fields.
+    def test_accepts_empty_overdue_columns(self, complete_manifest_df) -> None:
+        """Assignment eligibility, not completeness, governs overdue fields.
 
         Real-world significance:
         - In manifest mode the notice version is assigned externally; overdue
@@ -1654,9 +1606,7 @@ class TestCheckClientInfoComplete:
 
         Assertion: All rows are returned even when overdue columns are empty
         """
-        result = preprocess.check_client_info_complete(
-            complete_manifest_df, assignment_mode="manifest"
-        )
+        result = preprocess.check_client_info_complete(complete_manifest_df)
 
         assert len(result) == len(complete_manifest_df)
 
@@ -1682,11 +1632,11 @@ class TestCheckClientInfoComplete:
             }
         )
 
-        result = preprocess.check_client_info_complete(df, assignment_mode="fixed")
+        result = preprocess.check_client_info_complete(df)
 
         assert len(result) == 0
 
-    def test_client_info_complete_column_not_in_output(self, complete_fixed_df) -> None:
+    def test_client_info_complete_column_not_in_output(self, complete_df) -> None:
         """Verify the temporary client_info_complete column is not present in output.
 
         Real-world significance:
@@ -1695,9 +1645,7 @@ class TestCheckClientInfoComplete:
 
         Assertion: 'client_info_complete' is absent from the returned DataFrame
         """
-        result = preprocess.check_client_info_complete(
-            complete_fixed_df, assignment_mode="fixed"
-        )
+        result = preprocess.check_client_info_complete(complete_df)
 
         assert "client_info_complete" not in result.columns
 
@@ -1744,9 +1692,12 @@ def _make_catalog():
 
     return NoticeVersionCatalog(
         schema_version=1,
-        default_version="overdue_standard_v1",
-        default_language="en",
         versions={
+            "legacy_overdue_v1": NoticeVersion(
+                version_id="legacy_overdue_v1",
+                kind=NoticeKind.OVERDUE,
+                requires="has_overdue",
+            ),
             "overdue_standard_v1": NoticeVersion(
                 version_id="overdue_standard_v1",
                 kind=NoticeKind.OVERDUE,
@@ -1790,26 +1741,31 @@ def _simple_df(num=2, with_overdue=True):
 
 
 @pytest.mark.unit
-class TestBuildPreprocessResultFixedMode:
-    """Fixed mode resolves one version and returns no reconciliation result."""
-
-    def test_fixed_mode_returns_tuple_with_none_result(self, tmp_path) -> None:
-        result, reconciliation_result = build_result(
-            _simple_df(2), "en", {}, preprocess.REPLACE_UNSPECIFIED
-        )
-        assert reconciliation_result is None
-
-    def test_fixed_mode_metadata_empty_for_all_clients(self, tmp_path) -> None:
-        result, _ = build_result(
-            _simple_df(2), "en", {}, preprocess.REPLACE_UNSPECIFIED
-        )
-        for client in result.clients:
-            assert client.version_id == "legacy_overdue_v1"
-
-
-@pytest.mark.unit
 class TestBuildPreprocessResultManifestMode:
     """Manifest mode retains one resolved version and language per client."""
+
+    def test_legacy_notice_remains_assignable(self) -> None:
+        manifest = _make_manifest(
+            {
+                "client_id": "C001",
+                "version_id": "legacy_overdue_v1",
+                "language": "fr",
+                "experiment_id": None,
+                "experiment_arm": None,
+            }
+        )
+        result, reconciliation = build_result(
+            _simple_df(1),
+            {},
+            preprocess.REPLACE_UNSPECIFIED,
+            catalog=_make_catalog(),
+            manifest=manifest,
+        )
+        assert reconciliation.resolved_notices["C001"].version_id == "legacy_overdue_v1"
+        assert (result.clients[0].version_id, result.clients[0].language) == (
+            "legacy_overdue_v1",
+            "fr",
+        )
 
     def test_manifest_mode_returns_reconciliation_result(self, tmp_path) -> None:
         catalog = _make_catalog()
@@ -1831,13 +1787,16 @@ class TestBuildPreprocessResultManifestMode:
         )
         result, reconciliation_result = build_result(
             _simple_df(2),
-            None,
             {},
             preprocess.REPLACE_UNSPECIFIED,
             catalog=catalog,
             manifest=manifest,
         )
-        assert reconciliation_result is not None
+        assert reconciliation_result.counts_by_language == {"en": 1, "fr": 1}
+        assert reconciliation_result.counts_by_version == {
+            "overdue_standard_v1 (en)": 1,
+            "overdue_standard_v1 (fr)": 1,
+        }
 
     def test_manifest_mode_resolved_version_on_client(self, tmp_path) -> None:
         catalog = _make_catalog()
@@ -1859,7 +1818,6 @@ class TestBuildPreprocessResultManifestMode:
         )
         result, _ = build_result(
             _simple_df(2),
-            None,
             {},
             preprocess.REPLACE_UNSPECIFIED,
             catalog=catalog,
@@ -1869,7 +1827,7 @@ class TestBuildPreprocessResultManifestMode:
             assert client.version_id == "overdue_standard_v1"
             assert "resolved_notice" not in client.metadata
 
-    def test_manifest_mode_language_from_manifest_not_cli(self, tmp_path) -> None:
+    def test_resolved_languages_follow_manifest(self, tmp_path) -> None:
         catalog = _make_catalog()
         manifest = _make_manifest(
             {
@@ -1889,7 +1847,6 @@ class TestBuildPreprocessResultManifestMode:
         )
         result, _ = build_result(
             _simple_df(2),
-            None,
             {},
             preprocess.REPLACE_UNSPECIFIED,
             catalog=catalog,
@@ -1922,52 +1879,14 @@ class TestBuildPreprocessResultManifestMode:
         with pytest.raises(ValueError, match="[Pp]reflight"):
             build_result(
                 _simple_df(2, with_overdue=True),
-                None,
                 {},
                 preprocess.REPLACE_UNSPECIFIED,
                 catalog=catalog,
                 manifest=manifest,
             )
 
-    def test_manifest_mode_allow_unassigned_true_uses_defaults(self, tmp_path) -> None:
-        """allow_unassigned=True: client missing from manifest uses catalog defaults."""
-        catalog = _make_catalog()
-        # Only assign C001; C002 is missing from manifest
-        manifest = _make_manifest(
-            {
-                "client_id": "C001",
-                "version_id": "overdue_standard_v1",
-                "language": "en",
-                "experiment_id": None,
-                "experiment_arm": None,
-            },
-        )
-        # Write config with allow_unassigned=true
-        config_path = tmp_path / "parameters.yaml"
-        config_path.write_text(
-            "notice_versioning:\n  allow_unassigned: true\n  extra_manifest_rows: error\n",
-            encoding="utf-8",
-        )
-        result, reconciliation_result = build_result(
-            _simple_df(2),
-            None,
-            {},
-            preprocess.REPLACE_UNSPECIFIED,
-            config=yaml.safe_load(config_path.read_text()),
-            catalog=catalog,
-            manifest=manifest,
-        )
-        # C002 should be resolved with catalog defaults, not missing
-        assert reconciliation_result is not None
-        assert not any(
-            finding.kind == "missing_assignment" and finding.client_id == "C002"
-            for finding in reconciliation_result.findings
-        )
-        c002 = next(c for c in result.clients if c.client_id == "C002")
-        assert c002.language == catalog.default_language
-
-    def test_manifest_mode_allow_unassigned_false_raises(self, tmp_path) -> None:
-        """allow_unassigned=False: missing client causes preflight failure."""
+    def test_missing_assignment_raises(self, tmp_path) -> None:
+        """Every accepted client requires a selected notice."""
         catalog = _make_catalog()
         manifest = _make_manifest(
             {
@@ -1978,11 +1897,9 @@ class TestBuildPreprocessResultManifestMode:
                 "experiment_arm": None,
             },
         )
-        # allow_unassigned defaults to False
         with pytest.raises(ValueError, match="[Pp]reflight"):
             build_result(
                 _simple_df(2),
-                None,
                 {},
                 preprocess.REPLACE_UNSPECIFIED,
                 catalog=catalog,
@@ -2017,13 +1934,12 @@ class TestBuildPreprocessResultManifestMode:
         )
         config_path = tmp_path / "parameters.yaml"
         config_path.write_text(
-            "notice_versioning:\n  allow_unassigned: false\n  extra_manifest_rows: error\n",
+            "notice_versioning:\n  extra_manifest_rows: error\n",
             encoding="utf-8",
         )
         with pytest.raises(ValueError, match="[Pp]reflight"):
             build_result(
                 _simple_df(2),
-                None,
                 {},
                 preprocess.REPLACE_UNSPECIFIED,
                 config=yaml.safe_load(config_path.read_text()),
@@ -2058,13 +1974,12 @@ class TestBuildPreprocessResultManifestMode:
         )
         config_path = tmp_path / "parameters.yaml"
         config_path.write_text(
-            "notice_versioning:\n  allow_unassigned: false\n  extra_manifest_rows: warn\n",
+            "notice_versioning:\n  extra_manifest_rows: warn\n",
             encoding="utf-8",
         )
         # Should NOT raise because extra_manifest_rows=warn
         result, reconciliation_result = build_result(
             _simple_df(2),
-            None,
             {},
             preprocess.REPLACE_UNSPECIFIED,
             config=yaml.safe_load(config_path.read_text()),
@@ -2076,94 +1991,3 @@ class TestBuildPreprocessResultManifestMode:
             finding.kind == "extra_manifest_row" and finding.client_id == "EXTRA_CLIENT"
             for finding in reconciliation_result.findings
         )
-
-    def test_manifest_mode_missing_language_falls_back_to_default(
-        self, tmp_path
-    ) -> None:
-        catalog = _make_catalog()
-        # C001 has no language in manifest row
-        manifest = _make_manifest(
-            {
-                "client_id": "C001",
-                "version_id": "overdue_standard_v1",
-                "language": None,
-                "experiment_id": None,
-                "experiment_arm": None,
-            },
-            {
-                "client_id": "C002",
-                "version_id": "overdue_standard_v1",
-                "language": "fr",
-                "experiment_id": None,
-                "experiment_arm": None,
-            },
-        )
-        result, reconciliation_result = build_result(
-            _simple_df(2),
-            None,
-            {},
-            preprocess.REPLACE_UNSPECIFIED,
-            catalog=catalog,
-            manifest=manifest,
-        )
-        assert reconciliation_result is not None
-        assert any(
-            finding.kind == "missing_language" and finding.client_id == "C001"
-            for finding in reconciliation_result.findings
-        )
-        c001 = next(c for c in result.clients if c.client_id == "C001")
-        assert c001.language == catalog.default_language
-
-
-@pytest.mark.unit
-class TestWriteAssignmentMetadata:
-    """write_assignment_metadata: file creation and count aggregation."""
-
-    def _clients_with_resolved(self, result):
-        return [c for c in result.clients if c.version_id]
-
-    def test_writes_file_with_correct_counts(self, tmp_path) -> None:
-        """Verify the metadata file is written and per-version/language counts are correct.
-
-        Real-world significance:
-        - The file is the only machine-readable audit record of which notice version
-          each client received for a given run; incorrect counts would mislead auditors.
-
-        Assertion: counts_by_version and counts_by_language match the manifest assignments
-        """
-        catalog = _make_catalog()
-        manifest = _make_manifest(
-            {
-                "client_id": "C001",
-                "version_id": "overdue_standard_v1",
-                "language": "en",
-                "experiment_id": None,
-                "experiment_arm": None,
-            },
-            {
-                "client_id": "C002",
-                "version_id": "overdue_standard_v1",
-                "language": "fr",
-                "experiment_id": None,
-                "experiment_arm": None,
-            },
-        )
-        result, reconciliation_result = build_result(
-            _simple_df(2),
-            None,
-            {},
-            preprocess.REPLACE_UNSPECIFIED,
-            catalog=catalog,
-            manifest=manifest,
-        )
-        assert reconciliation_result is not None
-        import json
-
-        out_path = preprocess.write_assignment_metadata(
-            tmp_path, "run123", catalog, reconciliation_result, result.clients
-        )
-        assert out_path.exists()
-        payload = json.loads(out_path.read_text())
-        assert payload["counts_by_version"] == {"overdue_standard_v1": 2}
-        assert payload["counts_by_language"] == {"en": 1, "fr": 1}
-        assert payload["total_clients"] == 2

@@ -25,7 +25,7 @@ from .data_models import (
     ClientRecord,
     PreprocessResult,
 )
-from .notice_versioning import NoticeVersionCatalog, ResolvedNotice, attach_notice
+from .notice_versioning import NoticeVersionCatalog, attach_notice
 from .normalization import load_normalization, normalize_disease
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -112,7 +112,6 @@ def check_addresses_complete(
 
 def check_client_info_complete(
     df: pd.DataFrame,
-    assignment_mode,
     drop_incomplete=True,
     output_dir: Path | None = None,
 ) -> pd.DataFrame:
@@ -120,7 +119,7 @@ def check_client_info_complete(
     Check if client fields are complete in the DataFrame.
 
     Adds a temporary boolean 'client_info_complete' column based on presence of
-    first name, last name, DOB, school name, overdue disease, immunizations given, and client ID.
+    first name, last name, DOB, school name, immunizations given, and client ID.
     """
 
     df = df.copy()
@@ -134,15 +133,6 @@ def check_client_info_complete(
         "date_of_birth",
         "imms_given",
     ]
-
-    # Default fixed mode should require non-empty overdue list
-    if assignment_mode == "fixed":
-        client_info_cols.extend(
-            [
-                "overdue_disease",
-                "overdue_agent",
-            ]
-        )
 
     for col in client_info_cols:
         df[col] = df[col].astype(str).str.strip().replace({"": pd.NA, "nan": pd.NA})
@@ -258,81 +248,27 @@ def configure_logging(output_dir: Path, run_id: str) -> Path:
     return log_path
 
 
-def detect_file_type(file_path: Path) -> str:
-    """Detect file type by extension.
-
-    Parameters
-    ----------
-    file_path : Path
-        Path to the file to detect.
-
-    Returns
-    -------
-    str
-        File extension in lowercase (e.g., '.xlsx', '.csv').
-
-    Raises
-    ------
-    FileNotFoundError
-        If the file does not exist.
-    """
-    if not file_path.exists():
+def validate_csv_path(file_path: Path) -> None:
+    """Reject missing or non-CSV input before any output cleanup."""
+    if not file_path.is_file():
         raise FileNotFoundError(f"Input file not found: {file_path}")
-    return file_path.suffix.lower()
+    if file_path.suffix.lower() != ".csv":
+        raise ValueError(f"Input must be a CSV file: {file_path}")
 
 
 def read_input(file_path: Path) -> pd.DataFrame:
-    """Read CSV or Excel input file into a pandas DataFrame.
-
-    Supports .xlsx, .xls, and .csv formats with robust encoding and delimiter
-    detection. This is a critical preprocessing step that loads raw client data.
-
-    Parameters
-    ----------
-    file_path : Path
-        Path to the input file (CSV, XLSX, or XLS).
-
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame with raw client data loaded from the file.
-
-    Raises
-    ------
-    ValueError
-        If file type is unsupported or CSV cannot be decoded with common encodings.
-    Exception
-        If file reading fails for any reason (logged to preprocessing logs).
-    """
-    ext = detect_file_type(file_path)
-
-    try:
-        if ext in [".xlsx", ".xls"]:
-            df = pd.read_excel(file_path, engine="openpyxl", dtype={"client_id": str})
-        elif ext == ".csv":
-            # Try common encodings
-            for enc in ["utf-8-sig", "latin-1", "cp1252"]:
-                try:
-                    # Let pandas sniff the delimiter
-                    df = pd.read_csv(
-                        file_path, sep=None, encoding=enc, engine="python", dtype=str
-                    )
-                    break
-                except (UnicodeDecodeError, pd.errors.ParserError):
-                    continue
-            else:
-                raise ValueError(
-                    "Could not decode CSV with common encodings or delimiters"
-                )
-        else:
-            raise ValueError(f"Unsupported file type: {ext}")
-
-        LOG.info("Loaded %s rows from %s", len(df), file_path)
-        return df
-
-    except Exception as exc:  # pragma: no cover - logging branch
-        LOG.error("Failed to read %s: %s", file_path, exc)
-        raise
+    """Read CSV with delimiter detection and preserve source fields as strings."""
+    validate_csv_path(file_path)
+    for encoding in ("utf-8-sig", "latin-1", "cp1252"):
+        try:
+            frame = pd.read_csv(
+                file_path, sep=None, encoding=encoding, engine="python", dtype=str
+            )
+        except (UnicodeDecodeError, pd.errors.ParserError):
+            continue
+        LOG.info("Loaded %s rows from %s", len(frame), file_path)
+        return frame
+    raise ValueError("Could not decode CSV with common encodings or delimiters")
 
 
 def validate_input(file_path: Path, schema_path: Path | None = None) -> None:
@@ -341,7 +277,7 @@ def validate_input(file_path: Path, schema_path: Path | None = None) -> None:
     Parameters
     ----------
     file_path : Path
-        Path to the input file (.xlsx or .csv).
+        Path to the CSV cohort.
 
     Raises
     ------
@@ -349,6 +285,7 @@ def validate_input(file_path: Path, schema_path: Path | None = None) -> None:
         If the file does not conform to the schema defined in
         ``config/input_schema.json``.
     """
+    validate_csv_path(file_path)
     descriptor = json.loads(
         (schema_path or INPUT_SCHEMA_PATH).read_text(encoding="utf-8")
     )
@@ -886,15 +823,14 @@ def build_received_rows(
 
 def build_preprocess_result(
     df: pd.DataFrame,
-    language: str | None,
     vaccine_reference: Dict[str, Any],
     replace_unspecified: List[str],
     *,
     config: dict[str, Any],
     config_dir: Path,
-    catalog: Optional[NoticeVersionCatalog] = None,
-    manifest: Optional[Dict[str, ManifestRow]] = None,
-) -> Tuple[PreprocessResult, Optional[ReconciliationResult]]:
+    catalog: NoticeVersionCatalog,
+    manifest: Dict[str, ManifestRow],
+) -> Tuple[PreprocessResult, ReconciliationResult]:
     """Normalize client data and produce the structured preprocessing artifact.
 
     Orchestrates all per-dataset and per-client normalization: column
@@ -906,11 +842,8 @@ def build_preprocess_result(
     Parameters
     ----------
     df : pd.DataFrame
-        Raw input DataFrame, typically loaded from an Excel or CSV file.
+        Raw input DataFrame loaded from the CSV cohort.
         Must have lower_snake_case column names matching the input schema.
-    language : str
-        Language code for this batch (``"en"`` or ``"fr"``). Stored on
-        every ``ClientRecord``; Typst formats document dates.
     vaccine_reference : Dict[str, Any]
         Maps vaccine codes to disease names. Passed through to
         ``enrich_grouped_records``.
@@ -978,9 +911,8 @@ def build_preprocess_result(
     preprocess_cfg: Dict[str, Any] = params.get("preprocess", {})
     show_validity_markers: bool = preprocess_cfg.get("show_validity_markers", False)
 
-    # Manifest-mode versioning settings
+    # Assignment reconciliation policy
     notice_versioning_cfg: Dict[str, Any] = params.get("notice_versioning", {})
-    allow_unassigned: bool = notice_versioning_cfg.get("allow_unassigned", False)
     extra_manifest_rows: str = notice_versioning_cfg.get("extra_manifest_rows", "error")
 
     working["school_id"] = working.apply(
@@ -1031,7 +963,6 @@ def build_preprocess_result(
         )
 
     # Canonical records are normalized before assignment or localization.
-    source_language = language or ""
 
     clients: List[ClientRecord] = []
     for row in sorted_df.to_dict(orient="records"):
@@ -1101,7 +1032,7 @@ def build_preprocess_result(
         client = ClientRecord(
             sequence=sequence,
             client_id=client_id,
-            language=source_language,
+            language="",
             person=person,
             school=school,
             board=board,
@@ -1130,35 +1061,7 @@ def build_preprocess_result(
                 "Later records will overwrite earlier ones in generated notices."
             )
 
-    # --- Fixed mode (no manifest) ---
-    if catalog is None or manifest is None:
-        fixed_clients = []
-        for client in clients:
-            input_version = client.version_id
-            if input_version and input_version != "legacy_overdue_v1":
-                raise ValueError(
-                    f"Client {client.client_id} specifies version_id {input_version!r}. "
-                    "Use an assignment manifest and catalog for versioned notices. "
-                    "Fixed mode uses legacy_overdue_v1."
-                )
-            resolved = ResolvedNotice(
-                version_id="legacy_overdue_v1",
-                notice_kind="overdue",
-                language=source_language,
-                experiment_id=None,
-                experiment_arm=None,
-                assignment_source="fixed",
-            )
-            fixed_clients.append(attach_notice(client, resolved))
-        return (
-            PreprocessResult(clients=fixed_clients, warnings=list(warnings)),
-            None,
-        )
-
-    # --- Manifest mode ---
-    reconciliation_result = reconcile(
-        clients, manifest, catalog, allow_unassigned, extra_manifest_rows
-    )
+    reconciliation_result = reconcile(clients, manifest, catalog, extra_manifest_rows)
 
     if has_errors(reconciliation_result, extra_manifest_rows):
         raise ReconciliationError(reconciliation_result)
@@ -1234,81 +1137,20 @@ def run_phix_validation(
 
 def write_artifact(
     output_dir: Path,
-    language: str | None,
     run_id: str,
     result: PreprocessResult,
-    assignment_mode: str = "fixed",
-    default_version: Optional[str] = None,
 ) -> Path:
     """Write preprocessed result to JSON artifact file."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
     payload = {
         "run_id": run_id,
-        "language": language,
         "clients": [asdict(client) for client in result.clients],
         "warnings": result.warnings,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "total_clients": len(result.clients),
-        "assignment_mode": assignment_mode,
-        "default_version": default_version,
     }
     artifact_path = output_dir / f"preprocessed_clients_{run_id}.json"
     artifact_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     LOG.info("Wrote normalized artifact to %s", artifact_path)
     return artifact_path
-
-
-def write_assignment_metadata(
-    metadata_dir: Path,
-    run_id: str,
-    catalog: "NoticeVersionCatalog",
-    reconciliation_result: "ReconciliationResult",
-    clients: List[ClientRecord],
-) -> Path:
-    """Write per-client assignment metadata to a JSON file (manifest mode only).
-
-    Records contain only client_id, sequence, and resolved notice fields.
-    No name, date_of_birth, address, school name, or balancing attributes.
-    """
-    metadata_dir.mkdir(parents=True, exist_ok=True)
-
-    # Compute simple per-version and per-language totals from clients.
-    counts_by_version: Dict[str, int] = {}
-    counts_by_language: Dict[str, int] = {}
-    records = []
-    for client in clients:
-        version = client.version_id or ""
-        lang = client.language
-        counts_by_version[version] = counts_by_version.get(version, 0) + 1
-        counts_by_language[lang] = counts_by_language.get(lang, 0) + 1
-        records.append(
-            {
-                "client_id": client.client_id,
-                "sequence": client.sequence,
-                "version_id": version,
-                "notice_kind": client.metadata.get("notice_kind", ""),
-                "language": lang,
-                "experiment_id": client.metadata.get("experiment_id"),
-                "experiment_arm": client.metadata.get("experiment_arm"),
-                "assignment_source": client.metadata.get("assignment_source", ""),
-            }
-        )
-
-    payload = {
-        "schema_version": 1,
-        "run_id": run_id,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "assignment_mode": "manifest",
-        "default_version": catalog.default_version,
-        "default_language": catalog.default_language,
-        "total_clients": len(clients),
-        "counts_by_version": counts_by_version,
-        "counts_by_language": counts_by_language,
-        "records": records,
-    }
-
-    out_path = metadata_dir / f"notice_assignments_{run_id}.json"
-    out_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    LOG.info("Wrote assignment metadata to %s", out_path)
-    return out_path

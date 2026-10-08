@@ -1,436 +1,230 @@
-"""Unit tests for pipeline/notice_versioning.py."""
+"""Catalog and eligibility checks for the complete notice workflow."""
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 import yaml
 
 from immuknow.notice_versioning import (
-    ELIGIBILITY_RULES,
     NoticeKind,
     NoticeVersion,
     NoticeVersionCatalog,
     ResolvedNotice,
+    attach_notice,
     load_catalog,
     validate_eligibility,
 )
+from tests.fixtures.sample_input import create_test_client_record
 
 
-@pytest.mark.unit
-def test_resolved_notice_preserves_unrelated_metadata() -> None:
-    """Attaching assignment and experiment details must not erase client metadata."""
-    from dataclasses import replace
-    from immuknow.notice_versioning import attach_notice
-    from tests.fixtures.sample_input import create_test_client_record
-
-    client = replace(
-        create_test_client_record(),
-        metadata={"source_batch": "example", "custom": {"flag": True}},
-    )
-    resolved = ResolvedNotice(
-        "overdue_standard_v1", "overdue", "fr", "study", "B", "manifest"
-    )
-    attached = attach_notice(client, resolved)
-    assert attached.metadata["source_batch"] == "example"
-    assert attached.metadata["custom"] == {"flag": True}
-    assert attached.metadata["experiment_id"] == "study"
-    assert attached.metadata["experiment_arm"] == "B"
-    assert attached.metadata["assignment_source"] == "manifest"
-    assert attached.version_id == "overdue_standard_v1"
-    assert attached.language == "fr"
-    assert "resolved_notice" not in client.metadata
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _write_catalog(tmp_path: Path, content: dict) -> Path:
-    p = tmp_path / "notice_versions.yaml"
-    p.write_text(yaml.dump(content), encoding="utf-8")
-    return tmp_path
-
-
-def _make_catalog() -> NoticeVersionCatalog:
+def catalog() -> NoticeVersionCatalog:
     return NoticeVersionCatalog(
         schema_version=1,
-        default_version="overdue_standard_v1",
-        default_language="en",
         versions={
+            "legacy_overdue_v1": NoticeVersion(
+                "legacy_overdue_v1", NoticeKind.OVERDUE, "has_overdue"
+            ),
             "overdue_standard_v1": NoticeVersion(
-                version_id="overdue_standard_v1",
-                kind=NoticeKind.OVERDUE,
-                requires="has_overdue",
+                "overdue_standard_v1", NoticeKind.OVERDUE, "has_overdue"
             ),
             "affirmative_schedule_v1": NoticeVersion(
-                version_id="affirmative_schedule_v1",
-                kind=NoticeKind.AFFIRMATIVE,
-                requires="no_overdue",
+                "affirmative_schedule_v1", NoticeKind.AFFIRMATIVE, "no_overdue"
             ),
-            "info_v1": NoticeVersion(
-                version_id="info_v1", kind=NoticeKind.INFORMATIONAL, requires="any"
-            ),
+            "info_v1": NoticeVersion("info_v1", NoticeKind.INFORMATIONAL, "any"),
         },
     )
 
 
-def _resolved(kind: str, version: str = "overdue_standard_v1") -> ResolvedNotice:
-    return ResolvedNotice(
-        version_id=version,
-        notice_kind=kind,
-        language="en",
-        experiment_id=None,
-        experiment_arm=None,
-        assignment_source="manifest",
+def write_catalog(tmp_path: Path, content: object) -> None:
+    (tmp_path / "notice_versions.yaml").write_text(
+        yaml.safe_dump(content), encoding="utf-8"
     )
 
 
-def _client(overdue_diseases):
-    m = MagicMock()
-    m.client_id = "C001"
-    m.overdue_diseases = overdue_diseases
-    return m
+def client(diseases: list[str] | None):
+    return replace(
+        create_test_client_record(client_id="C001"),
+        overdue_diseases=[
+            {"disease": disease, "dose": None} for disease in (diseases or [])
+        ],
+    )
 
 
-# ---------------------------------------------------------------------------
-# load_catalog
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.unit
-class TestLoadCatalog:
-    def test_returns_none_when_file_absent(self, tmp_path: Path) -> None:
-        result = load_catalog(tmp_path)
-        assert result is None
-
-    def test_loads_valid_catalog(self, tmp_path: Path) -> None:
-        _write_catalog(
-            tmp_path,
-            {
-                "schema_version": 1,
-                "default_version": "overdue_standard_v1",
-                "default_language": "en",
-                "versions": {
-                    "overdue_standard_v1": {"kind": "overdue"},
-                    "affirmative_schedule_v1": {"kind": "affirmative"},
-                },
-            },
-        )
-        catalog = load_catalog(tmp_path)
-        assert catalog is not None
-        assert catalog.schema_version == 1
-        assert catalog.default_version == "overdue_standard_v1"
-        assert catalog.default_language == "en"
-        assert "overdue_standard_v1" in catalog.versions
-        assert catalog.versions["overdue_standard_v1"].kind == NoticeKind.OVERDUE
-
-    @pytest.mark.parametrize("raw", ["[]", "null", "hello", "- version: bad"])
-    def test_rejects_non_mapping_catalog(self, tmp_path: Path, raw: str) -> None:
-        (tmp_path / "notice_versions.yaml").write_text(raw, encoding="utf-8")
-        with pytest.raises(ValueError, match="must be a mapping"):
-            load_catalog(tmp_path)
-
-    @pytest.mark.parametrize("schema", [True, False, "1", 2, 1.0, None])
-    def test_rejects_invalid_schema_version(
-        self, tmp_path: Path, schema: object
-    ) -> None:
-        _write_catalog(
-            tmp_path,
-            {
-                "schema_version": schema,
-                "default_version": "v1",
-                "default_language": "en",
-                "versions": {"v1": {"kind": "overdue"}},
-            },
-        )
-        with pytest.raises(ValueError, match="schema_version.*integer 1"):
-            load_catalog(tmp_path)
-
-    @pytest.mark.parametrize("versions", [None, [], {}, {"v1": []}, {"v1": None}])
-    def test_rejects_malformed_versions(self, tmp_path: Path, versions: object) -> None:
-        _write_catalog(
-            tmp_path,
-            {
-                "schema_version": 1,
-                "default_version": "v1",
-                "default_language": "en",
-                "versions": versions,
-            },
-        )
-        with pytest.raises(ValueError, match="versions.*mapping|version 'v1'.*mapping"):
-            load_catalog(tmp_path)
-
-    def test_raises_on_invalid_yaml(self, tmp_path: Path) -> None:
-        (tmp_path / "notice_versions.yaml").write_text(
-            "key: [unclosed", encoding="utf-8"
-        )
-        with pytest.raises(ValueError, match="invalid YAML"):
-            load_catalog(tmp_path)
-
-    def test_raises_missing_schema_version(self, tmp_path: Path) -> None:
-        _write_catalog(
-            tmp_path,
-            {
-                "default_version": "v1",
-                "default_language": "en",
-                "versions": {"v1": {"kind": "overdue"}},
-            },
-        )
-        with pytest.raises(ValueError, match="schema_version"):
-            load_catalog(tmp_path)
-
-    def test_raises_missing_default_version(self, tmp_path: Path) -> None:
-        _write_catalog(
-            tmp_path,
-            {
-                "schema_version": 1,
-                "default_language": "en",
-                "versions": {"v1": {"kind": "overdue"}},
-            },
-        )
-        with pytest.raises(ValueError, match="default_version"):
-            load_catalog(tmp_path)
-
-    def test_raises_empty_default_language(self, tmp_path: Path) -> None:
-        _write_catalog(
-            tmp_path,
-            {
-                "schema_version": 1,
-                "default_version": "v1",
-                "default_language": "",
-                "versions": {"v1": {"kind": "overdue"}},
-            },
-        )
-        with pytest.raises(ValueError, match="default_language"):
-            load_catalog(tmp_path)
-
-    def test_raises_unknown_kind(self, tmp_path: Path) -> None:
-        _write_catalog(
-            tmp_path,
-            {
-                "schema_version": 1,
-                "default_version": "v1",
-                "default_language": "en",
-                "versions": {"v1": {"kind": "unknown_kind"}},
-            },
-        )
-        with pytest.raises(ValueError, match="invalid kind"):
-            load_catalog(tmp_path)
-
-    def test_raises_default_version_not_in_versions(self, tmp_path: Path) -> None:
-        _write_catalog(
-            tmp_path,
-            {
-                "schema_version": 1,
-                "default_version": "missing_version",
-                "default_language": "en",
-                "versions": {"v1": {"kind": "overdue"}},
-            },
-        )
-        with pytest.raises(ValueError, match="default_version.*not in versions"):
-            load_catalog(tmp_path)
-
-    def test_raises_empty_version_id(self, tmp_path: Path) -> None:
-        p = tmp_path / "notice_versions.yaml"
-        # Write raw YAML with an empty-string key manually
-        p.write_text(
-            "schema_version: 1\ndefault_version: ''\ndefault_language: en\n"
-            "versions:\n  '': {kind: overdue}\n",
-            encoding="utf-8",
-        )
-        with pytest.raises(ValueError):
-            load_catalog(tmp_path)
-
-    def test_all_notice_kinds_accepted(self, tmp_path: Path) -> None:
-        _write_catalog(
-            tmp_path,
-            {
-                "schema_version": 1,
-                "default_version": "overdue_v1",
-                "default_language": "fr",
-                "versions": {
-                    "overdue_v1": {"kind": "overdue"},
-                    "affirmative_v1": {"kind": "affirmative"},
-                    "informational_v1": {"kind": "informational"},
-                },
-            },
-        )
-        catalog = load_catalog(tmp_path)
-        assert catalog is not None
-        assert catalog.versions["overdue_v1"].kind == NoticeKind.OVERDUE
-        assert catalog.versions["affirmative_v1"].kind == NoticeKind.AFFIRMATIVE
-        assert catalog.versions["informational_v1"].kind == NoticeKind.INFORMATIONAL
-
-    def test_explicit_requires_field_is_loaded(self, tmp_path: Path) -> None:
-        _write_catalog(
-            tmp_path,
-            {
-                "schema_version": 1,
-                "default_version": "v1",
-                "default_language": "en",
-                "versions": {"v1": {"kind": "overdue", "requires": "any"}},
-            },
-        )
-        catalog = load_catalog(tmp_path)
-        assert catalog is not None
-        assert catalog.versions["v1"].requires == "any"
-
-    def test_omitted_requires_falls_back_to_kind_default(self, tmp_path: Path) -> None:
-        _write_catalog(
-            tmp_path,
-            {
-                "schema_version": 1,
-                "default_version": "overdue_v1",
-                "default_language": "en",
-                "versions": {
-                    "overdue_v1": {"kind": "overdue"},
-                    "affirmative_v1": {"kind": "affirmative"},
-                    "info_v1": {"kind": "informational"},
-                },
-            },
-        )
-        catalog = load_catalog(tmp_path)
-        assert catalog is not None
-        assert catalog.versions["overdue_v1"].requires == "has_overdue"
-        assert catalog.versions["affirmative_v1"].requires == "no_overdue"
-        assert catalog.versions["info_v1"].requires == "any"
-
-    def test_raises_on_unknown_requires_value(self, tmp_path: Path) -> None:
-        _write_catalog(
-            tmp_path,
-            {
-                "schema_version": 1,
-                "default_version": "v1",
-                "default_language": "en",
-                "versions": {"v1": {"kind": "overdue", "requires": "no_such_rule"}},
-            },
-        )
-        with pytest.raises(ValueError, match="unknown requires"):
-            load_catalog(tmp_path)
-
-    def test_rejects_non_scalar_requires_with_context(self, tmp_path: Path) -> None:
-        _write_catalog(
-            tmp_path,
-            {
-                "schema_version": 1,
-                "default_version": "v1",
-                "default_language": "en",
-                "versions": {"v1": {"kind": "overdue", "requires": ["has_overdue"]}},
-            },
-        )
-        with pytest.raises(ValueError, match="version 'v1'.*unknown requires"):
-            load_catalog(tmp_path)
-
-
-# ---------------------------------------------------------------------------
-# validate_eligibility
-# ---------------------------------------------------------------------------
+def assigned(version_id: str, kind: NoticeKind, language: str = "en") -> ResolvedNotice:
+    return ResolvedNotice(version_id, kind.value, language, None, None, "manifest")
 
 
 @pytest.mark.unit
-class TestValidateEligibility:
-    def test_overdue_passes_with_vaccines_due(self) -> None:
-        client = _client(["Measles", "Polio"])
-        resolved = _resolved(NoticeKind.OVERDUE)
-        validate_eligibility(client, resolved, _make_catalog())
-
-    def test_overdue_raises_with_none_vaccines_due(self) -> None:
-        client = _client(None)
-        resolved = _resolved(NoticeKind.OVERDUE)
-        with pytest.raises(ValueError, match="C001"):
-            validate_eligibility(client, resolved, _make_catalog())
-
-    def test_overdue_raises_with_empty_vaccines_due(self) -> None:
-        client = _client([])
-        resolved = _resolved(NoticeKind.OVERDUE)
-        with pytest.raises(ValueError, match="C001"):
-            validate_eligibility(client, resolved, _make_catalog())
-
-    def test_affirmative_passes_with_no_vaccines_due(self) -> None:
-        client = _client(None)
-        resolved = _resolved(NoticeKind.AFFIRMATIVE, "affirmative_schedule_v1")
-        validate_eligibility(client, resolved, _make_catalog())
-
-    def test_affirmative_passes_with_empty_vaccines_due(self) -> None:
-        client = _client([])
-        resolved = _resolved(NoticeKind.AFFIRMATIVE, "affirmative_schedule_v1")
-        validate_eligibility(client, resolved, _make_catalog())
-
-    def test_affirmative_raises_with_non_empty_vaccines_due(self) -> None:
-        client = _client(["Measles"])
-        resolved = _resolved(NoticeKind.AFFIRMATIVE, "affirmative_schedule_v1")
-        with pytest.raises(ValueError, match="C001"):
-            validate_eligibility(client, resolved, _make_catalog())
-
-    def test_informational_passes_regardless_of_vaccines_due(self) -> None:
-        client_with = _client(["Measles"])
-        client_without = _client(None)
-        resolved = _resolved(NoticeKind.INFORMATIONAL, "info_v1")
-        validate_eligibility(client_with, resolved, _make_catalog())
-        validate_eligibility(client_without, resolved, _make_catalog())
-
-    def test_error_message_contains_client_id_not_name(self) -> None:
-        client = _client([])
-        client.client_id = "SENSITIVE_CLIENT_001"
-        client.full_name = "John Smith"
-        resolved = _resolved(NoticeKind.OVERDUE)
-        with pytest.raises(ValueError) as exc_info:
-            validate_eligibility(client, resolved, _make_catalog())
-        assert "SENSITIVE_CLIENT_001" in str(exc_info.value)
-        assert "John Smith" not in str(exc_info.value)
-
-    def test_error_message_includes_rule_name(self) -> None:
-        client = _client([])
-        resolved = _resolved(NoticeKind.OVERDUE)
-        with pytest.raises(ValueError, match="has_overdue"):
-            validate_eligibility(client, resolved, _make_catalog())
-
-    def test_explicit_any_rule_overrides_kind_default(self) -> None:
-        # An overdue-kind version with requires=any accepts clients with no vaccines due.
-        catalog = NoticeVersionCatalog(
-            schema_version=1,
-            default_version="overdue_open_v1",
-            default_language="en",
-            versions={
-                "overdue_open_v1": NoticeVersion(
-                    version_id="overdue_open_v1",
-                    kind=NoticeKind.OVERDUE,
-                    requires="any",
-                ),
+def test_catalog_loads_registered_kinds_and_explicit_rule(tmp_path: Path) -> None:
+    write_catalog(
+        tmp_path,
+        {
+            "schema_version": 1,
+            "versions": {
+                "legacy_overdue_v1": {"kind": "overdue"},
+                "affirmative_schedule_v1": {"kind": "affirmative"},
+                "info_v1": {"kind": "informational", "requires": "any"},
             },
-        )
-        client = _client(None)
-        resolved = _resolved(NoticeKind.OVERDUE, "overdue_open_v1")
-        validate_eligibility(client, resolved, catalog)  # should not raise
-
-
-# ---------------------------------------------------------------------------
-# ELIGIBILITY_RULES registry
-# ---------------------------------------------------------------------------
+        },
+    )
+    loaded = load_catalog(tmp_path)
+    assert loaded.schema_version == 1
+    assert loaded.versions["legacy_overdue_v1"].requires == "has_overdue"
+    assert loaded.versions["affirmative_schedule_v1"].requires == "no_overdue"
+    assert loaded.versions["info_v1"].requires == "any"
 
 
 @pytest.mark.unit
-class TestEligibilityRules:
-    def test_has_overdue_true_when_list_non_empty(self) -> None:
-        client = _client(["Measles"])
-        assert ELIGIBILITY_RULES["has_overdue"](client) is True
+def test_catalog_missing_file_fails_instead_of_using_hidden_defaults(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(FileNotFoundError, match="notice_versions.yaml"):
+        load_catalog(tmp_path)
 
-    def test_has_overdue_false_when_list_empty(self) -> None:
-        assert ELIGIBILITY_RULES["has_overdue"](_client([])) is False
-        assert ELIGIBILITY_RULES["has_overdue"](_client(None)) is False
 
-    def test_no_overdue_true_when_list_empty(self) -> None:
-        assert ELIGIBILITY_RULES["no_overdue"](_client([])) is True
-        assert ELIGIBILITY_RULES["no_overdue"](_client(None)) is True
+@pytest.mark.unit
+@pytest.mark.parametrize("raw", ["[]", "null", "hello", "- version: bad"])
+def test_catalog_requires_mapping(tmp_path: Path, raw: str) -> None:
+    (tmp_path / "notice_versions.yaml").write_text(raw, encoding="utf-8")
+    with pytest.raises(ValueError, match="mapping"):
+        load_catalog(tmp_path)
 
-    def test_no_overdue_false_when_list_non_empty(self) -> None:
-        assert ELIGIBILITY_RULES["no_overdue"](_client(["Polio"])) is False
 
-    def test_any_always_true(self) -> None:
-        assert ELIGIBILITY_RULES["any"](_client(["Measles"])) is True
-        assert ELIGIBILITY_RULES["any"](_client(None)) is True
-        assert ELIGIBILITY_RULES["any"](_client([])) is True
+@pytest.mark.unit
+@pytest.mark.parametrize("schema", [None, True, False, "1", 1.0, 2])
+def test_catalog_rejects_missing_or_invalid_schema(
+    tmp_path: Path, schema: object
+) -> None:
+    entry: dict[str, object] = {"versions": {"v1": {"kind": "overdue"}}}
+    if schema is not None:
+        entry["schema_version"] = schema
+    write_catalog(tmp_path, entry)
+    with pytest.raises(ValueError, match="schema_version"):
+        load_catalog(tmp_path)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("retired", ["default_language", "default_version"])
+def test_catalog_rejects_retired_default_keys(tmp_path: Path, retired: str) -> None:
+    write_catalog(
+        tmp_path,
+        {
+            "schema_version": 1,
+            "versions": {"v1": {"kind": "overdue"}},
+            retired: "en" if retired == "default_language" else "v1",
+        },
+    )
+    with pytest.raises(ValueError, match=retired):
+        load_catalog(tmp_path)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "versions",
+    [None, [], {}, {"v1": []}, {"v1": None}, {"": {"kind": "overdue"}}],
+)
+def test_catalog_rejects_malformed_versions(tmp_path: Path, versions: object) -> None:
+    write_catalog(tmp_path, {"schema_version": 1, "versions": versions})
+    with pytest.raises(ValueError, match="versions|version|identifier"):
+        load_catalog(tmp_path)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "entry,reason",
+    [
+        ({"kind": "unknown"}, "kind"),
+        ({"kind": "overdue", "requires": "unknown"}, "requires"),
+        ({"kind": "overdue", "requires": ["any"]}, "requires"),
+    ],
+)
+def test_catalog_rejects_invalid_rule_with_version_context(
+    tmp_path: Path, entry: dict, reason: str
+) -> None:
+    write_catalog(tmp_path, {"schema_version": 1, "versions": {"v1": entry}})
+    with pytest.raises(ValueError, match=f"v1.*{reason}"):
+        load_catalog(tmp_path)
+
+
+@pytest.mark.unit
+def test_catalog_rejects_invalid_yaml(tmp_path: Path) -> None:
+    (tmp_path / "notice_versions.yaml").write_text(
+        "versions: [unclosed", encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="invalid YAML"):
+        load_catalog(tmp_path)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "version,kind,diseases,allowed",
+    [
+        ("legacy_overdue_v1", NoticeKind.OVERDUE, ["Measles"], True),
+        ("legacy_overdue_v1", NoticeKind.OVERDUE, [], False),
+        ("affirmative_schedule_v1", NoticeKind.AFFIRMATIVE, [], True),
+        ("affirmative_schedule_v1", NoticeKind.AFFIRMATIVE, ["Measles"], False),
+        ("info_v1", NoticeKind.INFORMATIONAL, [], True),
+        ("info_v1", NoticeKind.INFORMATIONAL, ["Measles"], True),
+    ],
+)
+def test_eligibility_uses_canonical_overdue_diseases(
+    version: str, kind: NoticeKind, diseases: list[str], allowed: bool
+) -> None:
+    record = client(diseases)
+    resolved = assigned(version, kind)
+    if allowed:
+        validate_eligibility(record, resolved, catalog())
+    else:
+        with pytest.raises(ValueError) as error:
+            validate_eligibility(record, resolved, catalog())
+        assert record.client_id in str(error.value)
+        assert catalog().versions[version].requires in str(error.value)
+
+
+@pytest.mark.unit
+def test_explicit_any_rule_overrides_kind_default() -> None:
+    selected = NoticeVersionCatalog(
+        schema_version=1,
+        versions={"open": NoticeVersion("open", NoticeKind.OVERDUE, "any")},
+    )
+    validate_eligibility(client([]), assigned("open", NoticeKind.OVERDUE), selected)
+
+
+@pytest.mark.unit
+def test_attaching_assignment_retains_client_metadata_and_provenance() -> None:
+    record = replace(
+        client(["Measles"]),
+        metadata={"source_batch": "synthetic", "custom": {"flag": True}},
+    )
+    resolved = ResolvedNotice(
+        "overdue_standard_v1", NoticeKind.OVERDUE.value, "fr", "study", "B", "manifest"
+    )
+    attached = attach_notice(record, resolved)
+    assert attached.version_id == "overdue_standard_v1"
+    assert attached.language == "fr"
+    assert attached.metadata == {
+        "source_batch": "synthetic",
+        "custom": {"flag": True},
+        "notice_kind": "overdue",
+        "experiment_id": "study",
+        "experiment_arm": "B",
+        "assignment_source": "manifest",
+    }
+
+
+@pytest.mark.unit
+def test_eligibility_error_identifies_client_without_person_name() -> None:
+    record = replace(
+        client([]),
+        person={**client([]).person, "first_name": "Sensitive", "last_name": "Name"},
+    )
+    with pytest.raises(ValueError) as error:
+        validate_eligibility(
+            record, assigned("legacy_overdue_v1", NoticeKind.OVERDUE), catalog()
+        )
+    assert "C001" in str(error.value)
+    assert "Sensitive" not in str(error.value)
+    assert "Name" not in str(error.value)

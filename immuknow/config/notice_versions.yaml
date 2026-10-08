@@ -1,8 +1,9 @@
 schema_version: 1
-default_version: overdue_standard_v1
-default_language: en
 
 versions:
+  legacy_overdue_v1:
+    kind: overdue
+    requires: has_overdue
   overdue_standard_v1:
     kind: overdue
     requires: has_overdue

@@ -50,7 +50,6 @@ def read_render_jobs(artifact_dir: Path) -> list[RenderJob]:
 def prepare_cohort(
     tmp_path: Path,
     languages: tuple[str, ...] = ("en", "fr"),
-    default_language: str = "en",
     group_by: str | None = None,
     encrypted: bool = False,
     qr: bool = False,
@@ -68,10 +67,6 @@ def prepare_cohort(
     config["preprocess"]["include_dose"] = include_dose
     config["preprocess"]["show_validity_markers"] = show_validity_markers
     config_path.write_text(yaml.safe_dump(config))
-    catalog_path = config_dir / "notice_versions.yaml"
-    catalog = yaml.safe_load(catalog_path.read_text())
-    catalog["default_language"] = default_language
-    catalog_path.write_text(yaml.safe_dump(catalog))
 
     frame = create_test_input_dataframe(num_clients=len(languages))
     frame["overdue_disease"] = "Measles - 2"
@@ -187,16 +182,14 @@ def test_mixed_cohort_processed_exactly_once(
 
 
 @pytest.mark.parametrize(
-    "default_language,assigned_language,month",
-    [("en", "fr", "janvier"), ("fr", "en", "January")],
+    "assigned_language,month",
+    [("fr", "janvier"), ("en", "January")],
 )
 def test_assigned_language_controls_every_display_date(
-    tmp_path: Path, default_language: str, assigned_language: str, month: str
+    tmp_path: Path, assigned_language: str, month: str
 ) -> None:
-    """A catalog default cannot relocalize an explicitly assigned notice later."""
-    command, output_dir, _ = prepare_cohort(
-        tmp_path, (assigned_language,), default_language
-    )
+    """Assigned entry points control both birth and cutoff date presentation."""
+    command, output_dir, _ = prepare_cohort(tmp_path, (assigned_language,))
     result = run_cli(command, tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
     job = read_render_jobs(output_dir / "artifacts")[0]
@@ -207,6 +200,64 @@ def test_assigned_language_controls_every_display_date(
     cutoff_month = "août" if assigned_language == "fr" else "August"
     assert cutoff_month in text
     assert len(list((output_dir / "pdf_combined").glob("*.pdf"))) == 1
+
+
+def test_single_template_assigns_every_client_and_qr_language(tmp_path: Path) -> None:
+    """One French entry point supplies identity and language without a manifest."""
+    command, output, config = prepare_cohort(tmp_path, qr=True)
+    template = ROOT / "immuknow" / "templates" / "overdue_standard_v1.fr.typ"
+    completion = orchestrator.run_pipeline(
+        Path(command[3]), output, config_dir=config, notice_template=template
+    )
+    assert completion is not None
+    record = json.loads(completion.read_text())
+    assert record["notice_template"] == str(template)
+    assert record["notice_assignments"] is None
+    cohort = json.loads(Path(record["cohort"]).read_text())
+    assert len(cohort["clients"]) == 2
+    for client in cohort["clients"]:
+        assert client["language"] == "fr"
+        assert client["version_id"] == "overdue_standard_v1"
+        assert client["metadata"]["assignment_source"] == "template"
+        assert "lang=fr" in client["qr"]["payload"]
+    jobs = read_render_jobs(output / "artifacts")
+    assert len(jobs) == 2
+    assert all(PdfReader(job.pdf).root_object["/Lang"] == "fr-CA" for job in jobs)
+
+
+@pytest.mark.parametrize("failure", ["ineligible", "language_mismatch"])
+def test_single_template_cannot_bypass_eligibility_or_native_language(
+    tmp_path: Path, failure: str
+) -> None:
+    command, output, config = prepare_cohort(tmp_path)
+    custom = tmp_path / "custom"
+    shutil.copytree(ROOT / "immuknow" / "templates", custom)
+    if failure == "ineligible":
+        template = custom / "affirmative_schedule_v1.en.typ"
+        diagnostic = "Notice assignment preflight failed"
+    else:
+        template = custom / "overdue_standard_v1.fr.typ"
+        template.write_bytes((custom / "overdue_standard_v1.en.typ").read_bytes())
+        diagnostic = "Notice language does not match this template"
+    result = run_cli(
+        [
+            sys.executable,
+            "-m",
+            "immuknow.orchestrator",
+            command[3],
+            "--output",
+            str(output),
+            "--config",
+            str(config),
+            "--notice-template",
+            str(template),
+        ],
+        tmp_path,
+    )
+    assert result.returncode == 1
+    assert diagnostic in result.stdout + result.stderr
+    assert not list((output / "pdf_combined").glob("*.pdf"))
+    assert not list((output / "metadata").glob("completion_*.json"))
 
 
 def test_failed_compilation_invalidates_old_outputs(tmp_path: Path) -> None:
@@ -230,7 +281,7 @@ def test_failed_compilation_invalidates_old_outputs(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("failure", ["wrong_client", "missing_entry", "compile_error"])
-def test_nondefault_language_failure_prevents_successful_delivery(
+def test_french_notice_failure_prevents_successful_delivery(
     tmp_path: Path, failure: str
 ) -> None:
     """Every selected language must compile and validate, including a failed rerun."""

@@ -15,11 +15,10 @@ requires-python = ">=3.10"
 dependencies = [
     "pandas",
     "PyYAML",
-    "openpyxl",
     "pypdf",
     "qrcode>=7.4.2",
     "pillow>=12.3.0",
-    "frictionless[excel,csv]"
+    "frictionless"
 ]
 
 [dependency-groups]

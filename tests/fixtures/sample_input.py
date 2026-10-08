@@ -1,13 +1,4 @@
-"""Mock data generators for test fixtures and sample input.
-
-This module provides utilities to generate realistic test data:
-- DataFrames for input validation and preprocessing tests
-- Client records and artifacts for downstream step tests
-- PDF records and metadata for output validation tests
-
-All generators are parameterized to support testing edge cases and
-variation in data.
-"""
+"""Synthetic source rows and canonical clients for pipeline tests."""
 
 from __future__ import annotations
 
@@ -21,14 +12,13 @@ from immuknow import data_models
 
 def create_test_input_dataframe(
     num_clients: int = 5,
-    language: str = "en",
     include_overdue: bool = True,
     include_immunization_history: bool = True,
 ) -> pd.DataFrame:
     """Generate a realistic input DataFrame for preprocessing tests.
 
     Real-world significance:
-    - Simulates Excel input from school districts
+    - Simulates CSV input from school districts
     - Enables testing of data normalization without requiring actual input files
     - Supports testing of edge cases (missing fields, various formats, etc.)
 
@@ -36,8 +26,6 @@ def create_test_input_dataframe(
     ----------
     num_clients : int, default 5
         Number of client rows to generate
-    language : str, default "en"
-        Language for notice generation ("en" or "fr")
     include_overdue : bool, default True
         Whether to include OVERDUE DISEASE column with disease names
     include_immunization_history : bool, default True
@@ -46,7 +34,7 @@ def create_test_input_dataframe(
     Returns
     -------
     pd.DataFrame
-        DataFrame with columns matching expected Excel input format
+        DataFrame with columns matching expected CSV input format
     """
     data: Dict[str, List[Any]] = {
         "school_name": [
@@ -309,6 +297,6 @@ def create_test_artifact_payload(
         clients=result.clients,
         warnings=result.warnings,
         created_at="2025-01-01T12:00:00Z",
-        input_file="test_input.xlsx",
+        input_file="test_input.csv",
         total_clients=num_clients,
     )
