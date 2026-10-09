@@ -1,0 +1,37 @@
+{
+  "version_id": "affirmative_schedule_v1",
+  "client": {
+    "sequence": "00001",
+    "client_id": "0000000001",
+    "language": "en",
+    "person": {
+      "first_name": "Élodie",
+      "last_name": "O’Connor",
+      "date_of_birth_iso": "2015-01-02",
+      "age": 9,
+      "over_16": false
+    },
+    "school": {
+      "id": "sch_00001",
+      "name": "Tunnel Academy"
+    },
+    "board": {
+      "id": "brd_00001",
+      "name": "Guelph Board"
+    },
+    "contact": {
+      "street": "123 Main St",
+      "city": "Guelph",
+      "province": "ON",
+      "postal_code": "N1H 2T2"
+    },
+    "received": [],
+    "metadata": {},
+    "qr": {
+      "payload": "https://www.test-immunization.ca/update?client_id=0000000001&dob=2015-01-02&lang=en"
+    },
+    "version_id": "affirmative_schedule_v1",
+    "overdue_diseases": [],
+    "overdue_agents": []
+  }
+}

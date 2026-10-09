@@ -12,6 +12,7 @@ dist/
 site/
 docs/user_guide/input_schema.md
 .coverage
+.coverage.*
 htmlcov/
 coverage.xml
 coverage.json

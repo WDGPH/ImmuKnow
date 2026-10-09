@@ -1,119 +1,106 @@
-# Getting Started
+# Getting started
 
-## Prerequisites
-
-Before running the pipeline you need:
-
-- **Python ≥ 3.10** — managed automatically by `uv`
-- **[uv](https://github.com/astral-sh/uv)** — Python package and project manager
-- **[Typst v0.14.2](https://typst.app)** — PDF typesetting engine (must be on `PATH` or configured via `typst.bin` in `parameters.yaml`)
-
-## Installation
+Install Python 3.10 or later, [uv](https://docs.astral.sh/uv/), and
+[Typst 0.15.1](https://typst.app/docs/changelog/0.15.1/). Put `typst`
+on `PATH`, set `TYPST_BIN`, or configure `typst.bin` in
+`parameters.yaml`. From a checkout:
 
 ```bash
-git clone https://github.com/WDGPH/ImmuKnow.git
-cd ImmuKnow
 uv sync
+uv run immuknow ./input/students.csv --notice-assignments ./assignments.json \
+  --output ./output
 ```
 
-To also install development tools (pre-commit, pytest, etc.):
+An installed package provides `immuknow` and its resources without a checkout.
 
-```bash
-uv sync --group dev
-uv run pre-commit install
-```
+## Prepare input
 
-## Preparing input data
+Pass the path to one CSV extracted from Panorama/PEAR for the complete cohort.
+Relative paths start from your working directory: `students.csv` reads a file
+in that directory, while `./input/students.csv` reads it from the `input`
+subdirectory. Absolute paths are also accepted. The packaged
+[input schema](input_schema.md) defines the CSV fields:
 
-Input files must be `.xlsx` format with a single worksheet, extracted from [Panorama PEAR](https://accessonehealth.ca/).
-
-The pipeline enforces a strict column schema — column names must match exactly (no fuzzy matching). The following columns are **required**:
-
-| Column name | Notes |
+| Schema rule | Fields |
 |---|---|
-| `school_name` | |
-| `client_id` | 10-digit numeric string |
-| `first_name` | |
-| `last_name` | |
-| `date_of_birth` | ISO 8601 date (`YYYY-MM-DD`) |
-| `street_address_line_1` | |
-| `street_address_line_2` | May be blank |
-| `city` | |
-| `province` | |
-| `postal_code` | |
-| `overdue_disease` | May be blank |
-| `overdue_agent` | May be blank |
-| `imms_given` | May be blank |
+| Required, nonblank | `school_name`, `client_id`, `first_name`, `last_name`, `date_of_birth`, `city`, `imms_given` |
+| Optional | `street_address_line_1`, `street_address_line_2`, `province`, `postal_code`, `overdue_disease`, `overdue_agent`, `board_name`, `board_id`, `school_id`, `version_id` |
 
-The following columns are **optional** and will be used when present:
+Absent optional columns are filled with empty strings. `client_id` must be a
+10-digit string, and `date_of_birth` must be a valid `YYYY-MM-DD` date.
+`version_id`, when supplied, must agree with the selected notice; it does not
+select a notice.
 
-| Column name |
-|---|
-| `board_name` |
-| `board_id` |
-| `school_id` |
-| `version_id` |
+The CSV is read as text, and surrounding whitespace is removed once before
+validation. Blank cells stay blank; literal `NA`, `nan`, and `NULL` stay as
+text. The packaged input schema validates these prepared values, and accepted dates
+are formatted as `YYYY-MM-DD` for notices, QR codes, and passwords. A missing required
+column or invalid required value, including a whitespace-only value, rejects
+the whole file before address and client completeness checks. A blank street
+address, province, or postal code passes the packaged schema. Mailing still
+requires at least one street line, plus city, province, and postal code. Rows
+without a complete address are excluded and written to
+`incomplete_addresses.csv`. The input schema is part of the pipeline and
+cannot be replaced through `--config`.
 
-The full schema is defined in `config/input_schema.json`. If the file is missing any required column, the pipeline will stop immediately with a clear error message listing the missing columns.
+## Select notices
 
-Place input files in the `input/` subdirectory (not tracked by Git):
+Select exactly one route for the whole CSV:
 
-```
-ImmuKnow/
-└── input/
-    └── students.xlsx
-```
-
-## Running the pipeline
+- `--notice-assignments PATH` reads a JSON manifest. Each accepted client
+  needs a `client_id` and a `template` filename such as
+  `overdue_agents_v1.fr.typ`. The filename selects version and language
+  within the packaged or selected complete template tree.
+- `--template PATH` selects one such `.typ` file for all accepted
+  clients. Its filename supplies the version and language. The version must
+  exist in the catalog and satisfy its eligibility rule for every client.
 
 ```bash
-uv run viper <input_file> <language> [options]
+uv run immuknow students.csv \
+  --notice-assignments /path/to/assignments.json \
+  --output /path/to/notices
+
+uv run immuknow students.csv \
+  --template /path/to/my-phu/overdue_diseases_v1.en.typ \
+  --output /path/to/notices
 ```
 
-**Required arguments:**
+Both routes require `<version_id>.<language>.typ` with supported `en` or
+`fr`. Manifest `template` values must be filenames, not paths; they resolve
+inside the selected complete tree. Typst also checks the literal version and
+language in the derived JSON. The packaged `notice_versions.yaml` defines
+eligible versions. Use
+`--config /path/to/config` for your own catalog and settings. With a
+manifest, `--templates /path/to/my-phu` selects a complete external Typst
+tree. It cannot be combined with `--template`, which supplies its
+containing template tree. Each
+entry point declares its identity and language and checks the derived JSON.
+An explicit source `version_id` must agree with the selected notice.
 
-| Argument | Description |
-|----------|-------------|
-| `<input_file>` | Name of the Excel file in `input/` (e.g., `students.xlsx`) |
-| `<language>` | Language code: `en` (English) or `fr` (French) |
+The pipeline processes the whole CSV together; language does not filter
+clients from later output checks. See [configuration](configuration.md)
+for assignment and eligibility rules and [template authoring](phu_templates.md)
+for the native JSON contract.
 
-**Common options:**
+## Run output
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--input PATH` | `../input` | Input directory |
-| `--output PATH` | `../output` | Output directory |
-| `--config PATH` | `../config` | Configuration directory |
-| `--template NAME` | Built-in `templates/` | PHU template name within `phu_templates/` |
+The complete run writes beneath `--output`:
 
-**Examples:**
-
-```bash
-# Basic English run
-uv run viper students.xlsx en
-
-# French run with custom output directory
-uv run viper students.xlsx fr --output /tmp/output
-
-# Use a PHU-specific template
-uv run viper students.xlsx en --template wdgph
-```
-
-## Output
-
-All outputs are written to `output/` (or the path given by `--output`):
-
-```
+```text
 output/
-├── pdf_individual/      # One PDF per client
-├── pdf_combined/        # Bundled PDFs (if bundling is enabled)
-├── artifacts/           # Intermediate files (QR codes, Typst sources)
-├── metadata/            # Validation reports and run metadata
-└── logs/                # Per-run log files
+  pdf_individual/  # one expected notice per accepted client
+  pdf_combined/    # optional bundles
+  artifacts/       # prepared clients, render jobs, staged inputs when retained
+  metadata/        # validation and completion evidence
+  logs/
 ```
 
-## Next steps
+The accepted cohort and render jobs determine the expected PDFs. Compilation
+and validation must succeed for every notice before optional encryption and
+bundling complete. The run rejects missing or stale outputs and never uses a
+language filter to split the expected set. Diagnostics can contain client
+identifiers and should be handled as sensitive run output.
 
-- [Configuration Reference](configuration.md) — feature flags, QR codes, encryption, validation rules
-- [PHU Templates](phu_templates.md) — creating organization-specific layouts
-- [Architecture](../reference/architecture.md) — how the pipeline steps fit together
+For a callable workflow, use `immuknow.orchestrator.run_pipeline` as shown
+in the [Python interface](../reference/api.md). The
+[workflow diagram](../reference/architecture.md) explains output accounting.

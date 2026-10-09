@@ -1,150 +1,143 @@
-# PHU Templates Directory
+# Authoring native Typst notices
 
-This directory contains Public Health Unit (PHU) specific template customizations.
+A notice is an authored `.typ` entry point that reads one JSON payload.
+Python supplies validated client data and the selected notice. Typst
+owns the document's prose, layout, dates, disease labels, dose wording, and
+visible chart headings. The included branding and contacts are samples that a
+PHU must review.
 
-## Usage
+## Select a complete template tree
 
-Each PHU should create a subdirectory here with their organization-specific templates:
-
-```
-phu_templates/
-├── my_phu/
-│   ├── en_template.py              (required for English output)
-│   ├── fr_template.py              (required for French output)
-│   ├── conf.typ                    (required)
-│   └── assets/                     (optional - only if templates reference assets)
-│       ├── logo.png                (optional)
-│       └── signature.png           (optional)
-```
-
-## Running with PHU Templates
-
-To use a PHU-specific template, specify the template name with `--template`:
+The package owns `immuknow/templates/`. Copy its entry points, `conf.typ`,
+`presentation.typ`, and assets to a directory you control, then use
+`--templates PATH`. From a checkout:
 
 ```bash
-# Generate English notices
-uv run viper students.xlsx en --template my_phu
-
-# Generate French notices
-uv run viper students.xlsx fr --template my_phu
+cp -r immuknow/templates /path/to/my-phu
+uv run immuknow students.csv --notice-assignments assignments.json \
+  --templates /path/to/my-phu
 ```
 
-This will load templates from `phu_templates/my_phu/`.
+For an installed wheel:
 
-## Template File Requirements
+```python
+from importlib.resources import files
+from pathlib import Path
+from shutil import copytree
 
-### Core Requirements (Always Required)
+copytree(Path(str(files("immuknow").joinpath("templates"))), Path("/path/to/my-phu"))
+```
 
-- `conf.typ` - Typst configuration and utility functions
-
-### Language-Specific Requirements (Based on Output Language)
-
-- `en_template.py` - Required only if generating English notices (`--language en`)
-    - Must define `render_notice()` function
-    - Consulted only when `--language en` is specified
-  
-- `fr_template.py` - Required only if generating French notices (`--language fr`)
-    - Must define `render_notice()` function
-    - Consulted only when `--language fr` is specified
-
-**Note:** A PHU may provide templates for only one language. If a user requests a language your template does not support, the pipeline will fail with a clear error message. If you only support one language, only include that template file (e.g., only `en_template.py`).
-
-### Asset Requirements (Based on Template Implementation)
-
-Assets in the `assets/` directory are **optional** and depend entirely on your template implementation:
-
-- `assets/logo.png` - Only required if your `en_template.py` or `fr_template.py` references a logo
-- `assets/signature.png` - Only required if your `en_template.py` or `fr_template.py` references a signature
-- Other files - Any additional assets (e.g., `assets/header.png`, `assets/seal.pdf`) may be included and referenced in your templates
-
-**Note:** If your template references an asset (e.g., `include "assets/logo.png"` in Typst), that asset **must** exist. The pipeline will fail with a clear error if a referenced asset is missing.
-
-## Creating a PHU Template
-
-If your PHU supports both English and French:
+Manifest rows name entry-point files such as
+`overdue_agents_v1.fr.typ`, without paths. The pipeline resolves each name
+inside the complete tree selected with `--templates DIRECTORY`. Relative
+directory paths resolve from the working directory. To use one file for the
+whole accepted cohort, pass its path instead:
 
 ```bash
-cp -r templates/ phu_templates/my_phu/
+uv run immuknow students.csv \
+  --template /path/to/my-phu/overdue_diseases_v1.en.typ
 ```
 
-Then customize:
+Both selectors use the `<version_id>.<language>.typ` filename contract, with
+supported `en` or `fr`; Typst still asserts literal identity. The selected
+file's name supplies the version and language; its version must be
+registered in the selected catalog and eligible for every accepted client.
+Its containing tree supplies the entry point, helpers, and assets. The
+single-file option cannot be combined with `--notice-assignments` or
+`--templates`. Selected trees are isolated; missing
+resources do not fall back to built-ins. Writes stay in the run output,
+not the installed package. Template/output overlap is rejected before copying
+or cleanup.
 
-- Replace `assets/logo.png` with your PHU logo
-- Replace `assets/signature.png` with your signature
-- Modify `en_template.py` and `fr_template.py` as needed
-- Adjust `conf.typ` for organization-specific styling
+The maintained examples have flat entry points:
+`overdue_diseases_v1.en.typ`, `overdue_diseases_v1.fr.typ`,
+`overdue_agents_v1.en.typ`, `overdue_agents_v1.fr.typ`, and
+`affirmative_schedule_v1.en.typ`. The disease example displays overdue
+diseases; the agent example displays vaccine agents. Eligibility for both
+uses the overdue disease list.
 
-### Testing Your Template
+The affirmative example is never selected automatically. Assign
+`affirmative_schedule_v1.en.typ` in a manifest, or select that file with
+`--template` for a whole cohort. Its catalog `no_overdue` rule
+requires `overdue_diseases` to be empty for every selected client, based
+on the source assessment. An ineligible assignment fails preflight.
+No French affirmative example ships. Add one only after its wording and
+layout are reviewed.
+
+## Assert the notice identity
+
+Each entry point names its own literal `version_id` and language, checks
+the JSON, and sets the document text language and Canadian region:
+
+```typst
+#let notice = json(sys.inputs.at("data"))
+#assert(notice.version_id == "overdue_agents_v1", message: "Wrong notice version")
+#assert(notice.language == "en", message: "Wrong notice language")
+#set text(lang: "en", region: "CA")
+#import "/templates/conf.typ"
+```
+
+Keep assertions independent of the input values. An agent-based overdue entry
+also asserts `notice.overdue_agents.len() > 0`. Disease-based and affirmative
+entries do not require agents. Use ordinary Typst field access; input strings
+must remain literal data, never executable source.
+
+## Per-notice JSON
+
+The renderer gives each entry point one small, derived JSON file:
+
+| Field | Meaning |
+|---|---|
+| `version_id`, `language`, `client_id` | Resolved identity and client identifier |
+| `client_data` | `name`, `address`, `city`, `postal_code`, `school`, `over_16`, and `date_of_birth_iso`; optional `qr_img` and `qr_url` |
+| `date_as_of` | As-of date shown in the notice, in YYYY-MM-DD format, or blank when absent |
+| `overdue_diseases` | Normalized disease names and doses as `{disease, dose}`; invalid dose also has `dose_raw` |
+| `overdue_agents` | Vaccine agents available to agent-based notices |
+| `include_dose` | Whether Typst shows available numeric doses |
+| `received` | History rows with `date_given`, `date_rowspan`, `vaccines`, and validity statuses in `columns` keyed by disease name |
+| `chart_diseases` | Configured disease names in chart order |
+| `show_validity_markers` | Whether the history distinguishes validity |
+| `logo_path`, `signature_path` | Assets beneath the bounded Typst root |
+
+An absent dose has `dose: null`; an invalid source dose also retains
+`dose_raw` for diagnostics. Python validates dates and passes ISO strings.
+`presentation.typ` formats long dates, approved disease labels, dose suffixes,
+and shared headings for English and French. A blank optional as-of date stays
+blank; a required invalid date fails. The history retains its compact date
+format. Translation dictionaries are staged once under `/translations/` and
+looked up by disease name. Uncatalogued source labels stay visible unchanged.
+A label present only in the other language is an error. Chart membership is
+never inferred from translated labels.
+
+Templates can rearrange content, but must keep their own version and
+language checks. A selected single file applies those checks to every client.
+The [configuration contract](configuration.md) explains assignments,
+translation data, and QR/password fields.
+
+## Reproduce and review a notice
+
+A run stages the selected tree at `output/artifacts/render/templates/`, the
+language dictionaries at `render/translations/`, and one JSON file per client
+at `render/data/`. `artifacts/render_jobs.json` records each exact template,
+data file, expected PDF, and bounded workspace. Set
+`pipeline.after_run.remove_artifacts: false` to retain these inputs.
+
+With Typst 0.15.1, use the actual paths from that job:
 
 ```bash
-# Test English generation
-uv run viper students.xlsx en --template my_phu
-
-# Test French generation (if you provided fr_template.py)
-uv run viper students.xlsx fr --template my_phu
+typst compile \
+  --root "/path/to/output/artifacts/render" \
+  --input data=/data/en_notice_00001_123.json \
+  "/path/to/output/artifacts/render/templates/overdue_diseases_v1.en.typ" \
+  "/path/to/review.pdf"
 ```
 
-If a language template is missing:
-```
-FileNotFoundError: Template module not found: /path/to/phu_templates/my_phu/fr_template.py
-Expected fr_template.py in /path/to/phu_templates/my_phu
-```
+The slash in a Typst import or data reference is relative to `--root`; the
+root is the run workspace, never the filesystem root. A manual compile aids
+review but does not certify whole-cohort validation or delivery.
 
-If an asset referenced by your template is missing:
-```
-FileNotFoundError: Logo not found: /path/to/phu_templates/my_phu/assets/logo.png
-```
-
-## Notice Versioning (Manifest Mode) Templates
-
-When running in manifest mode (`--notice-assignments`), each notice version requires its own subdirectory inside the PHU template directory. The directory name must match the `version_id` from `config/notice_versions.yaml`.
-
-### Directory structure
-
-```
-phu_templates/my_phu/
-├── overdue_standard_v1/
-│   ├── en_template.py       (required if any client gets overdue_standard_v1 in English)
-│   └── fr_template.py       (required if any client gets overdue_standard_v1 in French)
-├── affirmative_schedule_v1/
-│   ├── en_template.py
-│   └── fr_template.py
-├── conf.typ                 (shared Typst configuration — still at the top level)
-└── assets/                  (optional — shared across all versions)
-    ├── logo.png
-    └── signature.png
-```
-
-Each language template within a version subdirectory must define the same `render_notice()` function as fixed-mode templates.
-
-### Preflight template validation
-
-Before rendering any client, the pipeline checks that every `(version_id, language)` pair needed by the assignment manifest has a corresponding template file. All missing paths are reported in a single error so you can fix all gaps in one pass:
-
-```
-FileNotFoundError: Missing notice templates:
-  phu_templates/my_phu/affirmative_schedule_v1/fr_template.py
-  phu_templates/my_phu/informational_v1/en_template.py
-```
-
-### Fixed mode is unchanged
-
-Existing templates at the top level of the PHU directory (`en_template.py`, `fr_template.py`) continue to work for fixed-mode runs. No migration is needed unless you want to adopt manifest mode.
-
-### Example: adding a new version template
-
-```bash
-mkdir -p phu_templates/my_phu/affirmative_schedule_v1
-cp phu_templates/my_phu/en_template.py phu_templates/my_phu/affirmative_schedule_v1/en_template.py
-# Customize the template for the affirmative notice layout
-```
-
----
-
-## Git Considerations
-
-**Important:** PHU-specific templates are excluded from version control via `.gitignore`.
-
-- Templates in this directory will NOT be committed to the main repository
-- Each PHU should maintain their templates in their own fork or separate repository
-- The `README.md` file and `.gitkeep` are the only tracked files in this directory
+Review English and French prose, client details, history grouping, validity
+symbols, QR links, branding, page count, signature position, and envelope
+window. Include long records and addresses. The
+[testing guide](../developer_guide/testing.md) covers repeatable native checks.

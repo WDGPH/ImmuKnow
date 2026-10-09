@@ -1,34 +1,24 @@
-"""Mock data generators for test fixtures and sample input.
-
-This module provides utilities to generate realistic test data:
-- DataFrames for input validation and preprocessing tests
-- Client records and artifacts for downstream step tests
-- PDF records and metadata for output validation tests
-
-All generators are parameterized to support testing edge cases and
-variation in data.
-"""
+"""Synthetic source rows and prepared clients for pipeline tests."""
 
 from __future__ import annotations
 
-from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
-from pipeline import data_models
+from immuknow import data_models
 
 
 def create_test_input_dataframe(
     num_clients: int = 5,
-    language: str = "en",
     include_overdue: bool = True,
     include_immunization_history: bool = True,
 ) -> pd.DataFrame:
     """Generate a realistic input DataFrame for preprocessing tests.
 
     Real-world significance:
-    - Simulates Excel input from school districts
+    - Simulates CSV input from school districts
     - Enables testing of data normalization without requiring actual input files
     - Supports testing of edge cases (missing fields, various formats, etc.)
 
@@ -36,8 +26,6 @@ def create_test_input_dataframe(
     ----------
     num_clients : int, default 5
         Number of client rows to generate
-    language : str, default "en"
-        Language for notice generation ("en" or "fr")
     include_overdue : bool, default True
         Whether to include OVERDUE DISEASE column with disease names
     include_immunization_history : bool, default True
@@ -46,7 +34,7 @@ def create_test_input_dataframe(
     Returns
     -------
     pd.DataFrame
-        DataFrame with columns matching expected Excel input format
+        DataFrame with columns matching expected CSV input format
     """
     data: Dict[str, List[Any]] = {
         "school_name": [
@@ -81,9 +69,13 @@ def create_test_input_dataframe(
             "654 Maple Dr",
         ][:num_clients],
         "street_address_line_2": ["", "Suite 5", "", "Apt 12", ""][:num_clients],
-        "city": ["Guelph", "Guelph", "Wellington", "Wellington", "Toronto"][:num_clients],
+        "city": ["Guelph", "Guelph", "Wellington", "Wellington", "Toronto"][
+            :num_clients
+        ],
         "province": ["ON", "ON", "ON", "ON", "ON"][:num_clients],
-        "postal_code": ["N1H 2T2", "N1H 2T3", "N1K 1B2", "N1K 1B3", "M5V 3A8"][:num_clients],
+        "postal_code": ["N1H 2T2", "N1H 2T3", "N1K 1B2", "N1K 1B3", "M5V 3A8"][
+            :num_clients
+        ],
         "overdue_disease": (
             [
                 "Measles/Mumps/Rubella",
@@ -125,8 +117,7 @@ def create_test_client_record(
     date_of_birth: str = "2015-01-02",
     school_name: str = "Tunnel Academy",
     board_name: str = "Guelph Board",
-    vaccines_due: str = "Measles/Mumps/Rubella",
-    vaccines_due_list: Optional[List[str]] = None,
+    overdue_diseases: Optional[List[str]] = None,
     has_received_vaccines: bool = False,
 ) -> data_models.ClientRecord:
     """Generate a realistic ClientRecord for testing downstream steps.
@@ -154,10 +145,8 @@ def create_test_client_record(
         School name
     board_name : str, default "Guelph Board"
         School board name
-    vaccines_due : str, default "Measles/Mumps/Rubella"
-        Disease(s) requiring immunization
-    vaccines_due_list : Optional[List[str]], default None
-        List of individual diseases due (overrides vaccines_due if provided)
+    overdue_diseases : Optional[List[str]], default None
+        Disease identifiers requiring immunization.
     has_received_vaccines : bool, default False
         Whether to include mock vaccination history
 
@@ -169,9 +158,7 @@ def create_test_client_record(
     person_dict: Dict[str, Any] = {
         "first_name": first_name,
         "last_name": last_name,
-        "date_of_birth": date_of_birth,
         "date_of_birth_iso": date_of_birth,
-        "date_of_birth_display": date_of_birth,
         "age": 9,
         "over_16": False,
     }
@@ -183,15 +170,9 @@ def create_test_client_record(
         "postal_code": "N1H 2T2",
     }
 
-    school_dict: Dict[str, Any] = {
-        "id": f"sch_{sequence}",
-        "name": school_name
-    }
+    school_dict: Dict[str, Any] = {"id": f"sch_{sequence}", "name": school_name}
 
-    board_dict: Dict[str, Any] = {
-        "id": f"brd_{sequence}",
-        "name": board_name
-    }
+    board_dict: Dict[str, Any] = {"id": f"brd_{sequence}", "name": board_name}
 
     received: List[Dict[str, object]] = []
     if has_received_vaccines:
@@ -208,8 +189,8 @@ def create_test_client_record(
             },
         ]
 
-    if vaccines_due_list is None:
-        vaccines_due_list = vaccines_due.split("/") if vaccines_due else []
+    if overdue_diseases is None:
+        overdue_diseases = ["Measles/Mumps/Rubella"]
 
     return data_models.ClientRecord(
         sequence=sequence,
@@ -219,12 +200,14 @@ def create_test_client_record(
         school=school_dict,
         board=board_dict,
         contact=contact_dict,
-        vaccines_due=vaccines_due,
-        vaccines_due_list=vaccines_due_list,
-        vaccines_due_agent_list=None,
+        overdue_diseases=[
+            {"disease": disease, "dose": None} for disease in overdue_diseases
+        ],
+        overdue_agents=[],
         received=received,
         metadata={},
         qr=None,
+        version_id="overdue_diseases_v1",
     )
 
 
@@ -282,8 +265,8 @@ def create_test_artifact_payload(
     num_clients: int = 3,
     language: str = "en",
     run_id: str = "test_run_001",
-) -> data_models.ArtifactPayload:
-    """Generate a realistic ArtifactPayload for artifact schema testing.
+) -> SimpleNamespace:
+    """Generate a small test cohort for bundling scenarios.
 
     Real-world significance:
     - Artifacts are JSON files storing intermediate pipeline state
@@ -301,84 +284,19 @@ def create_test_artifact_payload(
 
     Returns
     -------
-    ArtifactPayload
-        Complete artifact with clients and metadata
+    SimpleNamespace
+        Small cohort with clients and run labels for tests.
     """
     result = create_test_preprocess_result(
         num_clients=num_clients, language=language, run_id=run_id
     )
 
-    return data_models.ArtifactPayload(
+    return SimpleNamespace(
         run_id=run_id,
         language=language,
         clients=result.clients,
         warnings=result.warnings,
         created_at="2025-01-01T12:00:00Z",
-        input_file="test_input.xlsx",
+        input_file="test_input.csv",
         total_clients=num_clients,
     )
-
-
-def write_test_artifact(
-    artifact: data_models.ArtifactPayload, output_dir: Path
-) -> Path:
-    """Write a test artifact to disk in standard location.
-
-    Real-world significance:
-    - Tests that need to read artifacts from disk can use this
-    - Enables testing of artifact loading and validation
-    - Matches production artifact file naming/location
-
-    Parameters
-    ----------
-    artifact : ArtifactPayload
-        Artifact to write
-    output_dir : Path
-        Output directory (typically tmp_output_structure["artifacts"])
-
-    Returns
-    -------
-    Path
-        Path to written artifact file
-    """
-    import json
-
-    filename = f"preprocessed_clients_{artifact.run_id}_{artifact.language}.json"
-    filepath = output_dir / filename
-
-    # Convert ClientRecords to dicts for JSON serialization
-    clients_dicts = [
-        {
-            "sequence": client.sequence,
-            "client_id": client.client_id,
-            "language": client.language,
-            "person": client.person,
-            "school": client.school,
-            "board": client.board,
-            "contact": client.contact,
-            "vaccines_due": client.vaccines_due,
-            "vaccines_due_list": client.vaccines_due_list,
-            "vaccines_due_agent_list": client.vaccines_due_agent_list,
-            "received": list(client.received) if client.received else [],
-            "metadata": client.metadata,
-            "qr": client.qr,
-        }
-        for client in artifact.clients
-    ]
-
-    with open(filepath, "w") as f:
-        json.dump(
-            {
-                "run_id": artifact.run_id,
-                "language": artifact.language,
-                "clients": clients_dicts,
-                "warnings": artifact.warnings,
-                "created_at": artifact.created_at,
-                "input_file": artifact.input_file,
-                "total_clients": artifact.total_clients,
-            },
-            f,
-            indent=2,
-        )
-
-    return filepath
