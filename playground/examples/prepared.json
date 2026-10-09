@@ -1,0 +1,6002 @@
+{
+  "schemaVersion": 1,
+  "synthetic": true,
+  "examples": [
+    {
+      "id": "short",
+      "label": "Short history",
+      "description": "Two recorded administrations with known validity.",
+      "payloads": {
+        "overdue_diseases_v1.en.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_diseases_v1",
+          "language": "en",
+          "client_id": "0000000001",
+          "client_data": {
+            "name": "Élodie Exemple 01",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École Démo des Lilas",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000001.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2021-06-15",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        },
+        "overdue_diseases_v1.fr.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_diseases_v1",
+          "language": "fr",
+          "client_id": "0000000001",
+          "client_data": {
+            "name": "Élodie Exemple 01",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École Démo des Lilas",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000001.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2021-06-15",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        },
+        "overdue_agents_v1.en.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_agents_v1",
+          "language": "en",
+          "client_id": "0000000001",
+          "client_data": {
+            "name": "Élodie Exemple 01",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École Démo des Lilas",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000001.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2021-06-15",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        },
+        "overdue_agents_v1.fr.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_agents_v1",
+          "language": "fr",
+          "client_id": "0000000001",
+          "client_data": {
+            "name": "Élodie Exemple 01",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École Démo des Lilas",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000001.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2021-06-15",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        }
+      }
+    },
+    {
+      "id": "long-history",
+      "label": "Long history",
+      "description": "Seventy synthetic administrations exercise repeating headings and page continuation.",
+      "payloads": {
+        "overdue_diseases_v1.en.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_diseases_v1",
+          "language": "en",
+          "client_id": "0000000002",
+          "client_data": {
+            "name": "Élodie Exemple 02",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École Démo des Lilas",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000002.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2015-01-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-01-31",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-03-02",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-04-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-05-01",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-05-31",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-06-30",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-07-30",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-08-29",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-09-28",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-10-28",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-11-27",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-12-27",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-01-26",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-02-25",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-03-26",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-04-25",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-05-25",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-06-24",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-07-24",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-08-23",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-09-22",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-10-22",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-11-21",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-12-21",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-01-20",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-02-19",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-03-21",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-04-20",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-05-20",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-06-19",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-07-19",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-08-18",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-09-17",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-10-17",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-11-16",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-12-16",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-01-15",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-02-14",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-03-16",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-04-15",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-05-15",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-06-14",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-07-14",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-08-13",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-09-12",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-10-12",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-11-11",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-12-11",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-01-10",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-02-09",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-03-11",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-04-10",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-05-10",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-06-09",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-07-09",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-08-08",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-09-07",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-10-07",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-11-06",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-12-06",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-01-05",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-02-04",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-03-05",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-04-04",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-05-04",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-06-03",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-07-03",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-08-02",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-09-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        },
+        "overdue_diseases_v1.fr.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_diseases_v1",
+          "language": "fr",
+          "client_id": "0000000002",
+          "client_data": {
+            "name": "Élodie Exemple 02",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École Démo des Lilas",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000002.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2015-01-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-01-31",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-03-02",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-04-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-05-01",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-05-31",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-06-30",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-07-30",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-08-29",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-09-28",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-10-28",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-11-27",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-12-27",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-01-26",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-02-25",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-03-26",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-04-25",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-05-25",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-06-24",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-07-24",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-08-23",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-09-22",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-10-22",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-11-21",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-12-21",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-01-20",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-02-19",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-03-21",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-04-20",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-05-20",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-06-19",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-07-19",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-08-18",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-09-17",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-10-17",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-11-16",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-12-16",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-01-15",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-02-14",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-03-16",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-04-15",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-05-15",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-06-14",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-07-14",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-08-13",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-09-12",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-10-12",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-11-11",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-12-11",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-01-10",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-02-09",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-03-11",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-04-10",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-05-10",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-06-09",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-07-09",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-08-08",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-09-07",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-10-07",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-11-06",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-12-06",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-01-05",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-02-04",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-03-05",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-04-04",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-05-04",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-06-03",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-07-03",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-08-02",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-09-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        },
+        "overdue_agents_v1.en.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_agents_v1",
+          "language": "en",
+          "client_id": "0000000002",
+          "client_data": {
+            "name": "Élodie Exemple 02",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École Démo des Lilas",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000002.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2015-01-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-01-31",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-03-02",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-04-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-05-01",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-05-31",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-06-30",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-07-30",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-08-29",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-09-28",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-10-28",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-11-27",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-12-27",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-01-26",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-02-25",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-03-26",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-04-25",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-05-25",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-06-24",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-07-24",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-08-23",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-09-22",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-10-22",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-11-21",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-12-21",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-01-20",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-02-19",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-03-21",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-04-20",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-05-20",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-06-19",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-07-19",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-08-18",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-09-17",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-10-17",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-11-16",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-12-16",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-01-15",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-02-14",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-03-16",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-04-15",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-05-15",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-06-14",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-07-14",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-08-13",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-09-12",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-10-12",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-11-11",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-12-11",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-01-10",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-02-09",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-03-11",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-04-10",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-05-10",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-06-09",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-07-09",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-08-08",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-09-07",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-10-07",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-11-06",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-12-06",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-01-05",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-02-04",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-03-05",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-04-04",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-05-04",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-06-03",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-07-03",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-08-02",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-09-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        },
+        "overdue_agents_v1.fr.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_agents_v1",
+          "language": "fr",
+          "client_id": "0000000002",
+          "client_data": {
+            "name": "Élodie Exemple 02",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École Démo des Lilas",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000002.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2015-01-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-01-31",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-03-02",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-04-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-05-01",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-05-31",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-06-30",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-07-30",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-08-29",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-09-28",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-10-28",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-11-27",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2015-12-27",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-01-26",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-02-25",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-03-26",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-04-25",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-05-25",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-06-24",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-07-24",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-08-23",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-09-22",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-10-22",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-11-21",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2016-12-21",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-01-20",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-02-19",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-03-21",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-04-20",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-05-20",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-06-19",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-07-19",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-08-18",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-09-17",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-10-17",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-11-16",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2017-12-16",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-01-15",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-02-14",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-03-16",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-04-15",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-05-15",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-06-14",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-07-14",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-08-13",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-09-12",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-10-12",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-11-11",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2018-12-11",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-01-10",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-02-09",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-03-11",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-04-10",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-05-10",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-06-09",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-07-09",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-08-08",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-09-07",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-10-07",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-11-06",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2019-12-06",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-01-05",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-02-04",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-03-05",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-04-04",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-05-04",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-06-03",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-07-03",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-08-02",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-09-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        }
+      }
+    },
+    {
+      "id": "long-fields",
+      "label": "Long client fields",
+      "description": "Long accented name, address and school fields exercise wrapping.",
+      "payloads": {
+        "overdue_diseases_v1.en.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_diseases_v1",
+          "language": "en",
+          "client_id": "0000000003",
+          "client_data": {
+            "name": "Alexandrine-Louise Exemple",
+            "address": "1234 Allée des Lilas, appartement 11",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École de démonstration des sciences et des arts de la communauté des Lilas",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000003.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2021-06-15",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        },
+        "overdue_diseases_v1.fr.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_diseases_v1",
+          "language": "fr",
+          "client_id": "0000000003",
+          "client_data": {
+            "name": "Alexandrine-Louise Exemple",
+            "address": "1234 Allée des Lilas, appartement 11",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École de démonstration des sciences et des arts de la communauté des Lilas",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000003.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2021-06-15",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        },
+        "overdue_agents_v1.en.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_agents_v1",
+          "language": "en",
+          "client_id": "0000000003",
+          "client_data": {
+            "name": "Alexandrine-Louise Exemple",
+            "address": "1234 Allée des Lilas, appartement 11",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École de démonstration des sciences et des arts de la communauté des Lilas",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000003.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2021-06-15",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        },
+        "overdue_agents_v1.fr.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_agents_v1",
+          "language": "fr",
+          "client_id": "0000000003",
+          "client_data": {
+            "name": "Alexandrine-Louise Exemple",
+            "address": "1234 Allée des Lilas, appartement 11",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École de démonstration des sciences et des arts de la communauté des Lilas",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000003.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2021-06-15",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        }
+      }
+    },
+    {
+      "id": "several-overdue",
+      "label": "Several overdue items",
+      "description": "Separate disease and agent assessments, including supplied dose numbers.",
+      "payloads": {
+        "overdue_diseases_v1.en.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_diseases_v1",
+          "language": "en",
+          "client_id": "0000000004",
+          "client_data": {
+            "name": "Élodie Exemple 04",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École Démo des Lilas",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000004.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            },
+            {
+              "disease": "Mumps",
+              "dose": 2
+            },
+            {
+              "disease": "Rubella",
+              "dose": 1
+            },
+            {
+              "disease": "Polio",
+              "dose": 4
+            },
+            {
+              "disease": "Diphtheria",
+              "dose": 5
+            },
+            {
+              "disease": "Tetanus",
+              "dose": 5
+            }
+          ],
+          "overdue_agents": [
+            "MMR",
+            "IPV",
+            "DTaP"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2021-06-15",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        },
+        "overdue_diseases_v1.fr.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_diseases_v1",
+          "language": "fr",
+          "client_id": "0000000004",
+          "client_data": {
+            "name": "Élodie Exemple 04",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École Démo des Lilas",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000004.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            },
+            {
+              "disease": "Mumps",
+              "dose": 2
+            },
+            {
+              "disease": "Rubella",
+              "dose": 1
+            },
+            {
+              "disease": "Polio",
+              "dose": 4
+            },
+            {
+              "disease": "Diphtheria",
+              "dose": 5
+            },
+            {
+              "disease": "Tetanus",
+              "dose": 5
+            }
+          ],
+          "overdue_agents": [
+            "MMR",
+            "IPV",
+            "DTaP"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2021-06-15",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        },
+        "overdue_agents_v1.en.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_agents_v1",
+          "language": "en",
+          "client_id": "0000000004",
+          "client_data": {
+            "name": "Élodie Exemple 04",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École Démo des Lilas",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000004.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            },
+            {
+              "disease": "Mumps",
+              "dose": 2
+            },
+            {
+              "disease": "Rubella",
+              "dose": 1
+            },
+            {
+              "disease": "Polio",
+              "dose": 4
+            },
+            {
+              "disease": "Diphtheria",
+              "dose": 5
+            },
+            {
+              "disease": "Tetanus",
+              "dose": 5
+            }
+          ],
+          "overdue_agents": [
+            "MMR",
+            "IPV",
+            "DTaP"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2021-06-15",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        },
+        "overdue_agents_v1.fr.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_agents_v1",
+          "language": "fr",
+          "client_id": "0000000004",
+          "client_data": {
+            "name": "Élodie Exemple 04",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École Démo des Lilas",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000004.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            },
+            {
+              "disease": "Mumps",
+              "dose": 2
+            },
+            {
+              "disease": "Rubella",
+              "dose": 1
+            },
+            {
+              "disease": "Polio",
+              "dose": 4
+            },
+            {
+              "disease": "Diphtheria",
+              "dose": 5
+            },
+            {
+              "disease": "Tetanus",
+              "dose": 5
+            }
+          ],
+          "overdue_agents": [
+            "MMR",
+            "IPV",
+            "DTaP"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2021-06-15",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        }
+      }
+    },
+    {
+      "id": "older-client",
+      "label": "Older client",
+      "description": "The prepared age fact selects the adult addressee.",
+      "payloads": {
+        "overdue_diseases_v1.en.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_diseases_v1",
+          "language": "en",
+          "client_id": "0000000005",
+          "client_data": {
+            "name": "Élodie Exemple 05",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2000-02-03",
+            "school": "École Démo des Lilas",
+            "over_16": true,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000005.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2021-06-15",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        },
+        "overdue_diseases_v1.fr.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_diseases_v1",
+          "language": "fr",
+          "client_id": "0000000005",
+          "client_data": {
+            "name": "Élodie Exemple 05",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2000-02-03",
+            "school": "École Démo des Lilas",
+            "over_16": true,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000005.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2021-06-15",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        },
+        "overdue_agents_v1.en.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_agents_v1",
+          "language": "en",
+          "client_id": "0000000005",
+          "client_data": {
+            "name": "Élodie Exemple 05",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2000-02-03",
+            "school": "École Démo des Lilas",
+            "over_16": true,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000005.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2021-06-15",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        },
+        "overdue_agents_v1.fr.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_agents_v1",
+          "language": "fr",
+          "client_id": "0000000005",
+          "client_data": {
+            "name": "Élodie Exemple 05",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2000-02-03",
+            "school": "École Démo des Lilas",
+            "over_16": true,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000005.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2021-06-15",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        }
+      }
+    },
+    {
+      "id": "same-date",
+      "label": "Same-date conflicts",
+      "description": "Combination agents on one date retain differing known validity and duplicate normalization.",
+      "payloads": {
+        "overdue_diseases_v1.en.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_diseases_v1",
+          "language": "en",
+          "client_id": "0000000006",
+          "client_data": {
+            "name": "Élodie Exemple 06",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École Démo des Lilas",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000006.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-05-01",
+              "agent": "MMR-Var",
+              "display_name": "MMR-Var",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella",
+                "Varicella"
+              ],
+              "validity": "invalid"
+            },
+            {
+              "date_given": "2020-05-01",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        },
+        "overdue_diseases_v1.fr.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_diseases_v1",
+          "language": "fr",
+          "client_id": "0000000006",
+          "client_data": {
+            "name": "Élodie Exemple 06",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École Démo des Lilas",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000006.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-05-01",
+              "agent": "MMR-Var",
+              "display_name": "MMR-Var",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella",
+                "Varicella"
+              ],
+              "validity": "invalid"
+            },
+            {
+              "date_given": "2020-05-01",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        },
+        "overdue_agents_v1.en.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_agents_v1",
+          "language": "en",
+          "client_id": "0000000006",
+          "client_data": {
+            "name": "Élodie Exemple 06",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École Démo des Lilas",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000006.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-05-01",
+              "agent": "MMR-Var",
+              "display_name": "MMR-Var",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella",
+                "Varicella"
+              ],
+              "validity": "invalid"
+            },
+            {
+              "date_given": "2020-05-01",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        },
+        "overdue_agents_v1.fr.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_agents_v1",
+          "language": "fr",
+          "client_id": "0000000006",
+          "client_data": {
+            "name": "Élodie Exemple 06",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École Démo des Lilas",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000006.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-05-01",
+              "agent": "MMR-Var",
+              "display_name": "MMR-Var",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella",
+                "Varicella"
+              ],
+              "validity": "invalid"
+            },
+            {
+              "date_given": "2020-05-01",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        }
+      }
+    },
+    {
+      "id": "excluded-agents",
+      "label": "Excluded history agents",
+      "description": "Ig and VarIg remain in the facts; an empty ignore-agents option reveals them.",
+      "payloads": {
+        "overdue_diseases_v1.en.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_diseases_v1",
+          "language": "en",
+          "client_id": "0000000007",
+          "client_data": {
+            "name": "Élodie Exemple 07",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École Démo des Lilas",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000007.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-05-01",
+              "agent": "Ig",
+              "display_name": "Ig",
+              "diseases": [
+                "Ig"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2021-06-02",
+              "agent": "VarIg",
+              "display_name": "VarIg",
+              "diseases": [
+                "VarIg"
+              ],
+              "validity": "invalid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        },
+        "overdue_diseases_v1.fr.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_diseases_v1",
+          "language": "fr",
+          "client_id": "0000000007",
+          "client_data": {
+            "name": "Élodie Exemple 07",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École Démo des Lilas",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000007.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-05-01",
+              "agent": "Ig",
+              "display_name": "Ig",
+              "diseases": [
+                "Ig"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2021-06-02",
+              "agent": "VarIg",
+              "display_name": "VarIg",
+              "diseases": [
+                "VarIg"
+              ],
+              "validity": "invalid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        },
+        "overdue_agents_v1.en.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_agents_v1",
+          "language": "en",
+          "client_id": "0000000007",
+          "client_data": {
+            "name": "Élodie Exemple 07",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École Démo des Lilas",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000007.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-05-01",
+              "agent": "Ig",
+              "display_name": "Ig",
+              "diseases": [
+                "Ig"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2021-06-02",
+              "agent": "VarIg",
+              "display_name": "VarIg",
+              "diseases": [
+                "VarIg"
+              ],
+              "validity": "invalid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        },
+        "overdue_agents_v1.fr.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_agents_v1",
+          "language": "fr",
+          "client_id": "0000000007",
+          "client_data": {
+            "name": "Élodie Exemple 07",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École Démo des Lilas",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000007.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2020-05-01",
+              "agent": "Ig",
+              "display_name": "Ig",
+              "diseases": [
+                "Ig"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2021-06-02",
+              "agent": "VarIg",
+              "display_name": "VarIg",
+              "diseases": [
+                "VarIg"
+              ],
+              "validity": "invalid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        }
+      }
+    },
+    {
+      "id": "other-column",
+      "label": "Other column",
+      "description": "DTaP-HB-IPV contributes to named diseases and Other; HPV-9 contributes to Other.",
+      "payloads": {
+        "overdue_diseases_v1.en.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_diseases_v1",
+          "language": "en",
+          "client_id": "0000000008",
+          "client_data": {
+            "name": "Élodie Exemple 08",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École Démo des Lilas",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000008.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "DTaP-HB-IPV",
+              "display_name": "DTaP-HB-IPV",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis",
+                "Polio",
+                "Hepatitis B"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2021-06-02",
+              "agent": "HPV-9",
+              "display_name": "HPV-9",
+              "diseases": [
+                "HPV"
+              ],
+              "validity": "valid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        },
+        "overdue_diseases_v1.fr.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_diseases_v1",
+          "language": "fr",
+          "client_id": "0000000008",
+          "client_data": {
+            "name": "Élodie Exemple 08",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École Démo des Lilas",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000008.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "DTaP-HB-IPV",
+              "display_name": "DTaP-HB-IPV",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis",
+                "Polio",
+                "Hepatitis B"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2021-06-02",
+              "agent": "HPV-9",
+              "display_name": "HPV-9",
+              "diseases": [
+                "HPV"
+              ],
+              "validity": "valid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        },
+        "overdue_agents_v1.en.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_agents_v1",
+          "language": "en",
+          "client_id": "0000000008",
+          "client_data": {
+            "name": "Élodie Exemple 08",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École Démo des Lilas",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000008.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "DTaP-HB-IPV",
+              "display_name": "DTaP-HB-IPV",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis",
+                "Polio",
+                "Hepatitis B"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2021-06-02",
+              "agent": "HPV-9",
+              "display_name": "HPV-9",
+              "diseases": [
+                "HPV"
+              ],
+              "validity": "valid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        },
+        "overdue_agents_v1.fr.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_agents_v1",
+          "language": "fr",
+          "client_id": "0000000008",
+          "client_data": {
+            "name": "Élodie Exemple 08",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École Démo des Lilas",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000008.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "DTaP-HB-IPV",
+              "display_name": "DTaP-HB-IPV",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis",
+                "Polio",
+                "Hepatitis B"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2021-06-02",
+              "agent": "HPV-9",
+              "display_name": "HPV-9",
+              "diseases": [
+                "HPV"
+              ],
+              "validity": "valid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        }
+      }
+    },
+    {
+      "id": "unknown-validity",
+      "label": "Unknown validity",
+      "description": "All source doses lack validity suffixes; enabled markers display unknown status.",
+      "payloads": {
+        "overdue_diseases_v1.en.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_diseases_v1",
+          "language": "en",
+          "client_id": "0000000009",
+          "client_data": {
+            "name": "Élodie Exemple 09",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École Démo #text(fill: red)[literal]",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000009.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "unknown"
+            },
+            {
+              "date_given": "2021-06-15",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "unknown"
+            }
+          ],
+          "validity_coverage": "all_absent",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        },
+        "overdue_diseases_v1.fr.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_diseases_v1",
+          "language": "fr",
+          "client_id": "0000000009",
+          "client_data": {
+            "name": "Élodie Exemple 09",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École Démo #text(fill: red)[literal]",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000009.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "unknown"
+            },
+            {
+              "date_given": "2021-06-15",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "unknown"
+            }
+          ],
+          "validity_coverage": "all_absent",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        },
+        "overdue_agents_v1.en.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_agents_v1",
+          "language": "en",
+          "client_id": "0000000009",
+          "client_data": {
+            "name": "Élodie Exemple 09",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École Démo #text(fill: red)[literal]",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000009.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "unknown"
+            },
+            {
+              "date_given": "2021-06-15",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "unknown"
+            }
+          ],
+          "validity_coverage": "all_absent",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        },
+        "overdue_agents_v1.fr.typ": {
+          "schema_version": 1,
+          "version_id": "overdue_agents_v1",
+          "language": "fr",
+          "client_id": "0000000009",
+          "client_data": {
+            "name": "Élodie Exemple 09",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École Démo #text(fill: red)[literal]",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000009.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "MMR"
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "unknown"
+            },
+            {
+              "date_given": "2021-06-15",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "unknown"
+            }
+          ],
+          "validity_coverage": "all_absent",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        }
+      }
+    },
+    {
+      "id": "affirmative",
+      "label": "No overdue assessment",
+      "description": "An explicitly assigned affirmative notice retains the source history.",
+      "payloads": {
+        "affirmative_schedule_v1.en.typ": {
+          "schema_version": 1,
+          "version_id": "affirmative_schedule_v1",
+          "language": "en",
+          "client_id": "0000000010",
+          "client_data": {
+            "name": "Élodie Exemple 10",
+            "address": "100 Example Lane",
+            "city": "Demo City",
+            "postal_code": "N0N 0N0",
+            "date_of_birth_iso": "2015-02-03",
+            "school": "École Démo des Lilas",
+            "over_16": false,
+            "qr_url": "https://example.invalid/immuknow-demo",
+            "qr_img": "/qr_codes/qr_code_00001_0000000010.png"
+          },
+          "date_as_of": "2026-01-15",
+          "overdue_diseases": [],
+          "overdue_agents": [],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2021-06-15",
+              "agent": "MMR",
+              "display_name": "MMR",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "validity": "valid"
+            },
+            {
+              "date_given": "2022-09-02",
+              "agent": "IPV",
+              "display_name": "IPV",
+              "diseases": [
+                "Polio"
+              ],
+              "validity": "valid"
+            }
+          ],
+          "validity_coverage": "all_present",
+          "rendering_defaults": {
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis",
+              "Polio",
+              "Hib",
+              "Pneumococcal",
+              "Rotavirus",
+              "Measles",
+              "Mumps",
+              "Rubella",
+              "Meningococcal",
+              "Varicella"
+            ],
+            "include_other": true,
+            "ignore_agents": [
+              "RSVAb",
+              "VarIg",
+              "HBIg",
+              "RabIg",
+              "Ig"
+            ],
+            "include_dose": true,
+            "show_validity": true
+          },
+          "logo_path": "/templates/assets/logo.png",
+          "signature_path": "/templates/assets/signature.png"
+        }
+      }
+    }
+  ]
+}

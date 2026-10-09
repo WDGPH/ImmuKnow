@@ -50,6 +50,9 @@ jobs:
           sudo install -d /usr/share/fonts/truetype/freefont
           sudo install -m 644 "$RUNNER_TEMP/notice-fonts/usr/share/fonts/truetype/freefont/"*.ttf /usr/share/fonts/truetype/freefont/
 
+      - name: Verify synthetic playground fixtures
+        run: uv run python -m playground.scripts.examples --check
+
       - name: Run tests
         run: uv run pytest --cov --cov-branch --cov-report=xml
 

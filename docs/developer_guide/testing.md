@@ -107,3 +107,28 @@ images and browser PDFs under `playground/test-results/proof/`.
 Generated proof inputs contain synthetic test records only. They are ignored
 by Git and can be regenerated. This gate does not yet exercise editing,
 portable project export, or CLI round trips of browser edits.
+
+## Synthetic playground examples
+
+`playground/examples/scenarios.json` contains invented source records and short
+scenario descriptions. Regenerate their committed prepared payloads and assemble
+the static project resource bundle with:
+
+```bash
+uv run python -m playground.scripts.examples
+uv run python -m playground.scripts.examples --check
+```
+
+The check runs in CI and fails if the committed facts have drifted. Preparation
+uses the same CSV validation, normalization, assignment eligibility, age, QR,
+and rendering-payload functions as production. All 37 offered notice/language
+variants compile with real Typst in the integration suite; tests assert source
+facts, identity, language, long-record continuation, literal text, and envelope
+geometry. The assembled project also runs through both real CLI selectors and
+its resulting payloads are compared with the browser fixtures.
+
+Known-status and all-unknown examples are prepared separately to retain their
+actual cohort coverage. The full test suite separately protects mixed-cohort
+validity errors. The browser never parses clinical source strings or changes an
+assessment to make a selected notice eligible. See the examples' README for the
+synthetic CSVs and reproduction commands included in a complete project.
