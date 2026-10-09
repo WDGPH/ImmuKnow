@@ -122,6 +122,13 @@ looked up by disease name. Uncatalogued source labels stay visible unchanged.
 A label present only in the other language is an error. Chart membership is
 never inferred from translated labels.
 
+The canonical defaults live in `templates/lib/immuknow/locales/`. A selected
+configuration directory may supply `translations/{en,fr}_diseases_{chart,overdue}.json`
+overrides; missing override files fall back to those package defaults. The shared
+package exposes `overdue-diseases`, `overdue-agents`, and `immunization-history`;
+their options are documented in its bundled `README.md`. The maintained
+templates' composition migration is still in progress.
+
 The versioned history facts are prepared before configurable history-agent
 exclusions and disease-column projection. Source placeholders are still removed;
 normalized named agents remain available even when `ignore_agents` excludes them

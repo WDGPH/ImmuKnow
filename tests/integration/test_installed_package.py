@@ -42,11 +42,14 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
         for resource in ("typst.toml", "lib.typ", "src/validation.typ", "LICENSE"):
             assert f"immuknow/templates/lib/immuknow/{resource}" in names
         assert "immuknow/config/input_schema.json" not in names
-        assert "immuknow/config/translations/fr_diseases_chart.json" in names
+        assert "immuknow/templates/lib/immuknow/locales/fr_diseases_chart.json" in names
         assert "immuknow/templates/presentation.typ" in names
         for language in ("en", "fr"):
             for domain in ("diseases_chart", "diseases_overdue"):
-                assert f"immuknow/config/translations/{language}_{domain}.json" in names
+                assert (
+                    f"immuknow/templates/lib/immuknow/locales/{language}_{domain}.json"
+                    in names
+                )
         assert not any(
             name.startswith(("pipeline/", "templates/", "config/")) for name in names
         )

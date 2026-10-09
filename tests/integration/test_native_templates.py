@@ -54,7 +54,7 @@ def prepare_case(workspace: Path, case: str) -> tuple[Path, Path, dict]:
     workspace.mkdir(parents=True)
     shutil.copytree(ROOT / "immuknow" / "templates", workspace / "templates")
     shutil.copytree(
-        ROOT / "immuknow" / "config" / "translations", workspace / "translations"
+        ROOT / "immuknow/templates/lib/immuknow/locales", workspace / "translations"
     )
     fixture = json.loads((BASELINES / f"{case}.json").read_text())
     client = ClientRecord(**fixture["client"])
@@ -232,7 +232,7 @@ def compile_presentation_probe(
     workspace.mkdir(parents=True)
     shutil.copytree(ROOT / "immuknow" / "templates", workspace / "templates")
     shutil.copytree(
-        ROOT / "immuknow" / "config" / "translations", workspace / "translations"
+        ROOT / "immuknow/templates/lib/immuknow/locales", workspace / "translations"
     )
     probe = workspace / "probe.typ"
     probe.write_text('#import "/templates/presentation.typ" as presentation\n' + body)

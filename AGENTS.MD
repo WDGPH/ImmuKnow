@@ -22,8 +22,10 @@ Python owns source validation, normalized disease names, dose facts, assessment,
 eligibility, assignment reconciliation, QR payloads, encryption, and grouping.
 Typst owns notice prose, labels, dates, dose wording, chart headings, and
 layout. The authored entry points and assets live under
-`immuknow/templates/`; package configuration and translations live under
-`immuknow/config/`. PHU template and configuration directories are isolated.
+`immuknow/templates/`; the canonical Typst package and default translations live
+under `templates/lib/immuknow/`. Run configuration lives under
+`immuknow/config/`; PHU translation overrides remain in the selected configuration
+directory's `translations/`. PHU template and configuration directories are isolated.
 Use a bounded run workspace and never write into installed package files.
 
 The versioned rendering payload retains normalized history facts independently

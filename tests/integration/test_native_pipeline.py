@@ -506,6 +506,11 @@ def test_sequential_callable_runs_keep_resources_and_assignments_isolated(
     assignments[0]["template"] = "overdue_diseases_v1.fr.typ"
     second_assignments.write_text(json.dumps(assignments))
     translation = second_config / "translations" / "fr_diseases_overdue.json"
+    translation.parent.mkdir(exist_ok=True)
+    shutil.copyfile(
+        ROOT / "immuknow/templates/lib/immuknow/locales/fr_diseases_overdue.json",
+        translation,
+    )
     labels = json.loads(translation.read_text())
     labels["Measles"] = "LIBELLÉ LOCAL SÉLECTIONNÉ"
     translation.write_text(json.dumps(labels, ensure_ascii=False))

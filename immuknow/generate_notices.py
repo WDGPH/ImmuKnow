@@ -129,8 +129,8 @@ def prepare_render_jobs(
         except ValueError as exc:
             raise ValueError("date_as_of must be a valid ISO calendar date") from exc
 
-    packaged_translations = (
-        Path(str(files("immuknow").joinpath("config"))) / "translations"
+    packaged_translations = Path(
+        str(files("immuknow").joinpath("templates/lib/immuknow/locales"))
     )
     selected_translations: dict[str, Path] = {}
     for language in sorted(Language.all_codes()):

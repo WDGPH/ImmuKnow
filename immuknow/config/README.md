@@ -18,7 +18,7 @@ named `input_schema.json` in a configuration directory is not used.
 | `vaccine_reference.json` | Vaccine code to configured disease names |
 | `disease_normalization.json` | Source disease variants to configured disease names |
 | `school_reference.json` | PHU school and facility reference |
-| `translations/{en,fr}_diseases_{chart,overdue}.json` | Approved display labels for Typst |
+| `translations/{en,fr}_diseases_{chart,overdue}.json` | Optional PHU overrides for approved display labels; defaults live in `templates/lib/immuknow/locales/` |
 | `notice_versions.yaml` | Registered notice versions and eligibility rules |
 
 Python uses the reference mappings to normalize records and decide eligibility.

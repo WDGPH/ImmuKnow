@@ -10,6 +10,7 @@ import pytest
 from pypdf import PdfReader
 
 from tests.integration.test_native_templates import ROOT, compile_notice, prepare_case
+from tests.unit.test_render_payload import prepared_payload
 
 PACKAGE = ROOT / "immuknow/templates/lib/immuknow"
 pytestmark = pytest.mark.integration
@@ -57,11 +58,12 @@ def test_installed_package_validates_a_relocated_maintained_notice(
     ]
     shutil.copytree(PACKAGE, tmp_path / "packages/local/immuknow/0.1.0")
     shutil.rmtree(workspace / "templates/lib")
-    template.write_text(
-        template.read_text().replace(
-            '"lib/immuknow/lib.typ"', '"@local/immuknow:0.1.0"'
+    for source in (workspace / "templates").glob("*.typ"):
+        source.write_text(
+            source.read_text().replace(
+                '"lib/immuknow/lib.typ"', '"@local/immuknow:0.1.0"'
+            )
         )
-    )
     monkeypatch.setenv("TYPST_PACKAGE_PATH", str(tmp_path / "packages"))
     monkeypatch.setenv("TYPST_PACKAGE_CACHE_PATH", str(tmp_path / "empty-cache"))
     result = compile_notice(template, data, workspace)
@@ -107,3 +109,38 @@ def test_native_boundary_rejects_nonconsecutive_duplicate_columns(tmp_path):
     result = compile_notice(template, data, template.parent.parent)
     assert result.returncode != 0
     assert "contains duplicate values" in result.stderr
+
+
+def test_installed_display_components_resolve_their_own_locales(tmp_path):
+    shutil.copytree(PACKAGE, tmp_path / "packages/local/immuknow/0.1.0")
+    project = tmp_path / "unrelated project"
+    project.mkdir()
+    notice = prepared_payload("May 1, 2020 - MMR - Valid")
+    notice["overdue_diseases"] = [{"disease": "Measles", "dose": 2}]
+    (project / "notice.json").write_text(json.dumps(notice))
+    source = project / "main.typ"
+    source.write_text(
+        '#import "@local/immuknow:0.1.0" as ik\n'
+        '#let n = json("notice.json")\n#set text(font: "FreeSans")\n'
+        '#ik.overdue-diseases(n, language: "fr", include-dose: true)\n'
+        '#ik.immunization-history(n, language: "fr", diseases: ("Measles",), show-validity: true)'
+    )
+    result = subprocess.run(
+        [
+            os.environ.get("TYPST_BIN", "typst"),
+            "compile",
+            "--root",
+            str(project),
+            "--package-path",
+            str(tmp_path / "packages"),
+            str(source),
+            str(project / "notice.pdf"),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    text = " ".join(PdfReader(project / "notice.pdf").pages[0].extract_text().split())
+    for expected in ("Rougeole (2e dose)", "1 mai 2020", "Dose valide", "Autre"):
+        assert expected in text
