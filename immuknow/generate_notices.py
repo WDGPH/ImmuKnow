@@ -256,12 +256,6 @@ def build_notice_data(client: ClientRecord, config: dict[str, Any]) -> dict[str,
         "date_as_of": config.get("date_as_of") or "",
         "overdue_diseases": client.overdue_diseases or [],
         "overdue_agents": client.overdue_agents or [],
-        "include_dose": bool(preprocess_config.get("include_dose", False)),
-        "received": client.received or [],
-        "chart_diseases": config.get("chart_diseases_header", []),
-        "show_validity_markers": bool(
-            preprocess_config.get("show_validity_markers", False)
-        ),
         "history": client.history,
         "validity_coverage": client.validity_coverage,
         "rendering_defaults": {

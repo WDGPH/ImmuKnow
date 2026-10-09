@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -44,7 +43,6 @@ class ClientRecord:
     contact: dict[str, Any]
     overdue_diseases: list[dict[str, object]]
     overdue_agents: list[str]
-    received: Sequence[dict[str, object]] | None
     metadata: dict[str, Any]
     qr: dict[str, Any] | None = None
     version_id: str | None = None

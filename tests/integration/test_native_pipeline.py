@@ -252,8 +252,8 @@ def test_mixed_cohort_processed_exactly_once(
     for job in jobs:
         notice = json.loads(job.data.read_text())
         assert notice["overdue_diseases"] == [{"disease": "Measles", "dose": 2}]
-        assert notice["include_dose"] is options
-        assert notice["show_validity_markers"] is options
+        assert notice["rendering_defaults"]["include_dose"] is options
+        assert notice["rendering_defaults"]["show_validity"] is options
         assert ("qr_img" in notice["client_data"]) == options
         assert (
             job.template.read_bytes()
@@ -643,10 +643,12 @@ def test_history_exclusions_reach_pdf_without_changing_assessment(
     assert completion is not None
     record = json.loads(completion.read_text())
     client = json.loads(Path(record["cohort"]).read_text())["clients"][0]
-    expected = ["MMR", "IgA"] if ignored_agents else ["MMR", "RSVAb", "Ig", "IgA"]
-    assert [
-        agent for row in client["received"] for agent in row["vaccines"]
-    ] == expected
+    assert [item["agent"] for item in client["history"]] == [
+        "MMR",
+        "RSVAb",
+        "Ig",
+        "IgA",
+    ]
     assert client["overdue_agents"] == ["RSVAb", "Ig"]
     assert client["overdue_diseases"] == [{"disease": "Measles", "dose": 2}]
     pdf_text = "\n".join(

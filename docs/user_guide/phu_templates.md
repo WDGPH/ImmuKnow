@@ -103,10 +103,6 @@ The renderer gives each entry point one small, derived JSON file:
 | `date_as_of` | As-of date shown in the notice, in YYYY-MM-DD format, or blank when absent |
 | `overdue_diseases` | Normalized disease names and doses as `{disease, dose}`; invalid dose also has `dose_raw` |
 | `overdue_agents` | Vaccine agents available to agent-based notices |
-| `include_dose` | Whether Typst shows available numeric doses |
-| `received` | History rows with `date_given`, `date_rowspan`, `vaccines`, and validity statuses in `columns` keyed by disease name |
-| `chart_diseases` | Configured disease names in chart order |
-| `show_validity_markers` | Whether the history distinguishes validity |
 | `history` | Normalized facts: `date_given`, `agent`, `display_name`, complete `diseases` mappings, and `validity` (`valid`, `invalid`, or `unknown`) |
 | `validity_coverage` | Whole-cohort source coverage: `all_present`, `all_absent`, or `mixed`; retained even when marker display defaults to off |
 | `rendering_defaults` | `diseases`, `include_other`, `ignore_agents`, `include_dose`, and `show_validity` presentation defaults |
@@ -116,8 +112,7 @@ An absent dose has `dose: null`; an invalid source dose also retains
 `dose_raw` for diagnostics. Python validates dates and passes ISO strings.
 `presentation.typ` formats long dates, approved disease labels, dose suffixes,
 and shared headings for English and French. A blank optional as-of date stays
-blank; a required invalid date fails. The history retains its compact date
-format. Translation dictionaries are staged once under `/translations/` and
+blank; a required invalid date fails. History dates use the same localized long-date format. Translation dictionaries are staged once under `/translations/` and
 looked up by disease name. Uncatalogued source labels stay visible unchanged.
 A label present only in the other language is an error. Chart membership is
 never inferred from translated labels.
@@ -126,8 +121,8 @@ The canonical defaults live in `templates/lib/immuknow/locales/`. A selected
 configuration directory may supply `translations/{en,fr}_diseases_{chart,overdue}.json`
 overrides; missing override files fall back to those package defaults. The shared
 package exposes `overdue-diseases`, `overdue-agents`, and `immunization-history`;
-their options are documented in its bundled `README.md`. The maintained
-templates' composition migration is still in progress.
+their options are documented in its bundled `README.md`. All maintained
+templates use these shared components.
 
 The versioned history facts are prepared before configurable history-agent
 exclusions and disease-column projection. Source placeholders are still removed;
@@ -143,9 +138,12 @@ retain the source identifier, so presentation can place them in Other.
 membership is represented once by `include_other`. Empty arrays and explicit
 false values remain distinct from missing options. Python validates the payload
 against the packaged `schemas/rendering-v1.json` contract before writing it.
-The existing compact `received` view remains the maintained templates' input
-during the shared component migration; it is not a source for reconstructing
-the normalized history facts.
+Typst alone filters and groups history facts into display rows. The former
+compact `received` rows and duplicate top-level display defaults are removed.
+Explicit component arguments override the prepared defaults; `auto` inherits
+them. Mixed validity coverage fails only when the resolved template option
+enables markers. All-unknown coverage displays question marks, never invalid
+circles.
 
 Templates can rearrange content, but must keep their own version and
 language checks. A selected single file applies those checks to every client.

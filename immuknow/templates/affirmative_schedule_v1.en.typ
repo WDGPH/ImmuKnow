@@ -1,6 +1,13 @@
 #let notice = json(sys.inputs.at("data"))
 #let template-version = "affirmative_schedule_v1"
 #let template-language = "en"
+// Author controls: auto inherits prepared rendering defaults; () and false are explicit.
+#let list-columns = 1
+#let history-diseases = auto
+#let history-ignore-agents = auto
+#let history-include-other = auto
+#let history-show-validity = auto
+#let history-min-rows = 5
 #import "lib/immuknow/lib.typ" as ik
 #ik.check-notice(notice, version: template-version, language: template-language)
 
@@ -28,7 +35,7 @@
 #set text(lang: "en", region: "CA")
 
 // Immunization Notice Section
-#let immunization_notice(client, client_id, immunizations_due, date, font_size) = block[
+#let immunization_notice(client, client_id, date, font_size) = block[
 
 #v(0.2cm)
 
@@ -97,10 +104,6 @@ Thank you for helping to keep our children safe.
 
 #let client_row = notice.client_id
 #let data = notice.client_data
-#let vaccines_due_array = notice.overdue_agents
-#let received = notice.received
-#let diseases = notice.chart_diseases
-#let show_validity_markers = notice.show_validity_markers
 #let date = presentation.long-date(notice.date_as_of, "en", required: false)
 
 #set page(
@@ -108,8 +111,8 @@ Thank you for helping to keep our children safe.
   footer: align(center, context numbering("1 / " + str(counter(page).final().first()), counter(page).get().first()))
 )
 
-#immunization_notice(data, client_row, vaccines_due_array, date, 11pt)
+#immunization_notice(data, client_row, date, 11pt)
 #pagebreak()
 #vaccine_table_page(client_row)
-#conf.immunization-table(5, received, diseases, 11pt, "en", show_validity_markers)
+#ik.immunization-history(notice, diseases: history-diseases, ignore-agents: history-ignore-agents, include-other: history-include-other, show-validity: history-show-validity, min-rows: history-min-rows, font-size: 11pt, labels: presentation.selected-labels())
 #end_of_immunization_notice()

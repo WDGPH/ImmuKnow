@@ -26,32 +26,6 @@
       "province": "ON",
       "postal_code": "N1H 2T2"
     },
-    "received": [
-      {
-        "date_given": "2020-01-01",
-        "date_rowspan": 1,
-        "vaccines": [
-          "MMR"
-        ],
-        "columns": {
-          "Measles": "valid",
-          "Mumps": "invalid",
-          "Rubella": "valid"
-        }
-      },
-      {
-        "date_given": "2020-02-01",
-        "date_rowspan": 1,
-        "vaccines": [
-          "MMR"
-        ],
-        "columns": {
-          "Measles": "valid",
-          "Mumps": "invalid",
-          "Rubella": "valid"
-        }
-      }
-    ],
     "metadata": {},
     "qr": {
       "payload": "https://www.test-immunization.ca/update?client_id=0000000001&dob=2015-01-02&lang=en"
@@ -74,5 +48,6 @@
     "overdue_agents": [
       "MMR"
     ]
-  }
+  },
+  "imms_given": "Jan 1, 2020 - MMR - Valid; Feb 1, 2020 - MMR - Invalid"
 }

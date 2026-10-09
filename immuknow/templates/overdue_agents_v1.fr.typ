@@ -1,6 +1,13 @@
 #let notice = json(sys.inputs.at("data"))
 #let template-version = "overdue_agents_v1"
 #let template-language = "fr"
+// Author controls: auto inherits prepared rendering defaults; () and false are explicit.
+#let list-columns = 1
+#let history-diseases = auto
+#let history-ignore-agents = auto
+#let history-include-other = auto
+#let history-show-validity = auto
+#let history-min-rows = 5
 #import "lib/immuknow/lib.typ" as ik
 #ik.check-notice(notice, version: template-version, language: template-language)
 #assert(notice.overdue_agents.len() > 0, message: "This overdue template requires vaccine agent data")
@@ -29,7 +36,7 @@
 #set text(lang: "fr", region: "CA")
 
 // Immunization Notice Section
-#let immunization_notice(client, client_id, immunizations_due, date, font_size) = block[
+#let immunization_notice(client, client_id, date, font_size) = block[
 
 #v(0.2cm)
 
@@ -44,7 +51,8 @@
 // Notice for immunizations
 En date du *#date*, nos dossiers indiquent que votre enfant n'a pas reçu les immunisations suivantes :  
 
-#conf.client_immunization_list(immunizations_due)
+#set list(indent: 0.8cm)
+#strong(ik.overdue-agents(notice, columns: list-columns))
 
 Veuillez examiner le dossier d'immunisation à la page 2 et mettre à jour le dossier de votre enfant en utilisant l'une des options suivantes :
 
@@ -109,10 +117,6 @@ Si vous avez des questions sur les vaccins de votre enfant, veuillez appeler le 
 
 #let client_row = notice.client_id
 #let data = notice.client_data
-#let vaccines_due_array = notice.overdue_agents
-#let received = notice.received
-#let diseases = notice.chart_diseases
-#let show_validity_markers = notice.show_validity_markers
 #let date = presentation.long-date(notice.date_as_of, "fr", required: false)
 
 #set page(
@@ -120,8 +124,8 @@ Si vous avez des questions sur les vaccins de votre enfant, veuillez appeler le 
   footer: align(center, context numbering("1 / " + str(counter(page).final().first()), counter(page).get().first()))
 )
 
-#immunization_notice(data, client_row, vaccines_due_array, date, 11pt)
+#immunization_notice(data, client_row, date, 11pt)
 #pagebreak()
 #vaccine_table_page(client_row)
-#conf.immunization-table(5, received, diseases, 10.6pt, "fr", show_validity_markers)
+#ik.immunization-history(notice, diseases: history-diseases, ignore-agents: history-ignore-agents, include-other: history-include-other, show-validity: history-show-validity, min-rows: history-min-rows, font-size: 10.6pt, labels: presentation.selected-labels())
 #end_of_immunization_notice()
