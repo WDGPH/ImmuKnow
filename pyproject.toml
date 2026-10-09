@@ -3,7 +3,10 @@ requires = ["setuptools>=84.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["pipeline", "templates"]
+packages = ["immuknow"]
+
+[tool.setuptools.package-data]
+immuknow = ["schemas/*.json", "templates/*.typ", "templates/assets/*", "config/*.json", "config/*.yaml", "config/translations/*.json"]
 
 [project]
 name = "ImmuKnow"
@@ -12,12 +15,10 @@ requires-python = ">=3.10"
 dependencies = [
     "pandas",
     "PyYAML",
-    "openpyxl",
     "pypdf",
     "qrcode>=7.4.2",
     "pillow>=12.3.0",
-    "babel>=2.17.0",
-    "frictionless[excel,csv]"
+    "frictionless"
 ]
 
 [dependency-groups]
@@ -40,11 +41,12 @@ docs = [
 ]
 
 [project.scripts]
-viper = "pipeline.orchestrator:main"
+immuknow = "immuknow.orchestrator:main"
 
 [tool.coverage.run]
-source = ["pipeline"]
+source = ["immuknow"]
 omit = ["*/__pycache__/*", "*/site-packages/*"]
+patch = ["subprocess"]
 
 [tool.coverage.report]
 exclude_lines = [

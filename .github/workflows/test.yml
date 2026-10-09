@@ -13,7 +13,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     env:
-      typst_ver: 0.14.2
+      typst_ver: 0.15.1
+      TYPST_FONT_PATHS: /usr/share/fonts/truetype/freefont
+      TYPST_IGNORE_SYSTEM_FONTS: 'true'
     steps:
       - uses: actions/checkout@v7
         with:
@@ -36,6 +38,17 @@ jobs:
           mv /tmp/typst $HOME/.local/bin/typst
           echo "$HOME/.local/bin" >> $GITHUB_PATH
           typst --version
+
+      - name: Install pinned notice fonts
+        # Font metrics are part of the notice layout, including the PDF fixtures.
+        run: |
+          curl -fL --retry 3 \
+            https://archive.ubuntu.com/ubuntu/pool/main/f/fonts-freefont/fonts-freefont-ttf_20120503-10build1_all.deb \
+            -o "$RUNNER_TEMP/notice-fonts.deb"
+          echo "d1424c9d47b2a6bd0d5149ca66f2bab9b4365237bfbb6063659d961bab2f8ccb  $RUNNER_TEMP/notice-fonts.deb" | sha256sum --check
+          dpkg-deb --extract "$RUNNER_TEMP/notice-fonts.deb" "$RUNNER_TEMP/notice-fonts"
+          sudo install -d /usr/share/fonts/truetype/freefont
+          sudo install -m 644 "$RUNNER_TEMP/notice-fonts/usr/share/fonts/truetype/freefont/"*.ttf /usr/share/fonts/truetype/freefont/
 
       - name: Run tests
         run: uv run pytest --cov --cov-branch --cov-report=xml

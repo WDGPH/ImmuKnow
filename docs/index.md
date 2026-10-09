@@ -1,70 +1,16 @@
 # ImmuKnow
 
-**Current version:** v1.0.0
+ImmuKnow validates Panorama/PEAR vaccination records and creates personalized
+immunization notices and history charts. Python owns the public-health rules,
+client assignment, and complete output checks. Maintained Typst templates own
+English and French document presentation.
 
-ImmuKnow is a Python-based pipeline for generating bilingual (EN/FR) **personalized immunization history charts and notice letters** for children overdue for mandated vaccinations under the Child Care and Early Years Act (CCEYA) and ISPA. It is designed for use by Public Health Units (PHUs) across Ontario and produces publication-quality PDFs using [Typst](https://typst.app) as the typesetting engine.
+The included wording, branding, and contact details are samples. Public Health
+Units should review their selected templates and PDFs before use.
 
-## What it does
-
-For each client in an input dataset extracted from Panorama/PEAR, the pipeline:
-
-- Validates and normalizes raw vaccination records
-- Generates a bilingual immunization history chart
-- Renders a personalized notice letter with the client's overdue vaccines
-- Optionally encrypts individual PDFs and bundles them by school or board
-
-Output is ready for direct mailing or electronic delivery.
-
-## Pipeline architecture
-
-The pipeline runs nine sequential, stateless steps. Each step reads its inputs from disk and writes its outputs to disk — no in-memory state is passed between steps. This design makes individual steps independently testable and re-runnable.
-
-| Step | Module | Purpose |
-|------|--------|---------|
-| 1 | `prepare_output.py` | Output directory setup |
-| 2 | `preprocess.py` | Data validation & normalization → JSON artifact |
-| 3 | `generate_qr_codes.py` | QR code PNG generation (optional) |
-| 4 | `generate_notices.py` | Typst template rendering |
-| 5 | `compile_notices.py` | Typst → PDF compilation |
-| 6 | `validate_pdfs.py` | PDF validation (rules, summary, JSON report) |
-| 7 | `encrypt_notice.py` | PDF encryption (optional) |
-| 8 | `bundle_pdfs.py` | PDF bundling & grouping (optional) |
-| 9 | `cleanup.py` | Intermediate file cleanup |
-
-## Navigation
-
-<div class="grid cards" markdown>
-
--   **User Guide**
-
-    ---
-
-    Install the pipeline, configure it for your PHU, and run your first batch.
-
-    [:octicons-arrow-right-24: Get started](user_guide/getting_started.md)
-
--   **Reference**
-
-    ---
-
-    Pipeline architecture, per-step details, and full API documentation.
-
-    [:octicons-arrow-right-24: Architecture](reference/architecture.md)
-
--   **Developer Guide**
-
-    ---
-
-    Contributing, branching strategy, testing standards, and AI agent workflow.
-
-    [:octicons-arrow-right-24: Contributing](developer_guide/contributing.md)
-
--   **Changelog**
-
-    ---
-
-    Release history and version notes.
-
-    [:octicons-arrow-right-24: Changelog](changelog.md)
-
-</div>
+Start with [input preparation and the complete workflow](user_guide/getting_started.md).
+Use the [configuration contract](user_guide/configuration.md) for assignments,
+QR payloads, encryption, and validation. The
+[template authoring guide](user_guide/phu_templates.md) defines the per-notice
+JSON and native identity assertions. Contributors can follow the
+[testing guide](developer_guide/testing.md).
