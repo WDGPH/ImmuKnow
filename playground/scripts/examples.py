@@ -151,6 +151,7 @@ def generate() -> tuple[dict, dict[str, bytes]]:
             json.dumps(assignments, indent=2) + "\n"
         ).encode()
     resources["examples/README.md"] = (EXAMPLES / "README.md").read_bytes()
+    resources["README.md"] = (EXAMPLES / "PROJECT.md").read_bytes()
     prepared = {"schemaVersion": 1, "synthetic": True, "examples": examples}
     return prepared, resources
 

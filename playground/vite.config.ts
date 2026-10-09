@@ -10,5 +10,5 @@ const base = new URL('playground/', siteUrl).pathname;
 export default defineConfig({
   base,
   worker: { format: 'es' },
-  build: { rolldownOptions: { input: 'proof.html' } },
+  build: { rolldownOptions: { input: { app: 'index.html', proof: 'proof.html' } } },
 });
