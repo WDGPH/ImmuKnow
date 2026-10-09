@@ -1,8 +1,8 @@
 #let notice = json(sys.inputs.at("data"))
 #let template-version = "overdue_agents_v1"
 #let template-language = "en"
-#assert(notice.version_id == template-version, message: "Notice version does not match this template")
-#assert(notice.language == template-language, message: "Notice language does not match this template")
+#import "lib/immuknow/lib.typ" as ik
+#ik.check-notice(notice, version: template-version, language: template-language)
 #assert(notice.overdue_agents.len() > 0, message: "This overdue template requires vaccine agent data")
 
 // --- CCEYA NOTICE TEMPLATE (TEST VERSION) --- //

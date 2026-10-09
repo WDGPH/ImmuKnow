@@ -9,7 +9,7 @@ PHU must review.
 ## Select a complete template tree
 
 The package owns `immuknow/templates/`. Copy its entry points, `conf.typ`,
-`presentation.typ`, and assets to a directory you control, then use
+`presentation.typ`, the entire `lib/immuknow/` package, and assets to a directory you control, then use
 `--templates PATH`. From a checkout:
 
 ```bash
@@ -72,8 +72,8 @@ the JSON, and sets the document text language and Canadian region:
 
 ```typst
 #let notice = json(sys.inputs.at("data"))
-#assert(notice.version_id == "overdue_agents_v1", message: "Wrong notice version")
-#assert(notice.language == "en", message: "Wrong notice language")
+#import "lib/immuknow/lib.typ" as ik
+#ik.check-notice(notice, version: "overdue_agents_v1", language: "en")
 #set text(lang: "en", region: "CA")
 #import "/templates/conf.typ"
 ```
@@ -83,12 +83,21 @@ also asserts `notice.overdue_agents.len() > 0`. Disease-based and affirmative
 entries do not require agents. Use ordinary Typst field access; input strings
 must remain literal data, never executable source.
 
+The shared package is versioned separately (`0.1.0`) and imports without client
+data. `check-notice` validates the rendering contract as well as the literal
+notice identity, so manual compilation cannot bypass malformed-payload checks.
+For a native local installation, copy `lib/immuknow/` to
+`<package-path>/local/immuknow/0.1.0/`, set `TYPST_PACKAGE_PATH`, and use
+`#import "@local/immuknow:0.1.0" as ik`. Keep the relative vendored import in
+portable projects so recipients need no package registry configuration.
+
 ## Per-notice JSON
 
 The renderer gives each entry point one small, derived JSON file:
 
 | Field | Meaning |
 |---|---|
+| `schema_version` | Rendering contract version, currently integer `1`; independent of the notice and package versions |
 | `version_id`, `language`, `client_id` | Resolved identity and client identifier |
 | `client_data` | `name`, `address`, `city`, `postal_code`, `school`, `over_16`, and `date_of_birth_iso`; optional `qr_img` and `qr_url` |
 | `date_as_of` | As-of date shown in the notice, in YYYY-MM-DD format, or blank when absent |
@@ -98,6 +107,9 @@ The renderer gives each entry point one small, derived JSON file:
 | `received` | History rows with `date_given`, `date_rowspan`, `vaccines`, and validity statuses in `columns` keyed by disease name |
 | `chart_diseases` | Configured disease names in chart order |
 | `show_validity_markers` | Whether the history distinguishes validity |
+| `history` | Normalized facts: `date_given`, `agent`, `display_name`, complete `diseases` mappings, and `validity` (`valid`, `invalid`, or `unknown`) |
+| `validity_coverage` | Whole-cohort source coverage: `all_present`, `all_absent`, or `mixed`; retained even when marker display defaults to off |
+| `rendering_defaults` | `diseases`, `include_other`, `ignore_agents`, `include_dose`, and `show_validity` presentation defaults |
 | `logo_path`, `signature_path` | Assets beneath the bounded Typst root |
 
 An absent dose has `dose: null`; an invalid source dose also retains
@@ -109,6 +121,24 @@ format. Translation dictionaries are staged once under `/translations/` and
 looked up by disease name. Uncatalogued source labels stay visible unchanged.
 A label present only in the other language is an error. Chart membership is
 never inferred from translated labels.
+
+The versioned history facts are prepared before configurable history-agent
+exclusions and disease-column projection. Source placeholders are still removed;
+normalized named agents remain available even when `ignore_agents` excludes them
+from the default display. `agent` preserves the case-sensitive normalized source
+identifier (including established `-unspecified` → `*` cleanup), and
+`display_name` is its visible label. Same-date duplicates of one normalized agent
+retain the existing `unknown` before `valid` before `invalid` precedence.
+Different agents retain their own statuses and full mappings. Unknown mappings
+retain the source identifier, so presentation can place them in Other.
+
+`rendering_defaults.diseases` contains the named columns only; legacy `Other`
+membership is represented once by `include_other`. Empty arrays and explicit
+false values remain distinct from missing options. Python validates the payload
+against the packaged `schemas/rendering-v1.json` contract before writing it.
+The existing compact `received` view remains the maintained templates' input
+during the shared component migration; it is not a source for reconstructing
+the normalized history facts.
 
 Templates can rearrange content, but must keep their own version and
 language checks. A selected single file applies those checks to every client.

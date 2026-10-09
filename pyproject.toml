@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 packages = ["immuknow"]
 
 [tool.setuptools.package-data]
-immuknow = ["schemas/*.json", "templates/*.typ", "templates/assets/*", "config/*.json", "config/*.yaml", "config/translations/*.json"]
+immuknow = ["schemas/*.json", "templates/*.typ", "templates/assets/*", "templates/lib/immuknow/*", "templates/lib/immuknow/src/*.typ", "config/*.json", "config/*.yaml", "config/translations/*.json"]
 
 [project]
 name = "ImmuKnow"
@@ -18,7 +18,8 @@ dependencies = [
     "pypdf",
     "qrcode>=7.4.2",
     "pillow>=12.3.0",
-    "frictionless"
+    "frictionless",
+    "jsonschema>=4.26.0",
 ]
 
 [dependency-groups]

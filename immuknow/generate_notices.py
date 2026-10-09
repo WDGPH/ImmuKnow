@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from .data_models import ClientRecord, RenderJob
+from .render_payload import validate_render_payload
 from .version_notices import Language, validate_version_id
 
 LOG = logging.getLogger(__name__)
@@ -246,7 +247,8 @@ def build_notice_data(client: ClientRecord, config: dict[str, Any]) -> dict[str,
     if client.qr and client.qr.get("payload"):
         client_data["qr_url"] = client.qr["payload"]
     preprocess_config = config.get("preprocess", {})
-    return {
+    payload = {
+        "schema_version": 1,
         "version_id": client.version_id,
         "language": client.language,
         "client_id": client.client_id,
@@ -260,4 +262,17 @@ def build_notice_data(client: ClientRecord, config: dict[str, Any]) -> dict[str,
         "show_validity_markers": bool(
             preprocess_config.get("show_validity_markers", False)
         ),
+        "history": client.history,
+        "validity_coverage": client.validity_coverage,
+        "rendering_defaults": {
+            "diseases": [
+                d for d in config.get("chart_diseases_header", []) if d != "Other"
+            ],
+            "include_other": "Other" in config.get("chart_diseases_header", []),
+            "ignore_agents": config.get("ignore_agents", []),
+            "include_dose": preprocess_config.get("include_dose", False),
+            "show_validity": preprocess_config.get("show_validity_markers", False),
+        },
     }
+    validate_render_payload(payload)
+    return payload

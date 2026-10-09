@@ -438,6 +438,9 @@ def build_preprocess_result(
             chart_diseases_header,
             show_validity_markers,
         )
+        history = build_history_items(
+            row["imms_given"], excluded_agents, vaccine_reference
+        )
 
         postal_code = row["postal_code"] if row["postal_code"] else "Not provided"
         address_line = " ".join(
@@ -489,6 +492,8 @@ def build_preprocess_result(
             received=received if received else None,
             metadata={},
             version_id=row.get("version_id") or None,
+            history=history,
+            validity_coverage=validity_coverage,
         )
 
         clients.append(client)
@@ -701,6 +706,34 @@ def classify_dataset_validity(
                 return "mixed"
 
     return "all_present" if has_with else "all_absent"
+
+
+def build_history_items(
+    received_agents: Any,
+    placeholder_agents: List[str],
+    vaccine_reference: Dict[str, Any],
+) -> List[Dict[str, Any]]:
+    """Preserve normalized administrations independently of display settings.
+
+    Only source placeholders are excluded here. Named agents in ``ignore_agents``
+    remain available for template overrides. Same-date agent duplicates retain
+    the established unknown > valid > invalid precedence. Disease mappings are
+    complete and do not depend on configured chart columns or Other.
+    """
+    by_date: Dict[str, List[Dict[str, str]]] = {}
+    for dose in parse_dose_segments(received_agents, placeholder_agents):
+        by_date.setdefault(dose["date_given"], []).append(dose)
+    return [
+        {
+            "date_given": given_date,
+            "agent": vaccine["vaccine"],
+            "display_name": vaccine["vaccine"],
+            "diseases": vaccine["diseases"],
+            "validity": vaccine["validity"],
+        }
+        for given_date, doses in by_date.items()
+        for vaccine in _deduplicate_vaccines_for_date(doses, vaccine_reference)
+    ]
 
 
 def build_received_rows(

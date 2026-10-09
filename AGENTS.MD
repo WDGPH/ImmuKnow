@@ -26,6 +26,12 @@ layout. The authored entry points and assets live under
 `immuknow/config/`. PHU template and configuration directories are isolated.
 Use a bounded run workspace and never write into installed package files.
 
+The versioned rendering payload retains normalized history facts independently
+of configured display exclusions and disease columns, plus whole-cohort validity
+coverage even when markers default to off. Do not recover these facts from
+compact display rows. Python and the native package validate the rendering
+contract; package imports must not read client files or require `sys.inputs`.
+
 Keep one authoritative resolved `version_id` and language per notice.
 Persist the prepared client list, selected resources, expected outputs, and
 successful completion where they help reproduce a run. Pass validated objects

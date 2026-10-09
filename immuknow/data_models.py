@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -48,6 +48,8 @@ class ClientRecord:
     metadata: dict[str, Any]
     qr: dict[str, Any] | None = None
     version_id: str | None = None
+    history: list[dict[str, Any]] = field(default_factory=list)
+    validity_coverage: str = "all_absent"
 
 
 @dataclass(frozen=True)

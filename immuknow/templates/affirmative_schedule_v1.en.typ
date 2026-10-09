@@ -1,8 +1,8 @@
 #let notice = json(sys.inputs.at("data"))
 #let template-version = "affirmative_schedule_v1"
 #let template-language = "en"
-#assert(notice.version_id == template-version, message: "Notice version does not match this template")
-#assert(notice.language == template-language, message: "Notice language does not match this template")
+#import "lib/immuknow/lib.typ" as ik
+#ik.check-notice(notice, version: template-version, language: template-language)
 
 // --- CCEYA NOTICE TEMPLATE (TEST VERSION) --- //
 // Description: A typst template that dynamically generates CCEYA templates.

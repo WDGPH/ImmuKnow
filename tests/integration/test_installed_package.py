@@ -38,6 +38,9 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
         assert "immuknow/templates/assets/logo.png" in names
         assert "immuknow/templates/assets/signature.png" in names
         assert "immuknow/schemas/input_schema.json" in names
+        assert "immuknow/schemas/rendering-v1.json" in names
+        for resource in ("typst.toml", "lib.typ", "src/validation.typ", "LICENSE"):
+            assert f"immuknow/templates/lib/immuknow/{resource}" in names
         assert "immuknow/config/input_schema.json" not in names
         assert "immuknow/config/translations/fr_diseases_chart.json" in names
         assert "immuknow/templates/presentation.typ" in names
@@ -50,6 +53,11 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
         assert not any(name.endswith("_template.py") for name in names)
     with tarfile.open(next(distributions.glob("*.tar.gz"))) as archive:
         source_names = archive.getnames()
+        for resource in ("typst.toml", "lib.typ", "src/validation.typ", "LICENSE"):
+            assert any(
+                name.endswith(f"immuknow/templates/lib/immuknow/{resource}")
+                for name in source_names
+            )
         assert any(
             name.endswith("immuknow/templates/overdue_agents_v1.fr.typ")
             for name in source_names
