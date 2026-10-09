@@ -54,7 +54,10 @@ Keep semantic text checks separate from layout checks. PDF extraction may vary
 in inconsequential whitespace, so semantic comparisons normalize that
 whitespace while asserting the complete wording. Separately check page
 boundaries/counts, chart contents, signature placement, and envelope-window
-measurements. Native assertions must reject wrong language, wrong version,
+measurements. Compile default/custom windows and long addresses at the safe-area
+boundary; missing evidence and overflow must fail error-level validation.
+Check actual rendered text displacement when changing physical coordinates,
+and reject Typst convergence warnings in layout tests. Native assertions must reject wrong language, wrong version,
 and missing agents for the agent-based notice. Typst syntax inside client
 strings must remain literal data.
 

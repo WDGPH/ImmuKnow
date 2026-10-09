@@ -21,7 +21,9 @@ end-to-end results, not obsolete step APIs.
 Python owns source validation, normalized disease names, dose facts, assessment,
 eligibility, assignment reconciliation, QR payloads, encryption, and grouping.
 Typst owns notice prose, labels, dates, dose wording, chart headings, and
-layout. The authored entry points and assets live under
+layout. Shared layout helpers emit page-relative envelope geometry and
+signature evidence. Enabled PDF rules must reject missing evidence; do not
+substitute a fixed height for an authored window’s complete safe rectangle. The authored entry points and assets live under
 `immuknow/templates/`; the canonical Typst package and default translations live
 under `templates/lib/immuknow/`. Run configuration lives under
 `immuknow/config/`; PHU translation overrides remain in the selected configuration

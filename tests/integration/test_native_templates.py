@@ -23,19 +23,12 @@ from tests.fixtures.sample_input import create_test_input_dataframe
 from tests.unit.test_preprocess import build_result
 from immuknow.assignment_manifest import ManifestRow
 from immuknow.generate_notices import build_notice_data
+from immuknow.validate_pdfs import validate_pdf_structure
 
 ROOT = Path(__file__).resolve().parents[2]
 BASELINES = ROOT / "tests" / "fixtures" / "notice_baseline"
 CASES = sorted(path.stem for path in BASELINES.glob("*.json"))
-SIGNATURE_PAGE = {
-    "affirmative_en": 1,
-    "overdue_diseases_en": 2,
-    "overdue_diseases_fr": 2,
-    "long_address": 2,
-    "long_record": 1,
-    "overdue_agents_en": 1,
-    "overdue_agents_fr": 2,
-}
+
 pytestmark = pytest.mark.integration
 
 
@@ -162,10 +155,11 @@ def test_native_template_retains_baseline_text(tmp_path: Path, case: str) -> Non
     def letter_text(text: str) -> str:
         letter = text.split("\n" + heading + "\n", 1)[0]
         letter = re.sub(r"(?m)^\d+ / \d+\s*$", "", letter)
+        letter = re.sub(r"MEASURE_\w+:[\d.]+", "", letter)
         return " ".join(letter.split())
 
     assert letter_text("\n".join(pages)) == letter_text("\n".join(expected_pages))
-    assert len(pages) == (4 if case == "long_record" else len(expected_pages))
+    assert len(pages) == (4 if case == "long_record" else 2)
     history_text = " ".join("\n".join(pages).split("\n" + heading + "\n", 1)[1].split())
     assert history_text.count("MMR") == len(notice["history"])
     assert history_text.count("⬤") == 1 + 3 * sum(
@@ -200,11 +194,21 @@ def test_native_template_retains_baseline_text(tmp_path: Path, case: str) -> Non
     assert reader.root_object.get("/Lang") == f"{case_language(case)}-CA"
     assert [
         i for i, page in enumerate(pages, start=1) if "MARK_END_SIGNATURE_BLOCK" in page
-    ] == [SIGNATURE_PAGE[case]]
+    ] == [1]
     assert "0000000001" in pages[0]
     contact = re.search(r"MEASURE_CONTACT_HEIGHT:([0-9.]+)", pages[0])
     assert contact is not None
-    assert float(contact.group(1)) <= 81.0 + 0.01
+    geometry = validate_pdf_structure(
+        workspace / "notice.pdf",
+        enabled_rules={"envelope_window": "error", "exactly_two_pages": "disabled"},
+    )
+    if case == "long_address":
+        assert float(contact.group(1)) > 81
+        assert len(geometry.warnings) == 1
+        assert "Address exceeds the window safety area" in geometry.warnings[0]
+    else:
+        assert float(contact.group(1)) == 81
+        assert geometry.passed, geometry.warnings
     table_date_heading = (
         "Date Given" if case_language(case) == "en" else "Date de l'administration"
     )

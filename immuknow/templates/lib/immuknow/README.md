@@ -84,3 +84,57 @@ by names such as `fr_diseases_chart` or `en_diseases_overdue`. A supplied domain
 replaces that domain; a missing required label is an error. Uncatalogued source
 labels remain literal. Project paths must be resolved by the entry point, so
 the same component works when installed as a local package.
+
+## Page and letter layout
+
+```typst
+#show: ik.notice-page.with(language: notice.language, font: "FreeSans", font-size: 10pt)
+#ik.notice-header(logo: image(notice.logo_path, width: 6cm), title: "Local notice title")
+#ik.client-block(notice, window: (
+  x: 1.75cm, y: 165.1pt, width: 202.28pt, height: 81pt, padding: 11pt,
+))
+#ik.signature-block(
+  signature: image(notice.signature_path, width: 3cm, height: 1cm, fit: "contain"),
+  name: "Sample signer", title: "Sample title",
+)
+```
+
+`notice-page` is a show-rule wrapper: language (`en` or `fr`), Canadian region,
+`paper` (`us-letter`), `margins` (top 1cm, bottom 2cm, left 1.75cm, right 2cm),
+`font`, `font-size`, and `page-numbers` (true). Its body remains ordinary Typst.
+`notice-header` accepts already resolved image content, `logo-width` (6cm),
+`title`, `title-size` (16pt), `fill` (black), `placement` (`left` or `right`),
+and `spacing` (12pt). Resolve all project images in the entry point before
+passing them into a package, including when using `@local` imports.
+
+`client-block` positions the address window using absolute physical lengths
+from the **top-left of the printed page**, not the text area. Its preset
+matches the former contact row's position and 81pt height; width 202.28pt is
+that row's address column. `padding` is a safety inset on all four edges.
+Changing margins does not change these physical coordinates. A window above
+preceding content or left of the text margin produces a diagnostic; move the
+window or reduce that preceding content. Keep the window within the paper.
+
+The client block accepts `font-size` and `min-font-size` (both 10pt),
+`addressee` (`auto` uses the prepared `over_16` fact), `province` (`Ontario`),
+`school-label` (`auto` localizes), `show-birth-date` and `show-school` (true),
+`details` (`right` or `below`), `spacing` (0pt), and `border` (none). Client ID
+is always present. `address-block(client, language:, addressee:, province:)`
+is the composable address text used inside it. Address content grows rather
+than being clipped or automatically shrunk. An oversized address emits its
+full measured height, and the `envelope_window` PDF validation rule reports
+when it exceeds the safe rectangle. Use `error` severity to block delivery.
+
+Layout evidence version 1 contains the rectangle, safety padding, address
+bounds and page, and compatibility contact height, all in PDF points (72pt
+per inch). The helper emits both `<immuknow-layout>` Typst metadata and
+extractable `MEASURE_*` PDF markers. Use these same values for preview guides;
+do not draw guides into the template or export. Digital checks do not certify
+physical envelope alignment: review actual-size printing and the intended
+folds with the real stationery.
+
+`signature-block` accepts resolved `signature` content (or none), `name`,
+`title`, and `spacing` (2pt). It keeps the block together and emits the required
+signature-end evidence. An oversized block may move to a later page; the
+`signature_overflow` validation rule detects that. Missing evidence fails
+an enabled rule rather than counting as a pass.

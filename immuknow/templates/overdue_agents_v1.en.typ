@@ -8,6 +8,18 @@
 #let history-include-other = auto
 #let history-show-validity = auto
 #let history-min-rows = 5
+// Page-relative envelope rectangle and readable client text.
+#let envelope-window = (x: 1.75cm, y: 165.1pt, width: 202.28pt, height: 81pt, padding: 11pt)
+#let page-margins = (top: 1cm, bottom: 2cm, left: 1.75cm, right: 2cm)
+#let body-font = "FreeSans"
+#let body-size = 10pt
+#let logo-width = 6cm
+#let title-size = 16pt
+#let signature-width = 3cm
+#let signature-height = 1cm
+#let client-font-size = 10pt
+#let client-details = "right"
+#let address-addressee = auto
 #import "lib/immuknow/lib.typ" as ik
 #ik.check-notice(notice, version: template-version, language: template-language)
 #assert(notice.overdue_agents.len() > 0, message: "This overdue template requires vaccine agent data")
@@ -17,34 +29,22 @@
 // NOTE: All contact details are placeholders for testing purposes only.
 // ----------------------------------------- //
 
-#import "/templates/conf.typ"
-#import "/templates/presentation.typ" as presentation
+#import "conf.typ"
+#import "presentation.typ" as presentation
 
-// General document formatting 
-#set text(fill: black)
-#set par(justify: false)
-#set page("us-letter")
-
-// Formatting links - prevent URLs from splitting across lines
+#show: ik.notice-page.with(language: template-language, margins: page-margins, font: body-font, font-size: body-size)
 #show link: it => box(underline(it))
 
-// Font formatting
-#set text(
-  font: "FreeSans",
-  size: 10pt
-)
-#set text(lang: "en", region: "CA")
-
 // Immunization Notice Section
-#let immunization_notice(client, client_id, date, font_size) = block[
+#let immunization_notice(client, date) = block[
 
 #v(0.2cm)
 
-#conf.header_info_cim(notice.logo_path, 6cm, black, 16pt, "Request for Immunization Record")
+#ik.notice-header(logo: image(notice.logo_path, width: logo-width), logo-width: logo-width, title-size: title-size, title: "Request for Immunization Record")
 
 #v(0.2cm)
 
-#conf.client_info_tbl_en(equal_split: false, vline: false, client, client_id, font_size, "Childcare Centre", 81pt, border: false)
+#ik.client-block(notice, window: envelope-window, font-size: client-font-size, details: client-details, addressee: address-addressee)
 
 #v(0.3cm)
 
@@ -82,28 +82,16 @@ If you have any questions, please call 555-555-5555 ext. 1234.
 
   Sincerely, 
 
-#conf.signature(notice.signature_path, "Dr. Jane Smith, MPH", "Associate Medical Officer of Health")
+#ik.signature-block(signature: image(notice.signature_path, width: signature-width, height: signature-height, fit: "contain"), name: "Dr. Jane Smith, MPH", title: "Associate Medical Officer of Health")
 
-// Invisible marker for layout validation
-#box(width: 0pt, height: 0pt)[
-  #text(size: 0.1pt, fill: white)[MARK_END_SIGNATURE_BLOCK]
-]
   
 ]
 
-#let vaccine_table_page(client_id) = block[
+#let vaccine_table_page() = block[
   
   #v(0.5cm)
 
-  #grid(
-  
-  columns: (50%,50%), 
-  gutter: 5%, 
-  [#image(notice.logo_path, width: 6cm)],
-  [#set align(center + bottom)
-    #text(size: 20.5pt, fill: black)[*Immunization Record*]]
-  
-)
+  #ik.notice-header(logo: image(notice.logo_path, width: logo-width), logo-width: logo-width, title-size: 20.5pt, title: "Immunization Record")
 
   #v(0.5cm)
 
@@ -115,17 +103,12 @@ If you have any questions, please call 555-555-5555 ext. 1234.
   #set align(center)
   End of immunization record ]
 
-#let client_row = notice.client_id
 #let data = notice.client_data
 #let date = presentation.long-date(notice.date_as_of, "en", required: false)
 
-#set page(
-  margin: (top: 1cm, bottom: 2cm, left: 1.75cm, right: 2cm),
-  footer: align(center, context numbering("1 / " + str(counter(page).final().first()), counter(page).get().first()))
-)
 
-#immunization_notice(data, client_row, date, 11pt)
+#immunization_notice(data, date)
 #pagebreak()
-#vaccine_table_page(client_row)
+#vaccine_table_page()
 #ik.immunization-history(notice, diseases: history-diseases, ignore-agents: history-ignore-agents, include-other: history-include-other, show-validity: history-show-validity, min-rows: history-min-rows, font-size: 11pt, labels: presentation.selected-labels())
 #end_of_immunization_notice()

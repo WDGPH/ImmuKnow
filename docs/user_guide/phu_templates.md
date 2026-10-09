@@ -74,8 +74,7 @@ the JSON, and sets the document text language and Canadian region:
 #let notice = json(sys.inputs.at("data"))
 #import "lib/immuknow/lib.typ" as ik
 #ik.check-notice(notice, version: "overdue_agents_v1", language: "en")
-#set text(lang: "en", region: "CA")
-#import "/templates/conf.typ"
+#show: ik.notice-page.with(language: "en")
 ```
 
 Keep assertions independent of the input values. An agent-based overdue entry
@@ -149,6 +148,24 @@ Templates can rearrange content, but must keep their own version and
 language checks. A selected single file applies those checks to every client.
 The [configuration contract](configuration.md) explains assignments,
 translation data, and QR/password fields.
+
+## Customize layout
+
+Each maintained entry point exposes body font/size, page margins, logo and
+signature dimensions, client-detail placement, addressee wording, and an
+`envelope-window` dictionary near the top. Prose remains visible below those
+controls. `notice-page`, `notice-header`, `client-block`, and `signature-block`
+come from the same shared package in browser and native rendering. See the
+package `README.md` for executable calls and every layout parameter.
+
+Envelope coordinates are physical lengths measured from the printed page's
+top-left corner. The preset preserves the former address-column position and
+81pt height, including an 11pt safety inset. Long content grows and produces
+an overflow finding instead of silently clipping. Adjust the window to the
+actual stationery and verify actual-size printing and folding. The
+[PDF validation guide](pdf_validation.md) explains geometry evidence and
+warning/error severities. The compact signature image and block keep the
+maintained French QR notices on two pages without changing their wording.
 
 ## Reproduce and review a notice
 

@@ -4,3 +4,4 @@
 #import "src/localization.typ": long-date
 #import "src/overdue.typ": overdue-diseases, overdue-agents
 #import "src/localization.typ" as localization
+#import "src/layout.typ": notice-page, notice-header, address-block, client-block, signature-block, envelope-preset

@@ -392,7 +392,10 @@ def test_french_notice_failure_prevents_successful_delivery(
     french = custom / "overdue_agents_v1.fr.typ"
     if failure == "wrong_client":
         french.write_text(
-            french.read_text().replace("notice.client_id", '"9999999999"')
+            french.read_text().replace(
+                "#ik.client-block(notice,",
+                '#ik.client-block((..notice, client_id: "9999999999"),',
+            )
         )
         diagnostic = "PDF validation failed"
     elif failure == "missing_entry":

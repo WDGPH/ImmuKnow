@@ -8,6 +8,8 @@ remain available for review.
 from __future__ import annotations
 
 import json
+import math
+import re
 from collections import Counter
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -113,8 +115,6 @@ def find_client_id_in_text(page_text: str) -> str | None:
     str | None
         10-digit client ID if found, None otherwise.
     """
-    import re
-
     # Search for any 10-digit number (word boundary on both sides to avoid false matches)
     match = re.search(r"\b(\d{10})\b", page_text)
     if match:
@@ -139,16 +139,16 @@ def extract_measurements_from_markers(page_text: str) -> dict[str, float]:
         Dictionary mapping dimension names to values in points.
         Example: {"measure_contact_height": 123.45}
     """
-    import re
-
     measurements = {}
 
     # Pattern to match our invisible marker format: MEASURE_NAME:123.45
-    pattern = r"MEASURE_(\w+):([\d.]+)"
+    pattern = r"MEASURE_(\w+):(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)"
 
     for match in re.finditer(pattern, page_text):
         key = "measure_" + match.group(1).lower()  # normalize to lowercase
         value = float(match.group(2))
+        if key in measurements or not math.isfinite(value):
+            raise ValueError(f"Duplicate or nonfinite layout measurement: {key}")
         measurements[key] = value
 
     return measurements
@@ -183,82 +183,120 @@ def validate_pdf_layout(
     warnings = []
     measurements = {}
 
-    # Check signature block marker placement
-    rule_setting = enabled_rules.get("signature_overflow", "warn")
-    if rule_setting != "disabled":
-        for page_num, page in enumerate(reader.pages, start=1):
-            try:
-                page_text = page.extract_text()
-                if "MARK_END_SIGNATURE_BLOCK" in page_text:
-                    measurements["signature_page"] = page_num
-                    if page_num != 1:
-                        warnings.append(
-                            f"signature_overflow: Signature block ends on page {page_num} "
-                            f"(expected page 1)"
-                        )
-                    break
-            except Exception:
-                # If text extraction fails, skip this check
-                pass
+    texts = [page.extract_text() for page in reader.pages]
+    if enabled_rules.get("signature_overflow", "warn") != "disabled":
+        signature_pages = [
+            number
+            for number, text in enumerate(texts, 1)
+            for _ in range(text.count("MARK_END_SIGNATURE_BLOCK"))
+        ]
+        if len(signature_pages) != 1:
+            warnings.append(
+                "signature_overflow: Expected exactly one signature measurement marker"
+            )
+        else:
+            measurements["signature_page"] = signature_pages[0]
+            if signature_pages[0] != 1:
+                warnings.append(
+                    f"signature_overflow: Signature block ends on page {signature_pages[0]} (expected page 1)"
+                )
 
-    # Check contact table dimensions (envelope window validation)
-    envelope_rule = enabled_rules.get("envelope_window_1_125", "disabled")
-    if envelope_rule != "disabled":
-        # Envelope window constraint: 1.125 inches max height
-        max_height_inches = 1.125
-
-        # Look for contact table measurements in page 1
+    envelope_rules = [
+        name
+        for name in ("envelope_window", "envelope_window_1_125")
+        if enabled_rules.get(name, "disabled") != "disabled"
+    ]
+    if envelope_rules:
         try:
-            page_text = reader.pages[0].extract_text()
-            extracted_measurements = extract_measurements_from_markers(page_text)
-
-            contact_height_pt = extracted_measurements.get("measure_contact_height")
-            if contact_height_pt:
-                # Convert from points to inches (72 points = 1 inch)
-                height_inches = contact_height_pt / 72.0
-                measurements["contact_height_inches"] = height_inches
-
-                if height_inches > max_height_inches:
+            values = extract_measurements_from_markers(texts[0])
+        except ValueError as exc:
+            values = {}
+            for rule in envelope_rules:
+                warnings.append(f"{rule}: {exc}")
+        if "envelope_window_1_125" in envelope_rules:
+            height = values.get("measure_contact_height")
+            if height is None or height <= 0:
+                warnings.append(
+                    "envelope_window_1_125: Missing or invalid contact-height measurement"
+                )
+            else:
+                measurements["contact_height_inches"] = height / 72.0
+                if height > 81.01:
                     warnings.append(
-                        f"envelope_window_1_125: Contact table height {height_inches:.2f}in "
-                        f"exceeds envelope window (max {max_height_inches}in)"
+                        f"envelope_window_1_125: Contact table height {height / 72:.2f}in exceeds envelope window (max 1.125in)"
                     )
-        except Exception:
-            # If measurement extraction fails, skip this check
-            pass
-
-    # Check client ID presence (markerless: search for 10-digit number in text)
-    client_id_rule = enabled_rules.get("client_id_presence", "disabled")
-    if client_id_rule != "disabled" and client_id_map:
-        try:
-            # Get expected client ID from the mapping (source of truth: preprocessed_clients.json)
-            expected_client_id = client_id_map.get(pdf_path.name)
-            if expected_client_id:
-                # Search all pages for the client ID
-                found_client_id = None
-                for page_num, page in enumerate(reader.pages, start=1):
-                    page_text = page.extract_text()
-                    found_id = find_client_id_in_text(page_text)
-                    if found_id:
-                        found_client_id = found_id
-                        measurements["client_id_found_page"] = page_num
-                        break
-
-                # Warn if ID not found or doesn't match
-                if found_client_id is None:
+        if "envelope_window" in envelope_rules:
+            required = (
+                "layout_version",
+                "window_x",
+                "window_y",
+                "window_width",
+                "window_height",
+                "window_padding",
+                "address_x",
+                "address_y",
+                "address_width",
+                "address_height",
+                "address_page",
+            )
+            missing = [key for key in required if "measure_" + key not in values]
+            if missing:
+                warnings.append(
+                    "envelope_window: Missing geometry evidence: " + ", ".join(missing)
+                )
+            else:
+                geometry = {key: values["measure_" + key] for key in required}
+                measurements.update(geometry)
+                x, y, width, height, padding = (
+                    geometry["window_" + key]
+                    for key in ("x", "y", "width", "height", "padding")
+                )
+                ax, ay, aw, ah = (
+                    geometry["address_" + key] for key in ("x", "y", "width", "height")
+                )
+                page = reader.pages[0].mediabox
+                valid = (
+                    geometry["layout_version"] == 1
+                    and geometry["address_page"] == 1
+                    and min(x, y, padding, aw, ah) >= 0
+                    and width > 2 * padding
+                    and height > 2 * padding
+                    and x + width <= float(page.width) + 0.01
+                    and y + height <= float(page.height) + 0.01
+                )
+                if not valid:
+                    warnings.append("envelope_window: Invalid window or page geometry")
+                elif not (
+                    ax >= x + padding - 0.01
+                    and ay >= y + padding - 0.01
+                    and ax + aw <= x + width - padding + 0.01
+                    and ay + ah <= y + height - padding + 0.01
+                ):
                     warnings.append(
-                        f"client_id_presence: Client ID {expected_client_id} not found in PDF"
+                        "envelope_window: Address exceeds the window safety area; enlarge or reposition the window, or revise the address layout"
                     )
-                elif found_client_id != expected_client_id:
-                    warnings.append(
-                        f"client_id_presence: Found ID {found_client_id}, expected {expected_client_id}"
-                    )
-                else:
-                    # Store the found ID for debugging
-                    measurements["client_id_found_value"] = found_client_id
-        except Exception:
-            # If client ID check fails, skip silently (parsing error)
-            pass
+
+    if enabled_rules.get("client_id_presence", "disabled") != "disabled":
+        expected = (client_id_map or {}).get(pdf_path.name)
+        if not expected:
+            warnings.append("client_id_presence: Missing expected client identity")
+        else:
+            found = [
+                (number, find_client_id_in_text(text))
+                for number, text in enumerate(texts, 1)
+            ]
+            found = [(number, value) for number, value in found if value is not None]
+            if not found:
+                warnings.append(
+                    f"client_id_presence: Client ID {expected} not found in PDF"
+                )
+            elif found[0][1] != expected:
+                warnings.append(
+                    f"client_id_presence: Found ID {found[0][1]}, expected {expected}"
+                )
+            else:
+                measurements["client_id_found_page"] = found[0][0]
+                measurements["client_id_found_value"] = expected
 
     return warnings, measurements
 
@@ -340,8 +378,10 @@ def compute_rule_results(
     # Count failures per rule
     rule_failures: Counter = Counter()
     for result in results:
-        for warning in result.warnings:
-            rule_name = warning.split(":")[0] if ":" in warning else "other"
+        for rule_name in {
+            warning.split(":")[0] if ":" in warning else "other"
+            for warning in result.warnings
+        }:
             rule_failures[rule_name] += 1
 
     # Build rule results for all configured rules
