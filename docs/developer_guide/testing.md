@@ -109,6 +109,23 @@ it into `site/playground/`. PR CI tests that complete artifact at its configured
 the published artifact contains no server. Main deployments publish this same
 combined artifact through the existing docs workflow.
 
+For a notebook reverse proxy, build with its public path prefix (everything
+before `/ImmuKnow/playground/`), then start the same local server:
+
+```bash
+export IMMUKNOW_PROXY_PREFIX=/notebook/justin-angevaare/immuknow-playground/proxy/4173
+uv run python -m playground.scripts.build-site
+uv run python -m playground.scripts.serve-site
+```
+
+Open the proxy URL followed by `/ImmuKnow/playground/`. The build prefixes
+scripts, compiler/PDF workers, WASM, fonts, and generated fixtures consistently.
+The local server accepts either a stripped prefix (normal notebook proxy
+behavior) or the full prefix. Leave the variable unset for the normal Pages
+build. To verify the proxy build locally, stop the manual server and run
+`IMMUKNOW_SITE=1 npm run test:browser --prefix playground -- tests/proxy.spec.ts`
+with the same exported prefix.
+
 The real Chromium suite edits source and dependencies, navigates clients and
 languages, restores local drafts/ZIPs, downloads current PDFs, recovers from
 syntax errors, blocked remote imports, missing fonts and a fault-injected stuck
