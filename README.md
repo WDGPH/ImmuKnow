@@ -1,10 +1,9 @@
-# ImmuKnow
-
-ImmuKnow turns Panorama/PEAR vaccination records into personalized immunization
-notices and history charts. Python validates records, resolves each client's
-notice assignment, and checks every expected output. Authored Typst templates
-format the English or French PDFs. Built-in wording, branding, and contact
-details are samples that a Public Health Unit must review before use.
+# 🩺 ImmuKnow
+[![Run Pytest](https://github.com/WDGPH/ImmuKnow/actions/workflows/test.yml/badge.svg)](https://github.com/WDGPH/ImmuKnow/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/WDGPH/ImmuKnow/graph/badge.svg?token=J7BSABDO9M)](https://codecov.io/gh/WDGPH/ImmuKnow)
+[![Docs](https://img.shields.io/badge/docs-wdgph.github.io%2FImmuKnow-blue)](https://wdgph.github.io/ImmuKnow/)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/WDGPH/ImmuKnow)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ## Run a cohort
 

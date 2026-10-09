@@ -26,7 +26,9 @@ dev = [
     "pytest",
     "pytest-cov",
     "pre-commit",
-    "ty>=0.0.74",
+    "ty>=0.0.78",
+    "git-changelog>=2.9.7",
+    "pypandoc>=1.15",
 ]
 docs = [
     "jinja2>=3.1.6",
@@ -34,6 +36,8 @@ docs = [
     "mkdocs>=1.6.0",
     "mkdocs-material>=9.5.15",
     "pymdown-extensions>=11.0.2",
+    "mkdocstrings>=1.0.4",
+    "mkdocstrings-python>=2.0.8",
 ]
 
 [project.scripts]
