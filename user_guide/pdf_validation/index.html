@@ -51,8 +51,6 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
-    
       <link rel="stylesheet" href="../../stylesheets/extra.css">
     
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
@@ -80,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#pdf-validation-markers-measurements" class="md-skip">
+        <a href="#pdf-validation" class="md-skip">
           Skip to content
         </a>
       
@@ -304,25 +302,6 @@
         </a>
       </li>
     
-  
-
-      
-        
-  
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../../changelog/" class="md-tabs__link">
-        
-  
-  
-    
-  
-  Changelog
-
-      </a>
-    </li>
   
 
       
@@ -594,24 +573,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    PDF Validation
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -628,202 +589,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#what-we-validate" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What we validate
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#how-the-markers-work" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        How the markers work
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="How the markers work">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#example-measurements-we-emit" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Example measurements we emit
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#extraction-pipeline" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Extraction pipeline
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#rules-logic-and-outputs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Rules: logic and outputs
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#outputs-console-and-json" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Outputs: console and JSON
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#optional-markerless-validations" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Optional markerless validations
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#validator-contracts-validate-against-artifacts-not-filenames" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Validator contracts: validate against artifacts, not filenames
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Validator contracts: validate against artifacts, not filenames">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#why" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Why
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#how-it-works-in-practice" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        How it works in practice
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#example-client_id_presence-rule" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Example: client_id_presence rule
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#why-we-prefer-templateemitted-measurements-over-pdf-distance-math" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Why we prefer template‑emitted measurements over PDF distance math
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#adding-a-new-rule" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Adding a new rule
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#troubleshooting" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Troubleshooting
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#how-to-run" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        How to run
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -1013,8 +778,6 @@
       
         
       
-        
-      
     
     
     
@@ -1093,34 +856,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/pipeline_steps/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Pipeline Steps
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../reference/api/" class="md-nav__link">
         
   
@@ -1157,10 +892,6 @@
   
     
     
-      
-        
-      
-        
       
         
       
@@ -1228,34 +959,6 @@
     
   
     Contributing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../developer_guide/branching/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Branching Strategy
   
 
     
@@ -1353,64 +1056,9 @@
 
               
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../developer_guide/agents/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    AI Agent Workflow
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
           </ul>
         </nav>
       
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../changelog/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Changelog
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -1435,191 +1083,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#what-we-validate" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What we validate
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#how-the-markers-work" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        How the markers work
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="How the markers work">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#example-measurements-we-emit" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Example measurements we emit
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#extraction-pipeline" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Extraction pipeline
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#rules-logic-and-outputs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Rules: logic and outputs
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#outputs-console-and-json" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Outputs: console and JSON
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#optional-markerless-validations" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Optional markerless validations
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#validator-contracts-validate-against-artifacts-not-filenames" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Validator contracts: validate against artifacts, not filenames
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Validator contracts: validate against artifacts, not filenames">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#why" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Why
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#how-it-works-in-practice" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        How it works in practice
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#example-client_id_presence-rule" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Example: client_id_presence rule
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#why-we-prefer-templateemitted-measurements-over-pdf-distance-math" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Why we prefer template‑emitted measurements over PDF distance math
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#adding-a-new-rule" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Adding a new rule
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#troubleshooting" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Troubleshooting
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#how-to-run" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        How to run
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -1638,250 +1101,51 @@
   
 
 
-<h1 id="pdf-validation-markers-measurements">PDF Validation: Markers + Measurements<a class="headerlink" href="#pdf-validation-markers-measurements" title="Permanent link">&para;</a></h1>
-<p>This document explains how we validate compiled PDFs using invisible template markers and measurements plus pypdf text extraction. It covers the marker format, the rules we enforce, configuration, outputs, and how to extend the system.</p>
-<h2 id="what-we-validate">What we validate<a class="headerlink" href="#what-we-validate" title="Permanent link">&para;</a></h2>
-<p>We validate layout and structure using rules configured in <code>config/parameters.yaml</code> under <code>pdf_validation.rules</code>:</p>
-<ul>
-<li><code>exactly_two_pages</code>: Ensure each notice PDF has exactly 2 pages.</li>
-<li><code>signature_overflow</code>: Ensure the signature block ends on page 1.</li>
-<li><code>envelope_window_1_125</code>: Ensure the contact table height fits a 1.125-inch envelope window.</li>
-</ul>
-<p>Each rule can be configured to <code>disabled</code>, <code>warn</code>, or <code>error</code>.</p>
-<p>Example:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">pdf_validation</span><span class="p">:</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="c1"># Validation rules: "disabled" (skip check), "warn" (log only), or "error" (halt pipeline)</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">rules</span><span class="p">:</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="nt">exactly_two_pages</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">warn</span><span class="w">         </span><span class="c1"># Ensure PDF has exactly 2 pages (notice + immunization record)</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="nt">signature_overflow</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">warn</span><span class="w">        </span><span class="c1"># Signature block not on page 1</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="nt">envelope_window_1_125</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">warn</span><span class="w">     </span><span class="c1"># Contact table fits in envelope window (1.125in max height)</span>
-</span></code></pre></div>
-<h2 id="how-the-markers-work">How the markers work<a class="headerlink" href="#how-the-markers-work" title="Permanent link">&para;</a></h2>
-<p>The Typst templates embed invisible text markers that we can reliably extract from the compiled PDF text. We use two categories:</p>
-<ul>
-<li>MARKers: Boolean/positional markers<ul>
-<li><code>MARK_END_SIGNATURE_BLOCK</code> — emitted at the end of the signature block. We scan pages for this marker to find the page where the signature block ends.</li>
-</ul>
-</li>
-<li>MEASUREments: Numeric metrics in points<ul>
-<li>Format: <code>MEASURE_&lt;NAME&gt;:&lt;value&gt;</code> (e.g., <code>MEASURE_CONTACT_HEIGHT:81.0</code>). Values are in PostScript points. Conversion: 72 points = 1 inch.</li>
-</ul>
-</li>
-</ul>
-<p>These markers are rendered invisibly in the PDF (e.g., zero-opacity/white/hidden), but remain extractable by text extraction. They should be ASCII and simple to ensure robust extraction across renderers.</p>
-<h3 id="example-measurements-we-emit">Example measurements we emit<a class="headerlink" href="#example-measurements-we-emit" title="Permanent link">&para;</a></h3>
-<ul>
-<li><code>MEASURE_CONTACT_HEIGHT</code> — The height of the contact information table on page 1 (in points). We convert this to inches and compare to the envelope window limit.</li>
-<li><code>MARK_END_SIGNATURE_BLOCK</code> — A marker string included where the signature block ends.</li>
-</ul>
-<h2 id="extraction-pipeline">Extraction pipeline<a class="headerlink" href="#extraction-pipeline" title="Permanent link">&para;</a></h2>
-<p>Module: <code>pipeline/validate_pdfs.py</code></p>
-<p>Key functions:</p>
-<ul>
-<li><code>extract_measurements_from_markers(page_text: str) -&gt; dict[str, float]</code><ul>
-<li>Parses all <code>MEASURE_...:&lt;value&gt;</code> markers from page text and returns a dict of measurements (in points).</li>
-</ul>
-</li>
-<li><code>validate_pdf_layout(pdf_path, reader, enabled_rules) -&gt; (warnings, measurements)</code><ul>
-<li>Uses <code>pypdf.PdfReader</code> to extract page text.</li>
-<li>Locates <code>MARK_END_SIGNATURE_BLOCK</code> to determine <code>signature_page</code>.</li>
-<li>Reads <code>MEASURE_CONTACT_HEIGHT</code> and converts to inches as <code>contact_height_inches</code>.</li>
-</ul>
-</li>
-<li><code>validate_pdf_structure(pdf_path, enabled_rules) -&gt; ValidationResult</code><ul>
-<li>Counts pages, adds <code>page_count</code> to <code>measurements</code>.</li>
-<li>Applies page-count rule and then layout rules.</li>
-</ul>
-</li>
-</ul>
-<p>We centralize reading via <code>pypdf.PdfReader</code> and only extract plain text; we do not rely on PDF layout coordinates.</p>
-<h2 id="rules-logic-and-outputs">Rules: logic and outputs<a class="headerlink" href="#rules-logic-and-outputs" title="Permanent link">&para;</a></h2>
-<ul>
-<li>
-<p>exactly_two_pages</p>
-<ul>
-<li>Logic: page_count must equal 2.</li>
-<li>Warning message: <code>exactly_two_pages: has N pages (expected 2)</code></li>
-<li>Measurement included: <code>page_count: N</code></li>
-</ul>
-</li>
-<li>
-<p>signature_overflow</p>
-<ul>
-<li>Logic: Find the page containing <code>MARK_END_SIGNATURE_BLOCK</code>; it must be page 1.</li>
-<li>Warning message: <code>signature_overflow: Signature block ends on page P (expected page 1)</code></li>
-<li>Measurement included: <code>signature_page: P</code></li>
-</ul>
-</li>
-<li>
-<p>envelope_window_1_125</p>
-<ul>
-<li>Logic: Extract <code>MEASURE_CONTACT_HEIGHT</code> on page 1; convert to inches. Must be &lt;= 1.125 in.</li>
-<li>Warning message: <code>envelope_window_1_125: Contact table height H.in exceeds envelope window (max 1.125in)</code></li>
-<li>Measurement included: <code>contact_height_inches: H</code></li>
-</ul>
-</li>
-</ul>
-<h2 id="outputs-console-and-json">Outputs: console and JSON<a class="headerlink" href="#outputs-console-and-json" title="Permanent link">&para;</a></h2>
-<p>Console summary includes per-rule status for all rules (including disabled), with pass/fail counts and severity labels. The output may omit the high‑level pass count and focus on rule lines when run via the orchestrator.</p>
-<p>Example (current orchestrator output):</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Validation rules:
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  - envelope_window_1_125 [warn]: ✓ 5 passed
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  - exactly_two_pages [warn]: ✓ 5 passed
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  - signature_overflow [warn]: ✓ 5 passed
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>Detailed validation results: output/metadata/en_validation_&lt;timestamp&gt;.json
-</span></code></pre></div>
-<p>JSON summary is written to <code>output/metadata/{language}_validation_{run_id}.json</code> and has:</p>
-<ul>
-<li><code>rule_results</code>: per-rule pass/fail with severity</li>
-<li><code>results</code>: per-PDF details, warnings, and measurements</li>
-</ul>
-<p>Example excerpt:</p>
-<div class="language-json highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">"rule_results"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="p">{</span><span class="nt">"rule_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"exactly_two_pages"</span><span class="p">,</span><span class="w"> </span><span class="nt">"severity"</span><span class="p">:</span><span class="w"> </span><span class="s2">"warn"</span><span class="p">,</span><span class="w"> </span><span class="nt">"passed_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="nt">"failed_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">},</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="p">{</span><span class="nt">"rule_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"signature_overflow"</span><span class="p">,</span><span class="w"> </span><span class="nt">"severity"</span><span class="p">:</span><span class="w"> </span><span class="s2">"warn"</span><span class="p">,</span><span class="w"> </span><span class="nt">"passed_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="nt">"failed_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">},</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="p">{</span><span class="nt">"rule_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"envelope_window_1_125"</span><span class="p">,</span><span class="w"> </span><span class="nt">"severity"</span><span class="p">:</span><span class="w"> </span><span class="s2">"warn"</span><span class="p">,</span><span class="w"> </span><span class="nt">"passed_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="nt">"failed_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">}</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="p">],</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="nt">"results"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="p">{</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">      </span><span class="nt">"filename"</span><span class="p">:</span><span class="w"> </span><span class="s2">"en_notice_00001_...pdf"</span><span class="p">,</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">      </span><span class="nt">"warnings"</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">      </span><span class="nt">"passed"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">      </span><span class="nt">"measurements"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">        </span><span class="nt">"page_count"</span><span class="p">:</span><span class="w"> </span><span class="mf">2.0</span><span class="p">,</span>
-</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">        </span><span class="nt">"signature_page"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span>
-</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">        </span><span class="nt">"contact_height_inches"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.125</span>
-</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">      </span><span class="p">}</span>
-</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="w">    </span><span class="p">}</span>
-</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">  </span><span class="p">]</span>
-</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="p">}</span>
-</span></code></pre></div>
-<h2 id="optional-markerless-validations">Optional markerless validations<a class="headerlink" href="#optional-markerless-validations" title="Permanent link">&para;</a></h2>
-<p>Markers are recommended for precision, but some validations can operate without them by scanning page text directly.</p>
-<p><strong>Example:</strong> Client ID presence check</p>
-<ul>
-<li>Goal: Ensure each generated PDF contains the expected client ID somewhere in the text.</li>
-<li>Approach: Use <code>pypdf.PdfReader</code> to extract text of all pages and search with a regex pattern for the formatted client ID (e.g., 10 digits, or a specific prefix/suffix).</li>
-<li>Failure condition: Pattern not found → emit a warning like <code>client_id_presence: ID 1009876543 not found in PDF text</code>.</li>
-</ul>
-<p>Implementation notes:</p>
-<ul>
-<li>Keep patterns strict enough to avoid false positives (e.g., word boundaries: <code>\b\d{10}\b</code>).</li>
-<li>Normalize text if needed (strip spaces/hyphens) and compare both raw and normalized forms.</li>
-<li>Add the new rule key under <code>pdf_validation.rules</code> and include it in per‑rule summaries just like other rules.</li>
-</ul>
-<p>This markerless approach is also suitable for checks like:</p>
-<ul>
-<li>Presence of required labels or headers.</li>
-<li>Language detection heuristics (e.g., a small set of expected words in FR/EN output).</li>
-<li>Date format sanity checks.</li>
-</ul>
-<h2 id="validator-contracts-validate-against-artifacts-not-filenames">Validator contracts: validate against artifacts, not filenames<a class="headerlink" href="#validator-contracts-validate-against-artifacts-not-filenames" title="Permanent link">&para;</a></h2>
-<p><strong>Core principle:</strong> Validate against the preprocessed artifact (source of truth), never against filenames (derived output).</p>
-<h3 id="why">Why<a class="headerlink" href="#why" title="Permanent link">&para;</a></h3>
-<ul>
-<li>Filenames are output from prior steps and can drift or be manually renamed.</li>
-<li>The preprocessed <code>clients.json</code> is the single source of truth: it represents the actual clients validated and processed through the pipeline.</li>
-<li>If validation uses a filename, a silent rename or data mismatch may go undetected.</li>
-<li>If validation uses the artifact, data consistency is guaranteed.</li>
-</ul>
-<h3 id="how-it-works-in-practice">How it works in practice<a class="headerlink" href="#how-it-works-in-practice" title="Permanent link">&para;</a></h3>
-<p>In step 6 (validation), the orchestrator:</p>
-<ol>
-<li>Loads <code>preprocessed_clients_{run_id}.json</code> from <code>output/artifacts/</code>.</li>
-<li>Builds a mapping: <code>filename -&gt; expected_value</code> (e.g., client ID, sequence number).</li>
-<li>Passes this mapping to <code>validate_pdfs.main(..., client_id_map=client_id_map)</code>.</li>
-</ol>
-<p>Rules then validate against the mapping using artifact data as the source of truth.</p>
-<h3 id="example-client_id_presence-rule">Example: client_id_presence rule<a class="headerlink" href="#example-client_id_presence-rule" title="Permanent link">&para;</a></h3>
-<p>Current rule: Searches for any 10-digit number in the PDF text and compares to the expected client ID.</p>
-<ul>
-<li><strong>Expected ID source:</strong> <code>client_id_map["en_notice_00001_1009876543.pdf"]</code> → <code>"1009876543"</code> (from artifact).</li>
-<li><strong>Actual ID found:</strong> regex <code>\b(\d{10})\b</code> in extracted text.</li>
-<li><strong>Validation:</strong> If found ≠ expected, emit warning.</li>
-</ul>
-<p>This ensures every generated PDF contains the correct client ID, catching generation errors or data drift early.</p>
-<h2 id="why-we-prefer-templateemitted-measurements-over-pdf-distance-math">Why we prefer template‑emitted measurements over PDF distance math<a class="headerlink" href="#why-we-prefer-templateemitted-measurements-over-pdf-distance-math" title="Permanent link">&para;</a></h2>
-<p>We strongly prefer emitting precise measurements from the Typst template (via <code>measure()</code> and <code>MEASURE_...</code> markers) instead of inferring sizes by computing distances between two markers in extracted PDF text. Reasons:</p>
-<ul>
-<li><strong>Deterministic geometry:</strong> Typst knows the actual layout geometry (line breaks, spacing, leading, table cell borders). Emitting a numeric measurement captures the truth directly.</li>
-<li><strong>Robust to text extraction quirks:</strong> PDF text extraction can lose exact ordering, merge or split whitespace, and is affected by ligatures/kerning and font encodings. Geometry in points is stable; text streams are not.</li>
-<li><strong>Locale‑safe:</strong> Measurements are invariant across languages (EN/FR) even as word lengths and hyphenation change.</li>
-<li><strong>Unit consistency:</strong> We always emit PostScript points and convert with 72 pt = 1 in. No need for pixel/scale heuristics.</li>
-<li><strong>Clear rule contracts:</strong> Rules assert against explicit metrics (e.g., <code>contact_height_inches &lt;= 1.125</code>) instead of implicit heuristics (e.g., count lines, guess distances).</li>
-<li><strong>Testability:</strong> Numeric outputs are easy to assert in unit tests and in JSON <code>measurements</code>.</li>
-</ul>
-<p>When marker pairs are useful</p>
-<ul>
-<li>Presence/ordering checks (e.g., <code>MARK_END_SIGNATURE_BLOCK</code> on page 1) — use a boolean/positional marker.</li>
-<li>Avoid using two markers and computing a distance in the extracted text; prefer a single numeric <code>MEASURE_...</code> emitted by the template that already accounts for the exact box height/width.</li>
-</ul>
-<p>Recommended Typst pattern (illustrative)</p>
-<div class="language-typst highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1">// Compute height of the contact block and emit an invisible measurement</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kd">#let</span><span class="w"> </span><span class="nv">contact_box</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">box</span><span class="p">(</span><span class="nv">contact_table</span><span class="p">)</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kd">#let</span><span class="w"> </span><span class="nv">dims</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">measure</span><span class="p">(</span><span class="nv">contact_box</span><span class="p">)</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1">// dims.height is in pt; emit a plain ASCII marker for pypdf to read</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1">// The text should be invisible (e.g., white on white or zero‑opacity) but extractable</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>MEASURE<span class="ge">_CONTACT_</span>HEIGHT:<span class="w"> </span><span class="nv">#dims</span>.height
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="c1">// Place the signature end marker where the block actually ends</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>MARK<span class="ge">_END_</span>SIGNATURE<span class="err">_</span>BLOCK
-</span></code></pre></div>
-<p>Validator side (already implemented)</p>
-<ul>
-<li>Parse <code>MEASURE_CONTACT_HEIGHT:&lt;points&gt;</code> via <code>extract_measurements_from_markers()</code>.</li>
-<li>Convert to inches (<code>points / 72.0</code>) as <code>contact_height_inches</code>.</li>
-<li>Compare to configured threshold (e.g., 1.125in) and surface the actual value in warnings and JSON.</li>
-</ul>
-<h2 id="adding-a-new-rule">Adding a new rule<a class="headerlink" href="#adding-a-new-rule" title="Permanent link">&para;</a></h2>
-<ol>
-<li>Emit a marker in the Typst template:<ul>
-<li>For a numeric metric: output <code>MEASURE_&lt;NAME&gt;:&lt;points&gt;</code> (points are recommended for consistency).</li>
-<li>For a position marker: insert a unique text token like <code>MARK_&lt;SOMETHING&gt;</code> at the desired location.</li>
-</ul>
-</li>
-<li>In <code>validate_pdfs.py</code>:<ul>
-<li>Extend <code>extract_measurements_from_markers</code> if needed (it already parses any <code>MEASURE_...:&lt;value&gt;</code> tokens).</li>
-<li>Read the measurement or locate the marker in <code>validate_pdf_layout</code>.</li>
-<li>Convert units as needed (use 72 points = 1 inch for inches).</li>
-<li>Store the measurement using its natural Python type so downstream JSON preserves meaning (e.g., counts as <code>int</code>, dimensions as <code>float</code>, identifiers as <code>str</code>). The <code>ValidationResult.measurements</code> dict accepts <code>int | float | str</code>; adding other types should include a deliberate type hint update.</li>
-<li>Add a warning message under the new rule key when conditions fail.</li>
-</ul>
-</li>
-<li>Add the rule to <code>config/parameters.yaml</code> under <code>pdf_validation.rules</code> with <code>disabled|warn|error</code>.</li>
-<li>Add tests validating both the pass and fail paths, checking that <code>measurements</code> includes the new key with the expected value and type.</li>
-</ol>
-<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
-<ul>
-<li>No markers found in text<ul>
-<li>Ensure the marker strings are plain ASCII and not removed by the template’s visibility settings.</li>
-<li>Ensure text extraction is possible: pypdf reads the pages and returns text (some fonts/encodings may complicate extraction).</li>
-</ul>
-</li>
-<li>Units confusion<ul>
-<li><code>MEASURE_...</code> values should be in points; convert with <code>inches = points / 72.0</code>.</li>
-</ul>
-</li>
-<li>False negatives for <code>signature_overflow</code><ul>
-<li>Confirm <code>MARK_END_SIGNATURE_BLOCK</code> is emitted exactly where the signature block ends and not earlier.</li>
-</ul>
-</li>
-<li>Missing measurements in JSON<ul>
-<li>Check that the rule is enabled and the markers are present on the expected page (page 1 for contact height).</li>
-</ul>
-</li>
-</ul>
-<h2 id="how-to-run">How to run<a class="headerlink" href="#how-to-run" title="Permanent link">&para;</a></h2>
-<p>From the orchestrator (preferred):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>uv<span class="w"> </span>run<span class="w"> </span>viper<span class="w"> </span>&lt;input.xlsx&gt;<span class="w"> </span>&lt;en<span class="p">|</span>fr&gt;
-</span></code></pre></div>
-<p>Directly (advanced/testing):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Validate all PDFs in a directory</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>pipeline.validate_pdfs<span class="w"> </span>output/pdf_individual
-</span></code></pre></div>
-<p>The validator writes JSON to <code>output/metadata</code> and prints a summary with per-rule pass/fail counts. Severity <code>error</code> will cause the pipeline to stop.</p>
+<h1 id="pdf-validation">PDF validation<a class="headerlink" href="#pdf-validation" title="Permanent link">&para;</a></h1>
+<p>Each run validates the explicit expected PDF set from its render jobs after
+whole-set compilation succeeds. It never discovers notices by scanning a
+language prefix or selecting every PDF in a directory. Missing outputs fail;
+stale files and encrypted copies cannot satisfy an expected job. The
+extracted client ID is compared with the job's client ID.</p>
+<p>Configure each rule under <code>pdf_validation.rules</code> in
+<code>parameters.yaml</code> as <code>disabled</code>, <code>warn</code>, or <code>error</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Check</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>client_id_presence</code></td>
+<td>Expected 10-digit client ID appears in the PDF</td>
+</tr>
+<tr>
+<td><code>exactly_two_pages</code></td>
+<td>The notice has two pages</td>
+</tr>
+<tr>
+<td><code>signature_overflow</code></td>
+<td><code>MARK_END_SIGNATURE_BLOCK</code> remains on page one</td>
+</tr>
+<tr>
+<td><code>envelope_window_1_125</code></td>
+<td><code>MEASURE_CONTACT_HEIGHT</code> fits 1.125 inches</td>
+</tr>
+</tbody>
+</table>
+<p>Typst emits invisible, extractable ASCII markers. Contact height is emitted
+in PostScript points and divided by 72 for inches. The validator uses
+<code>pypdf</code> for text and marker extraction; it does not infer geometry from text
+positions. A warning is reported but lets the run continue. An error-level
+finding fails the run before final delivery. The console gives per-rule
+counts, and <code>metadata/validation_&lt;run_id&gt;.json</code> keeps per-PDF results and
+measurements.</p>
+<p>For a new rule, add a clear Typst marker or measurement, parse it in
+<code>immuknow/validate_pdfs.py</code>, configure its severity, and test both passing
+and failing PDFs. Review representative rendered pages as well: extractable
+text and measurements cannot establish visual quality.</p>
 
 
 

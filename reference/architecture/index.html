@@ -14,7 +14,7 @@
         <link rel="prev" href="../../user_guide/email_package/email_template_text/">
       
       
-        <link rel="next" href="../pipeline_steps/">
+        <link rel="next" href="../api/">
       
       
         
@@ -51,8 +51,6 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
-    
       <link rel="stylesheet" href="../../stylesheets/extra.css">
     
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
@@ -80,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#pipeline-architecture" class="md-skip">
+        <a href="#workflow-and-output-evidence" class="md-skip">
           Skip to content
         </a>
       
@@ -304,25 +302,6 @@
         </a>
       </li>
     
-  
-
-      
-        
-  
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../../changelog/" class="md-tabs__link">
-        
-  
-  
-    
-  
-  Changelog
-
-      </a>
-    </li>
   
 
       
@@ -786,8 +765,6 @@
       
         
       
-        
-      
     
     
     
@@ -850,24 +827,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Architecture
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -885,108 +844,6 @@
 
       </a>
       
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Overview
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#pipeline-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Pipeline flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#step-summary" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step summary
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#design-principles" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Design principles
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#module-organization" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Module organization
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../pipeline_steps/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Pipeline Steps
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -1035,10 +892,6 @@
   
     
     
-      
-        
-      
-        
       
         
       
@@ -1106,34 +959,6 @@
     
   
     Contributing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../developer_guide/branching/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Branching Strategy
   
 
     
@@ -1231,64 +1056,9 @@
 
               
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../developer_guide/agents/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    AI Agent Workflow
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
           </ul>
         </nav>
       
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../changelog/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Changelog
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -1313,69 +1083,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Overview
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#pipeline-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Pipeline flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#step-summary" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step summary
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#design-principles" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Design principles
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#module-organization" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Module organization
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -1394,125 +1101,88 @@
   
 
 
-<h1 id="pipeline-architecture">Pipeline Architecture<a class="headerlink" href="#pipeline-architecture" title="Permanent link">&para;</a></h1>
-<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
-<p>The ImmuKnow pipeline transforms raw vaccination records exported from Panorama/PEAR into bilingual (EN/FR) PDF immunization notices and history charts for children overdue under CCEYA and ISPA.</p>
-<p>The pipeline follows a <strong>sequential, stateless step architecture</strong>: each step reads its inputs fresh from disk and writes its outputs to disk. No in-memory state is passed between steps through the orchestrator. This design ensures that steps are independently testable and re-runnable — if Step 5 fails, you can fix the issue and re-run Steps 5–9 without reprocessing the input data.</p>
-<h2 id="pipeline-flow">Pipeline flow<a class="headerlink" href="#pipeline-flow" title="Permanent link">&para;</a></h2>
+<h1 id="workflow-and-output-evidence">Workflow and output evidence<a class="headerlink" href="#workflow-and-output-evidence" title="Permanent link">&para;</a></h1>
+<p><code>immuknow.orchestrator.run_pipeline</code> owns a complete run; <code>immuknow</code> is its CLI.
+The run loads configuration, prepares clients, resolves their notices, renders
+and validates every expected PDF, then completes delivery. The selected
+filename sets each client's <code>version_id</code> and language. Typst independently
+checks both.</p>
+<p>For a first read, start with <code>run_pipeline</code> and follow its numbered comments:
+check inputs, prepare output, prepare clients, add QR codes, compile notices,
+validate PDFs, deliver copies and bundles, then record completion. Optional
+steps stay in that sequence and use configuration to decide whether to act.</p>
+<p>The names describe different points in that sequence:</p>
+<ul>
+<li>A <strong>client record</strong> contains prepared source information and its assigned
+  notice version and language.</li>
+<li>A <strong>render job</strong> pairs that client with the template, data file, and expected
+  PDF path. Preparing a job does not create the PDF.</li>
+<li>A <strong>bundle</strong> combines completed individual PDFs for delivery.</li>
+<li>The <strong>completion record</strong> lists the outputs of a successful run.</li>
+</ul>
+<p>The preparation flow follows the source record through these steps:</p>
+<ol>
+<li>Read the CSV once as text, trim surrounding whitespace once, and validate
+   those prepared values against the packaged input schema. A required schema error
+   rejects the whole file.</li>
+<li>Exclude incomplete mailing addresses and write their CSV report. Essential
+   client fields have already passed the required schema checks.</li>
+<li>Check school names against the reference list and load the vaccine-to-disease mapping, then build client records with
+   normalized disease names, age and eligibility, and parsed history.</li>
+<li>Reconcile notice assignments. The orchestrator then saves the prepared
+   client artifact.</li>
+</ol>
+<p><code>preprocess.prepare_clients</code> returns the cohort and reconciliation findings,
+or raises with the findings when assignments fail preflight. The orchestrator
+reports those findings and controls whether rendering and delivery proceed.
+History parsing and normalization remain helpers within client preparation.</p>
 <pre class="mermaid"><code>flowchart LR
-    A[Excel Input] --&gt; S1[1. Prepare Output]
-    S1 --&gt; S2[2. Preprocess]
-    S2 --&gt; S3[3. Generate QR Codes]
-    S3 --&gt; S4[4. Generate Notices]
-    S4 --&gt; S5[5. Compile Notices]
-    S5 --&gt; S6[6. Validate PDFs]
-    S6 --&gt; S7[7. Encrypt PDFs]
-    S7 --&gt; S8[8. Bundle PDFs]
-    S8 --&gt; S9[9. Cleanup]
-    S9 --&gt; Z[Output Directory]
-
-    style S3 stroke-dasharray: 5 5
-    style S7 stroke-dasharray: 5 5
-    style S8 stroke-dasharray: 5 5</code></pre>
-<p>Steps shown with dashed borders are optional — they are skipped when disabled in <code>config/parameters.yaml</code>.</p>
-<h2 id="step-summary">Step summary<a class="headerlink" href="#step-summary" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Step</th>
-<th>Module</th>
-<th>Key Inputs</th>
-<th>Key Outputs</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td><code>prepare_output.py</code></td>
-<td>Config flags</td>
-<td>Clean <code>output/</code> directory</td>
-</tr>
-<tr>
-<td>2</td>
-<td><code>preprocess.py</code></td>
-<td>Excel file, <code>vaccine_reference.json</code>, <code>disease_normalization.json</code></td>
-<td><code>preprocessed_clients_&lt;run_id&gt;.json</code></td>
-</tr>
-<tr>
-<td>3</td>
-<td><code>generate_qr_codes.py</code></td>
-<td>Preprocessed JSON, QR config</td>
-<td>PNG files in <code>output/artifacts/qr_codes/</code></td>
-</tr>
-<tr>
-<td>4</td>
-<td><code>generate_notices.py</code></td>
-<td>Preprocessed JSON, Typst templates</td>
-<td><code>.typ</code> files in <code>output/artifacts/typst/</code></td>
-</tr>
-<tr>
-<td>5</td>
-<td><code>compile_notices.py</code></td>
-<td><code>.typ</code> files</td>
-<td>PDF files in <code>output/pdf_individual/</code></td>
-</tr>
-<tr>
-<td>6</td>
-<td><code>validate_pdfs.py</code></td>
-<td>PDFs, artifact JSON</td>
-<td>Console summary, <code>output/metadata/&lt;lang&gt;_validation_&lt;run_id&gt;.json</code></td>
-</tr>
-<tr>
-<td>7</td>
-<td><code>encrypt_notice.py</code></td>
-<td>Individual PDFs, encryption config</td>
-<td>Encrypted PDFs in <code>output/pdf_individual/</code></td>
-</tr>
-<tr>
-<td>8</td>
-<td><code>bundle_pdfs.py</code></td>
-<td>Individual PDFs, bundling config</td>
-<td>Bundle PDFs in <code>output/pdf_combined/</code></td>
-</tr>
-<tr>
-<td>9</td>
-<td><code>cleanup.py</code></td>
-<td>Cleanup config</td>
-<td>Removes intermediate artifacts</td>
-</tr>
-</tbody>
-</table>
-<h2 id="design-principles">Design principles<a class="headerlink" href="#design-principles" title="Permanent link">&para;</a></h2>
-<p><strong>Stateless steps</strong>
-Each step reads its inputs from disk and writes outputs to disk. The orchestrator never passes in-memory objects between steps. This means same input always produces the same output, and any step can be re-run independently.</p>
-<p><strong>Normalized JSON artifact</strong>
-Preprocessing produces a single <code>preprocessed_clients_&lt;run_id&gt;.json</code> artifact that serves as the canonical source of truth for all downstream steps. Client records are deterministically ordered by school → last name → first name → client ID, and each client receives a stable sequence number (<code>00001</code>, <code>00002</code>, etc.) that persists through all downstream operations.</p>
-<p><strong>Bilingual support</strong>
-Both English and French are first-class concerns. Disease names, notice text, and date formatting are all localized before being passed to Typst. The <code>language</code> argument selects the full rendering path; both languages share the same pipeline steps and configuration file.</p>
-<p><strong>Fail-fast vs. per-item recovery</strong>
-Critical steps (Preprocessing, Notice Generation, Compilation, PDF Validation) implement fail-fast: any error halts the pipeline immediately. Optional steps (QR Codes, Encryption, Bundling) implement per-item recovery: individual item failures are logged and skipped, and the pipeline continues processing remaining items.</p>
-<h2 id="module-organization">Module organization<a class="headerlink" href="#module-organization" title="Permanent link">&para;</a></h2>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pipeline/
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── orchestrator.py         # CLI entry point (viper), coordinates 9 steps
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├── prepare_output.py       # Step 1
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>├── preprocess.py           # Step 2
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>├── generate_qr_codes.py    # Step 3 (optional)
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>├── generate_notices.py     # Step 4
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>├── compile_notices.py      # Step 5
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>├── validate_pdfs.py        # Step 6
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>├── encrypt_notice.py       # Step 7 (optional)
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>├── bundle_pdfs.py          # Step 8 (optional)
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>├── cleanup.py              # Step 9
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>├── config_loader.py        # Configuration loading and validation
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>├── data_models.py          # Dataclasses for client records and artifacts
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>├── enums.py                # Language, BundleStrategy, TemplateField enums
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>├── translation_helpers.py  # Disease name normalization and translation
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>├── validate_phix.py        # PHIX school name validation (called from preprocess)
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>└── utils.py                # Template rendering and context building utilities
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>
-</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>templates/                  # Built-in Typst templates (EN/FR)
-</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>phu_templates/              # PHU-specific template overrides (gitignored)
-</span></code></pre></div>
+    A[CSV cohort] --&gt; B[Validate and normalize]
+    M[Manifest or one notice file] --&gt; B
+    B --&gt; C[Prepared client records]
+    C --&gt; D[Per-notice JSON and render jobs]
+    T[Selected Typst templates and labels] --&gt; D
+    D --&gt; E[Compile all expected PDFs]
+    E --&gt; F[Validate all expected PDFs]
+    F --&gt; G[Optional encryption and bundling]
+    G --&gt; H[Completion evidence]</code></pre>
+<p>The cohort and render jobs persist under <code>artifacts/</code> when configured to retain
+them. A render job names the client, sequence, version, language, selected
+template, data path, bounded workspace, and expected PDF. Small JSON payloads
+supply validated client data. Typst formats dates, labels, dose wording,
+headings, and notice prose. The selected template tree and language
+dictionaries are
+staged once per run. No generated Typst source or client-specific wrapper is
+needed. The <a href="../../user_guide/phu_templates/">authoring guide</a> defines the JSON.</p>
+<p>After preparing the output directory, <code>run_pipeline</code> owns run logging in
+<code>logs/run_&lt;run_id&gt;.log</code>. The file covers application stages. Stage modules
+emit logger messages but do not change global logging. The run removes its
+handler on exit and preserves the caller's logging configuration, including
+when a stage fails.</p>
+<p>The renderer publishes a PDF only after compilation succeeds, then records
+successful completion for the whole expected set. Validation checks each
+expected PDF and its client ID, plus configured page and layout rules. An
+error-level finding stops the run. Encryption and bundling use the same notice
+set and check identity and uniqueness, not just counts. Stale PDFs and
+encrypted duplicates are excluded. Language labels filenames but never filters
+the cohort. Bundles can group by size, school, or board across languages.</p>
+<p>Run metadata distinguishes resolved selection from successful compilation,
+validation, and final delivery. Client-linked diagnostics are sensitive; store
+them with the run's output. Installed library resources come from the
+<code>immuknow</code> package; selected PHU configuration and templates can live
+elsewhere. Writes go to the caller's output directory.</p>
+<p>Shared definitions live with the behavior they describe: notice language and
+kind in <code>version_notices.py</code>, bundle grouping in <code>bundle_pdfs.py</code>, and QR
+and password placeholders in <code>client_placeholders.py</code> beside their client-value builder.
+Notice languages must be explicit lowercase <code>en</code> or <code>fr</code> throughout preparation
+and rendering, matching the template filename contract.</p>
+<p><code>output_directory.py</code> owns the output directory before and after the run.
+<code>run_pipeline</code> calls <code>prepare_output_directory</code> before processing clients and
+<code>cleanup_output</code> only after delivery succeeds. Preparation preserves previous
+logs; final cleanup follows <code>pipeline.after_run</code> retention settings.</p>
+<p>The input contract lives in <code>immuknow/schemas/input_schema.json</code> and is loaded
+from the installed package. Changes to its fields and rules must be reviewed
+with preprocessing and its tests. PHU configuration cannot override it.</p>
 
 
 
@@ -1565,13 +1235,13 @@ Critical steps (Preprocessing, Notice Generation, Compilation, PDF Validation) i
         
         
           
-          <a href="../pipeline_steps/" class="md-footer__link md-footer__link--next" aria-label="Next: Pipeline Steps">
+          <a href="../api/" class="md-footer__link md-footer__link--next" aria-label="Next: API Reference">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Pipeline Steps
+                API Reference
               </div>
             </div>
             <div class="md-footer__button md-icon">

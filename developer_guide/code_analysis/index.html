@@ -14,8 +14,6 @@
         <link rel="prev" href="../documentation/">
       
       
-        <link rel="next" href="../agents/">
-      
       
         
       
@@ -51,8 +49,6 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
-    
       <link rel="stylesheet" href="../../stylesheets/extra.css">
     
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
@@ -80,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#code-analysis-standards" class="md-skip">
+        <a href="#code-analysis" class="md-skip">
           Skip to content
         </a>
       
@@ -304,25 +300,6 @@
         </a>
       </li>
     
-  
-
-      
-        
-  
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../../changelog/" class="md-tabs__link">
-        
-  
-  
-    
-  
-  Changelog
-
-      </a>
-    </li>
   
 
       
@@ -784,8 +761,6 @@
       
         
       
-        
-      
     
     
     
@@ -864,34 +839,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/pipeline_steps/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Pipeline Steps
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../reference/api/" class="md-nav__link">
         
   
@@ -930,10 +877,6 @@
   
     
     
-      
-        
-      
-        
       
         
       
@@ -1024,34 +967,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../branching/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Branching Strategy
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../testing/" class="md-nav__link">
         
   
@@ -1117,24 +1032,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Code Analysis
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1152,158 +1049,6 @@
 
       </a>
       
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#why-code-analysis-matters" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Why Code Analysis Matters
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#code-analysis-checklist" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Code Analysis Checklist
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Code Analysis Checklist">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-functional-analysis" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Functional Analysis
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-dead-code-detection" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Dead Code Detection
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-duplication-analysis" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Duplication Analysis
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#4-real-world-significance-analysis" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. Real-World Significance Analysis
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#rapid-change-protocol" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Rapid Change Protocol
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#key-questions-to-answer" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Key Questions to Answer
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#recommended-tools" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Recommended Tools
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../agents/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    AI Agent Workflow
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -1312,33 +1057,6 @@
           </ul>
         </nav>
       
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../changelog/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Changelog
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -1363,119 +1081,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#why-code-analysis-matters" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Why Code Analysis Matters
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#code-analysis-checklist" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Code Analysis Checklist
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Code Analysis Checklist">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-functional-analysis" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Functional Analysis
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-dead-code-detection" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Dead Code Detection
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-duplication-analysis" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Duplication Analysis
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#4-real-world-significance-analysis" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. Real-World Significance Analysis
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#rapid-change-protocol" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Rapid Change Protocol
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#key-questions-to-answer" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Key Questions to Answer
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#recommended-tools" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Recommended Tools
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -1494,150 +1099,18 @@
   
 
 
-<h1 id="code-analysis-standards">Code Analysis Standards<a class="headerlink" href="#code-analysis-standards" title="Permanent link">&para;</a></h1>
-<p>This document defines procedures for analyzing code to detect dead code, duplicates, and ensure real-world significance during rapid pre-v1.0 development.</p>
-<h2 id="why-code-analysis-matters">Why Code Analysis Matters<a class="headerlink" href="#why-code-analysis-matters" title="Permanent link">&para;</a></h2>
-<p>In rapid development, code can accumulate dead functions, duplicates, and unclear dependencies. This guide provides systematic procedures to catch these issues before they become technical debt.</p>
-<h2 id="code-analysis-checklist">Code Analysis Checklist<a class="headerlink" href="#code-analysis-checklist" title="Permanent link">&para;</a></h2>
-<p>When analyzing any function or module, follow this checklist:</p>
-<h3 id="1-functional-analysis">1. Functional Analysis<a class="headerlink" href="#1-functional-analysis" title="Permanent link">&para;</a></h3>
-<p><strong>Question:</strong> Is this code actually being used and what does it affect?</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Find where a function is defined</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>grep<span class="w"> </span>-n<span class="w"> </span><span class="s2">"def function_name"</span><span class="w"> </span>scripts/*.py
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Find where it's called</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>grep<span class="w"> </span>-r<span class="w"> </span><span class="s2">"function_name"</span><span class="w"> </span>scripts/*.py<span class="w"> </span>tests/*.py
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Check if it's imported anywhere</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>grep<span class="w"> </span>-r<span class="w"> </span><span class="s2">"from .* import.*function_name\|import.*function_name"</span><span class="w"> </span>scripts/*.py<span class="w"> </span>tests/*.py
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="c1"># Trace through run_pipeline.py to see what output it affects</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>grep<span class="w"> </span>-A<span class="w"> </span><span class="m">50</span><span class="w"> </span><span class="s2">"run_pipeline.main()"</span><span class="w"> </span>scripts/run_pipeline.py
+<h1 id="code-analysis">Code analysis<a class="headerlink" href="#code-analysis" title="Permanent link">&para;</a></h1>
+<p>Start at <code>immuknow.orchestrator.run_pipeline</code>, then follow the functions and
+files involved in the final PDF or bundle. Search current callers and tests:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>rg<span class="w"> </span>-n<span class="w"> </span><span class="s1">'function_name|ClassName'</span><span class="w"> </span>immuknow<span class="w"> </span>tests
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>rg<span class="w"> </span>-n<span class="w"> </span><span class="s1">'open\\(|read_text|write_text|load_config'</span><span class="w"> </span>immuknow
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>rg<span class="w"> </span>-n<span class="w"> </span><span class="s1">'TODO|FIXME|deprecated'</span><span class="w"> </span>immuknow
 </span></code></pre></div>
-<p><strong>Real questions to answer:</strong></p>
-<ul class="task-list">
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Where is this called?</strong> – List all call sites</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>What does it do with the results?</strong> – Trace to final output</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>What are the side effects?</strong> – File I/O, config reads, logging?</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Is it on the critical path?</strong> – Steps 1-6 (core) vs Steps 7-9 (optional)</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Is it actually used or dead?</strong> – Test-only functions? Disabled features?</li>
-</ul>
-<h3 id="2-dead-code-detection">2. Dead Code Detection<a class="headerlink" href="#2-dead-code-detection" title="Permanent link">&para;</a></h3>
-<p><strong>Dead code indicators:</strong></p>
-<ul>
-<li>Function is defined but never called outside of tests</li>
-<li>Only called from commented-out code</li>
-<li>Parameter is optional and never actually passed</li>
-<li>Try/except that catches everything and silently ignores</li>
-<li>TODO comments indicating unfinished work</li>
-</ul>
-<p><strong>Detection procedure:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Find all function definitions</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>grep<span class="w"> </span>-n<span class="w"> </span><span class="s2">"def "</span><span class="w"> </span>scripts/*.py<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-v<span class="w"> </span><span class="s2">"__"</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># For each function, search for callers</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>grep<span class="w"> </span>-r<span class="w"> </span><span class="s2">"function_name("</span><span class="w"> </span>scripts/*.py<span class="w"> </span>tests/*.py
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="c1"># If not found, check if it's called dynamically</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>grep<span class="w"> </span>-r<span class="w"> </span><span class="s2">"getattr.*function_name\|__dict__"</span><span class="w"> </span>scripts/*.py
-</span></code></pre></div></p>
-<p><strong>Action when found:</strong></p>
-<ul>
-<li>Remove it if clearly dead</li>
-<li>Ask: "Why does this exist if it's unused?"</li>
-</ul>
-<h3 id="3-duplication-analysis">3. Duplication Analysis<a class="headerlink" href="#3-duplication-analysis" title="Permanent link">&para;</a></h3>
-<p><strong>Duplication indicators:</strong></p>
-<ul>
-<li>Similar function names or signatures</li>
-<li>Identical or nearly-identical logic in multiple files</li>
-<li>Similar patterns (date parsing, template rendering, grouping)</li>
-<li>Multiple implementations of the same algorithm</li>
-<li>Copy-paste code with minor modifications</li>
-</ul>
-<p><strong>Detection procedure:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Look for similar function names</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>grep<span class="w"> </span><span class="s2">"def.*template.*\|def.*render.*\|def.*format.*"</span><span class="w"> </span>scripts/*.py
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Look for similar patterns (e.g., date parsing)</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>grep<span class="w"> </span>-n<span class="w"> </span><span class="s2">"strptime\|strftime\|datetime"</span><span class="w"> </span>scripts/*.py
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># Compare line counts (modules &gt;300 lines might have duplication)</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>wc<span class="w"> </span>-l<span class="w"> </span>scripts/*.py<span class="w"> </span><span class="p">|</span><span class="w"> </span>sort<span class="w"> </span>-n
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="c1"># Look for identical blocks</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>grep<span class="w"> </span>-n<span class="w"> </span><span class="s2">"for .* in .*clients\|for .* in .*rows"</span><span class="w"> </span>scripts/*.py
-</span></code></pre></div></p>
-<p><strong>Action when found:</strong></p>
-<ul>
-<li>Extract to <code>utils.py</code> ONLY if:<ul>
-<li>Used by 2+ modules (not just one)</li>
-<li>Doesn't introduce new dependencies</li>
-</ul>
-</li>
-<li>Otherwise, colocate with the primary user</li>
-</ul>
-<h3 id="4-real-world-significance-analysis">4. Real-World Significance Analysis<a class="headerlink" href="#4-real-world-significance-analysis" title="Permanent link">&para;</a></h3>
-<p><strong>Question:</strong> If this breaks, what happens to the user's immunization notices?</p>
-<p>For every function, ask:</p>
-<ul class="task-list">
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>What output does this affect?</strong> – PDF content, JSON structure, file path?</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Is it on the critical path?</strong> – Steps 1-6: yes/no</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Does it affect determinism?</strong> – Same input → same output?</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Does it affect data integrity?</strong> – Could it corrupt notices?</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Would a user notice if this broke?</strong> – Or does it only affect logging?</li>
-</ul>
-<h2 id="rapid-change-protocol">Rapid Change Protocol<a class="headerlink" href="#rapid-change-protocol" title="Permanent link">&para;</a></h2>
-<p><strong>Before making any code changes:</strong></p>
-<ol>
-<li>
-<p><strong>Search for all usages</strong> of the function/module being modified
-   <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>grep<span class="w"> </span>-r<span class="w"> </span><span class="s2">"function_name\|class_name"</span><span class="w"> </span>scripts/<span class="w"> </span>tests/
-</span></code></pre></div></p>
-</li>
-<li>
-<p><strong>Trace side effects</strong> (file I/O, config reads, logging)
-   <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Look for open(), read(), write(), load_config()</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>grep<span class="w"> </span>-n<span class="w"> </span><span class="s2">"open\|read\|write\|load_config\|logging"</span><span class="w"> </span>scripts/my_module.py
-</span></code></pre></div></p>
-</li>
-<li>
-<p><strong>Check for duplicates</strong> with similar functionality
-   <div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>grep<span class="w"> </span>-r<span class="w"> </span><span class="s2">"similar.*pattern"</span><span class="w"> </span>scripts/*.py
-</span></code></pre></div></p>
-</li>
-<li>
-<p><strong>Check for dead code</strong> (test-only, disabled, experimental)
-   <div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>grep<span class="w"> </span>-n<span class="w"> </span><span class="s2">"TODO\|FIXME\|disabled\|deprecated"</span><span class="w"> </span>scripts/*.py
-</span></code></pre></div></p>
-</li>
-<li>
-<p><strong>Verify it's on the critical path</strong> (Step 1-6, not experimental)</p>
-</li>
-<li>If Steps 7-9 only: lower priority</li>
-<li>If Steps 1-6: high priority</li>
-</ol>
-<h2 id="key-questions-to-answer">Key Questions to Answer<a class="headerlink" href="#key-questions-to-answer" title="Permanent link">&para;</a></h2>
-<ol>
-<li><strong>Is this function used?</strong> – Search for all call sites</li>
-<li><strong>Where does its output go?</strong> – Trace to final artifact</li>
-<li><strong>Is this duplicated elsewhere?</strong> – Search for similar patterns</li>
-<li><strong>If it breaks, what fails?</strong> – Understand real-world impact</li>
-<li><strong>Should this be extracted?</strong> – Only if 2+ modules use it</li>
-</ol>
-<h2 id="recommended-tools">Recommended Tools<a class="headerlink" href="#recommended-tools" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># GNU grep (built-in on Linux/Mac)</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>grep<span class="w"> </span>-r<span class="w"> </span><span class="s2">"pattern"</span><span class="w"> </span>directory/
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># ripgrep (faster, recommended)</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>rg<span class="w"> </span><span class="s2">"pattern"</span><span class="w"> </span>directory/
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="c1"># find combined with grep</span>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>find<span class="w"> </span>scripts/<span class="w"> </span>-name<span class="w"> </span><span class="s2">"*.py"</span><span class="w"> </span>-exec<span class="w"> </span>grep<span class="w"> </span>-l<span class="w"> </span><span class="s2">"function_name"</span><span class="w"> </span><span class="o">{}</span><span class="w"> </span><span class="se">\;</span>
-</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>
-</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="c1"># Simple line counts</span>
-</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>wc<span class="w"> </span>-l<span class="w"> </span>scripts/*.py<span class="w"> </span><span class="p">|</span><span class="w"> </span>sort<span class="w"> </span>-n
-</span></code></pre></div>
+<p>Check whether a helper has a production caller, duplicates another path, or
+exists only for an obsolete intermediate contract. Keep shared helpers only
+when they reduce repetition. Confirm assignment, rendering, validation,
+encryption, and bundling use the same expected notice set. See
+<a href="../../reference/architecture/">workflow evidence</a> and <a href="../testing/">testing</a>.</p>
 
 
 
@@ -1688,22 +1161,6 @@
             </div>
           </a>
         
-        
-          
-          <a href="../agents/" class="md-footer__link md-footer__link--next" aria-label="Next: AI Agent Workflow">
-            <div class="md-footer__title">
-              <span class="md-footer__direction">
-                Next
-              </span>
-              <div class="md-ellipsis">
-                AI Agent Workflow
-              </div>
-            </div>
-            <div class="md-footer__button md-icon">
-              
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
-            </div>
-          </a>
         
       </nav>
     

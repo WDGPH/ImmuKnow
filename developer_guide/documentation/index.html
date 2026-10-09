@@ -51,8 +51,6 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
-    
       <link rel="stylesheet" href="../../stylesheets/extra.css">
     
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
@@ -80,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#documentation-standards" class="md-skip">
+        <a href="#documentation" class="md-skip">
           Skip to content
         </a>
       
@@ -304,25 +302,6 @@
         </a>
       </li>
     
-  
-
-      
-        
-  
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../../changelog/" class="md-tabs__link">
-        
-  
-  
-    
-  
-  Changelog
-
-      </a>
-    </li>
   
 
       
@@ -784,8 +763,6 @@
       
         
       
-        
-      
     
     
     
@@ -864,34 +841,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/pipeline_steps/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Pipeline Steps
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../reference/api/" class="md-nav__link">
         
   
@@ -930,10 +879,6 @@
   
     
     
-      
-        
-      
-        
       
         
       
@@ -1024,34 +969,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../branching/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Branching Strategy
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../testing/" class="md-nav__link">
         
   
@@ -1089,24 +1006,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Documentation Standards
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1123,169 +1022,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#docstring-standards" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Docstring Standards
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Docstring Standards">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#module-level-docstrings-required" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Module-Level Docstrings (Required)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#function-level-docstrings-required" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Function-Level Docstrings (Required)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#test-module-docstrings-required" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Test Module Docstrings (Required)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#test-function-docstrings-required" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Test Function Docstrings (Required)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#documentation-principles" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Documentation Principles
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Documentation Principles">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-real-world-significance-over-implementation-details" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Real-World Significance Over Implementation Details
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-trace-to-outputs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Trace to Outputs
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-side-effects-are-not-hidden" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Side Effects Are Not Hidden
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#4-type-hints-required" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. Type Hints Required
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#documentation-checklist-for-new-code" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Documentation Checklist for New Code
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#see-also" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        See Also
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -1320,64 +1056,9 @@
 
               
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../agents/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    AI Agent Workflow
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
           </ul>
         </nav>
       
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../changelog/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Changelog
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -1402,158 +1083,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#docstring-standards" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Docstring Standards
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Docstring Standards">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#module-level-docstrings-required" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Module-Level Docstrings (Required)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#function-level-docstrings-required" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Function-Level Docstrings (Required)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#test-module-docstrings-required" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Test Module Docstrings (Required)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#test-function-docstrings-required" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Test Function Docstrings (Required)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#documentation-principles" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Documentation Principles
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Documentation Principles">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-real-world-significance-over-implementation-details" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Real-World Significance Over Implementation Details
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-trace-to-outputs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Trace to Outputs
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-side-effects-are-not-hidden" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Side Effects Are Not Hidden
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#4-type-hints-required" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. Type Hints Required
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#documentation-checklist-for-new-code" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Documentation Checklist for New Code
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#see-also" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        See Also
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -1572,150 +1101,23 @@
   
 
 
-<h1 id="documentation-standards">Documentation Standards<a class="headerlink" href="#documentation-standards" title="Permanent link">&para;</a></h1>
-<p>This document defines standards for docstrings and documentation to ensure code accessibility and maintainability during rapid development.</p>
-<h2 id="docstring-standards">Docstring Standards<a class="headerlink" href="#docstring-standards" title="Permanent link">&para;</a></h2>
-<h3 id="module-level-docstrings-required">Module-Level Docstrings (Required)<a class="headerlink" href="#module-level-docstrings-required" title="Permanent link">&para;</a></h3>
-<p>Every <code>.py</code> file must start with a module-level docstring that explains its purpose and real-world significance:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="sd">"""Brief one-line description of module purpose.</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="sd">Extended description explaining:</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="sd">- What problem this module solves</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="sd">- Real-world usage significance (how it affects the immunization notices)</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="sd">- Key responsibilities/boundaries</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="sd">- Important notes about state, side effects, or dependencies</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="sd">"""</span>
-</span></code></pre></div>
-<p><strong>Example (good):</strong>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="sd">"""PDF validation and page counting for immunization notices.</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="sd">Validates compiled PDF files and generates a manifest of page counts.</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="sd">Used during Step 6 of the pipeline to ensure all notices compiled correctly</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="sd">and to detect corrupted or incomplete PDFs before encryption or batching.</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="sd">Writes metadata to output/metadata/&lt;language&gt;_page_counts_&lt;run_id&gt;.json</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="sd">"""</span>
-</span></code></pre></div></p>
-<p><strong>Example (poor):</strong>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="sd">"""PDF utilities."""</span>  <span class="c1"># Too vague, no significance context</span>
-</span></code></pre></div></p>
-<h3 id="function-level-docstrings-required">Function-Level Docstrings (Required)<a class="headerlink" href="#function-level-docstrings-required" title="Permanent link">&para;</a></h3>
-<p>Use <strong>NumPy/SciPy docstring format</strong> for consistency:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">function_name</span><span class="p">(</span><span class="n">param1</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">param2</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">param3</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">    </span><span class="sd">"""Brief one-line summary (imperative mood).</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="sd">    Extended description explaining:</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="sd">    - What the function does and why</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="sd">    - Real-world significance (when/why is this called? what output does it affect?)</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="sd">    - Key limitations or assumptions</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="sd">    - Processing flow if complex</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>
-</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="sd">    Parameters</span>
-</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="sd">    ----------</span>
-</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="sd">    param1 : str</span>
-</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="sd">        Description of what param1 is and constraints (e.g., "ISO date string")</span>
-</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="sd">    param2 : int</span>
-</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="sd">        Description with valid range (e.g., "batch size &gt; 0, typically 1-100")</span>
-</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="sd">    param3 : Optional[str], default None</span>
-</span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="sd">        Description; explain when to use vs omit</span>
-</span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>
-</span><span id="__span-3-19"><a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="sd">    Returns</span>
-</span><span id="__span-3-20"><a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="sd">    -------</span>
-</span><span id="__span-3-21"><a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a><span class="sd">    Dict[str, Any]</span>
-</span><span id="__span-3-22"><a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a><span class="sd">        Description of returned structure, e.g., {</span>
-</span><span id="__span-3-23"><a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a><span class="sd">            "status": "success|failure",</span>
-</span><span id="__span-3-24"><a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a><span class="sd">            "count": int,</span>
-</span><span id="__span-3-25"><a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a><span class="sd">            "details": List[str]</span>
-</span><span id="__span-3-26"><a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a><span class="sd">        }</span>
-</span><span id="__span-3-27"><a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a>
-</span><span id="__span-3-28"><a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a><span class="sd">    Raises</span>
-</span><span id="__span-3-29"><a id="__codelineno-3-29" name="__codelineno-3-29" href="#__codelineno-3-29"></a><span class="sd">    ------</span>
-</span><span id="__span-3-30"><a id="__codelineno-3-30" name="__codelineno-3-30" href="#__codelineno-3-30"></a><span class="sd">    ValueError</span>
-</span><span id="__span-3-31"><a id="__codelineno-3-31" name="__codelineno-3-31" href="#__codelineno-3-31"></a><span class="sd">        If param2 &lt;= 0 (include when/why)</span>
-</span><span id="__span-3-32"><a id="__codelineno-3-32" name="__codelineno-3-32" href="#__codelineno-3-32"></a><span class="sd">    FileNotFoundError</span>
-</span><span id="__span-3-33"><a id="__codelineno-3-33" name="__codelineno-3-33" href="#__codelineno-3-33"></a><span class="sd">        If required config files missing</span>
-</span><span id="__span-3-34"><a id="__codelineno-3-34" name="__codelineno-3-34" href="#__codelineno-3-34"></a>
-</span><span id="__span-3-35"><a id="__codelineno-3-35" name="__codelineno-3-35" href="#__codelineno-3-35"></a><span class="sd">    Examples</span>
-</span><span id="__span-3-36"><a id="__codelineno-3-36" name="__codelineno-3-36" href="#__codelineno-3-36"></a><span class="sd">    --------</span>
-</span><span id="__span-3-37"><a id="__codelineno-3-37" name="__codelineno-3-37" href="#__codelineno-3-37"></a><span class="sd">    &gt;&gt;&gt; result = function_name("2015-01-01", 10)</span>
-</span><span id="__span-3-38"><a id="__codelineno-3-38" name="__codelineno-3-38" href="#__codelineno-3-38"></a><span class="sd">    &gt;&gt;&gt; result["count"]</span>
-</span><span id="__span-3-39"><a id="__codelineno-3-39" name="__codelineno-3-39" href="#__codelineno-3-39"></a><span class="sd">    42</span>
-</span><span id="__span-3-40"><a id="__codelineno-3-40" name="__codelineno-3-40" href="#__codelineno-3-40"></a>
-</span><span id="__span-3-41"><a id="__codelineno-3-41" name="__codelineno-3-41" href="#__codelineno-3-41"></a><span class="sd">    Notes</span>
-</span><span id="__span-3-42"><a id="__codelineno-3-42" name="__codelineno-3-42" href="#__codelineno-3-42"></a><span class="sd">    -----</span>
-</span><span id="__span-3-43"><a id="__codelineno-3-43" name="__codelineno-3-43" href="#__codelineno-3-43"></a><span class="sd">    - This function reads from disk: `output/artifacts/preprocessed_clients_*.json`</span>
-</span><span id="__span-3-44"><a id="__codelineno-3-44" name="__codelineno-3-44" href="#__codelineno-3-44"></a><span class="sd">    - Side effect: writes to `output/metadata/page_counts_*.json`</span>
-</span><span id="__span-3-45"><a id="__codelineno-3-45" name="__codelineno-3-45" href="#__codelineno-3-45"></a><span class="sd">    - Performance: O(n) where n = number of PDFs</span>
-</span><span id="__span-3-46"><a id="__codelineno-3-46" name="__codelineno-3-46" href="#__codelineno-3-46"></a><span class="sd">    """</span>
-</span></code></pre></div>
-<h3 id="test-module-docstrings-required">Test Module Docstrings (Required)<a class="headerlink" href="#test-module-docstrings-required" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="sd">"""Tests for preprocess module - data normalization and artifact generation.</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="sd">Tests cover:</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="sd">- Schema validation (required columns, data types)</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="sd">- Data cleaning (dates, addresses, vaccine history)</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="sd">- Client sorting and sequencing</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="sd">- Artifact structure consistency</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="sd">- Error handling for invalid inputs</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="sd">Key assertion patterns:</span>
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="sd">- Verify artifact JSON matches expected schema</span>
-</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="sd">- Check client ordering (school → last_name → first_name)</span>
-</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="sd">- Validate vaccine name mapping against disease_map.json</span>
-</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="sd">"""</span>
-</span></code></pre></div>
-<h3 id="test-function-docstrings-required">Test Function Docstrings (Required)<a class="headerlink" href="#test-function-docstrings-required" title="Permanent link">&para;</a></h3>
-<p>Be specific about the scenario being tested and why it matters to real users:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_preprocess_sorts_clients_by_school_then_name</span><span class="p">():</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span><span class="sd">"""Verify clients are sorted deterministically for reproducible output.</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="sd">    Real-world significance:</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="sd">    - Enables comparisons between pipeline runs</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="sd">    - Ensures sequence numbers (00001, 00002...) are stable</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="sd">    - Required for batching by school to work correctly</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="sd">    """</span>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="c1"># Implementation...</span>
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>
-</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_preprocess_handles_missing_board_name</span><span class="p">():</span>
-</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">    </span><span class="sd">"""Verify pipeline doesn't crash when board name is missing from input.</span>
-</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>
-</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="sd">    Real-world significance:</span>
-</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="sd">    - Some school districts don't have explicit board assignments</span>
-</span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="sd">    - Should auto-generate ID and log warning</span>
-</span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="sd">    - Affects mail merge recipient determination</span>
-</span><span id="__span-5-18"><a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="sd">    """</span>
-</span><span id="__span-5-19"><a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>    <span class="c1"># Implementation...</span>
-</span></code></pre></div>
-<h2 id="documentation-principles">Documentation Principles<a class="headerlink" href="#documentation-principles" title="Permanent link">&para;</a></h2>
-<h3 id="1-real-world-significance-over-implementation-details">1. Real-World Significance Over Implementation Details<a class="headerlink" href="#1-real-world-significance-over-implementation-details" title="Permanent link">&para;</a></h3>
-<p>Not: "Calculate age from date of birth"</p>
-<p>But: "Determine if notice goes to parent vs student based on age of student"</p>
-<h3 id="2-trace-to-outputs">2. Trace to Outputs<a class="headerlink" href="#2-trace-to-outputs" title="Permanent link">&para;</a></h3>
-<p>Every function's docstring should explain how its output affects the final immunization notices. If it doesn't affect them, question whether it should exist.</p>
-<h3 id="3-side-effects-are-not-hidden">3. Side Effects Are Not Hidden<a class="headerlink" href="#3-side-effects-are-not-hidden" title="Permanent link">&para;</a></h3>
-<p>Document:</p>
-<ul>
-<li>File I/O operations and paths</li>
-<li>Configuration dependencies</li>
-<li>Logging side effects</li>
-<li>State mutations</li>
-</ul>
-<h3 id="4-type-hints-required">4. Type Hints Required<a class="headerlink" href="#4-type-hints-required" title="Permanent link">&para;</a></h3>
-<p>All function signatures must include type hints for parameters and return values.</p>
-<h2 id="documentation-checklist-for-new-code">Documentation Checklist for New Code<a class="headerlink" href="#documentation-checklist-for-new-code" title="Permanent link">&para;</a></h2>
-<p>Before submitting code, verify:</p>
-<ul class="task-list">
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Module docstring</strong> explains purpose and real-world significance</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>All functions</strong> have docstrings with Parameters/Returns/Raises sections</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>All test functions</strong> explain why the scenario matters for real users</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Type hints</strong> on all function signatures</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Real-world significance</strong> is clear (how does this affect the immunization notices?)</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Side effects documented</strong> (file I/O, config reads, logging)</li>
-</ul>
-<h2 id="see-also">See Also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
-<p>For code analysis standards (dead code detection, duplication analysis), see <code>CODE_ANALYSIS_STANDARDS.md</code>.</p>
-<p>For testing documentation standards, see <code>TESTING_STANDARDS.md</code>.</p>
+<h1 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h1>
+<p>Keep one current guide for each contract: <a href="../../user_guide/getting_started/">getting started</a>
+for inputs and the complete workflow, <a href="../../user_guide/configuration/">configuration</a>
+for user options and reference data, <a href="../../user_guide/phu_templates/">template authoring</a>
+for native JSON and assertions, and <a href="../testing/">testing</a> for checks.
+The <a href="../../reference/architecture/">architecture</a> explains output evidence.
+Link to these guides instead of copying them into new step descriptions.</p>
+<p>Module docstrings should state purpose and important inputs, outputs, and
+failures. Use types and examples when they clarify behavior. Test names and
+docstrings should identify the user-visible behavior protected, especially
+for compilation, mixed cohorts, and missing outputs.</p>
+<p>Use plain words that tell readers what a field or step actually does.
+Prefer "prepared client records", "disease names", or "selected version"
+over abstract labels when those are the facts meant.</p>
+<p>Keep point-in-time results and implementation rationale in the pull request
+and Git history. Repository guides describe current behavior and repeatable
+checks.</p>
 
 
 

@@ -2,82 +2,66 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://WDGPH.github.io/ImmuKnow/</loc>
-         <lastmod>2026-09-29</lastmod>
-    </url>
-    <url>
-         <loc>https://WDGPH.github.io/ImmuKnow/changelog/</loc>
-         <lastmod>2026-09-29</lastmod>
-    </url>
-    <url>
-         <loc>https://WDGPH.github.io/ImmuKnow/developer_guide/agents/</loc>
-         <lastmod>2026-09-29</lastmod>
-    </url>
-    <url>
-         <loc>https://WDGPH.github.io/ImmuKnow/developer_guide/branching/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-09</lastmod>
     </url>
     <url>
          <loc>https://WDGPH.github.io/ImmuKnow/developer_guide/code_analysis/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-09</lastmod>
     </url>
     <url>
          <loc>https://WDGPH.github.io/ImmuKnow/developer_guide/contributing/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-09</lastmod>
     </url>
     <url>
          <loc>https://WDGPH.github.io/ImmuKnow/developer_guide/documentation/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-09</lastmod>
     </url>
     <url>
          <loc>https://WDGPH.github.io/ImmuKnow/developer_guide/testing/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-09</lastmod>
     </url>
     <url>
          <loc>https://WDGPH.github.io/ImmuKnow/reference/api/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-09</lastmod>
     </url>
     <url>
          <loc>https://WDGPH.github.io/ImmuKnow/reference/architecture/</loc>
-         <lastmod>2026-09-29</lastmod>
-    </url>
-    <url>
-         <loc>https://WDGPH.github.io/ImmuKnow/reference/pipeline_steps/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-09</lastmod>
     </url>
     <url>
          <loc>https://WDGPH.github.io/ImmuKnow/user_guide/configuration/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-09</lastmod>
     </url>
     <url>
          <loc>https://WDGPH.github.io/ImmuKnow/user_guide/getting_started/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-09</lastmod>
     </url>
     <url>
          <loc>https://WDGPH.github.io/ImmuKnow/user_guide/input_schema/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-09</lastmod>
     </url>
     <url>
          <loc>https://WDGPH.github.io/ImmuKnow/user_guide/pdf_validation/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-09</lastmod>
     </url>
     <url>
          <loc>https://WDGPH.github.io/ImmuKnow/user_guide/phu_templates/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-09</lastmod>
     </url>
     <url>
          <loc>https://WDGPH.github.io/ImmuKnow/user_guide/email_package/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-09</lastmod>
     </url>
     <url>
          <loc>https://WDGPH.github.io/ImmuKnow/user_guide/email_package/email_template_text/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-09</lastmod>
     </url>
     <url>
          <loc>https://WDGPH.github.io/ImmuKnow/user_guide/email_package/phu_checklist/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-09</lastmod>
     </url>
     <url>
          <loc>https://WDGPH.github.io/ImmuKnow/user_guide/email_package/template_overview/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-09</lastmod>
     </url>
 </urlset>

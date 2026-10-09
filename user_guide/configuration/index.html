@@ -51,8 +51,6 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
-    
       <link rel="stylesheet" href="../../stylesheets/extra.css">
     
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
@@ -80,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#configuration-files-reference" class="md-skip">
+        <a href="#configuration-and-notice-contract" class="md-skip">
           Skip to content
         </a>
       
@@ -304,25 +302,6 @@
         </a>
       </li>
     
-  
-
-      
-        
-  
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../../changelog/" class="md-tabs__link">
-        
-  
-  
-    
-  
-  Changelog
-
-      </a>
-    </li>
   
 
       
@@ -561,10 +540,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#contents" class="md-nav__link">
+  <a href="#files-and-responsibilities" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Contents
+        Files and responsibilities
       
     </span>
   </a>
@@ -572,10 +551,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#data-flow-through-configuration-files" class="md-nav__link">
+  <a href="#run-options" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Data Flow Through Configuration Files
+        Run options
       
     </span>
   </a>
@@ -583,238 +562,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#required-configuration-files" class="md-nav__link">
+  <a href="#excluding-agents-from-the-history-chart" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Required Configuration Files
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Required Configuration Files">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#parametersyaml" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        parameters.yaml
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="parameters.yaml">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#feature-flags-overview" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Feature flags overview
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#phix-school-validation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        PHIX School Validation
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="PHIX School Validation">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#prerequisites" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Prerequisites
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#configuration-options" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Configuration options
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#match-categories" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Match categories
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#outputs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Outputs
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#unmatched-behavior" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Unmatched behavior
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Unmatched behavior">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pipeline-lifecycle" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Pipeline Lifecycle
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#date-controls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Date controls
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#chart_diseases_header-configuration" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        chart_diseases_header Configuration
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#vaccine_referencejson" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        vaccine_reference.json
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#disease_normalizationjson" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        disease_normalization.json
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#translations-directory" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        translations/ Directory
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#template-field-reference" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        🏷️ Template Field Reference
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="🏷️ Template Field Reference">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#available-template-fields" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Available Template Fields
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#template-validation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Template Validation
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#qr-code-configuration" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        QR Code Configuration
+        Excluding agents from the history chart
       
     </span>
   </a>
@@ -822,10 +573,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#pdf-validation-configuration" class="md-nav__link">
+  <a href="#qr-and-password-placeholders" class="md-nav__link">
     <span class="md-ellipsis">
       
-        PDF Validation Configuration
+        QR and password placeholders
       
     </span>
   </a>
@@ -833,10 +584,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#pdf-encryption-configuration" class="md-nav__link">
+  <a href="#versions-and-notice-selection" class="md-nav__link">
     <span class="md-ellipsis">
       
-        PDF Encryption Configuration
+        Versions and notice selection
       
     </span>
   </a>
@@ -844,41 +595,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#adding-new-configurations" class="md-nav__link">
+  <a href="#updating-reference-data" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Adding New Configurations
+        Updating reference data
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Adding New Configurations">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#adding-a-new-disease" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Adding a New Disease
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#adding-a-new-language" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Adding a New Language
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -1158,8 +881,6 @@
       
         
       
-        
-      
     
     
     
@@ -1238,34 +959,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/pipeline_steps/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Pipeline Steps
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../reference/api/" class="md-nav__link">
         
   
@@ -1302,10 +995,6 @@
   
     
     
-      
-        
-      
-        
       
         
       
@@ -1373,34 +1062,6 @@
     
   
     Contributing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../developer_guide/branching/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Branching Strategy
   
 
     
@@ -1498,64 +1159,9 @@
 
               
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../developer_guide/agents/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    AI Agent Workflow
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
           </ul>
         </nav>
       
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../changelog/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Changelog
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -1587,10 +1193,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#contents" class="md-nav__link">
+  <a href="#files-and-responsibilities" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Contents
+        Files and responsibilities
       
     </span>
   </a>
@@ -1598,10 +1204,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#data-flow-through-configuration-files" class="md-nav__link">
+  <a href="#run-options" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Data Flow Through Configuration Files
+        Run options
       
     </span>
   </a>
@@ -1609,238 +1215,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#required-configuration-files" class="md-nav__link">
+  <a href="#excluding-agents-from-the-history-chart" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Required Configuration Files
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Required Configuration Files">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#parametersyaml" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        parameters.yaml
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="parameters.yaml">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#feature-flags-overview" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Feature flags overview
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#phix-school-validation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        PHIX School Validation
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="PHIX School Validation">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#prerequisites" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Prerequisites
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#configuration-options" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Configuration options
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#match-categories" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Match categories
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#outputs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Outputs
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#unmatched-behavior" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Unmatched behavior
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Unmatched behavior">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pipeline-lifecycle" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Pipeline Lifecycle
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#date-controls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Date controls
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#chart_diseases_header-configuration" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        chart_diseases_header Configuration
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#vaccine_referencejson" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        vaccine_reference.json
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#disease_normalizationjson" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        disease_normalization.json
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#translations-directory" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        translations/ Directory
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#template-field-reference" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        🏷️ Template Field Reference
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="🏷️ Template Field Reference">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#available-template-fields" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Available Template Fields
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#template-validation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Template Validation
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#qr-code-configuration" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        QR Code Configuration
+        Excluding agents from the history chart
       
     </span>
   </a>
@@ -1848,10 +1226,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#pdf-validation-configuration" class="md-nav__link">
+  <a href="#qr-and-password-placeholders" class="md-nav__link">
     <span class="md-ellipsis">
       
-        PDF Validation Configuration
+        QR and password placeholders
       
     </span>
   </a>
@@ -1859,10 +1237,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#pdf-encryption-configuration" class="md-nav__link">
+  <a href="#versions-and-notice-selection" class="md-nav__link">
     <span class="md-ellipsis">
       
-        PDF Encryption Configuration
+        Versions and notice selection
       
     </span>
   </a>
@@ -1870,41 +1248,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#adding-new-configurations" class="md-nav__link">
+  <a href="#updating-reference-data" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Adding New Configurations
+        Updating reference data
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Adding New Configurations">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#adding-a-new-disease" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Adding a New Disease
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#adding-a-new-language" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Adding a New Language
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -1928,588 +1278,236 @@
   
 
 
-<h1 id="configuration-files-reference">Configuration Files Reference<a class="headerlink" href="#configuration-files-reference" title="Permanent link">&para;</a></h1>
-<p>This directory contains all configuration files for the immunization pipeline. Each file has a specific purpose and is used at different stages of the pipeline.</p>
-<hr />
-<h2 id="contents">Contents<a class="headerlink" href="#contents" title="Permanent link">&para;</a></h2>
-<ul>
-<li><a href="#data-flow-through-configuration-files">Data Flow Through Configuration Files</a></li>
-<li><a href="#required-configuration-files">Required Configuration Files</a></li>
-<li><a href="#parametersyaml"><code>parameters.yaml</code></a><ul>
-<li><a href="#feature-flags-overview">Feature flags overview</a></li>
-<li><a href="#pipeline-lifecycle">Pipeline Lifecycle</a></li>
-<li><a href="#date-controls">Date controls</a></li>
-<li><a href="#chart_diseases_header-configuration">Chart diseases header</a></li>
-</ul>
-</li>
-<li><a href="#vaccine_referencejson"><code>vaccine_reference.json</code></a></li>
-<li><a href="#disease_normalizationjson"><code>disease_normalization.json</code></a></li>
-<li><a href="#translations-directory"><code>translations/</code> Directory</a></li>
-<li><a href="#qr-code-configuration">QR Code Configuration</a></li>
-<li><a href="#pdf-validation-configuration">PDF Validation Configuration</a></li>
-<li><a href="#pdf-encryption-configuration">PDF Encryption Configuration</a></li>
-<li><a href="#template-field-reference">🏷️ Template Field Reference</a></li>
-<li><a href="#adding-new-configurations">Adding New Configurations</a></li>
-</ul>
-<h2 id="data-flow-through-configuration-files">Data Flow Through Configuration Files<a class="headerlink" href="#data-flow-through-configuration-files" title="Permanent link">&para;</a></h2>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Raw Input (from CSV/Excel)
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    ↓
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>[preprocess.py]
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    ├─ phix_mapping.json → validate school names against PHIX reference
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    ├─ disease_normalization.json → normalize variants
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    ├─ vaccine_reference.json → expand vaccines to diseases
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    ├─ parameters.yaml.chart_diseases_header → filter diseases not in chart → "Other"
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    └─ Emit artifact with filtered disease names
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    ↓
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>Artifact JSON (canonical English disease names, filtered by chart config)
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    ↓
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>[generate_notices.py]
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    ├─ parameters.yaml.chart_diseases_header → load chart disease list
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    ├─ translations/{lang}_diseases_chart.json → translate each disease name
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    ├─ translations/{lang}_diseases_overdue.json → translate vaccines_due list
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    └─ Inject translated diseases into Typst template
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    ↓
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>Typst Files (with localized, filtered disease names)
-</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    ↓
-</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>[compile_notices.py]
-</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>    └─ Generate PDFs
-</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>  ↓
-</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>[validate_pdfs.py]
-</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>  └─ Validate PDFs (page counts, layout markers) and emit validation JSON
-</span></code></pre></div>
-<hr />
-<h2 id="required-configuration-files">Required Configuration Files<a class="headerlink" href="#required-configuration-files" title="Permanent link">&para;</a></h2>
-<hr />
-<h3 id="parametersyaml"><code>parameters.yaml</code><a class="headerlink" href="#parametersyaml" title="Permanent link">&para;</a></h3>
-<p><strong>Purpose</strong>: Pipeline behavior configuration (feature flags, settings, and chart disease filtering)</p>
-<p><strong>Usage</strong>:</p>
-<ul>
-<li>QR code generation settings</li>
-<li>PDF encryption settings</li>
-<li>Batching configuration</li>
-<li><strong>Date controls for data freshness and eligibility logic</strong></li>
-<li><strong>Chart disease selection via <code>chart_diseases_header</code> (CRITICAL)</strong></li>
-</ul>
-<h4 id="feature-flags-overview">Feature flags overview<a class="headerlink" href="#feature-flags-overview" title="Permanent link">&para;</a></h4>
-<p>These are the most commonly adjusted options in <code>parameters.yaml</code>:</p>
-<ul>
-<li><code>preprocess.include_dose</code>: When <code>false</code> (the default), supplied dose numbers
-  are hidden and disease-only overdue lists continue normally. When <code>true</code>, every
-  overdue entry must use the <code>&lt;disease&gt; - &lt;dose&gt;</code> schema; blank dose numbers warn
-  and display only the disease name.</li>
-<li><code>qr.enabled</code>: Enable or disable QR code generation (true/false)</li>
-<li><code>encryption.enabled</code>: Enable or disable PDF encryption (true/false)</li>
-<li><code>bundling.bundle_size</code>: Enable bundling with at most N clients per bundle (0 disables bundling)</li>
-<li><code>bundling.group_by</code>: Bundle grouping strategy (null for sequential, <code>school</code>, or <code>board</code>)</li>
-</ul>
-<hr />
-<h2 id="phix-school-validation">PHIX School Validation<a class="headerlink" href="#phix-school-validation" title="Permanent link">&para;</a></h2>
-<p>The pipeline can validate school/daycare names in the input file against the official PHIX reference list before generating notices. This catches data-quality issues (misspelled school names, wrong facility IDs) early and produces per-run audit CSVs.</p>
-<p>Configuration lives under <code>phix_validation</code> in <code>config/parameters.yaml</code>:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">phix_validation</span><span class="p">:</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">mapping_file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">config/phix_mapping.json</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">target_phu</span><span class="p">:</span><span class="w"> </span><span class="s">"Wellington-Dufferin-Guelph</span><span class="nv"> </span><span class="s">Public</span><span class="nv"> </span><span class="s">Health"</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">column_prefix</span><span class="p">:</span><span class="w"> </span><span class="s">"PHIX_"</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="nt">unmatched_behavior</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">warn</span>
-</span></code></pre></div>
-<h3 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h3>
-<p><code>phix_mapping.json</code> is distributed with this repository. It is generated from a PHIX reference workbook and placed at <code>config/phix_mapping.json</code>.</p>
-<p>The mapping file should be re-generated whenever a new PHIX reference workbook is released.</p>
-<h3 id="configuration-options">Configuration options<a class="headerlink" href="#configuration-options" title="Permanent link">&para;</a></h3>
+<h1 id="configuration-and-notice-contract">Configuration and notice contract<a class="headerlink" href="#configuration-and-notice-contract" title="Permanent link">&para;</a></h1>
+<p>The package ships <code>immuknow/config/</code> as its default configuration directory.
+Pass <code>--config PATH</code> to select a PHU-owned directory. It must contain the
+required reference files; installed resources remain read-only. The command and
+callable workflow are described in <a href="https://WDGPH.github.io/ImmuKnow/user_guide/getting_started/">getting started</a>.</p>
+<p>The CSV input contract is packaged separately at
+<code>immuknow/schemas/input_schema.json</code>. It is maintained with preprocessing code;
+<code>--config</code> cannot replace its field names, types, or validation rules. A file
+named <code>input_schema.json</code> in a configuration directory is not used.</p>
+<h2 id="files-and-responsibilities">Files and responsibilities<a class="headerlink" href="#files-and-responsibilities" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Key</th>
-<th>Type</th>
-<th>Description</th>
+<th>File</th>
+<th>Purpose</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>enabled</code></td>
-<td>bool</td>
-<td>Set to <code>false</code> to skip PHIX validation entirely (default: <code>true</code>)</td>
+<td><code>parameters.yaml</code></td>
+<td>Run options, chart order, dates, QR, validation, encryption, and delivery</td>
 </tr>
 <tr>
-<td><code>mapping_file</code></td>
-<td>string</td>
-<td>Path to <code>phix_mapping.json</code>, relative to project root or absolute</td>
+<td><code>vaccine_reference.json</code></td>
+<td>Vaccine code to configured disease names</td>
 </tr>
 <tr>
-<td><code>target_phu</code></td>
-<td>string</td>
-<td>Exact PHU name as it appears as a key in the mapping file</td>
+<td><code>disease_normalization.json</code></td>
+<td>Source disease variants to configured disease names</td>
 </tr>
 <tr>
-<td><code>column_prefix</code></td>
-<td>string</td>
-<td>Prefix for DataFrame output columns (default: <code>"PHIX_"</code>)</td>
+<td><code>school_reference.json</code></td>
+<td>PHU school and facility reference</td>
 </tr>
 <tr>
-<td><code>unmatched_behavior</code></td>
-<td>string</td>
-<td>How to handle <code>no_match</code> results: <code>warn</code>, <code>error</code>, or <code>skip</code></td>
+<td><code>translations/{en,fr}_diseases_{chart,overdue}.json</code></td>
+<td>Approved display labels for Typst</td>
+</tr>
+<tr>
+<td><code>notice_versions.yaml</code></td>
+<td>Registered notice versions and eligibility rules</td>
 </tr>
 </tbody>
 </table>
-<h3 id="match-categories">Match categories<a class="headerlink" href="#match-categories" title="Permanent link">&para;</a></h3>
+<p>Python uses the reference mappings to normalize records and decide eligibility.
+Typst loads the selected display dictionaries once from the staged render
+workspace. Chart membership and order use configured disease names as keys,
+never
+translated labels; two different names with the same label remain separate.
+Uncatalogued source labels remain visible unchanged. If an approved label exists
+in the other language but is absent from the selected language, rendering fails
+instead of switching languages. Update both language/domain dictionaries when
+adding a configured disease name.</p>
+<h2 id="run-options">Run options<a class="headerlink" href="#run-options" title="Permanent link">&para;</a></h2>
+<p>Set options in <code>parameters.yaml</code>. Common choices:</p>
 <table>
 <thead>
 <tr>
-<th>Category</th>
+<th>Key</th>
 <th>Meaning</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>exact</code></td>
-<td>School name <strong>and</strong> facility ID both match the PHIX mapping</td>
+<td><code>date_of_delivery</code></td>
+<td>Intended delivery date (YYYY-MM-DD), used to calculate client age</td>
 </tr>
 <tr>
-<td><code>inexact</code></td>
-<td>Name matches but no ID was in the input (<code>name_only</code>), name matches but ID differs (<code>id_mismatch</code>), or ID matches under a different name (<code>id_only</code>)</td>
+<td><code>date_as_of</code></td>
+<td>As-of date shown in notices (YYYY-MM-DD); does not filter records; may be blank</td>
 </tr>
 <tr>
-<td><code>no_match</code></td>
-<td>Neither name nor ID found for the target PHU</td>
+<td><code>chart_diseases_header</code></td>
+<td>Configured disease names in chart order; unlisted diseases group under <code>Other</code></td>
+</tr>
+<tr>
+<td><code>preprocess.include_dose</code></td>
+<td>Show numeric overdue doses when available; facts retain doses either way</td>
+</tr>
+<tr>
+<td><code>preprocess.show_validity_markers</code></td>
+<td>Mark valid and invalid received doses in the history</td>
+</tr>
+<tr>
+<td><code>qr.enabled</code>, <code>qr.payload_template</code></td>
+<td>QR image and encoded link</td>
+</tr>
+<tr>
+<td><code>encryption.enabled</code>, <code>encryption.password.template</code></td>
+<td>Individual PDF encryption and password</td>
+</tr>
+<tr>
+<td><code>bundling.bundle_size</code>, <code>bundling.group_by</code></td>
+<td>Bundle size and grouping: null/size, school, or board</td>
+</tr>
+<tr>
+<td><code>pdf_validation.rules.*</code></td>
+<td><code>disabled</code>, <code>warn</code>, or <code>error</code> per rule</td>
+</tr>
+<tr>
+<td><code>pipeline.before_run.clear_output_directory</code></td>
+<td>Clear previous output or prompt before replacement</td>
+</tr>
+<tr>
+<td><code>pipeline.after_run.remove_artifacts</code></td>
+<td>Remove retained render inputs after successful delivery</td>
+</tr>
+<tr>
+<td><code>pipeline.after_run.remove_unencrypted_pdfs</code></td>
+<td>Remove plain PDFs when encrypted or bundled copies are final</td>
 </tr>
 </tbody>
 </table>
-<h3 id="outputs">Outputs<a class="headerlink" href="#outputs" title="Permanent link">&para;</a></h3>
-<p>Three CSV files are written to the run's output directory during preprocessing:</p>
-<table>
-<thead>
-<tr>
-<th>File</th>
-<th>Contents</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>phix_exact.csv</code></td>
-<td>Schools that matched exactly — name and ID confirmed</td>
-</tr>
-<tr>
-<td><code>phix_inexact.csv</code></td>
-<td>Schools where only one of name/ID matched; review recommended</td>
-</tr>
-<tr>
-<td><code>phix_no_match.csv</code></td>
-<td>Schools with no match; investigate or correct input data</td>
-</tr>
-</tbody>
-</table>
-<p>Each CSV contains: <code>input_name</code>, <code>input_id</code>, <code>matched_name</code>, <code>matched_id</code>, <code>mismatch_reason</code>.</p>
-<h3 id="unmatched-behavior">Unmatched behavior<a class="headerlink" href="#unmatched-behavior" title="Permanent link">&para;</a></h3>
-<ul>
-<li><code>warn</code> <em>(default)</em> — logs a warning and continues; all records are processed</li>
-<li><code>error</code> — halts the pipeline if any <code>no_match</code> results are found</li>
-<li><code>skip</code> — filters out records whose school has no match before generating notices</li>
-</ul>
-<hr />
-<h4 id="pipeline-lifecycle">Pipeline Lifecycle<a class="headerlink" href="#pipeline-lifecycle" title="Permanent link">&para;</a></h4>
-<p>The pipeline has two lifecycle phases controlled under <code>pipeline.*</code>:</p>
-<p><strong>Before Run (<code>pipeline.before_run</code>)</strong>:</p>
-<ul>
-<li><code>clear_output_directory</code>: When true, removes all output except logs before starting a new run. Preserves the logs directory for audit trail. Set to true for clean re-runs; false to prompt before deleting.</li>
-</ul>
-<p><strong>After Run (<code>pipeline.after_run</code>)</strong>:</p>
-<ul>
-<li><code>remove_artifacts</code>: When true, removes the <code>output/artifacts</code> directory (QR codes, Typst files). Use this to reclaim disk space after successful compilation and validation.</li>
-<li><code>remove_unencrypted_pdfs</code>: When true and either encryption OR batching is enabled, removes non-encrypted PDFs from <code>output/pdf_individual/</code> after encryption/batching completes. When both encryption and batching are disabled, individual non-encrypted PDFs are assumed to be the final output and are preserved regardless of this setting.</li>
-</ul>
-<h4 id="date-controls">Date controls<a class="headerlink" href="#date-controls" title="Permanent link">&para;</a></h4>
-<ul>
-<li><code>date_data_cutoff</code> (ISO 8601 string) records when the source data was extracted. It renders in notices using the client's language via Babel so that readers see a localized calendar date. Change this only when regenerating notices from a fresher extract.</li>
-<li><code>date_notice_delivery</code> (ISO 8601 string) fixes the reference point for age-based eligibility checks and QR payloads. Preprocessing uses this value to decide if a client is 16 or older, so adjust it cautiously and keep it aligned with the actual delivery or mailing date.</li>
-</ul>
-<h4 id="chart_diseases_header-configuration"><code>chart_diseases_header</code> Configuration<a class="headerlink" href="#chart_diseases_header-configuration" title="Permanent link">&para;</a></h4>
-<p>This list defines which diseases appear as columns in the immunization chart:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">chart_diseases_header</span><span class="p">:</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Diphtheria</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Tetanus</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Pertussis</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Polio</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Hib</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Pneumococcal</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Rotavirus</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Measles</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Mumps</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Rubella</span>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Meningococcal</span>
-</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Varicella</span>
-</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Other</span>
+<p><code>pdf_validation.rules</code> supports <code>client_id_presence</code>,
+<code>exactly_two_pages</code>, <code>signature_overflow</code>, and
+<code>envelope_window_1_125</code>. The first compares the extracted client ID to the
+expected render job; the others use page count or native Typst markers.
+An error-level finding stops the run. The validation report is written under
+<code>metadata/</code>. <a href="https://WDGPH.github.io/ImmuKnow/user_guide/pdf_validation/">PDF validation</a> explains the measurements.</p>
+<p>Bundle manifests record <code>group_by</code> as <code>size</code>, <code>school</code>, or <code>board</code>, matching
+<code>bundling.group_by</code>. A null configuration value means <code>size</code>: split the whole
+cohort into bundles of the requested size. School and board grouping apply
+that size limit within each group.</p>
+<p>For school matching, set <code>school_validation.enabled: true</code>,
+<code>target_phu</code> to the exact key in <code>school_reference.json</code>, and
+<code>reference_file</code> to that selected-directory-relative or absolute path.
+<code>unmatched_behavior</code> can be <code>warn</code>, <code>error</code>, or <code>skip</code>; <code>skip</code>
+excludes unmatched records. Per-run match CSVs distinguish exact, inexact,
+and no match results. Refresh the school reference when its source changes. The bundled reference
+records its original PHIX workbook in <code>_meta</code>; the pipeline reads only the
+prepared JSON list. Reports are <code>school_exact.csv</code>, <code>school_inexact.csv</code>, and
+<code>school_no_match.csv</code>, and added columns use the default <code>school_</code> prefix.</p>
+<h2 id="excluding-agents-from-the-history-chart">Excluding agents from the history chart<a class="headerlink" href="#excluding-agents-from-the-history-chart" title="Permanent link">&para;</a></h2>
+<p><code>ignore_agents</code> lists exact, case-sensitive agent names to omit from the
+received immunization history. The bundled list contains <code>RSVAb</code>, <code>VarIg</code>,
+<code>HBIg</code>, <code>RabIg</code>, and <code>Ig</code>. Set it to <code>[]</code> to retain all named agents; unspecified
+placeholder labels are still cleaned during preparation.</p>
+<p>This setting only changes history rows. It does not change overdue diseases,
+overdue agents, or notice eligibility. Source validity checks still examine
+the complete source history before display exclusions are applied.</p>
+<h2 id="qr-and-password-placeholders">QR and password placeholders<a class="headerlink" href="#qr-and-password-placeholders" title="Permanent link">&para;</a></h2>
+<p>QR payloads and passwords are outside document presentation. Their supported
+fields are <code>client_id</code>, <code>first_name</code>, <code>last_name</code>, <code>name</code>,
+<code>date_of_birth_iso</code>, <code>date_of_birth_iso_compact</code>, <code>school</code>,
+<code>board</code>, <code>street_address</code>, <code>city</code>, <code>province</code>, <code>postal_code</code>,
+and <code>language_code</code>. Dates are <code>YYYY-MM-DD</code> and <code>YYYYMMDD</code>,
+respectively. The default password remains the compact birth date.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">qr</span><span class="p">:</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">payload_template</span><span class="p">:</span><span class="w"> </span><span class="s">"https://example.ca/update?id={client_id}&amp;dob={date_of_birth_iso}&amp;lang={language_code}"</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="nt">encryption</span><span class="p">:</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="nt">password</span><span class="p">:</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="nt">template</span><span class="p">:</span><span class="w"> </span><span class="s">"{date_of_birth_iso_compact}"</span>
 </span></code></pre></div>
-<p><strong>Disease Filtering and "Other" Category:</strong></p>
-<ol>
-<li>
-<p><strong>During Preprocessing (<code>preprocess.py</code>):</strong></p>
-<ul>
-<li>Diseases from vaccine records are checked against <code>chart_diseases_header</code></li>
-<li>Diseases <strong>not</strong> in the list are <strong>collapsed into "Other"</strong></li>
-<li>This ensures only configured diseases appear as separate columns</li>
-</ul>
-</li>
-<li>
-<p><strong>During Notice Generation (<code>generate_notices.py</code>):</strong></p>
-<ul>
-<li>Each disease name in <code>chart_diseases_header</code> is <strong>translated to the target language</strong></li>
-<li>Translations come from <code>translations/{lang}_diseases_chart.json</code></li>
-<li>Translated list is passed to Typst template</li>
-<li>The template renders column headers using <strong>Python-translated names</strong>, not raw config values</li>
-</ul>
-</li>
-</ol>
-<p><strong>Impact:</strong></p>
-<ul>
-<li>Chart columns only show diseases in this list</li>
-<li>Unplanned/unexpected diseases are grouped under "Other"</li>
-<li>All column headers are properly localized before template rendering</li>
-<li>No runtime lookups needed in Typst; translations applied in Python</li>
-</ul>
-<p><strong>Same-Date Validity Grouping:</strong></p>
-<ul>
-<li>Each vaccine has one validity status, which applies to every displayed disease column populated by that vaccine.</li>
-<li>Vaccines given on the same date remain in one row when their statuses populate different displayed disease columns.</li>
-<li>Separate rows are created only when valid and invalid vaccines would populate the same displayed column, including vaccines grouped under "Other", so each displayed marker remains unambiguous.</li>
-</ul>
-<hr />
-<h3 id="vaccine_referencejson"><code>vaccine_reference.json</code><a class="headerlink" href="#vaccine_referencejson" title="Permanent link">&para;</a></h3>
-<p><strong>Purpose</strong>: Maps vaccine codes to the diseases they protect against (canonical disease names)</p>
-<p><strong>Format</strong>: 
-<div class="language-json highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">"VACCINE_CODE"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"Disease1"</span><span class="p">,</span><span class="w"> </span><span class="s2">"Disease2"</span><span class="p">,</span><span class="w"> </span><span class="err">...</span><span class="p">],</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="err">...</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="p">}</span>
-</span></code></pre></div></p>
-<p><strong>Usage</strong>:</p>
-<ul>
-<li>Loaded in <code>orchestrator.py</code> step 2 (preprocessing)</li>
-<li>Used in <code>preprocess.py</code>:<ul>
-<li><code>enrich_grouped_records()</code> expands vaccine codes to disease names</li>
-<li>Maps received vaccine records to canonical disease names</li>
-</ul>
-</li>
-<li>All disease names MUST be canonical (English) forms</li>
-</ul>
-<p><strong>Example</strong>:
-<div class="language-json highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">"DTaP"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"Diphtheria"</span><span class="p">,</span><span class="w"> </span><span class="s2">"Tetanus"</span><span class="p">,</span><span class="w"> </span><span class="s2">"Pertussis"</span><span class="p">],</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="nt">"IPV"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"Polio"</span><span class="p">],</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">"MMR"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"Measles"</span><span class="p">,</span><span class="w"> </span><span class="s2">"Mumps"</span><span class="p">,</span><span class="w"> </span><span class="s2">"Rubella"</span><span class="p">]</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p">}</span>
-</span></code></pre></div></p>
-<p><strong>Canonical diseases</strong> (must match these exactly):</p>
-<ul>
-<li>Diphtheria</li>
-<li>HPV</li>
-<li>Hepatitis B</li>
-<li>Hib</li>
-<li>Measles</li>
-<li>Meningococcal</li>
-<li>Mumps</li>
-<li>Pertussis</li>
-<li>Pneumococcal</li>
-<li>Polio</li>
-<li>Rotavirus</li>
-<li>Rubella</li>
-<li>Tetanus</li>
-<li>Varicella</li>
-<li>Other</li>
-</ul>
-<hr />
-<h3 id="disease_normalizationjson"><code>disease_normalization.json</code><a class="headerlink" href="#disease_normalizationjson" title="Permanent link">&para;</a></h3>
-<p><strong>Purpose</strong>: Normalizes raw input disease strings to canonical disease names</p>
-<p><strong>Format</strong>:
-<div class="language-json highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">"raw_input_variant"</span><span class="p">:</span><span class="w"> </span><span class="s2">"canonical_disease_name"</span><span class="p">,</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="err">...</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="p">}</span>
-</span></code></pre></div></p>
-<p><strong>Usage</strong>:</p>
-<ul>
-<li>Loaded in <code>pipeline/translation_helpers.py</code></li>
-<li>Called by <code>normalize_disease()</code> in preprocessing</li>
-<li>Handles input variants that differ from canonical names</li>
-<li>If a variant is not in this map, the input is returned unchanged (may still map via other mechanisms)</li>
-</ul>
-<p><strong>Example</strong>:
-<div class="language-json highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">"Poliomyelitis"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Polio"</span><span class="p">,</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span><span class="nt">"Human papilloma virus infection"</span><span class="p">:</span><span class="w"> </span><span class="s2">"HPV"</span><span class="p">,</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span><span class="nt">"Haemophilus influenzae infection, invasive"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Hib"</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="p">}</span>
-</span></code></pre></div></p>
-<hr />
-<h3 id="translations-directory"><code>translations/</code> Directory<a class="headerlink" href="#translations-directory" title="Permanent link">&para;</a></h3>
-<p><strong>Purpose</strong>: Stores language-specific translations of disease names for display</p>
-<p><strong>Structure</strong>:
-<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>translations/
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>├── en_diseases_overdue.json    # English labels for overdue vaccines list
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>├── fr_diseases_overdue.json    # French labels for overdue vaccines list
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>├── en_diseases_chart.json      # English labels for immunization chart
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>└── fr_diseases_chart.json      # French labels for immunization chart
-</span></code></pre></div></p>
-<p><strong>Format</strong> (same for all translation files):
-<div class="language-json highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p">{</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nt">"canonical_disease_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"display_label"</span><span class="p">,</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span><span class="err">...</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="p">}</span>
-</span></code></pre></div></p>
-<p><strong>Usage</strong>:</p>
-<ul>
-<li>Loaded in <code>pipeline/translation_helpers.py</code></li>
-<li>Called by <code>display_label()</code> when rendering notices</li>
-<li>Two domains:<ul>
-<li><strong>diseases_overdue</strong>: Labels for the "vaccines due" section</li>
-<li><strong>diseases_chart</strong>: Labels for the immunization history table</li>
-</ul>
-</li>
-<li>Different labels possible per domain (e.g., "Polio" vs "Poliomyelitis" in chart)</li>
-</ul>
-<p><strong>Example</strong>:
-<div class="language-json highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">{</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">"Polio"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Polio"</span><span class="p">,</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="nt">"Measles"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Measles"</span><span class="p">,</span>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span><span class="nt">"Diphtheria"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Diphtheria"</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="p">}</span>
-</span></code></pre></div></p>
-<hr />
-<h2 id="template-field-reference">🏷️ Template Field Reference<a class="headerlink" href="#template-field-reference" title="Permanent link">&para;</a></h2>
-<p>Both QR code payloads and PDF password generation use <strong>centralized template field validation</strong> through the <code>TemplateField</code> enum (see <code>pipeline/enums.py</code>). This ensures consistent, safe placeholder handling across all template rendering steps.</p>
-<h3 id="available-template-fields">Available Template Fields<a class="headerlink" href="#available-template-fields" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Format</th>
-<th>Example</th>
-<th>Notes</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>client_id</code></td>
-<td>String</td>
-<td><code>12345</code></td>
-<td>Unique client identifier</td>
-</tr>
-<tr>
-<td><code>first_name</code></td>
-<td>String</td>
-<td><code>John</code></td>
-<td>Client's given name</td>
-</tr>
-<tr>
-<td><code>last_name</code></td>
-<td>String</td>
-<td><code>Doe</code></td>
-<td>Client's family name</td>
-</tr>
-<tr>
-<td><code>name</code></td>
-<td>String</td>
-<td><code>John Doe</code></td>
-<td>Full name (auto-combined)</td>
-</tr>
-<tr>
-<td><code>date_of_birth</code></td>
-<td>Localized date</td>
-<td><code>Jan 1, 2020</code> or <code>1 janvier 2020</code></td>
-<td>Formatted per language</td>
-</tr>
-<tr>
-<td><code>date_of_birth_iso</code></td>
-<td>ISO 8601</td>
-<td><code>2020-01-01</code></td>
-<td>YYYY-MM-DD format</td>
-</tr>
-<tr>
-<td><code>date_of_birth_iso_compact</code></td>
-<td>Compact ISO</td>
-<td><code>20200101</code></td>
-<td>YYYYMMDD format (no hyphens)</td>
-</tr>
-<tr>
-<td><code>school</code></td>
-<td>String</td>
-<td><code>Lincoln School</code></td>
-<td>School name</td>
-</tr>
-<tr>
-<td><code>board</code></td>
-<td>String</td>
-<td><code>TDSB</code></td>
-<td>School board name</td>
-</tr>
-<tr>
-<td><code>street_address</code></td>
-<td>String</td>
-<td><code>123 Main St</code></td>
-<td>Full street address</td>
-</tr>
-<tr>
-<td><code>city</code></td>
-<td>String</td>
-<td><code>Toronto</code></td>
-<td>City/municipality</td>
-</tr>
-<tr>
-<td><code>province</code></td>
-<td>String</td>
-<td><code>ON</code></td>
-<td>Province/territory</td>
-</tr>
-<tr>
-<td><code>postal_code</code></td>
-<td>String</td>
-<td><code>M5V 3A8</code></td>
-<td>Postal/ZIP code</td>
-</tr>
-<tr>
-<td><code>language_code</code></td>
-<td>String</td>
-<td><code>en</code> or <code>fr</code></td>
-<td>ISO 639-1 language code</td>
-</tr>
-</tbody>
-</table>
-<h3 id="template-validation">Template Validation<a class="headerlink" href="#template-validation" title="Permanent link">&para;</a></h3>
-<p>All template placeholders are <strong>validated at runtime</strong>:</p>
-<ul class="task-list">
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Placeholders must exist in the generated context</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Placeholders must be in the allowed field list (no typos like <code>{client_ID}</code>)</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Invalid placeholders raise clear error messages with allowed fields listed</li>
-</ul>
-<p>This prevents silent failures from configuration typos and ensures templates are correct before processing.</p>
-<hr />
-<h2 id="qr-code-configuration">QR Code Configuration<a class="headerlink" href="#qr-code-configuration" title="Permanent link">&para;</a></h2>
-<p>QR code generation can be enabled/disabled in <code>config/parameters.yaml</code> under the <code>qr</code> section. The payload supports flexible templating using client metadata as placeholders.</p>
-<p>Refer to the <a href="#template-field-reference">Template Field Reference</a> for the complete list of supported placeholders.</p>
-<p>Example override in <code>config/parameters.yaml</code>:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nt">qr</span><span class="p">:</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span><span class="nt">payload_template</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://www.test-immunization.ca/update?client_id={client_id}&amp;dob={date_of_birth_iso}&amp;lang={language_code}</span>
+<p>The former <code>{date_of_birth}</code> placeholder is ambiguous because it meant a
+localized display value. Configuration validation rejects it early and names
+the two explicit ISO alternatives. Review and edit existing QR or password
+templates yourself; the pipeline does not silently reinterpret them.</p>
+<h2 id="versions-and-notice-selection">Versions and notice selection<a class="headerlink" href="#versions-and-notice-selection" title="Permanent link">&para;</a></h2>
+<p>Every run takes one CSV cohort and exactly one selector:
+<code>--notice-assignments PATH</code> for explicit per-client assignments, or
+<code>--template PATH</code> for one named Typst entry point used by every
+accepted client. The selected version must be registered in a mapping-shaped
+<code>notice_versions.yaml</code> with integer <code>schema_version: 1</code>:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">schema_version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">versions</span><span class="p">:</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">overdue_diseases_v1</span><span class="p">:</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">overdue</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">overdue_agents_v1</span><span class="p">:</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">overdue</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nt">affirmative_schedule_v1</span><span class="p">:</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">affirmative</span>
 </span></code></pre></div>
-<p>Tip:</p>
-<ul>
-<li>Use <code>{date_of_birth_iso}</code> or <code>{date_of_birth_iso_compact}</code> for predictable date formats</li>
-<li>The delivery date available to templates is <code>date_notice_delivery</code></li>
-</ul>
-<p>After updating the configuration, rerun the pipeline and regenerated notices will reflect the new QR payload.</p>
-<hr />
-<h2 id="pdf-validation-configuration">PDF Validation Configuration<a class="headerlink" href="#pdf-validation-configuration" title="Permanent link">&para;</a></h2>
-<p>The PDF validation step runs after compilation to enforce basic quality rules and surface layout issues. Configuration lives under <code>pdf_validation</code> in <code>config/parameters.yaml</code>.</p>
-<p>Supported severity levels per rule:</p>
-<ul>
-<li><code>disabled</code>: skip the check</li>
-<li><code>warn</code>: include in summary but do not halt pipeline</li>
-<li><code>error</code>: fail the pipeline if any PDFs violate the rule</li>
-</ul>
-<p>Current rules:</p>
-<ul>
-<li><code>envelope_window_1_125</code>: Ensure contact area does not exceed 1.125" inches</li>
-<li><code>exactly_two_pages</code>: Ensure each notice has exactly 2 pages (notice + immunization record)</li>
-<li><code>signature_overflow</code>: Detect if the signature block spills onto page 2 (uses invisible Typst marker)</li>
-</ul>
-<p>Example configuration:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nt">pdf_validation</span><span class="p">:</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="nt">rules</span><span class="p">:</span>
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">    </span><span class="nt">envelope_window_1_125</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">error</span>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">    </span><span class="nt">exactly_two_pages</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">warn</span>
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">    </span><span class="nt">signature_overflow</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">disabled</span>
+<p>Kinds <code>overdue</code>, <code>affirmative</code>, and <code>informational</code> imply
+<code>has_overdue</code>, <code>no_overdue</code>, and <code>any</code> eligibility. A version can set
+<code>requires</code> explicitly to one of those values. Eligibility always follows
+the overdue disease list, even when a template displays vaccine agents.
+The catalog does not choose a language or assign a version to a client.
+The affirmative version's <code>no_overdue</code> rule checks an empty
+<code>overdue_diseases</code> list from the source assessment. An affirmative notice
+is selected only by an explicit manifest row or <code>--template</code>; it is
+not inferred from an empty list. An eligibility conflict fails preflight.</p>
+<p>For per-client selection, the JSON manifest is an array with one
+<code>client_id</code> and one <code>template</code> filename for every accepted client:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">[</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="p">{</span><span class="nt">"client_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1009876545"</span><span class="p">,</span><span class="w"> </span><span class="nt">"template"</span><span class="p">:</span><span class="w"> </span><span class="s2">"overdue_agents_v1.fr.typ"</span><span class="p">},</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="p">{</span><span class="nt">"client_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2001234567"</span><span class="p">,</span><span class="w"> </span><span class="nt">"template"</span><span class="p">:</span><span class="w"> </span><span class="s2">"affirmative_schedule_v1.en.typ"</span><span class="p">}</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="p">]</span>
 </span></code></pre></div>
-<p>Behavior:</p>
-<ul>
-<li>The validation summary is always printed to the console.</li>
-<li>A JSON report is written to <code>output/metadata/&lt;lang&gt;_validation_&lt;run_id&gt;.json</code> with per-PDF results and aggregates.</li>
-<li>If any rule is set to <code>error</code> and fails, the pipeline stops with a clear error message listing failing rules and counts.</li>
-<li>The validation logic is implemented in <code>pipeline/validate_pdfs.py</code> and invoked by the orchestrator.</li>
-<li>The validation uses invisible markers embedded by the Typst templates to detect signature placement without affecting appearance.</li>
-</ul>
-<hr />
-<h2 id="pdf-encryption-configuration">PDF Encryption Configuration<a class="headerlink" href="#pdf-encryption-configuration" title="Permanent link">&para;</a></h2>
-<p>PDF encryption can be customized in <code>config/parameters.yaml</code> under the <code>encryption</code> section. Passwords are built via the same placeholder templating used for QR payloads.</p>
-<p>Refer to the <a href="#template-field-reference">Template Field Reference</a> for the complete list of supported placeholders.</p>
-<p>Common strategies:</p>
-<ul>
-<li>Simple: <code>{date_of_birth_iso_compact}</code> – DOB only</li>
-<li>Compound: <code>{client_id}{date_of_birth_iso_compact}</code> – ID + DOB</li>
-<li>Formatted: <code>{client_id}-{date_of_birth_iso}</code> – hyphenated</li>
-</ul>
-<p>Sample configurations in <code>config/parameters.yaml</code>:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nt">encryption</span><span class="p">:</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">  </span><span class="nt">password</span><span class="p">:</span>
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">    </span><span class="nt">template</span><span class="p">:</span><span class="w"> </span><span class="s">"{date_of_birth_iso_compact}"</span>
-</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>
-</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="w">  </span><span class="c1"># Or combine fields</span>
-</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="w">  </span><span class="nt">password</span><span class="p">:</span>
-</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="w">    </span><span class="nt">template</span><span class="p">:</span><span class="w"> </span><span class="s">"{client_id}{date_of_birth_iso_compact}"</span>
-</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>
-</span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="w">  </span><span class="c1"># Or hyphenate</span>
-</span><span id="__span-12-11"><a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="w">  </span><span class="nt">password</span><span class="p">:</span>
-</span><span id="__span-12-12"><a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="w">    </span><span class="nt">template</span><span class="p">:</span><span class="w"> </span><span class="s">"{client_id}-{date_of_birth_iso}"</span>
+<p>The <code>template</code> value is a basename, not a path. It resolves only within the
+packaged or selected complete template directory. Both selection routes parse
+<code>&lt;version_id&gt;.&lt;language&gt;.typ</code> with supported ISO 639-1 language codes
+<code>en</code> and <code>fr</code>; missing or unsupported language codes and path components
+are rejected. The filename supplies <code>version_id</code> and language.
+The authored Typst entry point independently asserts that same identity.
+Optional <code>experiment_id</code> and <code>experiment_arm</code> are retained as provenance.
+An explicit source <code>version_id</code> must agree with the filename. Missing client
+rows, unknown versions, conflicting assignments, invalid catalogs, and
+eligibility failures stop before rendering, with client-linked findings in the
+run output. Set <code>notice_versioning.extra_manifest_rows</code> to <code>error</code> or
+<code>warn</code> for rows without a matching source client.</p>
+<p>For one version and language across the accepted cohort, pass the entry file:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>immuknow<span class="w"> </span>students.csv<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>--template<span class="w"> </span>/path/to/my-phu/overdue_diseases_v1.en.typ
 </span></code></pre></div>
-<p>All templates are validated at runtime to catch configuration errors early and provide clear, allowed-field guidance.</p>
-<hr />
-<h2 id="adding-new-configurations">Adding New Configurations<a class="headerlink" href="#adding-new-configurations" title="Permanent link">&para;</a></h2>
-<h3 id="adding-a-new-disease">Adding a New Disease<a class="headerlink" href="#adding-a-new-disease" title="Permanent link">&para;</a></h3>
-<ol>
-<li>
-<p><strong>Update <code>vaccine_reference.json</code></strong>:</p>
-<ul>
-<li>Add vaccine code mapping if needed</li>
-<li>Ensure all diseases use canonical names</li>
-</ul>
-</li>
-<li>
-<p><strong>Update all translation files</strong> (required):</p>
-<ul>
-<li><code>translations/en_diseases_overdue.json</code></li>
-<li><code>translations/fr_diseases_overdue.json</code></li>
-<li><code>translations/en_diseases_chart.json</code></li>
-<li><code>translations/fr_diseases_chart.json</code></li>
-</ul>
-</li>
-<li>
-<p><strong>Update <code>disease_normalization.json</code></strong> (if needed):</p>
-<ul>
-<li>Add any input variants that map to this disease</li>
-</ul>
-</li>
-<li>
-<p><strong>Test</strong>:
-   <div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/unit/test_translation_helpers.py::TestMultiLanguageSupport<span class="w"> </span>-v
-</span></code></pre></div></p>
-</li>
-</ol>
-<h3 id="adding-a-new-language">Adding a New Language<a class="headerlink" href="#adding-a-new-language" title="Permanent link">&para;</a></h3>
-<ol>
-<li>
-<p><strong>Extend Language enum</strong> in <code>pipeline/enums.py</code></p>
-</li>
-<li>
-<p><strong>Create translation files</strong>:</p>
-<ul>
-<li><code>translations/{lang}_diseases_overdue.json</code></li>
-<li><code>translations/{lang}_diseases_chart.json</code></li>
-</ul>
-</li>
-<li>
-<p><strong>Populate translations</strong>:</p>
-<ul>
-<li>Copy English content</li>
-<li>Translate all disease names to target language</li>
-</ul>
-</li>
-<li>
-<p><strong>Test</strong>:
-   <div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>-m<span class="w"> </span><span class="s2">"not e2e"</span>
-</span></code></pre></div></p>
-</li>
-</ol>
+<p>The filename must be <code>&lt;version_id&gt;.&lt;language&gt;.typ</code>, with a version in the
+catalog. The file's containing template tree supplies its helpers and assets.
+Each accepted client must satisfy that version's eligibility rule. The
+<code>--template</code> option cannot be combined with
+<code>--notice-assignments</code> or <code>--templates</code>.</p>
+<p>Manifest selection uses packaged entry points by default, or
+<code>--templates DIRECTORY</code> for an external complete tree. The maintained
+examples
+include disease and agent overdue notices in English and French, and an
+English affirmative notice. A missing version/language pair fails; no other
+language or PHU directory is substituted. Every entry point declares
+its own version and language and rejects mismatched JSON. See
+<a href="https://WDGPH.github.io/ImmuKnow/user_guide/phu_templates/">template authoring</a>
+for the native contract.</p>
+<h2 id="updating-reference-data">Updating reference data<a class="headerlink" href="#updating-reference-data" title="Permanent link">&para;</a></h2>
+<p><code>vaccine_reference.json</code> maps vaccine codes to configured disease names.
+<code>disease_normalization.json</code> maps source disease names to configured disease
+names. Keep their output names consistent with the chart and translations.
+Translation files map each configured disease name to one approved display
+label;
+chart and overdue contexts may use different wording. Update reference data
+and the relevant real-render tests together. A new language also needs an
+authored and reviewed entry point; adding dictionaries alone does not create
+a notice.</p>
 
 
 

@@ -51,8 +51,6 @@
       
     
     
-      <link rel="stylesheet" href="../../../assets/_mkdocstrings.css">
-    
       <link rel="stylesheet" href="../../../stylesheets/extra.css">
     
     <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
@@ -304,25 +302,6 @@
         </a>
       </li>
     
-  
-
-      
-        
-  
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../../../changelog/" class="md-tabs__link">
-        
-  
-  
-    
-  
-  Changelog
-
-      </a>
-    </li>
   
 
       
@@ -893,8 +872,6 @@
       
         
       
-        
-      
     
     
     
@@ -973,34 +950,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/pipeline_steps/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Pipeline Steps
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../../reference/api/" class="md-nav__link">
         
   
@@ -1037,10 +986,6 @@
   
     
     
-      
-        
-      
-        
       
         
       
@@ -1108,34 +1053,6 @@
     
   
     Contributing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../developer_guide/branching/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Branching Strategy
   
 
     
@@ -1233,64 +1150,9 @@
 
               
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../developer_guide/agents/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    AI Agent Workflow
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
           </ul>
         </nav>
       
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../changelog/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Changelog
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -1420,14 +1282,14 @@
 <hr />
 <h2 id="3-prepare-and-submit-data">3. Prepare and Submit Data<a class="headerlink" href="#3-prepare-and-submit-data" title="Permanent link">&para;</a></h2>
 <p>Pull your Panorama report to obtain a list of overdue students.</p>
-<p>Ensure:</p>
-<ul>
-<li>Correct file naming:</li>
-</ul>
-<p><code>YYYYMMDD_YourPHU_EN.xlsx</code>
-<code>YYYYMMDD_YourPHU_FR.xlsx</code></p>
-<ul>
-<li>Files uploaded to SharePoint folder</li>
+<p>Submit one CSV cohort, such as <code>YYYYMMDD_YourPHU_students.csv</code>, and select
+notices in one of two ways: provide a JSON manifest with a <code>template</code> filename
+for each client, or identify one <code>&lt;version_id&gt;.&lt;language&gt;.typ</code> entry point for
+the accepted cohort. Manifest filenames stay within the selected template tree.
+The cohort does not need separate English and French files. See
+<a href="../../getting_started/">getting started</a> for columns and selection details.</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> CSV and the selected notice assignment or entry point provided</li>
 </ul>
 <hr />
 <h2 id="4-provide-branding-assets">4. Provide Branding Assets<a class="headerlink" href="#4-provide-branding-assets" title="Permanent link">&para;</a></h2>

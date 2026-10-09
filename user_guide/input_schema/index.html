@@ -51,8 +51,6 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
-    
       <link rel="stylesheet" href="../../stylesheets/extra.css">
     
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
@@ -304,25 +302,6 @@
         </a>
       </li>
     
-  
-
-      
-        
-  
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../../changelog/" class="md-tabs__link">
-        
-  
-  
-    
-  
-  Changelog
-
-      </a>
-    </li>
   
 
       
@@ -858,8 +837,6 @@
       
         
       
-        
-      
     
     
     
@@ -938,34 +915,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/pipeline_steps/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Pipeline Steps
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../reference/api/" class="md-nav__link">
         
   
@@ -1002,10 +951,6 @@
   
     
     
-      
-        
-      
-        
       
         
       
@@ -1073,34 +1018,6 @@
     
   
     Contributing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../developer_guide/branching/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Branching Strategy
   
 
     
@@ -1198,64 +1115,9 @@
 
               
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../developer_guide/agents/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    AI Agent Workflow
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
           </ul>
         </nav>
       
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../changelog/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Changelog
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -1329,7 +1191,7 @@
 
 
 <h1 id="input_schema">input_schema<a class="headerlink" href="#input_schema" title="Permanent link">&para;</a></h1>
-<p>Schema for input file for automated notice generation.</p>
+<p>Required input contract for the ImmuKnow notice pipeline.</p>
 <h2 id="schema-information">Schema Information<a class="headerlink" href="#schema-information" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1366,7 +1228,7 @@
 <tr>
 <td>school_name</td>
 <td>string</td>
-<td>School name with PHIX ID (if available) in format 'SCHOOL NAME - PHIX ID'</td>
+<td>School name, optionally followed by a facility ID in the format 'SCHOOL NAME - FACILITY ID'</td>
 </tr>
 <tr>
 <td>client_id</td>
@@ -1416,12 +1278,12 @@
 <tr>
 <td>overdue_disease</td>
 <td>string</td>
-<td>Comma-separated list of overdue diseases for client</td>
+<td>Semicolon-separated list of overdue diseases for client</td>
 </tr>
 <tr>
 <td>overdue_agent</td>
 <td>string</td>
-<td>Comma-separated list of overdue agents for client</td>
+<td>Semicolon-separated list of overdue agents for client</td>
 </tr>
 <tr>
 <td>imms_given</td>
