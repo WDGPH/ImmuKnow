@@ -13,6 +13,7 @@ uv sync --all-groups
 uv run ty check
 uv run pytest
 uv run pre-commit run --all-files
+uv run python docs/generate_schema_docs.py
 uv run --group docs mkdocs build --strict
 ```
 
@@ -71,3 +72,35 @@ to obtain a pass.
 Check that one run log covers preparation and later stages, and that both
 success and failure remove the run handler without changing caller logging.
 Failure tests should also verify that incomplete output is not delivered.
+
+## Browser compiler integration gate
+
+Install Node.js, Rust `1.92.0` with the `wasm32-unknown-unknown` target, and
+`wasm-bindgen-cli 0.2.118` (for example,
+`cargo install --locked wasm-bindgen-cli --version 0.2.118`). From the repository:
+
+```bash
+npm ci --prefix playground
+bash playground/scripts/build-compiler.sh
+uv run python -m playground.scripts.prepare-fonts
+uv run python -m playground.scripts.prepare-proof
+npm run typecheck --prefix playground
+npm run build --prefix playground
+cd playground
+npx playwright install --with-deps chromium
+npm run test:browser
+cd ..
+uv run python -m playground.scripts.compare-proof
+```
+
+The proof runs all five maintained entry points through the real CLI, maps
+their staged files into the real browser WASM compiler, and exports PDFs at
+the nested `/ImmuKnow/playground/` route. Browser automation blocks external
+requests. The comparison checks page count, full semantic text, text-run
+ordering, text origins and font sizes (within 0.01 PDF points), and rasterized
+pages at 144 dpi (mean channel difference at most 0.05/255). It writes review
+images and browser PDFs under `playground/test-results/proof/`.
+
+Generated proof inputs contain synthetic test records only. They are ignored
+by Git and can be regenerated. This gate does not yet exercise editing,
+portable project export, or CLI round trips of browser edits.

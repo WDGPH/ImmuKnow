@@ -29,6 +29,7 @@ dev = [
     "ty>=0.0.78",
     "git-changelog>=2.9.7",
     "pypandoc>=1.15",
+    "pymupdf>=1.28.2",
 ]
 docs = [
     "jinja2>=3.1.6",

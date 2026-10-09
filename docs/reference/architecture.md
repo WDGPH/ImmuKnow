@@ -1,5 +1,29 @@
 # Workflow and output evidence
 
+## Browser compiler integration
+
+The playground compiler integration harness uses Typst.ts (Apache-2.0), with
+the JavaScript API pinned to `0.8.0-rc3`. Its published WASM reports
+`sys.version == version(0, 15, 0)` and is unsuitable for the production pin.
+Build the WASM from Typst.ts commit
+`9739d81c5eaee02d2dc9c4e691262a3f6758cdc4` using its locked dependencies,
+Rust `1.92.0`, and wasm-bindgen `0.2.118`. That lockfile selects the patched
+Typst `0.15.1` revision `59b5999da8e74e74583069408d2564fc1f9bc973`.
+The harness asserts the version inside the running WASM before compiling a
+notice. Production continues to use the official Typst `0.15.1` binary.
+
+[Typst Online Editor](https://github.com/Mapaor/typst-online-editor) (MIT)
+demonstrates browser PDF compilation and preview with Typst.ts and PDF.js;
+[typst-web](https://github.com/ost-fh/typst-web) offers web editor components.
+A small Vite application avoids adopting an entire editor application and
+its deployment conventions. Compiler files and the checksum-verified native
+FreeFont archive are served locally; default remote font loading is disabled.
+The integration harness blocks third-party requests and compares real browser
+PDFs with real CLI output. This harness is the initial compiler gate, not the
+complete playground or browser-to-production export test.
+
+## Production workflow
+
 `immuknow.orchestrator.run_pipeline` owns a complete run; `immuknow` is its CLI.
 The run loads configuration, prepares clients, resolves their notices, renders
 and validates every expected PDF, then completes delivery. The selected

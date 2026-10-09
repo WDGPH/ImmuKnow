@@ -1,0 +1,24 @@
+{
+  "name": "immuknow-playground",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview",
+    "test:browser": "playwright test"
+  },
+  "dependencies": {
+    "@myriaddreamin/typst-ts-web-compiler": "0.8.0-rc3",
+    "@myriaddreamin/typst.ts": "0.8.0-rc3"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.0",
+    "@types/node": "26.6.5",
+    "typescript": "7.0.2",
+    "vite": "8.3.4",
+    "yaml": "2.9.1"
+  }
+}
