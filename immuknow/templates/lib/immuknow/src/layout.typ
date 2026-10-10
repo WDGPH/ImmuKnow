@@ -108,3 +108,20 @@
   #name#linebreak()#title
   #box(width: 0pt, height: 0pt, text(size: 0.1pt, fill: white, "MARK_END_SIGNATURE_BLOCK"))
 ]
+
+// The consuming entry point loads its project-owned JSON explicitly.
+#let project-layout(settings, notice-key, window: envelope-preset) = {
+  assert(settings.at("schema_version", default: none) == 1, message: "Unsupported layout settings schema")
+  let selected = settings.notices.at(notice-key, default: (:))
+  let paper = selected.at("paper", default: "us-letter")
+  assert(paper in ("us-letter", "us-legal", "a4"), message: "Unsupported project paper size")
+  let envelope = selected.at("envelope", default: "authored")
+  if envelope != "authored" {
+    assert(envelope in settings.presets, message: "Unknown project envelope preset")
+    let preset = settings.presets.at(envelope)
+    assert(type(preset.width_pt) in (int, float) and type(preset.height_pt) in (int, float), message: "Preset window dimensions must be numeric PDF points")
+    window = (..window, width: preset.width_pt * 1pt, height: preset.height_pt * 1pt)
+  }
+  check-window(window)
+  (paper: paper, window: window)
+}

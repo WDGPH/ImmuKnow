@@ -138,3 +138,11 @@ folds with the real stationery.
 signature-end evidence. An oversized block may move to a later page; the
 `signature_overflow` validation rule detects that. Missing evidence fails
 an enabled rule rather than counting as a pass.
+
+`project-layout(settings, notice-key, window: envelope-preset)` resolves project
+layout-settings schema 1 into `(paper: ..., window: ...)`. The consumer reads
+its project JSON and passes it explicitly. Per-notice paper defaults to
+`us-letter`; `us-legal` and `a4` are also supported. The `authored` envelope uses
+the supplied window. Named project presets supply numeric `width_pt` and
+`height_pt`, preserving that window's position and safety padding. The helper
+validates the resolved window; it does not infer folding or physical alignment.

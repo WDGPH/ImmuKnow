@@ -33,6 +33,8 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
     wheel = next(distributions.glob("*.whl"))
     with zipfile.ZipFile(wheel) as archive:
         names = set(archive.namelist())
+        assert "immuknow/templates/layout-settings.json" in names
+        assert "immuknow/templates/settings/overdue_diseases_v1.en.typ" in names
         assert "immuknow/templates/overdue_agents_v1.fr.typ" in names
         assert "immuknow/templates/affirmative_schedule_v1.en.typ" in names
         assert "immuknow/templates/assets/logo.png" in names

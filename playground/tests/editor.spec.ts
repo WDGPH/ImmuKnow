@@ -65,6 +65,9 @@ test("syntax errors and remote imports leave a stale, non-exportable preview", a
   );
   await expect(page.locator("#pdf")).toBeDisabled();
   expect(remote).toEqual([]);
+  await page.locator(".project-actions").evaluate((el) => {
+    (el as HTMLDetailsElement).open = true;
+  });
   await page.getByRole("button", { name: "Restart compiler", exact: true }).click();
   await expect(page.locator("#status")).toContainText("Compilation failed", { timeout: 30_000 });
   await source.press("Control+z");
@@ -82,6 +85,9 @@ test("drafts survive template switches and reload; project ZIP restores source",
   await page.keyboard.insertText("// portable draft é");
   await expect(page.locator("#status")).toHaveText("Ready", { timeout: 30_000 });
   const downloading = page.waitForEvent("download");
+  await page.locator(".project-actions").evaluate((el) => {
+    (el as HTMLDetailsElement).open = true;
+  });
   await page.locator("#export").click();
   const archive = await downloading;
   const path = await archive.path();
@@ -97,6 +103,9 @@ test("drafts survive template switches and reload; project ZIP restores source",
   await source.press("Control+End");
   await expect(source).toContainText("// portable draft é");
   page.on("dialog", (dialog) => dialog.accept());
+  await page.locator(".project-actions").evaluate((el) => {
+    (el as HTMLDetailsElement).open = true;
+  });
   await page.locator("#clear").click();
   await expect(page.locator("#status")).toHaveText("Ready", { timeout: 30_000 });
   await expect(source).not.toContainText("// portable draft é");
@@ -172,7 +181,7 @@ test("browser edits export unchanged into both production CLI workflows", async 
   const { promisify } = await import("node:util");
   const { unzipSync, strFromU8 } = await import("fflate");
   const original = await readFile(
-    new URL("../../immuknow/templates/overdue_diseases_v1.en.typ", import.meta.url),
+    new URL("../../immuknow/templates/settings/overdue_diseases_v1.en.typ", import.meta.url),
     "utf8",
   );
   const edited = original
@@ -183,6 +192,8 @@ test("browser edits export unchanged into both production CLI workflows", async 
     .replace("#let history-show-validity = auto", "#let history-show-validity = false");
   await page.goto("/ImmuKnow/playground/");
   await expect(page.locator("#status")).toHaveText("Ready", { timeout: 90_000 });
+  await page.locator(".layout-controls summary").click();
+  await page.locator("#template-settings").click();
   const source = page.getByRole("textbox", { name: "Source editor" });
   await source.focus();
   await source.press("Control+a");
@@ -192,7 +203,7 @@ test("browser edits export unchanged into both production CLI workflows", async 
   let pending = page.waitForEvent("download");
   await page.locator("#source").click();
   await (await pending).saveAs("test-results/roundtrip/source.typ");
-  expect(await readFile("test-results/roundtrip/source.typ", "utf8")).toBe(edited);
+  expect(await readFile("test-results/roundtrip/source.typ", "utf8")).toContain(edited);
   pending = page.waitForEvent("download");
   await page.locator("#pdf").click();
   await (await pending).saveAs("test-results/roundtrip/browser.pdf");
@@ -205,10 +216,13 @@ test("browser edits export unchanged into both production CLI workflows", async 
     await readFile("test-results/roundtrip/browser.pdf"),
   );
   pending = page.waitForEvent("download");
+  await page.locator(".project-actions").evaluate((el) => {
+    (el as HTMLDetailsElement).open = true;
+  });
   await page.locator("#export").click();
   await (await pending).saveAs("test-results/roundtrip/project.zip");
   const zip = unzipSync(await readFile("test-results/roundtrip/project.zip"));
-  expect(strFromU8(zip["templates/overdue_diseases_v1.en.typ"])).toBe(edited);
+  expect(strFromU8(zip["templates/settings/overdue_diseases_v1.en.typ"])).toBe(edited);
   const result = await promisify(execFile)(
     "uv",
     [
@@ -218,6 +232,8 @@ test("browser edits export unchanged into both production CLI workflows", async 
       "playground.scripts.verify_export",
       "playground/test-results/roundtrip/project.zip",
       "playground/test-results/roundtrip/browser.pdf",
+      "--flattened",
+      "playground/test-results/roundtrip/source.typ",
     ],
     { cwd: "..", timeout: 90_000 },
   );
@@ -275,6 +291,9 @@ test("an unresponsive compiler worker is terminated and restarts", async ({ page
   await expect(page.locator("#status")).toContainText("exceeded 20 seconds", { timeout: 60_000 });
   await expect(page.locator("#pdf")).toBeDisabled();
   await context.unroute("**/assets/compile.worker-*.js");
+  await page.locator(".project-actions").evaluate((el) => {
+    (el as HTMLDetailsElement).open = true;
+  });
   await page.locator("#restart").click();
   await expect(page.locator("#status")).toHaveText("Ready", { timeout: 45_000 });
   await expect(page.locator("#pdf")).toBeEnabled();
@@ -293,6 +312,9 @@ test("missing static font assets report failure and recover after restart", asyn
   });
   await expect(page.locator("#pdf")).toBeDisabled();
   await context.unroute("**/generated/fonts/manifest.json");
+  await page.locator(".project-actions").evaluate((el) => {
+    (el as HTMLDetailsElement).open = true;
+  });
   await page.locator("#restart").click();
   await expect(page.locator("#status")).toHaveText("Ready", { timeout: 45_000 });
 });

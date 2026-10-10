@@ -135,7 +135,7 @@ def test_mixed_validity_is_checked_after_template_override(
     frame.to_csv(source, index=False)
     templates = tmp_path / "templates"
     shutil.copytree(ROOT / "immuknow/templates", templates)
-    for entry in templates.glob("overdue_agents_v1.*.typ"):
+    for entry in (templates / "settings").glob("overdue_agents_v1.*.typ"):
         entry.write_text(
             entry.read_text().replace(
                 "#let history-show-validity = auto",

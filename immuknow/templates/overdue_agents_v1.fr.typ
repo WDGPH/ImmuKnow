@@ -1,26 +1,11 @@
 #let notice = json(sys.inputs.at("data"))
 #let template-version = "overdue_agents_v1"
 #let template-language = "fr"
-// Author controls: auto inherits prepared rendering defaults; () and false are explicit.
-#let list-columns = 1
-#let history-diseases = auto
-#let history-ignore-agents = auto
-#let history-include-other = auto
-#let history-show-validity = auto
-#let history-min-rows = 5
-// Page-relative envelope rectangle and readable client text.
-#let envelope-window = (x: 1.75cm, y: 165.1pt, width: 202.28pt, height: 81pt, padding: 11pt)
-#let page-margins = (top: 1cm, bottom: 2cm, left: 1.75cm, right: 2cm)
-#let body-font = "FreeSans"
-#let body-size = 10pt
-#let logo-width = 6cm
-#let title-size = 16pt
-#let signature-width = 3cm
-#let signature-height = 1cm
-#let client-font-size = 10pt
-#let client-details = "right"
-#let address-addressee = auto
+// @immuknow-settings: settings/overdue_agents_v1.fr.typ
+#import "settings/overdue_agents_v1.fr.typ": list-columns, history-diseases, history-ignore-agents, history-include-other, history-show-validity, history-min-rows, envelope-window, page-margins, body-font, body-size, logo-width, title-size, signature-width, signature-height, client-font-size, client-details, address-addressee
 #import "lib/immuknow/lib.typ" as ik
+// Shared project settings are edited by the playground layout selectors.
+#let layout = ik.project-layout(json("layout-settings.json"), template-version + "." + template-language, window: envelope-window)
 #ik.check-notice(notice, version: template-version, language: template-language)
 #assert(notice.overdue_agents.len() > 0, message: "This overdue template requires vaccine agent data")
 
@@ -32,7 +17,7 @@
 #import "conf.typ"
 #import "presentation.typ" as presentation
 
-#show: ik.notice-page.with(language: template-language, margins: page-margins, font: body-font, font-size: body-size)
+#show: ik.notice-page.with(language: template-language, paper: layout.paper, margins: page-margins, font: body-font, font-size: body-size)
 #show link: it => box(underline(it))
 
 // Immunization Notice Section
@@ -44,7 +29,7 @@
 
 #v(0.2cm)
 
-#ik.client-block(notice, window: envelope-window, font-size: client-font-size, details: client-details, addressee: address-addressee)
+#ik.client-block(notice, window: layout.window, font-size: client-font-size, details: client-details, addressee: address-addressee)
 
 #v(0.3cm)
 

@@ -9,7 +9,8 @@ PHU must review.
 ## Select a complete template tree
 
 The package owns `immuknow/templates/`. Copy its entry points, `conf.typ`,
-`presentation.typ`, the entire `lib/immuknow/` package, and assets to a directory you control, then use
+`presentation.typ`, `settings/`, `layout-settings.json`, the entire
+`lib/immuknow/` package, and assets to a directory you control, then use
 `--templates PATH`. From a checkout:
 
 ```bash
@@ -151,7 +152,8 @@ translation data, and QR/password fields.
 
 ## Customize layout
 
-Each maintained entry point exposes body font/size, page margins, logo and
+Each maintained entry point imports `settings/<template>.typ`, which exposes
+body font/size, page margins, logo and
 signature dimensions, client-detail placement, addressee wording, and an
 `envelope-window` dictionary near the top. Prose remains visible below those
 controls. `notice-page`, `notice-header`, `client-block`, and `signature-block`
@@ -193,3 +195,16 @@ Review English and French prose, client details, history grouping, validity
 symbols, QR links, branding, page count, signature position, and envelope
 window. Include long records and addresses. The
 [testing guide](../developer_guide/testing.md) covers repeatable native checks.
+
+### Project paper and envelope settings
+
+Maintained entry points load `layout-settings.json` and call
+`ik.project-layout(settings, template-version + "." + template-language,
+window: envelope-window)`. The returned `paper` and `window` feed `notice-page`
+and `client-block`. Imports remain side-effect-free: the consuming entry point
+loads its own JSON. Schema version 1 stores per-notice `paper` (`us-letter`,
+`us-legal`, or `a4`) and `envelope` (`authored` or a preset key) under `notices`.
+Absent selections use Letter and the authored window. Preset `width_pt` and
+`height_pt` replace only the window dimensions; authored x/y and padding remain.
+Unknown presets, unsupported paper names, and invalid dimensions fail compilation.
+The [playground guide](playground.md) explains the selectors and sample windows.

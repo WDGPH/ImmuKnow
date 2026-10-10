@@ -8,6 +8,13 @@ import {
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 GlobalWorkerOptions.workerSrc = workerUrl;
 
+type Sheet = {
+  paper: HTMLElement;
+  canvas: HTMLCanvasElement;
+  overlay: HTMLElement;
+  scale: number;
+  rendered: boolean;
+};
 export class Viewer {
   page = 1;
   pages = 0;
@@ -20,23 +27,39 @@ export class Viewer {
   private drawRevision = 0;
   private geometry: Record<string, number> = {};
   private guide = false;
-  private container: HTMLElement;
+  private sheets: Sheet[] = [];
+  private scheduled = false;
   constructor(
-    private canvas: HTMLCanvasElement,
-    private paper: HTMLElement,
-    private overlay: HTMLElement,
+    private container: HTMLElement,
     private updated: () => void,
   ) {
-    const container = paper.parentElement;
-    if (!container) throw new Error("Preview container is missing");
-    this.container = container;
+    let width = container.clientWidth;
     new ResizeObserver(() => {
+      if (width === container.clientWidth) return;
+      width = container.clientWidth;
       if (this.zoom === "fit") void this.render();
     }).observe(container);
+    container.addEventListener("scroll", () => {
+      if (this.scheduled) return;
+      this.scheduled = true;
+      requestAnimationFrame(() => {
+        this.scheduled = false;
+        const top = container.getBoundingClientRect().top + 80;
+        const index = this.sheets.findIndex(
+          (sheet) => sheet.paper.getBoundingClientRect().bottom > top,
+        );
+        if (index >= 0 && this.page !== index + 1) {
+          this.page = index + 1;
+          this.updated();
+        }
+        this.queue = this.queue.catch(() => {}).then(() => this.paintVisible(this.drawRevision));
+      });
+    });
   }
   async open(bytes: Uint8Array) {
     const revision = ++this.revision;
     this.task?.cancel();
+    this.drawRevision++;
     const loading = getDocument({
       data: bytes.slice(),
       useWasm: false,
@@ -44,10 +67,6 @@ export class Viewer {
       disableAutoFetch: true,
     });
     const doc = await loading.promise;
-    if (revision !== this.revision) {
-      await loading.destroy();
-      return;
-    }
     await this.queue.catch(() => {});
     if (revision !== this.revision) {
       await loading.destroy();
@@ -57,12 +76,11 @@ export class Viewer {
     this.loading = loading;
     this.document = doc;
     this.pages = doc.numPages;
-    this.page = Math.min(this.page, this.pages);
+    this.page = 1;
     if (old) await old.destroy();
-    const first = await doc.getPage(1);
-    const content = await first.getTextContent();
-    const text = content.items.map((item) => ("str" in item ? item.str : "")).join(" ");
+    const content = await (await doc.getPage(1)).getTextContent();
     if (revision !== this.revision) return;
+    const text = content.items.map((item) => ("str" in item ? item.str : "")).join(" ");
     this.geometry = {};
     for (const match of text.matchAll(/MEASURE_(\w+):(-?[\d.eE+-]+)/g))
       this.geometry[match[1]] = Number(match[2]);
@@ -94,14 +112,49 @@ export class Viewer {
       return "Address exceeds the envelope safety area. Adjust the authored window or address layout; review an actual-size print.";
     return undefined;
   }
+
   async go(delta: number) {
     this.page = Math.max(1, Math.min(this.pages, this.page + delta));
-    await this.render();
+    this.scrollToPage();
     this.updated();
+  }
+  private scrollToPage() {
+    const sheet = this.sheets[this.page - 1];
+    if (sheet)
+      this.container.scrollTop +=
+        sheet.paper.getBoundingClientRect().top - this.container.getBoundingClientRect().top - 20;
   }
   setGuide(on: boolean) {
     this.guide = on;
-    void this.render();
+    this.drawGuide();
+  }
+  private drawGuide() {
+    const sheet = this.sheets[0];
+    if (!sheet) return;
+    sheet.overlay.replaceChildren();
+    const g = this.geometry;
+    if (
+      !this.guide ||
+      !["WINDOW_X", "WINDOW_Y", "WINDOW_WIDTH", "WINDOW_HEIGHT", "WINDOW_PADDING"].every((key) =>
+        Number.isFinite(g[key]),
+      )
+    )
+      return;
+    for (const [padding, name] of [
+      [0, "window"],
+      [g.WINDOW_PADDING, "safe"],
+    ] as const) {
+      const rect = document.createElement("div");
+      rect.className = `envelope-${name}`;
+      Object.assign(rect.style, {
+        left: `${(g.WINDOW_X + padding) * sheet.scale}px`,
+        top: `${(g.WINDOW_Y + padding) * sheet.scale}px`,
+        width: `${(g.WINDOW_WIDTH - 2 * padding) * sheet.scale}px`,
+        height: `${(g.WINDOW_HEIGHT - 2 * padding) * sheet.scale}px`,
+      });
+      rect.title = name === "window" ? "Envelope window" : "Internal safety area";
+      sheet.overlay.append(rect);
+    }
   }
   render(): Promise<void> {
     const revision = ++this.drawRevision;
@@ -109,58 +162,76 @@ export class Viewer {
     this.queue = this.queue
       .catch(() => {})
       .then(async () => {
-        if (!this.document || revision !== this.drawRevision) return;
-        const page = await this.document.getPage(this.page);
-        if (revision !== this.drawRevision) return;
-        const original = page.getViewport({ scale: 1 });
-        const scale =
-          this.zoom === "fit"
-            ? Math.max(0.25, (this.container.clientWidth - 40) / original.width)
-            : this.zoom;
-        const viewport = page.getViewport({ scale });
-        const ratio = Math.min(devicePixelRatio || 1, 2);
-        this.canvas.width = Math.ceil(viewport.width * ratio);
-        this.canvas.height = Math.ceil(viewport.height * ratio);
-        this.canvas.style.width = `${viewport.width}px`;
-        this.canvas.style.height = `${viewport.height}px`;
-        this.paper.style.width = `${viewport.width}px`;
-        this.paper.style.height = `${viewport.height}px`;
-        this.task = page.render({
-          canvas: this.canvas,
-          viewport,
-          transform: ratio === 1 ? undefined : [ratio, 0, 0, ratio, 0, 0],
-        });
-        try {
-          await this.task.promise;
-        } catch (error) {
-          if ((error as Error).name !== "RenderingCancelledException") throw error;
+        const doc = this.document;
+        if (!doc || revision !== this.drawRevision) return;
+        const sheets: Sheet[] = [];
+        const fragment = document.createDocumentFragment();
+        for (let number = 1; number <= doc.numPages; number++) {
+          const page = await doc.getPage(number);
+          if (revision !== this.drawRevision) return;
+          const original = page.getViewport({ scale: 1 });
+          const scale =
+            this.zoom === "fit"
+              ? Math.max(0.25, (this.container.clientWidth - 40) / original.width)
+              : this.zoom;
+          const viewport = page.getViewport({ scale });
+          const paper = document.createElement("div"),
+            canvas = document.createElement("canvas"),
+            overlay = document.createElement("div");
+          paper.className = "pdf-page";
+          paper.dataset.page = String(number);
+          paper.style.width = `${viewport.width}px`;
+          paper.style.height = `${viewport.height}px`;
+          canvas.setAttribute("aria-label", `Notice PDF page ${number} of ${doc.numPages}`);
+          overlay.className = "pdf-overlay";
+          overlay.setAttribute("aria-hidden", "true");
+          paper.append(canvas, overlay);
+          fragment.append(paper);
+          sheets.push({ paper, canvas, overlay, scale, rendered: false });
         }
-        this.overlay.replaceChildren();
-        const g = this.geometry;
-        if (
-          this.guide &&
-          this.page === 1 &&
-          ["WINDOW_X", "WINDOW_Y", "WINDOW_WIDTH", "WINDOW_HEIGHT", "WINDOW_PADDING"].every((key) =>
-            Number.isFinite(g[key]),
-          )
-        ) {
-          for (const [padding, name] of [
-            [0, "window"],
-            [g.WINDOW_PADDING, "safe"],
-          ] as const) {
-            const rect = document.createElement("div");
-            rect.className = `envelope-${name}`;
-            Object.assign(rect.style, {
-              left: `${(g.WINDOW_X + padding) * scale}px`,
-              top: `${(g.WINDOW_Y + padding) * scale}px`,
-              width: `${(g.WINDOW_WIDTH - 2 * padding) * scale}px`,
-              height: `${(g.WINDOW_HEIGHT - 2 * padding) * scale}px`,
-            });
-            rect.title = name === "window" ? "Envelope window" : "Internal safety area";
-            this.overlay.append(rect);
-          }
-        }
+        this.sheets = sheets;
+        this.container.replaceChildren(fragment);
+        this.scrollToPage();
+        this.drawGuide();
+        await this.paintVisible(revision);
       });
     return this.queue;
+  }
+  private async paintVisible(revision: number) {
+    const doc = this.document;
+    if (!doc || revision !== this.drawRevision) return;
+    const bounds = this.container.getBoundingClientRect();
+    for (const [index, sheet] of this.sheets.entries()) {
+      if (revision !== this.drawRevision) return;
+      const rect = sheet.paper.getBoundingClientRect();
+      if (rect.bottom < bounds.top - 600 || rect.top > bounds.bottom + 600) {
+        if (sheet.rendered) {
+          sheet.canvas.width = 0;
+          sheet.canvas.height = 0;
+          sheet.rendered = false;
+        }
+        continue;
+      }
+      if (sheet.rendered) continue;
+      const page = await doc.getPage(index + 1);
+      if (revision !== this.drawRevision) return;
+      const viewport = page.getViewport({ scale: sheet.scale });
+      const ratio = Math.min(devicePixelRatio || 1, 2);
+      sheet.canvas.width = Math.ceil(viewport.width * ratio);
+      sheet.canvas.height = Math.ceil(viewport.height * ratio);
+      sheet.canvas.style.width = `${viewport.width}px`;
+      sheet.canvas.style.height = `${viewport.height}px`;
+      this.task = page.render({
+        canvas: sheet.canvas,
+        viewport,
+        transform: ratio === 1 ? undefined : [ratio, 0, 0, ratio, 0, 0],
+      });
+      try {
+        await this.task.promise;
+        sheet.rendered = true;
+      } catch (error) {
+        if ((error as Error).name !== "RenderingCancelledException") throw error;
+      }
+    }
   }
 }

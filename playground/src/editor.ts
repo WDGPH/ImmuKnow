@@ -71,6 +71,16 @@ export class SourceEditor {
     }
     this.view.setState(state);
   }
+  replaceFile(name: string, original: Uint8Array, bytes: Uint8Array) {
+    const previous = this.file;
+    const previousState = this.view.state;
+    this.open(name, original);
+    this.view.dispatch({
+      changes: { from: 0, to: this.view.state.doc.length, insert: decoder.decode(bytes) },
+    });
+    if (previous !== name && previous)
+      this.open(previous, encoder.encode(previousState.sliceDoc()));
+  }
   resetFile(name: string) {
     this.states.delete(name);
     if (this.file === name) this.file = "";

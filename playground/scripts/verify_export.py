@@ -17,7 +17,9 @@ from playground.scripts.pdf_compare import compare_pdf
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def verify(archive: Path, browser_pdf: Path) -> list[dict]:
+def verify(
+    archive: Path, browser_pdf: Path, flattened: Path | None = None
+) -> list[dict]:
     reports = []
     with tempfile.TemporaryDirectory(prefix="immuknow-browser-export-") as temporary:
         clean = Path(temporary)
@@ -133,6 +135,34 @@ def verify(archive: Path, browser_pdf: Path) -> list[dict]:
             )
             for name, value in originals.items():
                 assert (Path(selected["workspace"]) / name).read_bytes() == value
+            if flattened:
+                workspace = Path(selected["workspace"])
+                Path(selected["template"]).write_bytes(flattened.read_bytes())
+                # Removing companion settings proves the download is self-contained for settings.
+                shutil.rmtree(workspace / "templates/settings")
+                (workspace / "templates/layout-settings.json").unlink()
+                flattened_pdf = archive.parent / f"{selector}.flattened.pdf"
+                subprocess.run(
+                    [
+                        "typst",
+                        "compile",
+                        "--root",
+                        str(workspace),
+                        "--input",
+                        "data=/"
+                        + Path(selected["data"]).relative_to(workspace).as_posix(),
+                        str(selected["template"]),
+                        str(flattened_pdf),
+                    ],
+                    check=True,
+                    capture_output=True,
+                    env={
+                        **os.environ,
+                        "TYPST_FONT_PATHS": "/usr/share/fonts/truetype/freefont",
+                        "TYPST_IGNORE_SYSTEM_FONTS": "true",
+                    },
+                )
+                compare_pdf(flattened_pdf, browser_pdf)
             native = archive.parent / f"{selector}.native.pdf"
             shutil.copyfile(selected["pdf"], native)
             reports.append(
@@ -152,9 +182,17 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("archive", type=Path)
     parser.add_argument("browser_pdf", type=Path)
+    parser.add_argument("--flattened", type=Path)
     args = parser.parse_args()
     print(
-        json.dumps(verify(args.archive.resolve(), args.browser_pdf.resolve()), indent=2)
+        json.dumps(
+            verify(
+                args.archive.resolve(),
+                args.browser_pdf.resolve(),
+                args.flattened.resolve() if args.flattened else None,
+            ),
+            indent=2,
+        )
     )
 
 

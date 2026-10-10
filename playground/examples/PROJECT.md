@@ -62,3 +62,8 @@ browser accepts at most 400 entries, 8 MiB per file and 24 MiB in total, rejects
 unsafe paths and links, and does not fetch runtime packages. Vendor additional
 Typst dependencies using relative imports. The PDF envelope guide is a viewer
 overlay; it never enters exported PDFs. Check actual-size printing and folds.
+
+Template defaults live in `templates/settings/<template>.typ`; paper and window
+choices live in `templates/layout-settings.json`. The playground’s individual
+`.typ` download inlines these settings. Complete project exports preserve the
+editable companion files. Both forms still need the package, helpers and assets.

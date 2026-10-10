@@ -15,11 +15,15 @@ pytestmark = pytest.mark.integration
 
 def render(tmp_path: Path, case="overdue_agents_fr", replace=()):
     template, data, _ = prepare_case(tmp_path / "project", case)
-    source = template.read_text()
     for before, after in replace:
+        target = (
+            template
+            if before in template.read_text()
+            else template.parent / "settings" / template.name
+        )
+        source = target.read_text()
         assert before in source
-        source = source.replace(before, after)
-    template.write_text(source)
+        target.write_text(source.replace(before, after))
     result = compile_notice(template, data, template.parents[1])
     assert result.returncode == 0, result.stderr
     assert "did not converge" not in result.stderr
@@ -169,7 +173,8 @@ def test_page_numbers_can_be_disabled(tmp_path):
 )
 def test_invalid_layout_options_are_actionable(tmp_path, before, after, diagnostic):
     template, data, _ = prepare_case(tmp_path / "project", "overdue_agents_en")
-    template.write_text(template.read_text().replace(before, after))
+    settings = template.parent / "settings" / template.name
+    settings.write_text(settings.read_text().replace(before, after))
     result = compile_notice(template, data, template.parents[1])
     assert result.returncode != 0
     assert diagnostic in result.stderr
@@ -217,3 +222,29 @@ def test_optional_client_fields_and_adult_addressee(tmp_path):
     assert "Childcare Centre:" not in text
     assert "0000000001" in text
     assert validate(pdf).passed
+
+
+@pytest.mark.parametrize(
+    "paper,height", [("us-letter", 792), ("us-legal", 1008), ("a4", 841.8898)]
+)
+@pytest.mark.parametrize("envelope", ["authored", "number10", "dl", "c5"])
+def test_project_layout_settings_are_used_by_native_templates(
+    tmp_path, paper, height, envelope
+):
+    template, data, _ = prepare_case(tmp_path / "project", "overdue_agents_fr")
+    settings_path = template.parent / "layout-settings.json"
+    settings = json.loads(settings_path.read_text())
+    settings["notices"][template.stem] = {"paper": paper, "envelope": envelope}
+    settings_path.write_text(json.dumps(settings))
+    result = compile_notice(template, data, template.parents[1])
+    assert result.returncode == 0, result.stderr
+    pdf = template.parents[1] / "notice.pdf"
+    with pymupdf.open(pdf) as document:
+        assert all(
+            page.rect.height == pytest.approx(height, abs=0.01) for page in document
+        )
+    report = validate(pdf, signature_overflow="disabled")
+    assert report.measurements["window_width"] == pytest.approx(
+        202.28 if envelope == "authored" else settings["presets"][envelope]["width_pt"],
+        abs=0.01,
+    )

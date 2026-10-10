@@ -1,10 +1,14 @@
+import { inlineTemplate } from "./inline-template";
 import "./style.css";
+import { brandingPNG } from "./branding";
 import { SourceEditor } from "./editor";
 import { Viewer } from "./viewer";
 import { Compiler } from "./compile";
 import { archiveJob } from "./archive";
 import {
   base64,
+  decoder,
+  encoder,
   decodeFiles,
   download,
   editableFile,
@@ -36,7 +40,7 @@ let diagnostics: Diagnostic[] = [];
 let saveTimer: ReturnType<typeof setTimeout>;
 let compiler: Compiler;
 
-const viewer = new Viewer(element("canvas"), element("paper"), element("overlay"), () => {
+const viewer = new Viewer(element("preview-scroll"), () => {
   element("pages").textContent = `${viewer.page} / ${viewer.pages}`;
   button("page-prev").disabled = viewer.page <= 1;
   button("page-next").disabled = viewer.page >= viewer.pages;
@@ -170,6 +174,76 @@ function refreshClients() {
   button("next").disabled = index >= examples.length - 1;
   clientSelect.disabled = !examples.length;
 }
+const layoutPath = "templates/layout-settings.json";
+const paperSelect = element<HTMLSelectElement>("paper-size");
+const envelopeSelect = element<HTMLSelectElement>("envelope");
+function layoutSettings() {
+  const value = JSON.parse(decoder.decode(files[layoutPath]));
+  if (value.schema_version !== 1 || !value.presets || !value.notices)
+    throw new Error("Invalid layout-settings.json");
+  return value;
+}
+function refreshLayout() {
+  paperSelect.disabled = true;
+  envelopeSelect.disabled = true;
+  button("layout-source").disabled = !files?.[layoutPath];
+  button("template-settings").disabled =
+    !files?.[activeTemplate.replace("templates/", "templates/settings/")];
+  try {
+    if (
+      !files?.[activeTemplate] ||
+      !decoder
+        .decode(files[activeTemplate])
+        .includes('ik.project-layout(json("layout-settings.json")')
+    ) {
+      element("layout-hint").textContent =
+        "This custom or older draft does not use layout-settings.json. Keep editing its source, or save a copy and reset the entry point to enable these controls.";
+      return;
+    }
+    const settings = layoutSettings();
+    const selected =
+      settings.notices[activeTemplate.replace("templates/", "").replace(/\.typ$/, "")] ?? {};
+    envelopeSelect.replaceChildren(new Option("Authored window (current template)", "authored"));
+    for (const [key, value] of Object.entries(settings.presets)) {
+      envelopeSelect.add(new Option((value as { label: string }).label, key));
+    }
+    paperSelect.value = selected.paper ?? "us-letter";
+    envelopeSelect.value = selected.envelope ?? "authored";
+    paperSelect.disabled = false;
+    envelopeSelect.disabled = false;
+    const preset = settings.presets[envelopeSelect.value];
+    element("layout-hint").textContent =
+      `${preset?.description ?? "Uses the window rectangle authored in this template."} Presets change window size; the authored page position and safety padding stay in use. Window placement varies by supplier and fold. Check an actual-size print. Selections are saved per template in layout-settings.json.`;
+  } catch (error) {
+    element("layout-hint").textContent = `Layout controls unavailable: ${error}`;
+  }
+}
+function updateLayout() {
+  try {
+    const settings = layoutSettings();
+    const key = activeTemplate.replace("templates/", "").replace(/\.typ$/, "");
+    settings.notices[key] = {
+      ...settings.notices[key],
+      paper: paperSelect.value,
+      envelope: envelopeSelect.value,
+    };
+    editor.replaceFile(
+      layoutPath,
+      files[layoutPath],
+      encoder.encode(`${JSON.stringify(settings, null, 2)}\n`),
+    );
+  } catch (error) {
+    status(`Could not update layout: ${error}`);
+  }
+}
+paperSelect.onchange = updateLayout;
+envelopeSelect.onchange = updateLayout;
+button("template-settings").onclick = () => {
+  const path = activeTemplate.replace("templates/", "templates/settings/");
+  if (files[path]) openFile(path);
+};
+button("layout-source").onclick = () => openFile(layoutPath);
+
 function markStale() {
   button("pdf").disabled = true;
   element("preview-caption").classList.add("stale");
@@ -178,6 +252,7 @@ function markStale() {
     : "Waiting for a document";
 }
 function requestCompile() {
+  refreshLayout();
   markStale();
   if (!compiler || !bundle) return;
   const example = examples.find((item) => item.id === activeExample);
@@ -312,12 +387,17 @@ button("files-toggle").onclick = () => {
   panel.hidden = !panel.hidden;
   button("files-toggle").setAttribute("aria-expanded", String(!panel.hidden));
 };
-button("source").onclick = () =>
-  download(
-    activeTemplate.slice(activeTemplate.lastIndexOf("/") + 1),
-    files[activeTemplate],
-    "text/plain;charset=utf-8",
-  );
+button("source").onclick = () => {
+  try {
+    download(
+      activeTemplate.slice(activeTemplate.lastIndexOf("/") + 1),
+      inlineTemplate(files, activeTemplate),
+      "text/plain;charset=utf-8",
+    );
+  } catch (error) {
+    element("status").textContent = String(error);
+  }
+};
 button("pdf").onclick = () => {
   if (
     currentPDF?.revision === compiler.revision &&
@@ -423,6 +503,39 @@ element<HTMLInputElement>("archive").onchange = async (event) => {
   } catch (error) {
     status(`Import rejected: ${error}`);
   }
+};
+for (const kind of ["logo", "signature"]) {
+  const input = element<HTMLInputElement>(`${kind}-upload`);
+  input.onchange = async () => {
+    const file = input.files?.[0];
+    input.value = "";
+    if (!file || !files) return;
+    const project = files;
+    input.disabled = true;
+    try {
+      const bytes = await brandingPNG(file);
+      if (files !== project)
+        throw new Error("The project changed during image processing. Choose the image again.");
+      const updated = { ...files, [`templates/assets/${kind}.png`]: bytes };
+      validateFiles(updated);
+      files[`templates/assets/${kind}.png`] = bytes;
+      refreshFiles();
+      scheduleSave();
+      requestCompile();
+    } catch (error) {
+      status(`Image upload failed: ${error}`);
+    } finally {
+      input.disabled = false;
+    }
+  };
+}
+button("branding-reset").onclick = () => {
+  if (!files || !confirm("Replace the uploaded logo and signature with the sample images?")) return;
+  for (const kind of ["logo", "signature"])
+    files[`templates/assets/${kind}.png`] = defaults[`templates/assets/${kind}.png`];
+  refreshFiles();
+  scheduleSave();
+  requestCompile();
 };
 button("page-prev").onclick = () => void viewer.go(-1);
 button("page-next").onclick = () => void viewer.go(1);
