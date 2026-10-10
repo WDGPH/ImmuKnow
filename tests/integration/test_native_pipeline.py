@@ -252,8 +252,8 @@ def test_mixed_cohort_processed_exactly_once(
     for job in jobs:
         notice = json.loads(job.data.read_text())
         assert notice["overdue_diseases"] == [{"disease": "Measles", "dose": 2}]
-        assert notice["include_dose"] is options
-        assert notice["show_validity_markers"] is options
+        assert notice["rendering_defaults"]["include_dose"] is options
+        assert notice["rendering_defaults"]["show_validity"] is options
         assert ("qr_img" in notice["client_data"]) == options
         assert (
             job.template.read_bytes()
@@ -392,7 +392,10 @@ def test_french_notice_failure_prevents_successful_delivery(
     french = custom / "overdue_agents_v1.fr.typ"
     if failure == "wrong_client":
         french.write_text(
-            french.read_text().replace("notice.client_id", '"9999999999"')
+            french.read_text().replace(
+                "#ik.client-block(notice,",
+                '#ik.client-block((..notice, client_id: "9999999999"),',
+            )
         )
         diagnostic = "PDF validation failed"
     elif failure == "missing_entry":
@@ -506,6 +509,11 @@ def test_sequential_callable_runs_keep_resources_and_assignments_isolated(
     assignments[0]["template"] = "overdue_diseases_v1.fr.typ"
     second_assignments.write_text(json.dumps(assignments))
     translation = second_config / "translations" / "fr_diseases_overdue.json"
+    translation.parent.mkdir(exist_ok=True)
+    shutil.copyfile(
+        ROOT / "immuknow/templates/lib/immuknow/locales/fr_diseases_overdue.json",
+        translation,
+    )
     labels = json.loads(translation.read_text())
     labels["Measles"] = "LIBELLÉ LOCAL SÉLECTIONNÉ"
     translation.write_text(json.dumps(labels, ensure_ascii=False))
@@ -638,10 +646,12 @@ def test_history_exclusions_reach_pdf_without_changing_assessment(
     assert completion is not None
     record = json.loads(completion.read_text())
     client = json.loads(Path(record["cohort"]).read_text())["clients"][0]
-    expected = ["MMR", "IgA"] if ignored_agents else ["MMR", "RSVAb", "Ig", "IgA"]
-    assert [
-        agent for row in client["received"] for agent in row["vaccines"]
-    ] == expected
+    assert [item["agent"] for item in client["history"]] == [
+        "MMR",
+        "RSVAb",
+        "Ig",
+        "IgA",
+    ]
     assert client["overdue_agents"] == ["RSVAb", "Ig"]
     assert client["overdue_diseases"] == [{"disease": "Measles", "dose": 2}]
     pdf_text = "\n".join(

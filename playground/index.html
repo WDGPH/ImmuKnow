@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self' blob:; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
+<title>ImmuKnow · Template playground</title>
+<meta name="description" content="Edit native ImmuKnow templates locally with synthetic clients and a real Typst PDF preview.">
+</head>
+<body>
+<header><div><a class="brand" href="../">ImmuKnow</a><span class="eyebrow">Template playground</span></div><span class="local-badge">Browser only · Synthetic data</span></header>
+<main>
+<section class="intro"><h1>Shape the notice. Keep the facts.</h1><p>Edit the same Typst files used by the production pipeline. Try your changes with synthetic clients, then take the source with you.</p></section>
+<section class="controls" aria-label="Notice selection">
+<label>Template and language<select id="template" disabled></select></label>
+<div class="client-controls"><label>Synthetic client<select id="client" disabled></select></label><div class="navigation"><button id="previous" disabled>Previous</button><span id="position"></span><button id="next" disabled>Next</button></div></div>
+<div class="quick-actions"><button id="source" disabled>Download .typ</button><button id="pdf" disabled>Export PDF</button></div><p id="scenario"></p>
+</section>
+<details class="project-actions"><summary>Project actions · download, import &amp; reset</summary><section class="actions" aria-label="Project actions"><button id="export" disabled>Export project</button><button id="import">Import project</button><input id="archive" type="file" accept=".zip" hidden><button id="reset" disabled>Reset current file</button><button id="clear" disabled>Clear all drafts</button><button id="restart">Restart compiler</button></section></details>
+<p id="storage" class="hint">Drafts stay in this browser. Download a project for a durable copy.</p>
+<details class="layout-controls"><summary>Page, envelope &amp; branding</summary><div class="layout-options"><label>Paper size<select id="paper-size" disabled><option value="us-letter">Letter · 8½ × 11 in</option><option value="us-legal">Legal · 8½ × 14 in</option><option value="a4">A4 · 210 × 297 mm</option></select></label><label>Envelope window<select id="envelope" disabled></select></label><button id="template-settings">Edit template settings</button><button id="layout-source">Edit layout settings</button></div><div class="branding-controls"><label>Upload logo<input id="logo-upload" type="file" accept="image/png,image/jpeg,image/webp"></label><label>Upload signature<input id="signature-upload" type="file" accept="image/png,image/jpeg,image/webp"></label><button id="branding-reset">Restore sample images</button></div><p class="hint">Images stay local and are saved as PNG assets in project exports. PNG transparency is preserved.</p><p id="layout-hint" class="hint"></p></details>
+<div class="workspace" id="workspace">
+<section class="editor-pane" aria-label="Template source"><div class="pane-heading"><strong>Source</strong><button id="files-toggle" aria-expanded="false">Files & assets</button><span id="filename"></span></div><div class="source-body"><nav id="files" aria-label="Project files" hidden></nav><div id="editor"></div></div><details class="help"><summary>Components and authoring tips</summary><p>Change the named controls near the top of a template. <code>auto</code> inherits prepared defaults; <code>()</code> and <code>false</code> are explicit overrides.</p><pre>#ik.overdue-diseases(notice, columns: 2, include-dose: true)
+#ik.immunization-history(notice,
+  diseases: ("Measles", "Mumps", "Rubella"),
+  ignore-agents: (), include-other: true, show-validity: auto)</pre><p>Branding and envelope coordinates are editable in the source. Label overrides live in <code>config/translations/</code>. Package documentation is available in Files &amp; assets.</p><p>Examples use fixed prepared facts. Preprocessing and reference configuration changes take effect when you run the native CLI; use explicit Typst arguments to test presentation here.</p><p>A .typ download uses this project's package and assets. A complete project includes those dependencies. Exporting creates a draft, not approval of revised notice wording.</p></details></section>
+<div id="divider" role="separator" tabindex="0" aria-label="Resize editor and preview" aria-orientation="vertical" aria-valuemin="25" aria-valuemax="75" aria-valuenow="50"></div>
+<section class="preview-pane" aria-label="PDF preview"><div class="pane-heading"><strong>Preview</strong><label class="zoom-label">Zoom<select id="zoom"><option value="fit">Fit width</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select></label><button id="page-prev" disabled>Previous page</button><span id="pages">—</span><button id="page-next" disabled>Next page</button></div><div class="preview-options"><label><input type="checkbox" id="guide">Envelope guide (preview only)</label><span id="preview-caption">No document yet</span></div><div id="preview-scroll" tabindex="0" aria-label="Continuous PDF pages"></div></section>
+</div>
+<section class="feedback" aria-label="Compilation results"><p id="status" role="status" aria-live="polite">Loading project…</p><ul id="diagnostics"></ul></section>
+<p class="footnote">No source or client data is sent to a server. Examples are invented; CSV cohort upload is not supported. Digital envelope checks do not certify physical print alignment—review actual-size printing and folds.</p>
+<p class="footnote"><a href="generated/compiler/THIRD_PARTY_NOTICES.txt">Third-party notices</a> · <a href="generated/fonts/LICENSE">Font license</a></p>
+</main><script type="module" src="/src/main.ts"></script>
+</body></html>

@@ -1,0 +1,216 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:immuknow:rendering:1",
+  "title": "ImmuKnow rendering payload version 1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "version_id",
+    "language",
+    "client_id",
+    "client_data",
+    "date_as_of",
+    "overdue_diseases",
+    "overdue_agents",
+    "history",
+    "validity_coverage",
+    "rendering_defaults"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "version_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "language": {
+      "enum": [
+        "en",
+        "fr"
+      ]
+    },
+    "client_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "client_data": {
+      "type": "object",
+      "required": [
+        "name",
+        "address",
+        "city",
+        "postal_code",
+        "date_of_birth_iso",
+        "school",
+        "over_16"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "address": {
+          "type": "string"
+        },
+        "city": {
+          "type": "string"
+        },
+        "postal_code": {
+          "type": "string"
+        },
+        "date_of_birth_iso": {
+          "anyOf": [
+            {
+              "const": ""
+            },
+            {
+              "type": "string",
+              "format": "date"
+            }
+          ]
+        },
+        "school": {
+          "type": "string"
+        },
+        "over_16": {
+          "type": "boolean"
+        }
+      }
+    },
+    "date_as_of": {
+      "anyOf": [
+        {
+          "const": ""
+        },
+        {
+          "type": "string",
+          "format": "date"
+        }
+      ]
+    },
+    "overdue_diseases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "disease",
+          "dose"
+        ],
+        "properties": {
+          "disease": {
+            "type": "string",
+            "minLength": 1
+          },
+          "dose": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer",
+                "minimum": 1
+              }
+            ]
+          },
+          "dose_raw": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "overdue_agents": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "date_given",
+          "agent",
+          "display_name",
+          "diseases",
+          "validity"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "date_given": {
+            "type": "string",
+            "format": "date"
+          },
+          "agent": {
+            "type": "string",
+            "minLength": 1
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "diseases": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "validity": {
+            "enum": [
+              "valid",
+              "invalid",
+              "unknown"
+            ]
+          }
+        }
+      }
+    },
+    "validity_coverage": {
+      "enum": [
+        "all_present",
+        "all_absent",
+        "mixed"
+      ]
+    },
+    "rendering_defaults": {
+      "type": "object",
+      "required": [
+        "diseases",
+        "include_other",
+        "ignore_agents",
+        "include_dose",
+        "show_validity"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "diseases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "include_other": {
+          "type": "boolean"
+        },
+        "ignore_agents": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "include_dose": {
+          "type": "boolean"
+        },
+        "show_validity": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

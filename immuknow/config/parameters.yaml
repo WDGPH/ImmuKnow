@@ -36,7 +36,8 @@ ignore_agents:
 pdf_validation:
   rules:
     client_id_presence: error
-    envelope_window_1_125: warn
+    envelope_window: warn
+    envelope_window_1_125: disabled
     exactly_two_pages: warn
     signature_overflow: warn
 pipeline:

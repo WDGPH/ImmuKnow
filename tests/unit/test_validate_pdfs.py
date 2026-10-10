@@ -33,7 +33,12 @@ class TestValidatePdfStructure:
         with open(pdf_path, "wb") as f:
             writer.write(f)
 
-        result = validate_pdfs.validate_pdf_structure(pdf_path, enabled_rules={})
+        result = validate_pdfs.validate_pdf_structure(
+            pdf_path,
+            enabled_rules={
+                "signature_overflow": "disabled",
+            },
+        )
         assert result.filename == "test.pdf"
         assert result.measurements["page_count"] == 2
         assert result.passed is True
@@ -49,7 +54,10 @@ class TestValidatePdfStructure:
 
         result = validate_pdfs.validate_pdf_structure(
             pdf_path,
-            enabled_rules={"exactly_two_pages": "warn"},
+            enabled_rules={
+                "signature_overflow": "disabled",
+                "exactly_two_pages": "warn",
+            },
         )
         assert result.measurements["page_count"] == 3
         assert result.passed is False
@@ -66,7 +74,10 @@ class TestValidatePdfStructure:
 
         result = validate_pdfs.validate_pdf_structure(
             pdf_path,
-            enabled_rules={"exactly_two_pages": "disabled"},
+            enabled_rules={
+                "signature_overflow": "disabled",
+                "exactly_two_pages": "disabled",
+            },
         )
         assert result.measurements["page_count"] == 3
         assert result.passed  # No warning because rule is disabled
@@ -89,7 +100,10 @@ class TestValidationSummary:
 
         summary = validate_pdfs.validate_pdfs(
             files,
-            enabled_rules={"exactly_two_pages": "warn"},
+            enabled_rules={
+                "signature_overflow": "disabled",
+                "exactly_two_pages": "warn",
+            },
         )
         assert summary.total_pdfs == 3
         assert summary.passed_count == 2
@@ -159,7 +173,10 @@ class TestMainFunction:
         json_path = tmp_path / "validation.json"
         summary = validate_pdfs.validate_notices(
             expected_pdfs=sorted(pdf_dir.glob("*.pdf")),
-            enabled_rules={"exactly_two_pages": "warn"},
+            enabled_rules={
+                "signature_overflow": "disabled",
+                "exactly_two_pages": "warn",
+            },
             json_output=json_path,
         )
 
@@ -181,7 +198,10 @@ class TestMainFunction:
         with pytest.raises(RuntimeError, match="PDF validation failed with errors"):
             validate_pdfs.validate_notices(
                 expected_pdfs=[pdf_path],
-                enabled_rules={"exactly_two_pages": "error"},
+                enabled_rules={
+                    "signature_overflow": "disabled",
+                    "exactly_two_pages": "error",
+                },
                 json_output=None,
             )
 
@@ -232,7 +252,11 @@ class TestRuleResultsAndMeasurements:
             writer.write(f)
 
         result = validate_pdfs.validate_pdf_structure(
-            pdf_path, enabled_rules={"exactly_two_pages": "warn"}
+            pdf_path,
+            enabled_rules={
+                "signature_overflow": "disabled",
+                "exactly_two_pages": "warn",
+            },
         )
 
         # Should have measurements including page_count
@@ -291,7 +315,11 @@ class TestRuleResultsAndMeasurements:
             writer.write(f)
 
         result = validate_pdfs.validate_pdf_structure(
-            pdf_path, enabled_rules={"exactly_two_pages": "warn"}
+            pdf_path,
+            enabled_rules={
+                "signature_overflow": "disabled",
+                "exactly_two_pages": "warn",
+            },
         )
 
         assert not result.passed
@@ -333,6 +361,7 @@ class TestClientIdValidation:
         result = validate_pdfs.validate_pdf_structure(
             pdf_path,
             enabled_rules={
+                "signature_overflow": "disabled",
                 "client_id_presence": "warn",
                 "exactly_two_pages": "disabled",
             },
@@ -357,6 +386,7 @@ class TestClientIdValidation:
         result = validate_pdfs.validate_pdf_structure(
             pdf_path,
             enabled_rules={
+                "signature_overflow": "disabled",
                 "client_id_presence": "disabled",
                 "exactly_two_pages": "disabled",
             },

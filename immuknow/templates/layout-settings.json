@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "presets": {
+    "number10": {
+      "label": "#10 \u2014 4\u00bd \u00d7 1\u215b in window",
+      "description": "#10 envelope, 9\u00bd \u00d7 4\u215b in. Sample 4\u00bd \u00d7 1\u215b in window.",
+      "width_pt": 324,
+      "height_pt": 81
+    },
+    "dl": {
+      "label": "DL \u2014 100 \u00d7 45 mm window",
+      "description": "DL envelope, 220 \u00d7 110 mm. Sample 100 \u00d7 45 mm window.",
+      "width_pt": 283.46456692913387,
+      "height_pt": 127.55905511811025
+    },
+    "c5": {
+      "label": "C5 \u2014 90 \u00d7 45 mm window",
+      "description": "C5 envelope, 229 \u00d7 162 mm. Sample 90 \u00d7 45 mm window.",
+      "width_pt": 255.1181102362205,
+      "height_pt": 127.55905511811025
+    }
+  },
+  "notices": {}
+}

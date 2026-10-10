@@ -1,0 +1,212 @@
+[
+  {
+    "id": "short",
+    "label": "Short history",
+    "description": "Two recorded administrations with known validity.",
+    "source": {
+      "school_name": "École Démo des Lilas",
+      "board_name": "Synthetic Demonstration Board",
+      "date_of_birth": "2015-02-03",
+      "street_address_line_1": "100 Example Lane",
+      "street_address_line_2": "",
+      "city": "Demo City",
+      "province": "ON",
+      "postal_code": "N0N 0N0",
+      "overdue_disease": "Measles - 2",
+      "overdue_agent": "MMR",
+      "imms_given": "May 1, 2020 - DTaP - Valid; Jun 15, 2021 - MMR - Valid",
+      "client_id": "0000000001",
+      "first_name": "Élodie",
+      "last_name": "Exemple 01"
+    }
+  },
+  {
+    "id": "long-history",
+    "label": "Long history",
+    "description": "Seventy synthetic administrations exercise repeating headings and page continuation.",
+    "source": {
+      "school_name": "École Démo des Lilas",
+      "board_name": "Synthetic Demonstration Board",
+      "date_of_birth": "2015-02-03",
+      "street_address_line_1": "100 Example Lane",
+      "street_address_line_2": "",
+      "city": "Demo City",
+      "province": "ON",
+      "postal_code": "N0N 0N0",
+      "overdue_disease": "Measles - 2",
+      "overdue_agent": "MMR",
+      "imms_given": "Jan 1, 2015 - DTaP - Valid; Jan 31, 2015 - MMR - Valid; Mar 2, 2015 - IPV - Valid; Apr 1, 2015 - DTaP - Valid; May 1, 2015 - MMR - Valid; May 31, 2015 - IPV - Valid; Jun 30, 2015 - DTaP - Valid; Jul 30, 2015 - MMR - Valid; Aug 29, 2015 - IPV - Valid; Sep 28, 2015 - DTaP - Valid; Oct 28, 2015 - MMR - Valid; Nov 27, 2015 - IPV - Valid; Dec 27, 2015 - DTaP - Valid; Jan 26, 2016 - MMR - Valid; Feb 25, 2016 - IPV - Valid; Mar 26, 2016 - DTaP - Valid; Apr 25, 2016 - MMR - Valid; May 25, 2016 - IPV - Valid; Jun 24, 2016 - DTaP - Valid; Jul 24, 2016 - MMR - Valid; Aug 23, 2016 - IPV - Valid; Sep 22, 2016 - DTaP - Valid; Oct 22, 2016 - MMR - Valid; Nov 21, 2016 - IPV - Valid; Dec 21, 2016 - DTaP - Valid; Jan 20, 2017 - MMR - Valid; Feb 19, 2017 - IPV - Valid; Mar 21, 2017 - DTaP - Valid; Apr 20, 2017 - MMR - Valid; May 20, 2017 - IPV - Valid; Jun 19, 2017 - DTaP - Valid; Jul 19, 2017 - MMR - Valid; Aug 18, 2017 - IPV - Valid; Sep 17, 2017 - DTaP - Valid; Oct 17, 2017 - MMR - Valid; Nov 16, 2017 - IPV - Valid; Dec 16, 2017 - DTaP - Valid; Jan 15, 2018 - MMR - Valid; Feb 14, 2018 - IPV - Valid; Mar 16, 2018 - DTaP - Valid; Apr 15, 2018 - MMR - Valid; May 15, 2018 - IPV - Valid; Jun 14, 2018 - DTaP - Valid; Jul 14, 2018 - MMR - Valid; Aug 13, 2018 - IPV - Valid; Sep 12, 2018 - DTaP - Valid; Oct 12, 2018 - MMR - Valid; Nov 11, 2018 - IPV - Valid; Dec 11, 2018 - DTaP - Valid; Jan 10, 2019 - MMR - Valid; Feb 9, 2019 - IPV - Valid; Mar 11, 2019 - DTaP - Valid; Apr 10, 2019 - MMR - Valid; May 10, 2019 - IPV - Valid; Jun 9, 2019 - DTaP - Valid; Jul 9, 2019 - MMR - Valid; Aug 8, 2019 - IPV - Valid; Sep 7, 2019 - DTaP - Valid; Oct 7, 2019 - MMR - Valid; Nov 6, 2019 - IPV - Valid; Dec 6, 2019 - DTaP - Valid; Jan 5, 2020 - MMR - Valid; Feb 4, 2020 - IPV - Valid; Mar 5, 2020 - DTaP - Valid; Apr 4, 2020 - MMR - Valid; May 4, 2020 - IPV - Valid; Jun 3, 2020 - DTaP - Valid; Jul 3, 2020 - MMR - Valid; Aug 2, 2020 - IPV - Valid; Sep 1, 2020 - DTaP - Valid",
+      "client_id": "0000000002",
+      "first_name": "Élodie",
+      "last_name": "Exemple 02"
+    }
+  },
+  {
+    "id": "long-fields",
+    "label": "Long client fields",
+    "description": "Long accented name, address and school fields exercise wrapping.",
+    "source": {
+      "school_name": "École de démonstration des sciences et des arts de la communauté des Lilas",
+      "board_name": "Synthetic Demonstration Board",
+      "date_of_birth": "2015-02-03",
+      "street_address_line_1": "1234 Allée des Lilas, appartement 11",
+      "street_address_line_2": "",
+      "city": "Demo City",
+      "province": "ON",
+      "postal_code": "N0N 0N0",
+      "overdue_disease": "Measles - 2",
+      "overdue_agent": "MMR",
+      "imms_given": "May 1, 2020 - DTaP - Valid; Jun 15, 2021 - MMR - Valid",
+      "client_id": "0000000003",
+      "first_name": "Alexandrine-Louise",
+      "last_name": "Exemple"
+    }
+  },
+  {
+    "id": "several-overdue",
+    "label": "Several overdue items",
+    "description": "Separate disease and agent assessments, including supplied dose numbers.",
+    "source": {
+      "school_name": "École Démo des Lilas",
+      "board_name": "Synthetic Demonstration Board",
+      "date_of_birth": "2015-02-03",
+      "street_address_line_1": "100 Example Lane",
+      "street_address_line_2": "",
+      "city": "Demo City",
+      "province": "ON",
+      "postal_code": "N0N 0N0",
+      "overdue_disease": "Measles - 2; Mumps - 2; Rubella - 1; Polio - 4; Diphtheria - 5; Tetanus - 5",
+      "overdue_agent": "MMR; IPV; DTaP",
+      "imms_given": "May 1, 2020 - DTaP - Valid; Jun 15, 2021 - MMR - Valid",
+      "client_id": "0000000004",
+      "first_name": "Élodie",
+      "last_name": "Exemple 04"
+    }
+  },
+  {
+    "id": "older-client",
+    "label": "Older client",
+    "description": "The prepared age fact selects the adult addressee.",
+    "source": {
+      "school_name": "École Démo des Lilas",
+      "board_name": "Synthetic Demonstration Board",
+      "date_of_birth": "2000-02-03",
+      "street_address_line_1": "100 Example Lane",
+      "street_address_line_2": "",
+      "city": "Demo City",
+      "province": "ON",
+      "postal_code": "N0N 0N0",
+      "overdue_disease": "Measles - 2",
+      "overdue_agent": "MMR",
+      "imms_given": "May 1, 2020 - DTaP - Valid; Jun 15, 2021 - MMR - Valid",
+      "client_id": "0000000005",
+      "first_name": "Élodie",
+      "last_name": "Exemple 05"
+    }
+  },
+  {
+    "id": "same-date",
+    "label": "Same-date conflicts",
+    "description": "Combination agents on one date retain differing known validity and duplicate normalization.",
+    "source": {
+      "school_name": "École Démo des Lilas",
+      "board_name": "Synthetic Demonstration Board",
+      "date_of_birth": "2015-02-03",
+      "street_address_line_1": "100 Example Lane",
+      "street_address_line_2": "",
+      "city": "Demo City",
+      "province": "ON",
+      "postal_code": "N0N 0N0",
+      "overdue_disease": "Measles - 2",
+      "overdue_agent": "MMR",
+      "imms_given": "May 1, 2020 - MMR - Valid; May 1, 2020 - MMR - Valid; May 1, 2020 - MMR-Var - Invalid; May 1, 2020 - IPV - Valid",
+      "client_id": "0000000006",
+      "first_name": "Élodie",
+      "last_name": "Exemple 06"
+    }
+  },
+  {
+    "id": "excluded-agents",
+    "label": "Excluded history agents",
+    "description": "Ig and VarIg remain in the facts; an empty ignore-agents option reveals them.",
+    "source": {
+      "school_name": "École Démo des Lilas",
+      "board_name": "Synthetic Demonstration Board",
+      "date_of_birth": "2015-02-03",
+      "street_address_line_1": "100 Example Lane",
+      "street_address_line_2": "",
+      "city": "Demo City",
+      "province": "ON",
+      "postal_code": "N0N 0N0",
+      "overdue_disease": "Measles - 2",
+      "overdue_agent": "MMR",
+      "imms_given": "May 1, 2020 - MMR - Valid; May 1, 2020 - Ig - Valid; Jun 2, 2021 - VarIg - Invalid",
+      "client_id": "0000000007",
+      "first_name": "Élodie",
+      "last_name": "Exemple 07"
+    }
+  },
+  {
+    "id": "other-column",
+    "label": "Other column",
+    "description": "DTaP-HB-IPV contributes to named diseases and Other; HPV-9 contributes to Other.",
+    "source": {
+      "school_name": "École Démo des Lilas",
+      "board_name": "Synthetic Demonstration Board",
+      "date_of_birth": "2015-02-03",
+      "street_address_line_1": "100 Example Lane",
+      "street_address_line_2": "",
+      "city": "Demo City",
+      "province": "ON",
+      "postal_code": "N0N 0N0",
+      "overdue_disease": "Measles - 2",
+      "overdue_agent": "MMR",
+      "imms_given": "May 1, 2020 - DTaP-HB-IPV - Valid; Jun 2, 2021 - HPV-9 - Valid",
+      "client_id": "0000000008",
+      "first_name": "Élodie",
+      "last_name": "Exemple 08"
+    }
+  },
+  {
+    "id": "unknown-validity",
+    "label": "Unknown validity",
+    "description": "All source doses lack validity suffixes; enabled markers display unknown status.",
+    "source": {
+      "school_name": "École Démo #text(fill: red)[literal]",
+      "board_name": "Synthetic Demonstration Board",
+      "date_of_birth": "2015-02-03",
+      "street_address_line_1": "100 Example Lane",
+      "street_address_line_2": "",
+      "city": "Demo City",
+      "province": "ON",
+      "postal_code": "N0N 0N0",
+      "overdue_disease": "Measles - 2",
+      "overdue_agent": "MMR",
+      "imms_given": "May 1, 2020 - DTaP; Jun 15, 2021 - MMR",
+      "client_id": "0000000009",
+      "first_name": "Élodie",
+      "last_name": "Exemple 09"
+    }
+  },
+  {
+    "id": "affirmative",
+    "label": "No overdue assessment",
+    "description": "An explicitly assigned affirmative notice retains the source history.",
+    "source": {
+      "school_name": "École Démo des Lilas",
+      "board_name": "Synthetic Demonstration Board",
+      "date_of_birth": "2015-02-03",
+      "street_address_line_1": "100 Example Lane",
+      "street_address_line_2": "",
+      "city": "Demo City",
+      "province": "ON",
+      "postal_code": "N0N 0N0",
+      "overdue_disease": "",
+      "overdue_agent": "",
+      "imms_given": "May 1, 2020 - DTaP - Valid; Jun 15, 2021 - MMR - Valid; Sep 2, 2022 - IPV - Valid",
+      "client_id": "0000000010",
+      "first_name": "Élodie",
+      "last_name": "Exemple 10"
+    }
+  }
+]

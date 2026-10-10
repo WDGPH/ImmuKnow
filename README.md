@@ -64,6 +64,15 @@ paths, [configuration](docs/user_guide/configuration.md) for options and
 assignments, and [template authoring](docs/user_guide/phu_templates.md)
 for the JSON contract.
 
+## Author notices
+
+The [template playground](https://wdgph.github.io/ImmuKnow/playground/) edits
+native Typst with synthetic clients and a local PDF preview. Export the exact
+source or a complete project for either CLI selector above. The same shared
+Typst package renders browser and production notices; Python retains preparation,
+assessment, and eligibility. See the [playground guide](docs/user_guide/playground.md)
+and [local build instructions](docs/developer_guide/testing.md).
+
 ## Call from Python
 
 ```python

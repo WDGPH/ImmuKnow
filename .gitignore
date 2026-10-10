@@ -22,3 +22,9 @@ phu_templates/*
 !phu_templates/README.md
 !phu_templates/.gitkeep
 .gitmodules
+node_modules/
+playground/vendor/
+playground/.compiler-build/
+playground/public/generated/
+playground/test-results/
+playground/playwright-report/

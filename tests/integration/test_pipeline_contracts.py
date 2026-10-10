@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import shutil
+
+import pandas as pd
 from contextlib import nullcontext
 from pathlib import Path
 
@@ -13,6 +16,12 @@ from immuknow.assignment_manifest import ManifestRow
 from immuknow.data_models import ClientRecord
 from immuknow.version_notices import load_catalog
 from tests.fixtures import sample_input
+from tests.integration.test_native_pipeline import (
+    ROOT,
+    prepare_cohort,
+    run_cli,
+    read_render_jobs,
+)
 
 
 def assigned_manifest(df, language: str) -> dict[str, ManifestRow]:
@@ -109,27 +118,45 @@ def test_school_mapping_from_selected_config_preserves_prepared_clients(
 
 
 @pytest.mark.integration
-def test_mixed_validity_with_markers_is_rejected(
-    default_vaccine_reference: dict,
+@pytest.mark.parametrize(
+    ("configured", "authored", "succeeds"),
+    [(True, "auto", False), (False, "true", False), (True, "false", True)],
+)
+def test_mixed_validity_is_checked_after_template_override(
+    tmp_path: Path,
+    configured: bool,
+    authored: str,
+    succeeds: bool,
 ) -> None:
-    df = sample_input.create_test_input_dataframe(num_clients=2)
-    df["imms_given"] = [
-        "May 1, 2020 - DTaP - Valid",
-        "Jun 15, 2021 - MMR",
-    ]
-
-    with pytest.raises(
-        ValueError, match="mix of records with and without validity indicators"
-    ):
-        preprocess.build_preprocess_result(
-            preprocess.clean_csv_text(df),
-            default_vaccine_reference,
-            [],
-            config={"preprocess": {"show_validity_markers": True}},
-            config_dir=preprocess.CONFIG_DIR,
-            catalog=catalog(),
-            manifest=assigned_manifest(df, "en"),
+    command, output, _ = prepare_cohort(tmp_path, show_validity_markers=configured)
+    source = Path(command[3])
+    frame = pd.read_csv(source, dtype=str, keep_default_na=False)
+    frame["imms_given"] = ["May 1, 2020 - DTaP - Valid", "Jun 15, 2021 - MMR"]
+    frame.to_csv(source, index=False)
+    templates = tmp_path / "templates"
+    shutil.copytree(ROOT / "immuknow/templates", templates)
+    for entry in (templates / "settings").glob("overdue_agents_v1.*.typ"):
+        entry.write_text(
+            entry.read_text().replace(
+                "#let history-show-validity = auto",
+                f"#let history-show-validity = {authored}",
+            )
         )
+    command.extend(["--templates", str(templates)])
+    result = run_cli(command, tmp_path)
+    if succeeds:
+        assert result.returncode == 0, result.stdout + result.stderr
+        jobs = read_render_jobs(output / "artifacts")
+        assert len(jobs) == 2
+        assert all(
+            json.loads(job.data.read_text())["validity_coverage"] == "mixed"
+            for job in jobs
+        )
+    else:
+        assert result.returncode == 1
+        assert "mixed cohort validity coverage" in result.stdout + result.stderr
+        assert not list((output / "metadata").glob("completion_*.json"))
+        assert not list(output.rglob("*.zip"))
 
 
 @pytest.mark.integration

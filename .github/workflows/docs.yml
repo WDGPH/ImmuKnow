@@ -1,49 +1,45 @@
 name: docs
 permissions:
   contents: write
-  pull-requests: write
 
 on:
   push:
     branches:
       - main
     paths:
-      - .pre-commit-config.yaml
-      - .github/workflows/docs.yml
-      - '**.py'
-      - '**.ipynb'
-      - '**.html'
-      - '**.js'
-      - '**.md'
-      - uv.lock
-      - pyproject.toml
-      - mkdocs.yml
-      - '**.png'
-      - '**.svg'
-      - '**.jpeg'
-      - 'immuknow/schemas/input_schema.json'
+      - '.github/workflows/docs.yml'
+      - '.pre-commit-config.yaml'
+      - 'docs/**'
+      - 'immuknow/**'
+      - 'playground/**'
+      - 'tests/**'
+      - 'uv.lock'
+      - 'pyproject.toml'
+      - 'mkdocs.yml'
+      - '*.md'
   pull_request:
     branches:
       - main
     paths:
-      - .pre-commit-config.yaml
-      - .github/workflows/docs.yml
-      - '**.py'
-      - '**.ipynb'
-      - '**.js'
-      - '**.html'
-      - uv.lock
-      - pyproject.toml
-      - '**.md'
-      - mkdocs.yml
-      - '**.png'
-      - '**.svg'
-      - '**.jpeg'
-      - 'immuknow/schemas/input_schema.json'
+      - '.github/workflows/docs.yml'
+      - '.pre-commit-config.yaml'
+      - 'docs/**'
+      - 'immuknow/**'
+      - 'playground/**'
+      - 'tests/**'
+      - 'uv.lock'
+      - 'pyproject.toml'
+      - 'mkdocs.yml'
+      - '*.md'
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      TYPST_FONT_PATHS: /usr/share/fonts/truetype/freefont
+      TYPST_IGNORE_SYSTEM_FONTS: 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -59,16 +55,73 @@ jobs:
           python-version: "3.12"
 
       - name: Install the project with docs dependencies
-        run: uv sync --group docs
+        run: uv sync --all-groups
 
-      - name: Generate schema docs
-        run: uv run python docs/generate_schema_docs.py
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: playground/package-lock.json
 
-      - name: Build docs
-        run: uv run mkdocs build --strict
+      - name: Install frontend dependencies
+        run: npm ci --prefix playground
 
-      - name: Create .nojekyll file
-        run: touch site/.nojekyll
+      - name: Cache pinned compiler build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo
+            playground/.compiler-build
+          key: browser-typst-0.15.1-rust-1.92.0-9739d81c-v1-${{ runner.os }}
+
+      - name: Build pinned browser compiler
+        run: |
+          rustup toolchain install 1.92.0 --profile minimal
+          cargo +1.92.0 install --locked wasm-bindgen-cli --version 0.2.118
+          bash playground/scripts/build-compiler.sh
+          uv run python -m playground.scripts.notices --compiler-source playground/.compiler-build
+
+      - name: Install native Typst and matching fonts
+        run: |
+          curl -fL --retry 3 -o "$RUNNER_TEMP/typst.tar.xz" \
+            https://github.com/typst/typst/releases/download/v0.15.1/typst-x86_64-unknown-linux-musl.tar.xz
+          tar -xf "$RUNNER_TEMP/typst.tar.xz" -C "$RUNNER_TEMP"
+          sudo install "$RUNNER_TEMP/typst-x86_64-unknown-linux-musl/typst" /usr/local/bin/typst
+          uv run python -m playground.scripts.prepare-fonts
+          sudo install -d /usr/share/fonts/truetype/freefont
+          sudo install -m 644 playground/public/generated/fonts/*.ttf /usr/share/fonts/truetype/freefont/
+
+      - name: Prepare compiler proof
+        run: uv run python -m playground.scripts.prepare-proof
+
+      - name: Check frontend
+        run: |
+          npm run typecheck --prefix playground
+          npm run lint --prefix playground
+          npm run test:unit --prefix playground
+
+      - name: Build complete Pages artifact
+        run: uv run python -m playground.scripts.build-site
+
+      - name: Test built playground and exported production project
+        working-directory: playground
+        run: |
+          npx playwright install --with-deps chromium
+          IMMUKNOW_SITE=1 npm run test:browser
+
+      - name: Compare browser and native PDFs
+        run: |
+          uv run python -m playground.scripts.compare-proof
+          uv run python -m playground.scripts.compare_examples
+
+      - name: Upload render evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playground-render-evidence
+          path: playground/test-results/
+          retention-days: 7
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7

@@ -11,6 +11,7 @@ import os
 import re
 import shutil
 import subprocess
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -18,21 +19,16 @@ import qrcode
 import yaml
 from pypdf import PdfReader
 
-from immuknow.data_models import ClientRecord
+from tests.fixtures.sample_input import create_test_input_dataframe
+from tests.unit.test_preprocess import build_result
+from immuknow.assignment_manifest import ManifestRow
 from immuknow.generate_notices import build_notice_data
+from immuknow.validate_pdfs import validate_pdf_structure
 
 ROOT = Path(__file__).resolve().parents[2]
 BASELINES = ROOT / "tests" / "fixtures" / "notice_baseline"
 CASES = sorted(path.stem for path in BASELINES.glob("*.json"))
-SIGNATURE_PAGE = {
-    "affirmative_en": 1,
-    "overdue_diseases_en": 2,
-    "overdue_diseases_fr": 2,
-    "long_address": 2,
-    "long_record": 1,
-    "overdue_agents_en": 1,
-    "overdue_agents_fr": 2,
-}
+
 pytestmark = pytest.mark.integration
 
 
@@ -54,23 +50,59 @@ def prepare_case(workspace: Path, case: str) -> tuple[Path, Path, dict]:
     workspace.mkdir(parents=True)
     shutil.copytree(ROOT / "immuknow" / "templates", workspace / "templates")
     shutil.copytree(
-        ROOT / "immuknow" / "config" / "translations", workspace / "translations"
+        ROOT / "immuknow/templates/lib/immuknow/locales", workspace / "translations"
     )
     fixture = json.loads((BASELINES / f"{case}.json").read_text())
-    client = ClientRecord(**fixture["client"])
+    raw = fixture["client"]
     config = yaml.safe_load(
         (ROOT / "immuknow" / "config" / "parameters.yaml").read_text()
     )
     config["preprocess"]["show_validity_markers"] = True
     config["preprocess"]["include_dose"] = fixture.get("include_dose", False)
+    frame = create_test_input_dataframe(num_clients=1)
+    values = {
+        "client_id": raw["client_id"],
+        "first_name": raw["person"]["first_name"],
+        "last_name": raw["person"]["last_name"],
+        "date_of_birth": raw["person"]["date_of_birth_iso"],
+        "street_address_line_1": raw["contact"]["street"],
+        "street_address_line_2": "",
+        "city": raw["contact"]["city"],
+        "province": raw["contact"]["province"],
+        "postal_code": raw["contact"]["postal_code"],
+        "school_name": raw["school"]["name"],
+        "board_name": raw["board"]["name"],
+        "imms_given": fixture["imms_given"],
+        "overdue_disease": "; ".join(
+            entry["disease"]
+            + (f" - {entry['dose']}" if entry["dose"] is not None else "")
+            for entry in raw["overdue_diseases"]
+        ),
+        "overdue_agent": "; ".join(raw["overdue_agents"]),
+    }
+    for key, value in values.items():
+        frame.loc[0, key] = value
+    reference = json.loads(
+        (ROOT / "immuknow/config/vaccine_reference.json").read_text()
+    )
+    manifest = {
+        raw["client_id"]: ManifestRow(
+            client_id=raw["client_id"],
+            version_id=fixture["version_id"],
+            language=raw["language"],
+            experiment_id=None,
+            experiment_arm=None,
+        )
+    }
+    result, _ = build_result(frame, reference, [], config=config, manifest=manifest)
+    client = result.clients[0]
     notice = build_notice_data(client, config)
     notice.update(
         version_id=fixture["version_id"],
         logo_path="/templates/assets/logo.png",
         signature_path="/templates/assets/signature.png",
     )
-    assert client.qr is not None
-    qrcode.make(client.qr["payload"]).save(workspace / "qr.png")
+    qrcode.make("https://example.invalid/immuknow-demo").save(workspace / "qr.png")
     notice["client_data"]["qr_img"] = "/qr.png"
     template = (
         workspace / "templates" / f"{fixture['version_id']}.{client.language}.typ"
@@ -106,24 +138,77 @@ def compile_notice(
 def test_native_template_retains_baseline_text(tmp_path: Path, case: str) -> None:
     """Every maintained entry point preserves prose, identity, history, and markers."""
     workspace = tmp_path / "Notices été"
-    template, data_file, _ = prepare_case(workspace, case)
+    template, data_file, notice = prepare_case(workspace, case)
     result = compile_notice(template, data_file, workspace)
     assert result.returncode == 0, result.stderr
     reader = PdfReader(workspace / "notice.pdf")
     pages = [page.extract_text() for page in reader.pages]
     expected_pages = (BASELINES / f"{case}-0.15.1.txt").read_text().split("\n\f\n")
-    assert len(pages) == len(expected_pages)
-    for actual, expected in zip(pages, expected_pages):
-        assert " ".join(actual.split()) == " ".join(expected.split())
+    # Keep the original prose snapshots; history now renders normalized facts,
+    # localized dates, and an explicit unknown-validity legend.
+    heading = (
+        "Immunization Record"
+        if case_language(case) == "en"
+        else "Dossier d’immunisation"
+    )
+
+    def letter_text(text: str) -> str:
+        letter = text.split("\n" + heading + "\n", 1)[0]
+        letter = re.sub(r"(?m)^\d+ / \d+\s*$", "", letter)
+        letter = re.sub(r"MEASURE_\w+:[\d.]+", "", letter)
+        return " ".join(letter.split())
+
+    assert letter_text("\n".join(pages)) == letter_text("\n".join(expected_pages))
+    assert len(pages) == (4 if case == "long_record" else 2)
+    history_text = " ".join("\n".join(pages).split("\n" + heading + "\n", 1)[1].split())
+    assert history_text.count("MMR") == len(notice["history"])
+    assert history_text.count("⬤") == 1 + 3 * sum(
+        item["validity"] == "valid" for item in notice["history"]
+    )
+    assert history_text.count("○") == 1 + 3 * sum(
+        item["validity"] == "invalid" for item in notice["history"]
+    )
+    assert "?" in history_text
+    for item in notice["history"]:
+        given = date.fromisoformat(item["date_given"])
+        if case_language(case) == "fr":
+            month = {1: "janvier", 2: "février"}[given.month]
+            rendered = f"{given.day} {month} {given.year}"
+        else:
+            month = {1: "January", 2: "February"}[given.month]
+            rendered = f"{month} {given.day}, {given.year}"
+        assert rendered in history_text
+    for prose in (
+        (
+            "For your reference, the immunization(s) on file with Public Health are as follows:",
+            "End of immunization record",
+        )
+        if case_language(case) == "en"
+        else (
+            "Pour votre référence, les immunisations enregistrées auprès de la Santé publique sont les suivantes :",
+            "Fin du dossier d’immunisation",
+        )
+    ):
+        assert prose in history_text
 
     assert reader.root_object.get("/Lang") == f"{case_language(case)}-CA"
     assert [
         i for i, page in enumerate(pages, start=1) if "MARK_END_SIGNATURE_BLOCK" in page
-    ] == [SIGNATURE_PAGE[case]]
+    ] == [1]
     assert "0000000001" in pages[0]
     contact = re.search(r"MEASURE_CONTACT_HEIGHT:([0-9.]+)", pages[0])
     assert contact is not None
-    assert float(contact.group(1)) <= 81.0 + 0.01
+    geometry = validate_pdf_structure(
+        workspace / "notice.pdf",
+        enabled_rules={"envelope_window": "error", "exactly_two_pages": "disabled"},
+    )
+    if case == "long_address":
+        assert float(contact.group(1)) > 81
+        assert len(geometry.warnings) == 1
+        assert "Address exceeds the window safety area" in geometry.warnings[0]
+    else:
+        assert float(contact.group(1)) == 81
+        assert geometry.passed, geometry.warnings
     table_date_heading = (
         "Date Given" if case_language(case) == "en" else "Date de l'administration"
     )
@@ -213,7 +298,7 @@ def test_json_punctuation_remains_text(tmp_path: Path) -> None:
     literal = 'Élodie "O\'Connor" \\ #panic("EXECUTED") [*text*] $x$ @name'
     notice["client_data"]["name"] = literal
     notice["client_data"]["address"] = "First line\nSecond line"
-    notice["received"] = []
+    notice["history"] = []
     notice["optional_metadata"] = None
     data_file.write_text(json.dumps(notice, ensure_ascii=False))
     result = compile_notice(template, data_file, workspace)
@@ -232,7 +317,7 @@ def compile_presentation_probe(
     workspace.mkdir(parents=True)
     shutil.copytree(ROOT / "immuknow" / "templates", workspace / "templates")
     shutil.copytree(
-        ROOT / "immuknow" / "config" / "translations", workspace / "translations"
+        ROOT / "immuknow/templates/lib/immuknow/locales", workspace / "translations"
     )
     probe = workspace / "probe.typ"
     probe.write_text('#import "/templates/presentation.typ" as presentation\n' + body)
@@ -368,18 +453,19 @@ def test_duplicate_display_labels_do_not_merge_chart_cells(tmp_path: Path) -> No
     labels["Measles"] = "Même libellé"
     labels["Mumps"] = "Même libellé"
     chart_path.write_text(json.dumps(labels, ensure_ascii=False))
-    notice["received"] = [
+    notice["history"] = [
         {
             "date_given": "2024-02-29",
-            "date_rowspan": 1,
-            "vaccines": ["MMR"],
-            "columns": {"Measles": "valid"},
+            "agent": "Measles",
+            "display_name": "Measles",
+            "diseases": ["Measles"],
+            "validity": "valid",
         }
     ]
-    notice["show_validity_markers"] = False
+    notice["rendering_defaults"]["show_validity"] = False
     data_file.write_text(json.dumps(notice, ensure_ascii=False))
     result = compile_notice(template, data_file, workspace)
     assert result.returncode == 0, result.stderr
     chart_text = PdfReader(workspace / "notice.pdf").pages[-1].extract_text()
     assert chart_text.count("Même libellé") == 2
-    assert chart_text.count("⬤") == 1
+    assert chart_text.count("⬤") == 2  # administration plus recorded legend

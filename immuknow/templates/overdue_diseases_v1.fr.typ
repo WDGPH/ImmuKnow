@@ -1,49 +1,42 @@
 #let notice = json(sys.inputs.at("data"))
 #let template-version = "overdue_diseases_v1"
 #let template-language = "fr"
-#assert(notice.version_id == template-version, message: "Notice version does not match this template")
-#assert(notice.language == template-language, message: "Notice language does not match this template")
+// @immuknow-settings: settings/overdue_diseases_v1.fr.typ
+#import "settings/overdue_diseases_v1.fr.typ": list-columns, history-diseases, history-ignore-agents, history-include-other, history-show-validity, history-min-rows, envelope-window, page-margins, body-font, body-size, logo-width, title-size, signature-width, signature-height, client-font-size, client-details, address-addressee
+#import "lib/immuknow/lib.typ" as ik
+// Shared project settings are edited by the playground layout selectors.
+#let layout = ik.project-layout(json("layout-settings.json"), template-version + "." + template-language, window: envelope-window)
+#ik.check-notice(notice, version: template-version, language: template-language)
 
 // --- CCEYA NOTICE TEMPLATE (TEST VERSION) --- //
 // Description: A typst template that dynamically generates CCEYA templates.
 // NOTE: All contact details are placeholders for testing purposes only.
 // ----------------------------------------- //
 
-#import "/templates/conf.typ"
-#import "/templates/presentation.typ" as presentation
+#import "conf.typ"
+#import "presentation.typ" as presentation
 
-// General document formatting 
-#set text(fill: black)
-#set par(justify: false)
-#set page("us-letter")
-
-// Formatting links - prevent URLs from splitting across lines
+#show: ik.notice-page.with(language: template-language, paper: layout.paper, margins: page-margins, font: body-font, font-size: body-size)
 #show link: it => box(underline(it))
 
-// Font formatting
-#set text(
-  font: "FreeSans",
-  size: 10pt
-)
-#set text(lang: "fr", region: "CA")
-
 // Immunization Notice Section
-#let immunization_notice(client, client_id, immunizations_due, date, font_size) = block[
+#let immunization_notice(client, date) = block[
 
 #v(0.2cm)
 
-#conf.header_info_cim(notice.logo_path, 6cm, black, 16pt, "Demande de dossier d'immunisation")
+#ik.notice-header(logo: image(notice.logo_path, width: logo-width), logo-width: logo-width, title-size: title-size, title: "Demande de dossier d'immunisation")
 
 #v(0.2cm)
 
-#conf.client_info_tbl_fr(equal_split: false, vline: false, client, client_id, font_size, "Centre de garde d'enfants", 81pt, border: false)
+#ik.client-block(notice, window: layout.window, font-size: client-font-size, details: client-details, addressee: address-addressee)
 
 #v(0.3cm)
 
 // Notice for immunizations
 En date du *#date*, nos dossiers indiquent que votre enfant n'a pas reçu les immunisations suivantes :  
 
-#conf.client_immunization_list(immunizations_due)
+#set list(indent: 0.8cm)
+#strong(ik.overdue-diseases(notice, columns: list-columns, labels: presentation.selected-labels()))
 
 Veuillez examiner le dossier d'immunisation à la page 2 et mettre à jour le dossier de votre enfant en utilisant l'une des options suivantes :
 
@@ -73,28 +66,16 @@ Si vous avez des questions sur les vaccins de votre enfant, veuillez appeler le 
 
   Sincères salutations, 
 
-#conf.signature(notice.signature_path, "Dr. Jane Smith, MPH", "Médecin hygiéniste adjoint")
+#ik.signature-block(signature: image(notice.signature_path, width: signature-width, height: signature-height, fit: "contain"), name: "Dr. Jane Smith, MPH", title: "Médecin hygiéniste adjoint")
 
-// Invisible marker for layout validation
-#box(width: 0pt, height: 0pt)[
-  #text(size: 0.1pt, fill: white)[MARK_END_SIGNATURE_BLOCK]
-]
   
 ]
 
-#let vaccine_table_page(client_id) = block[
+#let vaccine_table_page() = block[
   
   #v(0.5cm)
 
-  #grid(
-  
-  columns: (50%,50%), 
-  gutter: 5%, 
-  [#image(notice.logo_path, width: 6cm)],
-  [#set align(center + bottom)
-    #text(size: 20.5pt, fill: black)[*Dossier d'immunisation*]]
-  
-)
+  #ik.notice-header(logo: image(notice.logo_path, width: logo-width), logo-width: logo-width, title-size: 20.5pt, title: "Dossier d’immunisation")
 
   #v(0.5cm)
 
@@ -106,21 +87,12 @@ Si vous avez des questions sur les vaccins de votre enfant, veuillez appeler le 
   #set align(center)
   Fin du dossier d'immunisation ]
 
-#let client_row = notice.client_id
 #let data = notice.client_data
-#let vaccines_due_array = notice.overdue_diseases.map(entry => presentation.overdue-label(entry, notice.include_dose, "fr"))
-#let received = notice.received
-#let diseases = notice.chart_diseases
-#let show_validity_markers = notice.show_validity_markers
 #let date = presentation.long-date(notice.date_as_of, "fr", required: false)
 
-#set page(
-  margin: (top: 1cm, bottom: 2cm, left: 1.75cm, right: 2cm),
-  footer: align(center, context numbering("1 / " + str(counter(page).final().first()), counter(page).get().first()))
-)
 
-#immunization_notice(data, client_row, vaccines_due_array, date, 11pt)
+#immunization_notice(data, date)
 #pagebreak()
-#vaccine_table_page(client_row)
-#conf.immunization-table(5, received, diseases, 10.6pt, "fr", show_validity_markers)
+#vaccine_table_page()
+#ik.immunization-history(notice, diseases: history-diseases, ignore-agents: history-ignore-agents, include-other: history-include-other, show-validity: history-show-validity, min-rows: history-min-rows, font-size: 10.6pt, labels: presentation.selected-labels())
 #end_of_immunization_notice()

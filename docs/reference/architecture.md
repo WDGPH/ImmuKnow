@@ -1,5 +1,53 @@
 # Workflow and output evidence
 
+## Browser playground
+
+The static playground uses Typst.ts (Apache-2.0), with
+the JavaScript API pinned to `0.8.0-rc3`. Its published WASM reports
+`sys.version == version(0, 15, 0)` and is unsuitable for the production pin.
+Build the WASM from Typst.ts commit
+`9739d81c5eaee02d2dc9c4e691262a3f6758cdc4` using its locked dependencies,
+Rust `1.92.0`, and wasm-bindgen `0.2.118`. That lockfile selects the patched
+Typst `0.15.1` revision `59b5999da8e74e74583069408d2564fc1f9bc973`.
+The compiler worker asserts the version inside the running WASM before compiling a
+notice. Production continues to use the official Typst `0.15.1` binary.
+
+[Typst Online Editor](https://github.com/Mapaor/typst-online-editor) (MIT)
+demonstrates browser PDF compilation and preview with Typst.ts and PDF.js;
+[typst-web](https://github.com/ost-fh/typst-web) offers web editor components.
+A small Vite application avoids adopting an entire editor application and
+its deployment conventions. Compiler files and the checksum-verified native
+FreeFont archive are served locally; default remote font loading is disabled.
+The editor uses CodeMirror 6 (MIT), PDF.js 6.4.299 (Apache-2.0), and fflate
+0.8.3 (MIT); exact direct and transitive versions are locked in
+`playground/package-lock.json`. PDF.js displays the compiled PDF bytes used by
+export. A single worker owns compilation; revision checks discard superseded
+results. An inert filesystem fallback and package resolver prevent arbitrary
+source from fetching remote resources. The CSP also confines runtime requests
+to the site's origin. No multithreading or cross-origin isolation is required.
+
+A deterministic build assembles canonical template/package/configuration bytes
+and real prepared synthetic payloads. JavaScript never reimplements clinical
+preparation or Typst display projection. Local drafts hold changed source bytes;
+ZIP export preserves these and records hashes, package/compiler versions, and
+the entry point. Imports are bounded and validated in a separate worker.
+Production stages the same sources with its own real prepared payloads.
+
+Browser tests exercise every maintained template/example pair, errors, draft
+persistence, missing assets, worker recovery, and third-party request blocking.
+PDF comparisons check semantic text, geometry, and raster output. The mandatory
+edited-project test installs a wheel outside the checkout and runs both CLI
+selectors against the exported tree with empty Typst package caches.
+
+The docs workflow builds one `site/` artifact containing MkDocs and
+`site/playground/`. Its base comes from `site_url` in `mkdocs.yml`. Pull requests
+build and test the artifact without publishing; main pushes deploy the complete
+artifact to `gh-pages` using the existing deployment job. GitHub Pages must be
+configured to serve that branch. Dependency notices and the font license ship
+with the static assets.
+
+## Production workflow
+
 `immuknow.orchestrator.run_pipeline` owns a complete run; `immuknow` is its CLI.
 The run loads configuration, prepares clients, resolves their notices, renders
 and validates every expected PDF, then completes delivery. The selected

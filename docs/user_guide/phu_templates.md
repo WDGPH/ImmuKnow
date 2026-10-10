@@ -9,7 +9,8 @@ PHU must review.
 ## Select a complete template tree
 
 The package owns `immuknow/templates/`. Copy its entry points, `conf.typ`,
-`presentation.typ`, and assets to a directory you control, then use
+`presentation.typ`, `settings/`, `layout-settings.json`, the entire
+`lib/immuknow/` package, and assets to a directory you control, then use
 `--templates PATH`. From a checkout:
 
 ```bash
@@ -72,10 +73,9 @@ the JSON, and sets the document text language and Canadian region:
 
 ```typst
 #let notice = json(sys.inputs.at("data"))
-#assert(notice.version_id == "overdue_agents_v1", message: "Wrong notice version")
-#assert(notice.language == "en", message: "Wrong notice language")
-#set text(lang: "en", region: "CA")
-#import "/templates/conf.typ"
+#import "lib/immuknow/lib.typ" as ik
+#ik.check-notice(notice, version: "overdue_agents_v1", language: "en")
+#show: ik.notice-page.with(language: "en")
 ```
 
 Keep assertions independent of the input values. An agent-based overdue entry
@@ -83,37 +83,91 @@ also asserts `notice.overdue_agents.len() > 0`. Disease-based and affirmative
 entries do not require agents. Use ordinary Typst field access; input strings
 must remain literal data, never executable source.
 
+The shared package is versioned separately (`0.1.0`) and imports without client
+data. `check-notice` validates the rendering contract as well as the literal
+notice identity, so manual compilation cannot bypass malformed-payload checks.
+For a native local installation, copy `lib/immuknow/` to
+`<package-path>/local/immuknow/0.1.0/`, set `TYPST_PACKAGE_PATH`, and use
+`#import "@local/immuknow:0.1.0" as ik`. Keep the relative vendored import in
+portable projects so recipients need no package registry configuration.
+
 ## Per-notice JSON
 
 The renderer gives each entry point one small, derived JSON file:
 
 | Field | Meaning |
 |---|---|
+| `schema_version` | Rendering contract version, currently integer `1`; independent of the notice and package versions |
 | `version_id`, `language`, `client_id` | Resolved identity and client identifier |
 | `client_data` | `name`, `address`, `city`, `postal_code`, `school`, `over_16`, and `date_of_birth_iso`; optional `qr_img` and `qr_url` |
 | `date_as_of` | As-of date shown in the notice, in YYYY-MM-DD format, or blank when absent |
 | `overdue_diseases` | Normalized disease names and doses as `{disease, dose}`; invalid dose also has `dose_raw` |
 | `overdue_agents` | Vaccine agents available to agent-based notices |
-| `include_dose` | Whether Typst shows available numeric doses |
-| `received` | History rows with `date_given`, `date_rowspan`, `vaccines`, and validity statuses in `columns` keyed by disease name |
-| `chart_diseases` | Configured disease names in chart order |
-| `show_validity_markers` | Whether the history distinguishes validity |
+| `history` | Normalized facts: `date_given`, `agent`, `display_name`, complete `diseases` mappings, and `validity` (`valid`, `invalid`, or `unknown`) |
+| `validity_coverage` | Whole-cohort source coverage: `all_present`, `all_absent`, or `mixed`; retained even when marker display defaults to off |
+| `rendering_defaults` | `diseases`, `include_other`, `ignore_agents`, `include_dose`, and `show_validity` presentation defaults |
 | `logo_path`, `signature_path` | Assets beneath the bounded Typst root |
 
 An absent dose has `dose: null`; an invalid source dose also retains
 `dose_raw` for diagnostics. Python validates dates and passes ISO strings.
 `presentation.typ` formats long dates, approved disease labels, dose suffixes,
 and shared headings for English and French. A blank optional as-of date stays
-blank; a required invalid date fails. The history retains its compact date
-format. Translation dictionaries are staged once under `/translations/` and
+blank; a required invalid date fails. History dates use the same localized long-date format. Translation dictionaries are staged once under `/translations/` and
 looked up by disease name. Uncatalogued source labels stay visible unchanged.
 A label present only in the other language is an error. Chart membership is
 never inferred from translated labels.
+
+The canonical defaults live in `templates/lib/immuknow/locales/`. A selected
+configuration directory may supply `translations/{en,fr}_diseases_{chart,overdue}.json`
+overrides; missing override files fall back to those package defaults. The shared
+package exposes `overdue-diseases`, `overdue-agents`, and `immunization-history`;
+their options are documented in its bundled `README.md`. All maintained
+templates use these shared components.
+
+The versioned history facts are prepared before configurable history-agent
+exclusions and disease-column projection. Source placeholders are still removed;
+normalized named agents remain available even when `ignore_agents` excludes them
+from the default display. `agent` preserves the case-sensitive normalized source
+identifier (including established `-unspecified` → `*` cleanup), and
+`display_name` is its visible label. Same-date duplicates of one normalized agent
+retain the existing `unknown` before `valid` before `invalid` precedence.
+Different agents retain their own statuses and full mappings. Unknown mappings
+retain the source identifier, so presentation can place them in Other.
+
+`rendering_defaults.diseases` contains the named columns only; legacy `Other`
+membership is represented once by `include_other`. Empty arrays and explicit
+false values remain distinct from missing options. Python validates the payload
+against the packaged `schemas/rendering-v1.json` contract before writing it.
+Typst alone filters and groups history facts into display rows. The former
+compact `received` rows and duplicate top-level display defaults are removed.
+Explicit component arguments override the prepared defaults; `auto` inherits
+them. Mixed validity coverage fails only when the resolved template option
+enables markers. All-unknown coverage displays question marks, never invalid
+circles.
 
 Templates can rearrange content, but must keep their own version and
 language checks. A selected single file applies those checks to every client.
 The [configuration contract](configuration.md) explains assignments,
 translation data, and QR/password fields.
+
+## Customize layout
+
+Each maintained entry point imports `settings/<template>.typ`, which exposes
+body font/size, page margins, logo and
+signature dimensions, client-detail placement, addressee wording, and an
+`envelope-window` dictionary near the top. Prose remains visible below those
+controls. `notice-page`, `notice-header`, `client-block`, and `signature-block`
+come from the same shared package in browser and native rendering. See the
+package `README.md` for executable calls and every layout parameter.
+
+Envelope coordinates are physical lengths measured from the printed page's
+top-left corner. The preset preserves the former address-column position and
+81pt height, including an 11pt safety inset. Long content grows and produces
+an overflow finding instead of silently clipping. Adjust the window to the
+actual stationery and verify actual-size printing and folding. The
+[PDF validation guide](pdf_validation.md) explains geometry evidence and
+warning/error severities. The compact signature image and block keep the
+maintained French QR notices on two pages without changing their wording.
 
 ## Reproduce and review a notice
 
@@ -141,3 +195,16 @@ Review English and French prose, client details, history grouping, validity
 symbols, QR links, branding, page count, signature position, and envelope
 window. Include long records and addresses. The
 [testing guide](../developer_guide/testing.md) covers repeatable native checks.
+
+### Project paper and envelope settings
+
+Maintained entry points load `layout-settings.json` and call
+`ik.project-layout(settings, template-version + "." + template-language,
+window: envelope-window)`. The returned `paper` and `window` feed `notice-page`
+and `client-block`. Imports remain side-effect-free: the consuming entry point
+loads its own JSON. Schema version 1 stores per-notice `paper` (`us-letter`,
+`us-legal`, or `a4`) and `envelope` (`authored` or a preset key) under `notices`.
+Absent selections use Letter and the authored window. Preset `width_pt` and
+`height_pt` replace only the window dimensions; authored x/y and padding remain.
+Unknown presets, unsupported paper names, and invalid dimensions fail compilation.
+The [playground guide](playground.md) explains the selectors and sample windows.

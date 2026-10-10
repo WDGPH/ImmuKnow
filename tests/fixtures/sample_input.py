@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 
 from immuknow import data_models
+from immuknow.preprocess import build_history_items
 
 
 def create_test_input_dataframe(
@@ -174,20 +175,16 @@ def create_test_client_record(
 
     board_dict: Dict[str, Any] = {"id": f"brd_{sequence}", "name": board_name}
 
-    received: List[Dict[str, object]] = []
+    history = []
     if has_received_vaccines:
-        received = [
+        history = build_history_items(
+            "May 1, 2020 - DTaP; Jun 15, 2021 - MMR",
+            [],
             {
-                "date_given": "2020-05-01",
-                "diseases": ["Diphtheria", "Tetanus", "Pertussis"],
-                "vaccine_code": "DTaP",
+                "DTaP": ["Diphtheria", "Tetanus", "Pertussis"],
+                "MMR": ["Measles", "Mumps", "Rubella"],
             },
-            {
-                "date_given": "2021-06-15",
-                "diseases": ["Measles", "Mumps", "Rubella"],
-                "vaccine_code": "MMR",
-            },
-        ]
+        )
 
     if overdue_diseases is None:
         overdue_diseases = ["Measles/Mumps/Rubella"]
@@ -204,7 +201,7 @@ def create_test_client_record(
             {"disease": disease, "dose": None} for disease in overdue_diseases
         ],
         overdue_agents=[],
-        received=received,
+        history=history,
         metadata={},
         qr=None,
         version_id="overdue_diseases_v1",

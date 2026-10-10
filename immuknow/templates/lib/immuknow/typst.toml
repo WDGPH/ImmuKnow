@@ -1,0 +1,8 @@
+[package]
+name = "immuknow"
+version = "0.1.0"
+entrypoint = "lib.typ"
+authors = ["WDGPH"]
+license = "MIT"
+description = "Shared native ImmuKnow notice components"
+compiler = "0.15.1"
