@@ -26,7 +26,7 @@ dev = [
     "pytest",
     "pytest-cov",
     "pre-commit",
-    "ty>=0.0.78",
+    "ty>=0.0.80",
     "git-changelog>=2.9.7",
     "pypandoc>=1.15",
 ]
