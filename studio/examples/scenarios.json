@@ -1,0 +1,174 @@
+{
+  "dates": {
+    "date_of_delivery": "2026-02-01",
+    "date_as_of": "2026-01-15"
+  },
+  "creationTimestamp": 1769904000,
+  "scenarios": [
+    {
+      "id": "short",
+      "label": "Short history",
+      "description": "Two recorded administrations with known validity.",
+      "source": {
+        "school_name": "Lilac Demonstration School",
+        "board_name": "Example School Board",
+        "date_of_birth": "2015-02-03",
+        "street_address_line_1": "100 Example Lane",
+        "street_address_line_2": "",
+        "city": "Demo City",
+        "province": "ON",
+        "postal_code": "N0N 0N0",
+        "overdue_disease": "Measles - 2",
+        "overdue_agent": "MMR",
+        "imms_given": "May 1, 2020 - DTaP - Valid; Jun 15, 2021 - MMR - Valid",
+        "client_id": "0000000001",
+        "first_name": "Emily",
+        "last_name": "Example 01",
+        "school_id": "0012",
+        "board_id": "0034"
+      },
+      "source_by_language": {
+        "fr": {
+          "first_name": "Élodie",
+          "last_name": "Exemple 01",
+          "school_name": "École Démo des Lilas",
+          "board_name": "Conseil scolaire de démonstration",
+          "street_address_line_1": "100, allée des Lilas",
+          "city": "Ville Exemple"
+        }
+      },
+      "variants": [
+        "overdue_diseases_v1.en.typ",
+        "overdue_diseases_v1.fr.typ",
+        "overdue_agents_v1.en.typ",
+        "overdue_agents_v1.fr.typ"
+      ]
+    },
+    {
+      "id": "long-history",
+      "label": "Long history",
+      "description": "Seventy invented administrations and long contact fields exercise visible continuation.",
+      "source": {
+        "school_name": "Lilac Demonstration School",
+        "board_name": "Example School Board",
+        "date_of_birth": "2014-02-03",
+        "street_address_line_1": "100 Example Lane, Demonstration Residence for Extended Address Review",
+        "street_address_line_2": "Suite 200, Building C, North Entrance",
+        "city": "Demo City",
+        "province": "ON",
+        "postal_code": "N0N 0N0",
+        "overdue_disease": "Measles - 2",
+        "overdue_agent": "MMR",
+        "imms_given": "Jan 1, 2015 - DTaP - Valid; Jan 31, 2015 - MMR - Valid; Mar 2, 2015 - IPV - Valid; Apr 1, 2015 - DTaP - Valid; May 1, 2015 - MMR - Valid; May 31, 2015 - IPV - Valid; Jun 30, 2015 - DTaP - Valid; Jul 30, 2015 - MMR - Valid; Aug 29, 2015 - IPV - Valid; Sep 28, 2015 - DTaP - Valid; Oct 28, 2015 - MMR - Valid; Nov 27, 2015 - IPV - Valid; Dec 27, 2015 - DTaP - Valid; Jan 26, 2016 - MMR - Valid; Feb 25, 2016 - IPV - Valid; Mar 26, 2016 - DTaP - Valid; Apr 25, 2016 - MMR - Valid; May 25, 2016 - IPV - Valid; Jun 24, 2016 - DTaP - Valid; Jul 24, 2016 - MMR - Valid; Aug 23, 2016 - IPV - Valid; Sep 22, 2016 - DTaP - Valid; Oct 22, 2016 - MMR - Valid; Nov 21, 2016 - IPV - Valid; Dec 21, 2016 - DTaP - Valid; Jan 20, 2017 - MMR - Valid; Feb 19, 2017 - IPV - Valid; Mar 21, 2017 - DTaP - Valid; Apr 20, 2017 - MMR - Valid; May 20, 2017 - IPV - Valid; Jun 19, 2017 - DTaP - Valid; Jul 19, 2017 - MMR - Valid; Aug 18, 2017 - IPV - Valid; Sep 17, 2017 - DTaP - Valid; Oct 17, 2017 - MMR - Valid; Nov 16, 2017 - IPV - Valid; Dec 16, 2017 - DTaP - Valid; Jan 15, 2018 - MMR - Valid; Feb 14, 2018 - IPV - Valid; Mar 16, 2018 - DTaP - Valid; Apr 15, 2018 - MMR - Valid; May 15, 2018 - IPV - Valid; Jun 14, 2018 - DTaP - Valid; Jul 14, 2018 - MMR - Valid; Aug 13, 2018 - IPV - Valid; Sep 12, 2018 - DTaP - Valid; Oct 12, 2018 - MMR - Valid; Nov 11, 2018 - IPV - Valid; Dec 11, 2018 - DTaP - Valid; Jan 10, 2019 - MMR - Valid; Feb 9, 2019 - IPV - Valid; Mar 11, 2019 - DTaP - Valid; Apr 10, 2019 - MMR - Valid; May 10, 2019 - IPV - Valid; Jun 9, 2019 - DTaP - Valid; Jul 9, 2019 - MMR - Valid; Aug 8, 2019 - IPV - Valid; Sep 7, 2019 - DTaP - Valid; Oct 7, 2019 - MMR - Valid; Nov 6, 2019 - IPV - Valid; Dec 6, 2019 - DTaP - Valid; Jan 5, 2020 - MMR - Valid; Feb 4, 2020 - IPV - Valid; Mar 5, 2020 - DTaP - Valid; Apr 4, 2020 - MMR - Valid; May 4, 2020 - IPV - Valid; Jun 3, 2020 - DTaP - Valid; Jul 3, 2020 - MMR - Valid; Aug 2, 2020 - IPV - Valid; Sep 1, 2020 - DTaP - Valid",
+        "client_id": "0000000002",
+        "first_name": "Alexandra Catherine Elizabeth",
+        "last_name": "Long Demonstration Name",
+        "school_id": "0013",
+        "board_id": "0034"
+      },
+      "source_by_language": {
+        "fr": {
+          "first_name": "Alexandrine Catherine Élisabeth",
+          "last_name": "Long Nom de démonstration",
+          "school_name": "École Démo des Lilas",
+          "board_name": "Conseil scolaire de démonstration",
+          "street_address_line_1": "100, allée des Lilas, résidence de démonstration pour une longue adresse",
+          "city": "Ville Exemple",
+          "street_address_line_2": "Bureau 200, édifice C, entrée nord"
+        }
+      },
+      "variants": [
+        "overdue_diseases_v1.en.typ",
+        "overdue_diseases_v1.fr.typ"
+      ]
+    },
+    {
+      "id": "source-warnings",
+      "label": "Source warnings",
+      "description": "Unknown age, incomplete address and mixed history stay visible. The affirmative choice deliberately conflicts with supplied overdue facts.",
+      "source": {
+        "school_name": "Lilac Demonstration School",
+        "board_name": "Example School Board",
+        "date_of_birth": "",
+        "street_address_line_1": "",
+        "street_address_line_2": "",
+        "city": "Montréal",
+        "province": "Québec",
+        "postal_code": "",
+        "overdue_disease": "Measles - 2",
+        "overdue_agent": "",
+        "imms_given": "May 1, 2020 - MMR - Invalid; May 1, 2020 - MMR - Valid; Jun 15, 2021 - IPV",
+        "client_id": "0000000003",
+        "first_name": "Jordan",
+        "last_name": "Example 03",
+        "school_id": "0014",
+        "board_id": "0034"
+      },
+      "source_by_language": {
+        "fr": {
+          "first_name": "Camille",
+          "last_name": "Exemple 03",
+          "school_name": "École Démo des Lilas",
+          "board_name": "Conseil scolaire de démonstration"
+        }
+      },
+      "variants": [
+        "overdue_diseases_v1.en.typ",
+        "overdue_agents_v1.fr.typ",
+        "affirmative_schedule_v1.en.typ"
+      ]
+    },
+    {
+      "id": "affirmative",
+      "label": "Up to date",
+      "description": "Complete source facts explicitly assigned to the English affirmative notice.",
+      "source": {
+        "school_name": "Lilac Demonstration School",
+        "board_name": "Example School Board",
+        "date_of_birth": "2005-02-01",
+        "street_address_line_1": "100 Example Lane",
+        "street_address_line_2": "",
+        "city": "Demo City",
+        "province": "ON",
+        "postal_code": "N0N 0N0",
+        "overdue_disease": "",
+        "overdue_agent": "",
+        "imms_given": "May 1, 2020 - DTaP - Valid; Jun 15, 2021 - MMR - Valid",
+        "client_id": "0000000004",
+        "first_name": "Taylor",
+        "last_name": "Example 04",
+        "school_id": "0015",
+        "board_id": "0034"
+      },
+      "variants": [
+        "affirmative_schedule_v1.en.typ"
+      ]
+    },
+    {
+      "id": "suspension",
+      "label": "Suspension order",
+      "description": "An explicitly assigned order omits history and privacy.",
+      "source": {
+        "school_name": "Lilac Demonstration School",
+        "board_name": "Example School Board",
+        "date_of_birth": "2013-08-15",
+        "street_address_line_1": "100 Example Lane",
+        "street_address_line_2": "",
+        "city": "Demo City",
+        "province": "ON",
+        "postal_code": "N0N 0N0",
+        "overdue_disease": "Measles - 2",
+        "overdue_agent": "MMR",
+        "imms_given": "May 1, 2020 - MMR - Valid; Jun 15, 2021 - IPV",
+        "client_id": "0000000005",
+        "first_name": "Morgan",
+        "last_name": "Example 05",
+        "school_id": "0016",
+        "board_id": "0034"
+      },
+      "variants": [
+        "suspension_order_v1.en.typ"
+      ]
+    }
+  ]
+}

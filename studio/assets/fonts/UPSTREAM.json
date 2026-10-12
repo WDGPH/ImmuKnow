@@ -1,0 +1,9 @@
+{
+  "source": "https://archive.ubuntu.com/ubuntu/pool/main/f/",
+  "archives": [
+    {
+      "path": "fonts-freefont/fonts-freefont-ttf_20120503-10build1_all.deb",
+      "sha256": "d1424c9d47b2a6bd0d5149ca66f2bab9b4365237bfbb6063659d961bab2f8ccb"
+    }
+  ]
+}

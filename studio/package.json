@@ -1,0 +1,42 @@
+{
+  "name": "immuknow-studio",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "predev": "node scripts/prepare-contracts.mjs && node scripts/check-dev-assets.mjs",
+    "dev": "vite",
+    "serve": "uv run python -m http.server 4173 --bind 0.0.0.0 --directory ../site",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview",
+    "test:browser": "playwright test",
+    "test:unit": "vitest run",
+    "lint": "biome lint src tests unit",
+    "generate:contracts": "node scripts/prepare-contracts.mjs",
+    "prebuild": "node scripts/prepare-contracts.mjs",
+    "pretest:unit": "node scripts/prepare-contracts.mjs",
+    "pretypecheck": "node scripts/prepare-contracts.mjs"
+  },
+  "dependencies": {
+    "@codemirror/lang-json": "6.0.2",
+    "@codemirror/language": "6.13.1",
+    "@codemirror/lint": "6.9.7",
+    "@codemirror/state": "6.7.6",
+    "@codemirror/view": "6.43.14",
+    "@lezer/highlight": "1.2.5",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "codemirror": "6.0.2",
+    "fflate": "0.8.3"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@playwright/test": "1.64.0",
+    "@types/node": "26.6.5",
+    "typescript": "7.0.2",
+    "vite": "8.3.4",
+    "vitest": "5.0.3"
+  }
+}

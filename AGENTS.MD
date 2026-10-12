@@ -38,8 +38,8 @@ engine's supplied files, independently of project-declared hashes. Custom helper
 belong outside that directory; supplied library files are read-only in Studio.
 Use its `report-v2.json` for report fields, components and render rule definitions.
 Native and browser validators share test cases; check page/range bounds and row
-association as well as structure. Regenerate Studio's validation functions after
-schema changes. Never enable runtime code evaluation for schema validation.
+association as well as structure. Studio commands generate validation functions
+from those schemas. Never enable runtime code evaluation for schema validation.
 
 Keep one authoritative resolved `version_id` and language per notice.
 Persist one authoritative `run.json` and generate its escaped HTML view.
@@ -78,6 +78,10 @@ replacement. Record the current delivery code, resources and review tools on
 every attempt; retain earlier attempt records.
 
 ## Working method
+
+Keep each change small, check it, and commit before starting the next change.
+Prefer direct edits and deletions; add a helper or dependency only when the
+current task needs it.
 
 1. Trace a change from CLI or orchestrator to the final notice and delivery.
 2. Change the maintained code and the one guide that owns its contract.

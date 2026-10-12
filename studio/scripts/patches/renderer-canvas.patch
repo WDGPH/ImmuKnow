@@ -1,0 +1,187 @@
+diff --git a/crates/conversion/vec2canvas/src/lib.rs b/crates/conversion/vec2canvas/src/lib.rs
+index 6cd0b42b..2818cbcb 100644
+--- a/crates/conversion/vec2canvas/src/lib.rs
++++ b/crates/conversion/vec2canvas/src/lib.rs
+@@ -21,9 +21,10 @@ pub use paint::*;
+ use web_sys::{Blob, HtmlImageElement, OffscreenCanvas, OffscreenCanvasRenderingContext2d};
+ 
+ use std::{
+-    cell::OnceCell,
++    cell::{OnceCell, RefCell},
+     collections::HashMap,
+     fmt::Debug,
++    rc::Rc,
+     sync::{Arc, Mutex},
+ };
+ 
+@@ -460,6 +461,23 @@ struct LazyImage {
+     loaded: Arc<Mutex<Option<JsValue>>>,
+ }
+ 
++impl Drop for LazyImage {
++    fn drop(&mut self) {
++        if Arc::strong_count(&self.loaded) != 1 {
++            return;
++        }
++        let Some(loaded) = self.loaded.lock().unwrap().take() else {
++            return;
++        };
++        if let Some(bitmap) = loaded.dyn_ref::<web_sys::ImageBitmap>() {
++            bitmap.close();
++        } else if let Some(canvas) = loaded.dyn_ref::<OffscreenCanvas>() {
++            canvas.set_width(0);
++            canvas.set_height(0);
++        }
++    }
++}
++
+ fn create_image(image: Arc<Image>) -> Option<LazyImage> {
+     let is_svg = image.format.contains("svg");
+ 
+@@ -554,49 +572,37 @@ pub fn html_image_to_bitmap(img: &HtmlImageElement) -> web_sys::ImageBitmap {
+ 
+ pub async fn exception_create_image_blob(blob: &Blob, image_elem: &HtmlImageElement) {
+     let data_url = web_sys::Url::create_object_url_with_blob(blob).unwrap();
++    let resolver = Rc::new(RefCell::new(None::<js_sys::Function>));
++    let rejecter = Rc::new(RefCell::new(None::<js_sys::Function>));
++    let resolve_slot = resolver.clone();
++    let reject_slot = rejecter.clone();
++    let promise = Promise::new(&mut move |resolve, reject| {
++        *resolve_slot.borrow_mut() = Some(resolve);
++        *reject_slot.borrow_mut() = Some(reject);
++    });
++    let onload = Closure::<dyn FnMut()>::new(move || {
++        if let Some(resolve) = resolver.borrow().as_ref() {
++            let _ = resolve.call0(&JsValue::NULL);
++        }
++    });
++    let onerror = Closure::<dyn FnMut(JsValue)>::new(move |error: JsValue| {
++        if let Some(reject) = rejecter.borrow().as_ref() {
++            let _ = reject.call1(&JsValue::NULL, &error);
++        }
++    });
++    image_elem.set_onload(Some(onload.as_ref().unchecked_ref()));
++    image_elem.set_onerror(Some(onerror.as_ref().unchecked_ref()));
++    image_elem.set_src(&data_url);
++    let result = wasm_bindgen_futures::JsFuture::from(promise).await;
++    image_elem.set_onload(None);
++    image_elem.set_onerror(None);
++    web_sys::Url::revoke_object_url(&data_url).unwrap();
++    result.expect("image blob could not be loaded");
++}
+ 
+-    let img_load_promise = Promise::new(
+-        &mut move |complete: js_sys::Function, _reject: js_sys::Function| {
+-            let data_url = data_url.clone();
+-            let data_url2 = data_url.clone();
+-            let complete2 = complete.clone();
+-
+-            image_elem.set_src(&data_url);
+-
+-            // simulate async callback from another thread
+-            let a = Closure::<dyn Fn()>::new(move || {
+-                web_sys::Url::revoke_object_url(&data_url).unwrap();
+-                complete.call0(&complete).unwrap();
+-            });
+-
+-            image_elem.set_onload(Some(a.as_ref().unchecked_ref()));
+-            a.forget();
+-
+-            let a = Closure::<dyn Fn(JsValue)>::new(move |e: JsValue| {
+-                web_sys::Url::revoke_object_url(&data_url2).unwrap();
+-                complete2.call0(&complete2).unwrap();
+-                // let end = std::time::Instant::now();
+-                web_sys::console::log_1(
+-                    &format!(
+-                        "err image loading in {:?} {:?} {:?} {}",
+-                        // end - begin,
+-                        0,
+-                        js_sys::Reflect::get(&e, &"type".into()).unwrap(),
+-                        js_sys::JSON::stringify(&e).unwrap(),
+-                        data_url2,
+-                    )
+-                    .into(),
+-                );
+-            });
+-
+-            image_elem.set_onerror(Some(a.as_ref().unchecked_ref()));
+-            a.forget();
+-        },
+-    );
+-
+-    wasm_bindgen_futures::JsFuture::from(img_load_promise)
+-        .await
+-        .unwrap();
++/// A complete preview replacement has no need for earlier rasterized images.
++pub fn clear_raster_cache() {
++    comemo::evict(0);
+ }
+ 
+ #[comemo::memoize]
+diff --git a/crates/conversion/vec2canvas/src/ops.rs b/crates/conversion/vec2canvas/src/ops.rs
+index a59a0e28..0927b793 100644
+--- a/crates/conversion/vec2canvas/src/ops.rs
++++ b/crates/conversion/vec2canvas/src/ops.rs
+@@ -954,9 +954,9 @@ impl CanvasImageElem {
+             return None;
+         }
+ 
+-        let image = image.clone();
++        drop(loaded);
+         Some(async move {
+-            wasm_bindgen_futures::JsFuture::from(image_elem.elem)
++            wasm_bindgen_futures::JsFuture::from(image_elem.elem.clone())
+                 .await
+                 .unwrap();
+         })
+@@ -970,7 +970,7 @@ impl CanvasImageElem {
+         let image = &image_data.image;
+ 
+         let image_elem = rasterize_image(image.clone()).unwrap().0;
+-        let elem = wasm_bindgen_futures::JsFuture::from(image_elem.elem)
++        let elem = wasm_bindgen_futures::JsFuture::from(image_elem.elem.clone())
+             .await
+             .unwrap();
+ 
+diff --git a/packages/renderer/src/lib.rs b/packages/renderer/src/lib.rs
+index 74c0171e..f5d028a2 100644
+--- a/packages/renderer/src/lib.rs
++++ b/packages/renderer/src/lib.rs
+@@ -234,6 +234,13 @@ impl TypstRenderer {
+         Self {}
+     }
+ 
++    /// Release rasterized images after a complete preview session is retired.
++    /// The caller must finish any pending page renders first.
++    #[cfg(feature = "render_canvas")]
++    pub fn release_resources(&mut self) {
++        reflexo_vec2canvas::clear_raster_cache();
++    }
++
+     pub fn create_session(&self, options: Option<CreateSessionOptions>) -> Result<RenderSession> {
+         match options {
+             Some(options) => {
+diff --git a/packages/renderer/src/session.rs b/packages/renderer/src/session.rs
+index 77637f93..12e42e30 100644
+--- a/packages/renderer/src/session.rs
++++ b/packages/renderer/src/session.rs
+@@ -237,7 +237,8 @@ impl RenderSession {
+             let mut canvas_kern = self.canvas_kern.lock().unwrap();
+             canvas_kern.reset();
+         }
+-        if cfg!(feature = "render_svg") {
++        #[cfg(feature = "render_svg")]
++        {
+             let mut svg_kern = self.svg_kern.lock().unwrap();
+             svg_kern.reset();
+         }
+@@ -250,7 +251,8 @@ impl RenderSession {
+             let mut canvas_kern = self.canvas_kern.lock().unwrap();
+             canvas_kern.reset();
+         }
+-        if cfg!(feature = "render_svg") {
++        #[cfg(feature = "render_svg")]
++        {
+             let mut svg_kern = self.svg_kern.lock().unwrap();
+             svg_kern.reset();
+         }

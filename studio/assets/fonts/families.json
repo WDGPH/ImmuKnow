@@ -1,0 +1,14 @@
+{
+  "FreeSans": [
+    "FreeSans.ttf",
+    "FreeSansBold.ttf",
+    "FreeSansBoldOblique.ttf",
+    "FreeSansOblique.ttf"
+  ],
+  "FreeSerif": [
+    "FreeSerif.ttf",
+    "FreeSerifBold.ttf",
+    "FreeSerifBoldItalic.ttf",
+    "FreeSerifItalic.ttf"
+  ]
+}

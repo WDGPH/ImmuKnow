@@ -1,0 +1,15 @@
+diff --git a/packages/compiler/src/lib.rs b/packages/compiler/src/lib.rs
+--- a/packages/compiler/src/lib.rs
++++ b/packages/compiler/src/lib.rs
+@@ -143,6 +143,11 @@ impl TypstCompiler {
+     pub fn reset(&mut self) -> Result<(), JsValue> {
+         // reset the world caches
+         self.verse.evict(30);
++        // The snapshot API does not run the compilation actor's cache task.
++        // Age memoized Typst results as well as VFS entries between snapshots.
++        comemo::evict(30);
++        let vfs = self.verse.vfs();
++        vfs.clone_source_cache().evict(vfs.revision(), 30);
+ 
+         Ok(())
+     }

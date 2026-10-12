@@ -1,0 +1,104 @@
+diff --git a/packages/compiler/src/lib.rs b/packages/compiler/src/lib.rs
+--- a/packages/compiler/src/lib.rs
++++ b/packages/compiler/src/lib.rs
+@@ -416,8 +416,41 @@ impl TypstCompileWorld {
+         Ok(self
+             .get_doc(kind)?
+             .and_then(|doc| Some(doc.info().title.as_ref()?.to_string())))
+     }
+ 
++    /// Page geometry and ordinary text positions from the compiled paged layout.
++    /// Text in transformed groups remains available to accessibility readers,
++    /// but is omitted from hit targets when its position cannot be represented
++    /// by an axis-aligned box.
++    pub fn preview_info(&self) -> Result<String, JsValue> {
++        let doc = self
++            .get_doc_t::<TypstPagedDocument>()?
++            .ok_or_else(|| error_once!("document is not compiled"))?;
++        let pages = doc
++            .pages()
++            .iter()
++            .map(|page| {
++                let mut text = Vec::new();
++                let mut plain_text = Vec::new();
++                collect_preview_text(
++                    &page.frame,
++                    ::typst::layout::Point::zero(),
++                    true,
++                    &mut text,
++                    &mut plain_text,
++                );
++                serde_json::json!({
++                    "width": page.frame.size().x.to_pt(),
++                    "height": page.frame.size().y.to_pt(),
++                    "text": text,
++                    "plainText": plain_text.join("\n"),
++                })
++            })
++            .collect::<Vec<_>>();
++        serde_json::to_string(&serde_json::json!({ "pages": pages }))
++            .map_err(|error| JsValue::from_str(&error.to_string()))
++    }
++
+     pub fn get_artifact(&mut self, fmt: u8, diagnostics_format: u8) -> Result<JsValue, JsValue> {
+         #[cfg(feature = "svg")]
+         use reflexo_vec2svg::DefaultExportFeature;
+@@ -585,6 +618,58 @@ impl TypstCompileWorld {
+     }
+ }
+
++fn collect_preview_text(
++    frame: &::typst::layout::Frame,
++    origin: ::typst::layout::Point,
++    positioned: bool,
++    text: &mut Vec<serde_json::Value>,
++    plain_text: &mut Vec<String>,
++) {
++    use ::typst::layout::{FrameItem, Point};
++
++    for (position, item) in frame.items() {
++        let position = origin + *position;
++        match item {
++            FrameItem::Text(run) => {
++                if run.text.is_empty() {
++                    continue;
++                }
++                plain_text.push(run.text.to_string());
++                if !positioned {
++                    continue;
++                }
++                let bounds = run.bbox();
++                let x0 = (position.x + bounds.min.x).to_pt();
++                let x1 = (position.x + bounds.max.x).to_pt();
++                let y0 = (position.y + bounds.min.y).to_pt();
++                let y1 = (position.y + bounds.max.y).to_pt();
++                let x = x0.min(x1);
++                let y = y0.min(y1);
++                let width = (x1 - x0).abs();
++                let height = (y1 - y0).abs();
++                if x.is_finite() && y.is_finite() && width > 0.0 && height > 0.0 {
++                    text.push(serde_json::json!({
++                        "text": run.text.as_str(), "x": x, "y": y,
++                        "width": width, "height": height,
++                    }));
++                }
++            }
++            FrameItem::Group(group) => {
++                let movable = group.transform.is_only_translate();
++                let offset = Point::new(group.transform.tx, group.transform.ty);
++                collect_preview_text(
++                    &group.frame,
++                    position + offset,
++                    positioned && movable,
++                    text,
++                    plain_text,
++                );
++            }
++            _ => {}
++        }
++    }
++}
++
+ #[cfg(feature = "pdf")]
+ #[derive(Serialize, Deserialize, Debug, Clone)]
+ pub struct RenderPdfOpts {

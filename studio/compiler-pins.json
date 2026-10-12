@@ -1,0 +1,25 @@
+{
+  "browser_compiler": {
+    "crate_version": "0.8.0-rc3",
+    "source_revision": "9739d81c5eaee02d2dc9c4e691262a3f6758cdc4",
+    "rust_version": "1.92.0",
+    "wasm_bindgen_version": "0.2.118",
+    "features": [
+      "web",
+      "pdf",
+      "svg"
+    ],
+    "cache_patch_sha256": "fe316bca31a7ff30d83d522746bb67aa3eba818e9aa78fe7621591163a50a858",
+    "preview_patch_sha256": "ad6d14efe813ffa0a67bcf0359218ba0927bfe089c0b8cf05c39db526d5e56c3"
+  },
+  "browser_renderer": {
+    "crate_version": "0.8.0-rc3",
+    "source_revision": "9739d81c5eaee02d2dc9c4e691262a3f6758cdc4",
+    "rust_version": "1.92.0",
+    "wasm_bindgen_version": "0.2.118",
+    "features": [
+      "render_canvas"
+    ],
+    "canvas_patch_sha256": "f81454fd4f06a0483cec3f4f52b48b5f5f0b4a3ca60d33636df15d36583264ea"
+  }
+}
