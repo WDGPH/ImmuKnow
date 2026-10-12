@@ -1,228 +1,182 @@
-"""Compile maintained Typst examples with JSON and compare baseline notice text.
-
-These acceptance tests require the real compiler. A missing executable is a
-failure, including in CI; mocked compilation cannot prove the template boundary.
-"""
+"""Compile maintained entry points and retain semantic, literal-data and label checks."""
 
 from __future__ import annotations
 
 import json
 import os
-import re
 import shutil
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
-import qrcode
 import yaml
 from pypdf import PdfReader
 
-from immuknow.data_models import ClientRecord
-from immuknow.generate_notices import build_notice_data
+from immuknow.compile_notices import compile_render_job, evaluate_render_job
+from immuknow.generate_notices import prepare_render_jobs
+from tests.fixtures.sample_input import create_test_client_record
 
 ROOT = Path(__file__).resolve().parents[2]
-BASELINES = ROOT / "tests" / "fixtures" / "notice_baseline"
-CASES = sorted(path.stem for path in BASELINES.glob("*.json"))
-SIGNATURE_PAGE = {
-    "affirmative_en": 1,
-    "overdue_diseases_en": 2,
-    "overdue_diseases_fr": 2,
-    "long_address": 2,
-    "long_record": 1,
-    "overdue_agents_en": 1,
-    "overdue_agents_fr": 2,
-}
 pytestmark = pytest.mark.integration
 
 
-def prepare_case(workspace: Path, case: str) -> tuple[Path, Path, dict]:
-    """Stage static templates and one synthetic notice in an external directory.
-
-    Parameters
-    ----------
-    workspace : Path
-        Test-owned file root, deliberately outside the checkout.
-    case : str
-        Name of a captured synthetic baseline.
-
-    Returns
-    -------
-    tuple
-        Selected entry point, data file, and ordinary notice data.
-    """
-    workspace.mkdir(parents=True)
-    shutil.copytree(ROOT / "immuknow" / "templates", workspace / "templates")
-    shutil.copytree(
-        ROOT / "immuknow" / "config" / "translations", workspace / "translations"
+def prepare_case(
+    workspace: Path, version: str = "overdue_diseases_v1", language: str = "en"
+):
+    shutil.copytree(ROOT / "immuknow/templates", workspace / "resources/templates")
+    client = replace(
+        create_test_client_record(has_received_vaccines=True, language=language),
+        version_id=version,
+        overdue_diseases=[{"disease": "Measles", "dose": 2}],
+        overdue_agents=["MMR", "DTaP"],
     )
-    fixture = json.loads((BASELINES / f"{case}.json").read_text())
-    client = ClientRecord(**fixture["client"])
-    config = yaml.safe_load(
-        (ROOT / "immuknow" / "config" / "parameters.yaml").read_text()
-    )
-    config["preprocess"]["show_validity_markers"] = True
-    config["preprocess"]["include_dose"] = fixture.get("include_dose", False)
-    notice = build_notice_data(client, config)
-    notice.update(
-        version_id=fixture["version_id"],
-        logo_path="/templates/assets/logo.png",
-        signature_path="/templates/assets/signature.png",
-    )
-    assert client.qr is not None
-    qrcode.make(client.qr["payload"]).save(workspace / "qr.png")
-    notice["client_data"]["qr_img"] = "/qr.png"
-    template = (
-        workspace / "templates" / f"{fixture['version_id']}.{client.language}.typ"
-    )
-    data_file = workspace / "notice.json"
-    data_file.write_text(json.dumps(notice, ensure_ascii=False))
-    return template, data_file, notice
+    if version == "affirmative_schedule_v1":
+        client = replace(client, overdue_diseases=[], overdue_agents=[])
+    config = yaml.safe_load((ROOT / "immuknow/config/parameters.yaml").read_text())
+    config["creation_timestamp"] = 1780272000
+    job = prepare_render_jobs([client], workspace, config)[0]
+    return job, json.loads(job.data.read_text())
 
 
-def compile_notice(
-    template: Path, data_file: Path, workspace: Path
-) -> subprocess.CompletedProcess:
-    """Invoke real Typst with only a file reference in its command-line input."""
-    return subprocess.run(
-        [
-            os.environ.get("TYPST_BIN", "typst"),
-            "compile",
-            "--root",
-            str(workspace),
-            "--input",
-            "data=/notice.json",
-            str(template),
-            str(workspace / "notice.pdf"),
-        ],
-        cwd=workspace,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-
-@pytest.mark.parametrize("case", CASES)
-def test_native_template_retains_baseline_text(tmp_path: Path, case: str) -> None:
-    """Every maintained entry point preserves prose, identity, history, and markers."""
-    workspace = tmp_path / "Notices été"
-    template, data_file, _ = prepare_case(workspace, case)
-    result = compile_notice(template, data_file, workspace)
-    assert result.returncode == 0, result.stderr
-    reader = PdfReader(workspace / "notice.pdf")
-    pages = [page.extract_text() for page in reader.pages]
-    expected_pages = (BASELINES / f"{case}-0.15.1.txt").read_text().split("\n\f\n")
-    assert len(pages) == len(expected_pages)
-    for actual, expected in zip(pages, expected_pages):
-        assert " ".join(actual.split()) == " ".join(expected.split())
-
-    assert reader.root_object.get("/Lang") == f"{case_language(case)}-CA"
-    assert [
-        i for i, page in enumerate(pages, start=1) if "MARK_END_SIGNATURE_BLOCK" in page
-    ] == [SIGNATURE_PAGE[case]]
-    assert "0000000001" in pages[0]
-    contact = re.search(r"MEASURE_CONTACT_HEIGHT:([0-9.]+)", pages[0])
-    assert contact is not None
-    assert float(contact.group(1)) <= 81.0 + 0.01
-    table_date_heading = (
-        "Date Given" if case_language(case) == "en" else "Date de l'administration"
-    )
-    assert table_date_heading in " ".join(pages[-1].split())
-    # Compilation reads the maintained source without personalizing it.
-    relative = template.relative_to(workspace)
-    assert template.read_bytes() == (ROOT / "immuknow" / relative).read_bytes()
-
-
-def case_language(case: str) -> str:
-    """Read the assigned language from the synthetic baseline input."""
-    return json.loads((BASELINES / f"{case}.json").read_text())["client"]["language"]
+def compile_case(job):
+    assert not compile_render_job(job, os.environ.get("TYPST_BIN", "typst"))
+    report = evaluate_render_job(job, os.environ.get("TYPST_BIN", "typst"))
+    reader = PdfReader(job.pdf)
+    assert report["page_count"] == len(reader.pages)
+    return report, reader
 
 
 @pytest.mark.parametrize(
-    ("case", "field", "value", "diagnostic"),
+    "version,language,title,selected_wording,pages",
     [
         (
-            "overdue_agents_en",
-            "language",
-            "fr",
-            "Notice language does not match this template",
-        ),
-        (
-            "overdue_agents_fr",
-            "language",
+            "overdue_diseases_v1",
             "en",
-            "Notice language does not match this template",
+            "Request for Immunization Record",
+            "your child has",
+            2,
         ),
         (
-            "overdue_agents_en",
+            "overdue_diseases_v1",
+            "fr",
+            "Demande de dossier d'immunisation",
+            "votre enfant n’a",
+            2,
+        ),
+        (
+            "overdue_agents_v1",
+            "en",
+            "Request for Immunization Record",
+            "your child has",
+            2,
+        ),
+        (
+            "overdue_agents_v1",
+            "fr",
+            "Demande de dossier d'immunisation",
+            "votre enfant n’a",
+            2,
+        ),
+        (
+            "affirmative_schedule_v1",
+            "en",
+            "Request for Immunization Record",
+            "your child is",
+            2,
+        ),
+        (
+            "suspension_order_v1",
+            "en",
+            "Order for Suspension from Attendance at School",
+            "twenty school days",
+            1,
+        ),
+    ],
+)
+def test_maintained_entry_points_keep_their_content_and_component_choices(
+    tmp_path: Path,
+    version: str,
+    language: str,
+    title: str,
+    selected_wording: str,
+    pages: int,
+):
+    job, _ = prepare_case(tmp_path, version, language)
+    report, reader = compile_case(job)
+    first = " ".join(reader.pages[0].extract_text().split())
+    assert title in first
+    assert selected_wording in first
+    assert "0000000001" in first
+    assert reader.root_object["/Lang"] == language + "-CA"
+    assert len(reader.pages) == pages
+    assert report["identity"] == {
+        "client_id": "0000000001",
+        "version_id": version,
+        "language": language,
+    }
+    assert (
+        job.template.read_bytes()
+        == (ROOT / "immuknow/templates" / job.template.name).read_bytes()
+    )
+    assert not any(
+        "MARK_END_" in page.extract_text() or "MEASURE_" in page.extract_text()
+        for page in reader.pages
+    )
+    suspension = version == "suspension_order_v1"
+    assert report["components"]["history"] is (not suspension)
+    assert report["components"]["privacy"] is (not suspension)
+    if not suspension:
+        last = " ".join(reader.pages[-1].extract_text().split())
+        assert "2020-05-01" in last and "DTaP" in last
+        assert (
+            "End of immunization record"
+            if language == "en"
+            else "Fin du dossier d’immunisation"
+        ) in last
+    if version == "overdue_agents_v1":
+        assert "MMR" in first and "DTaP" in first
+        assert ("• Measles" if language == "en" else "• Rougeole") not in first
+    elif version == "overdue_diseases_v1":
+        assert ("Measles" if language == "en" else "Rougeole") in first
+
+
+@pytest.mark.parametrize(
+    "field,value,diagnostic",
+    [
+        ("language", "fr", "Notice language does not match this template"),
+        (
             "version_id",
             "affirmative_schedule_v1",
             "Notice version does not match this template",
         ),
-        (
-            "overdue_agents_en",
-            "overdue_agents",
-            [],
-            "This overdue template requires vaccine agent data",
-        ),
-        (
-            "overdue_agents_fr",
-            "overdue_agents",
-            [],
-            "This overdue template requires vaccine agent data",
-        ),
     ],
 )
-def test_native_template_rejects_incompatible_data(
-    tmp_path: Path, case: str, field: str, value: object, diagnostic: str
-) -> None:
-    """Direct invocation cannot bypass template identity or required agent content."""
-    workspace = tmp_path / "assertions"
-    template, data_file, notice = prepare_case(workspace, case)
+def test_trusted_filename_identity_rejects_mismatched_facts(
+    tmp_path: Path, field, value, diagnostic
+):
+    job, notice = prepare_case(tmp_path)
     notice[field] = value
-    data_file.write_text(json.dumps(notice))
-    result = compile_notice(template, data_file, workspace)
-    assert result.returncode != 0
-    assert diagnostic in result.stderr
-    assert not (workspace / "notice.pdf").exists()
+    job.data.write_text(json.dumps(notice))
+    with pytest.raises(subprocess.CalledProcessError) as failure:
+        compile_case(job)
+    assert diagnostic in failure.value.stderr
+    assert not job.pdf.exists()
+    assert not job.pdf.with_suffix(".partial.pdf").exists()
 
 
-@pytest.mark.parametrize("case", ["overdue_agents_en", "overdue_agents_fr"])
-def test_agent_templates_show_agents_independently_of_diseases(
-    tmp_path: Path, case: str
-) -> None:
-    """An agent notice displays selected vaccine agents in either language."""
-    workspace = tmp_path / "agent content"
-    template, data_file, notice = prepare_case(workspace, case)
-    notice["overdue_diseases"] = []
-    notice["overdue_agents"] = ["MMR", "DTaP"]
-    data_file.write_text(json.dumps(notice, ensure_ascii=False))
-    result = compile_notice(template, data_file, workspace)
-    assert result.returncode == 0, result.stderr
-    first_page = PdfReader(workspace / "notice.pdf").pages[0].extract_text()
-    assert "• MMR" in first_page
-    assert "• DTaP" in first_page
-    assert "• Measles" not in first_page
-    assert "• Rougeole" not in first_page
-
-
-def test_json_punctuation_remains_text(tmp_path: Path) -> None:
-    """Input punctuation, accents, empty collections, and nulls never become code."""
-    workspace = tmp_path / "ordinary data"
-    template, data_file, notice = prepare_case(workspace, "overdue_diseases_en")
+def test_json_punctuation_remains_literal_text(tmp_path: Path):
+    job, notice = prepare_case(tmp_path)
     literal = 'Élodie "O\'Connor" \\ #panic("EXECUTED") [*text*] $x$ @name'
     notice["client_data"]["name"] = literal
     notice["client_data"]["address"] = "First line\nSecond line"
-    notice["received"] = []
-    notice["optional_metadata"] = None
-    data_file.write_text(json.dumps(notice, ensure_ascii=False))
-    result = compile_notice(template, data_file, workspace)
-    assert result.returncode == 0, result.stderr
-    text = "\n".join(
-        page.extract_text() for page in PdfReader(workspace / "notice.pdf").pages
-    )
+    notice["history"] = []
+    job.data.write_text(json.dumps(notice, ensure_ascii=False))
+    _, reader = compile_case(job)
+    text = " ".join(" ".join(page.extract_text().split()) for page in reader.pages)
     assert '#panic("EXECUTED")' in text
-    assert "[*text*] $x$ @name" in " ".join(text.split())
+    assert "[*text*] $x$ @name" in text
+    assert "First line Second line" in text
 
 
 def compile_presentation_probe(
@@ -231,9 +185,6 @@ def compile_presentation_probe(
     """Evaluate the maintained presentation helper with the real Typst compiler."""
     workspace.mkdir(parents=True)
     shutil.copytree(ROOT / "immuknow" / "templates", workspace / "templates")
-    shutil.copytree(
-        ROOT / "immuknow" / "config" / "translations", workspace / "translations"
-    )
     probe = workspace / "probe.typ"
     probe.write_text('#import "/templates/presentation.typ" as presentation\n' + body)
     return subprocess.run(
@@ -328,58 +279,58 @@ def test_presentation_rejects_missing_or_invalid_required_date(
     assert not (workspace / "probe.pdf").exists()
 
 
-def test_missing_approved_label_fails_native_render(tmp_path: Path) -> None:
-    """An incomplete selected dictionary cannot silently drop an overdue item."""
-    workspace = tmp_path / "missing label"
-    template, data_file, _ = prepare_case(workspace, "overdue_diseases_fr")
-    path = workspace / "translations" / "fr_diseases_overdue.json"
+def test_missing_selected_language_label_warns_and_preserves_raw_disease(
+    tmp_path: Path,
+):
+    job, _ = prepare_case(tmp_path, language="fr")
+    path = tmp_path / "resources/templates/translations/fr_diseases_overdue.json"
     labels = json.loads(path.read_text())
     del labels["Measles"]
-    path.write_text(json.dumps(labels, ensure_ascii=False))
-    result = compile_notice(template, data_file, workspace)
-    assert result.returncode != 0
-    assert "Missing fr diseases_overdue label for Measles" in result.stderr
-    assert not (workspace / "notice.pdf").exists()
+    path.write_text(json.dumps(labels))
+    report, reader = compile_case(job)
+    assert "Measles" in reader.pages[0].extract_text()
+    assert any(
+        c["code"] == "content.translation_missing"
+        and c["status"] == "warn"
+        and c["component"] == "overdue_diseases"
+        for c in report["checks"]
+    )
 
 
-def test_uncatalogued_source_label_remains_visible(tmp_path: Path) -> None:
-    """Grouped source text is preserved without inventing a translated label."""
-    workspace = tmp_path / "uncatalogued source label"
-    template, data_file, notice = prepare_case(workspace, "overdue_diseases_fr")
+def test_uncatalogued_source_label_remains_visible(tmp_path: Path):
+    job, notice = prepare_case(tmp_path, language="fr")
     notice["overdue_diseases"] = [
         {"disease": "Diphtheria/Tetanus/Pertussis", "dose": None}
     ]
-    data_file.write_text(json.dumps(notice))
-    result = compile_notice(template, data_file, workspace)
-    assert result.returncode == 0, result.stderr
-    text = "\n".join(
-        page.extract_text() for page in PdfReader(workspace / "notice.pdf").pages
+    job.data.write_text(json.dumps(notice))
+    _, reader = compile_case(job)
+    assert "Diphtheria/Tetanus/Pertussis" in reader.pages[0].extract_text()
+    assert "31 août 2025" in reader.pages[0].extract_text()
+
+
+def test_duplicate_display_labels_keep_distinct_disease_cells(tmp_path: Path):
+    job, notice = prepare_case(tmp_path, language="fr")
+    chart = tmp_path / "resources/templates/translations/fr_diseases_chart.json"
+    labels = json.loads(chart.read_text())
+    labels.update(Measles="Même libellé", Mumps="Même libellé")
+    chart.write_text(json.dumps(labels))
+    settings = tmp_path / "resources/templates/settings.typ"
+    settings.write_text(
+        settings.read_text()
+        + '\n#let immunization-history() = immuknow.immunization-history(notice, diseases: ("Measles", "Mumps"), include-other: false, labels: presentation.selected-labels())\n'
     )
-    assert "Diphtheria/Tetanus/Pertussis" in text
-    assert "31 août 2025" in text
-
-
-def test_duplicate_display_labels_do_not_merge_chart_cells(tmp_path: Path) -> None:
-    """Two disease identifiers can share a heading while their record cells stay distinct."""
-    workspace = tmp_path / "duplicate display labels"
-    template, data_file, notice = prepare_case(workspace, "overdue_diseases_fr")
-    chart_path = workspace / "translations" / "fr_diseases_chart.json"
-    labels = json.loads(chart_path.read_text())
-    labels["Measles"] = "Même libellé"
-    labels["Mumps"] = "Même libellé"
-    chart_path.write_text(json.dumps(labels, ensure_ascii=False))
-    notice["received"] = [
+    notice["history"] = [
         {
             "date_given": "2024-02-29",
-            "date_rowspan": 1,
-            "vaccines": ["MMR"],
-            "columns": {"Measles": "valid"},
+            "agent": "source-agent",
+            "display_name": "source-agent",
+            "diseases": ["Measles"],
+            "validity": "valid",
         }
     ]
-    notice["show_validity_markers"] = False
-    data_file.write_text(json.dumps(notice, ensure_ascii=False))
-    result = compile_notice(template, data_file, workspace)
-    assert result.returncode == 0, result.stderr
-    chart_text = PdfReader(workspace / "notice.pdf").pages[-1].extract_text()
+    job.data.write_text(json.dumps(notice))
+    report, reader = compile_case(job)
+    chart_text = reader.pages[-1].extract_text()
     assert chart_text.count("Même libellé") == 2
     assert chart_text.count("⬤") == 1
+    assert report["measurements"]["history"][0]["displayed_rows"] == 1

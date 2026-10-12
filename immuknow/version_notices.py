@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import dataclasses
 import re
+from collections.abc import Callable
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Dict, Optional
+from typing import TYPE_CHECKING
 
 import yaml
 
@@ -44,14 +45,15 @@ class NoticeKind(str, Enum):
 
 EligibilityRule = Callable[["ClientRecord"], bool]
 
-ELIGIBILITY_RULES: Dict[str, EligibilityRule] = {
+ELIGIBILITY_RULES: dict[str, EligibilityRule] = {
     "has_overdue": lambda c: bool(c.overdue_diseases),
+    "has_overdue_agents": lambda c: bool(c.overdue_agents),
     "no_overdue": lambda c: not c.overdue_diseases,
     "any": lambda _: True,
 }
 
 # Fallback rule used when a version entry omits the `requires` field.
-_KIND_DEFAULT_RULE: Dict[NoticeKind, str] = {
+_KIND_DEFAULT_RULE: dict[NoticeKind, str] = {
     NoticeKind.OVERDUE: "has_overdue",
     NoticeKind.AFFIRMATIVE: "no_overdue",
     NoticeKind.INFORMATIONAL: "any",
@@ -68,7 +70,7 @@ class NoticeVersion:
 @dataclasses.dataclass(frozen=True)
 class NoticeVersionCatalog:
     schema_version: int
-    versions: Dict[str, NoticeVersion]
+    versions: dict[str, NoticeVersion]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -76,8 +78,8 @@ class ResolvedNotice:
     version_id: str
     notice_kind: str  # NoticeKind.value
     language: str
-    experiment_id: Optional[str]
-    experiment_arm: Optional[str]
+    experiment_id: str | None
+    experiment_arm: str | None
     assignment_source: str  # "manifest" | "template"
 
 
@@ -103,7 +105,7 @@ def template_identity(template: Path) -> tuple[str, str]:
     return parts[0], parts[1]
 
 
-def attach_notice(client: "ClientRecord", resolved: ResolvedNotice) -> "ClientRecord":
+def attach_notice(client: ClientRecord, resolved: ResolvedNotice) -> ClientRecord:
     """Attach one resolved notice while preserving unrelated client metadata."""
     Language.from_string(resolved.language)
     validate_version_id(resolved.version_id)
@@ -157,7 +159,7 @@ def load_catalog(config_dir: Path) -> NoticeVersionCatalog:
     if not isinstance(raw_versions, dict) or not raw_versions:
         raise ValueError("notice_versions.yaml: versions must be a non-empty mapping")
 
-    versions: Dict[str, NoticeVersion] = {}
+    versions: dict[str, NoticeVersion] = {}
     for version_id, version_data in raw_versions.items():
         if not isinstance(version_id, str) or not version_id.strip():
             raise ValueError(
@@ -202,7 +204,7 @@ def load_catalog(config_dir: Path) -> NoticeVersionCatalog:
 
 
 def validate_eligibility(
-    client_record: "ClientRecord",
+    client_record: ClientRecord,
     resolved: ResolvedNotice,
     catalog: NoticeVersionCatalog,
 ) -> None:
@@ -217,5 +219,5 @@ def validate_eligibility(
             f"Eligibility conflict for client {client_record.client_id}: "
             f"assigned notice version '{resolved.version_id}' "
             f"(rule: '{version.requires}') but client does not satisfy it. "
-            "Check the manifest assignment or the client's overdue disease data."
+            "Confirm the explicit assignment or correct the supplied immunization facts."
         )

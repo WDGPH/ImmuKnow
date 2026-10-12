@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
@@ -109,7 +108,7 @@ def create_test_input_dataframe(
 
 
 def create_test_client_record(
-    sequence: str = "00001",
+    sequence: str = "row-000001",
     client_id: str = "0000000001",
     language: str = "en",
     first_name: str = "Alice",
@@ -123,14 +122,14 @@ def create_test_client_record(
     """Generate a realistic ClientRecord for testing downstream steps.
 
     Real-world significance:
-    - Preprocessed client records flow through QR generation, notice compilation, etc.
+    - Preprocessed client records flow through notice compilation and delivery
     - Tests can verify each step correctly processes and transforms these records
     - Enables testing of multilingual support and edge cases
 
     Parameters
     ----------
-    sequence : str, default "00001"
-        Sequence number (00001, 00002, ...)
+    sequence : str, default "row-000001"
+        Original source row key
     client_id : str, default "0000000001"
         Unique client identifier (10-digit numeric format)
     language : str, default "en"
@@ -174,18 +173,22 @@ def create_test_client_record(
 
     board_dict: Dict[str, Any] = {"id": f"brd_{sequence}", "name": board_name}
 
-    received: List[Dict[str, object]] = []
+    history: List[Dict[str, object]] = []
     if has_received_vaccines:
-        received = [
+        history = [
             {
                 "date_given": "2020-05-01",
                 "diseases": ["Diphtheria", "Tetanus", "Pertussis"],
-                "vaccine_code": "DTaP",
+                "agent": "DTaP",
+                "display_name": "DTaP",
+                "validity": "unknown",
             },
             {
                 "date_given": "2021-06-15",
                 "diseases": ["Measles", "Mumps", "Rubella"],
-                "vaccine_code": "MMR",
+                "agent": "MMR",
+                "display_name": "MMR",
+                "validity": "unknown",
             },
         ]
 
@@ -204,99 +207,7 @@ def create_test_client_record(
             {"disease": disease, "dose": None} for disease in overdue_diseases
         ],
         overdue_agents=[],
-        received=received,
+        history=history,
         metadata={},
-        qr=None,
         version_id="overdue_diseases_v1",
-    )
-
-
-def create_test_preprocess_result(
-    num_clients: int = 3,
-    language: str = "en",
-    run_id: str = "test_run_001",
-    include_warnings: bool = False,
-) -> data_models.PreprocessResult:
-    """Generate a realistic PreprocessResult for integration/e2e tests.
-
-    Real-world significance:
-    - PreprocessResult is the artifact passed from Step 1 (Preprocess) to Steps 2-3
-    - Tests can verify correct flow and schema through pipeline
-    - Enables testing of multilingual pipelines
-
-    Parameters
-    ----------
-    num_clients : int, default 3
-        Number of clients in result
-    language : str, default "en"
-        Language for all clients
-    run_id : str, default "test_run_001"
-        Run ID for artifact tracking
-    include_warnings : bool, default False
-        Whether to include warning messages
-
-    Returns
-    -------
-    PreprocessResult
-        Complete preprocessed result with clients and metadata
-    """
-    clients = [
-        create_test_client_record(
-            sequence=f"{i + 1:05d}",
-            client_id=f"{i + 1:010d}",
-            language=language,
-            first_name=["Alice", "Benoit", "Chloe"][i % 3],
-            last_name=["Zephyr", "Arnaud", "Brown"][i % 3],
-        )
-        for i in range(num_clients)
-    ]
-
-    warnings = []
-    if include_warnings:
-        warnings = [
-            "Missing board name for client 0000000002",
-            "Invalid postal code for 0000000003",
-        ]
-
-    return data_models.PreprocessResult(clients=clients, warnings=warnings)
-
-
-def create_test_artifact_payload(
-    num_clients: int = 3,
-    language: str = "en",
-    run_id: str = "test_run_001",
-) -> SimpleNamespace:
-    """Generate a small test cohort for bundling scenarios.
-
-    Real-world significance:
-    - Artifacts are JSON files storing intermediate pipeline state
-    - Schema must remain consistent across steps for pipeline to work
-    - Tests verify artifact format and content
-
-    Parameters
-    ----------
-    num_clients : int, default 3
-        Number of clients in artifact
-    language : str, default "en"
-        Language of all clients
-    run_id : str, default "test_run_001"
-        Unique run identifier
-
-    Returns
-    -------
-    SimpleNamespace
-        Small cohort with clients and run labels for tests.
-    """
-    result = create_test_preprocess_result(
-        num_clients=num_clients, language=language, run_id=run_id
-    )
-
-    return SimpleNamespace(
-        run_id=run_id,
-        language=language,
-        clients=result.clients,
-        warnings=result.warnings,
-        created_at="2025-01-01T12:00:00Z",
-        input_file="test_input.csv",
-        total_clients=num_clients,
     )

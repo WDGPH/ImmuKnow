@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import json
-from contextlib import nullcontext
 from pathlib import Path
 
 import pytest
 
 from immuknow import preprocess
 from immuknow.assignment_manifest import ManifestRow
-from immuknow.data_models import ClientRecord
+from immuknow.generate_notices import prepare_render_jobs
+import shutil
 from immuknow.version_notices import load_catalog
 from tests.fixtures import sample_input
 
@@ -35,16 +35,13 @@ def catalog():
 
 
 @pytest.mark.integration
-def test_prepared_client_data_survive_artifact_round_trip(
+def test_prepared_facts_survive_staged_json_round_trip(
     tmp_path: Path, default_vaccine_reference: dict
 ) -> None:
     df = sample_input.create_test_input_dataframe(num_clients=1)
     df["overdue_disease"] = ["Poliomyelitis - 12; Measles"]
     df["overdue_agent"] = ["IPV; MMR"]
-    config = {
-        "date_of_delivery": "2025-04-08",
-        "preprocess": {"include_dose": False},
-    }
+    config = {"date_of_delivery": "2025-04-08"}
 
     result, _ = preprocess.build_preprocess_result(
         preprocess.clean_csv_text(df),
@@ -55,9 +52,13 @@ def test_prepared_client_data_survive_artifact_round_trip(
         catalog=catalog(),
         manifest=assigned_manifest(df, "fr"),
     )
-    path = preprocess.write_artifact(tmp_path, "prepared-clients", result)
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    client = ClientRecord(**payload["clients"][0])
+    shutil.copytree(
+        Path(__file__).resolve().parents[2] / "immuknow/templates",
+        tmp_path / "resources/templates",
+    )
+    job = prepare_render_jobs(result.clients, tmp_path, config)[0]
+    payload = json.loads(job.data.read_text())
+    client = result.clients[0]
 
     assert client.version_id == "overdue_agents_v1"
     assert client.language == "fr"
@@ -68,14 +69,17 @@ def test_prepared_client_data_survive_artifact_round_trip(
     assert client.overdue_agents == ["IPV", "MMR"]
     assert client.person["date_of_birth_iso"] == "2015-01-02"
     assert "date_of_birth" not in client.person
-    assert "vaccines_due_list" not in payload["clients"][0]
+    assert payload["overdue_diseases"] == client.overdue_diseases
+    assert payload["history"] == client.history
+    assert payload["row_key"] == "row-000001"
 
 
 @pytest.mark.integration
 def test_school_mapping_from_selected_config_preserves_prepared_clients(
     tmp_path: Path, default_vaccine_reference: dict
 ) -> None:
-    df = sample_input.create_test_input_dataframe(num_clients=1)
+    df = sample_input.create_test_input_dataframe(num_clients=2)
+    df["school_id"] = ["0007", "0008"]
     mapping = {"phus": {"Test PHU": {"TUNNEL ACADEMY": "001"}}}
     (tmp_path / "school_reference.json").write_text(
         json.dumps(mapping), encoding="utf-8"
@@ -101,35 +105,17 @@ def test_school_mapping_from_selected_config_preserves_prepared_clients(
         manifest=assigned_manifest(enriched, "en"),
     )
 
-    assert not warnings
+    assert warnings
+    assert len(enriched) == len(df) == len(result.clients) == 2
     assert enriched.loc[0, "school_match_type"] == "inexact"
     assert result.clients[0].client_id == df.loc[0, "client_id"]
     assert result.clients[0].overdue_diseases
     assert "school_match_type" not in result.clients[0].metadata
-
-
-@pytest.mark.integration
-def test_mixed_validity_with_markers_is_rejected(
-    default_vaccine_reference: dict,
-) -> None:
-    df = sample_input.create_test_input_dataframe(num_clients=2)
-    df["imms_given"] = [
-        "May 1, 2020 - DTaP - Valid",
-        "Jun 15, 2021 - MMR",
-    ]
-
-    with pytest.raises(
-        ValueError, match="mix of records with and without validity indicators"
-    ):
-        preprocess.build_preprocess_result(
-            preprocess.clean_csv_text(df),
-            default_vaccine_reference,
-            [],
-            config={"preprocess": {"show_validity_markers": True}},
-            config_dir=preprocess.CONFIG_DIR,
-            catalog=catalog(),
-            manifest=assigned_manifest(df, "en"),
-        )
+    assert result.clients[1].school["id"] == "0008"
+    assert enriched.loc[1, "school_match_type"] == "no_match"
+    assert any(
+        c.code == "data.school_unmatched" for c in result.row_checks["row-000002"]
+    )
 
 
 @pytest.mark.integration
@@ -138,20 +124,32 @@ def test_configuration_cannot_replace_the_packaged_input_contract(
     tmp_path: Path, first_name: str
 ) -> None:
     config_dir = tmp_path / "config"
-    config_dir.mkdir()
-    # A deliberately permissive local descriptor must have no effect.
+    shutil.copytree(preprocess.CONFIG_DIR, config_dir)
     (config_dir / "input_schema.json").write_text('{"fields": []}')
     frame = sample_input.create_test_input_dataframe(num_clients=1)
     frame["first_name"] = first_name
     source = tmp_path / "clients.csv"
     frame.to_csv(source, index=False)
-    expected = (
-        pytest.raises(ValueError, match="first_name")
-        if not first_name.strip()
-        else nullcontext()
+    result, _ = preprocess.prepare_clients(
+        source,
+        tmp_path / "output",
+        {},
+        config_dir,
+        catalog(),
+        {},
+        ("overdue_diseases_v1", "en"),
     )
-    with expected:
-        result, _ = preprocess.prepare_clients(
+    assert len(result.clients) == 1
+    assert result.clients[0].person["first_name"] == first_name.strip()
+    if not first_name.strip():
+        assert any(
+            c.code == "source.first_name_missing"
+            for c in result.row_checks["row-000001"]
+        )
+    # A missing required source column still fails under the packaged contract.
+    frame.drop(columns="client_id").to_csv(source, index=False)
+    with pytest.raises(ValueError, match="client_id"):
+        preprocess.prepare_clients(
             source,
             tmp_path / "output",
             {},
@@ -160,4 +158,3 @@ def test_configuration_cannot_replace_the_packaged_input_contract(
             {},
             ("overdue_diseases_v1", "en"),
         )
-        assert result.clients[0].person["first_name"] == "Alice"

@@ -1,8 +1,11 @@
 # Testing
 
-Use tests to prove the complete notice workflow at its real boundaries:
-prepared client records, selected notices, structured render inputs, compiled
-PDFs, and complete downstream accounting.
+Use a small set of real native journeys to check the complete workflow. Python
+preparation checks source interpretation and explicit assignments; Typst checks
+the components actually used; the run record accounts for every original source
+row and every delivery outcome. Upstream data supplies assessment and notice
+selection. Tests should never introduce automatic clinical assessment or language
+selection.
 
 ## Run the checks
 
@@ -16,58 +19,58 @@ uv run pre-commit run --all-files
 uv run --group docs mkdocs build --strict
 ```
 
-Set `TYPST_BIN` to the pinned compiler if it is outside `PATH`. Native tests
-require the real compiler. The CI job installs a checksum-verified FreeFont TTF
-`20120503-10build1` package; font metrics affect notice wrapping and page
-geometry. Use the same files for local layout checks and exclude unrelated
-system fonts:
+Set `TYPST_BIN` if the pinned compiler is outside `PATH`. Native tests require
+that compiler; mocked success cannot establish PDF behavior. Native compilation uses system fonts.
+Install FreeSans and FreeSerif locally for notice checks.
 
-```bash
-TYPST_FONT_PATHS=/usr/share/fonts/truetype/freefont \
-TYPST_IGNORE_SYSTEM_FONTS=true uv run pytest
-```
+For quick feedback, select the affected files or use `-m unit`, `-m integration`
+or `-m e2e`. Collect tests after removing an internal interface to find stale
+imports. Coordinate full-suite, installed-wheel and expensive rendering checks
+on the integrated branch; repeated worker rebuilds add little evidence.
 
-For focused feedback:
+## Keep useful boundaries
 
-```bash
-uv run pytest -m unit
-uv run pytest -m integration
-uv run pytest -m e2e
-uv run pytest --cov=immuknow --cov-branch --cov-report=html
-```
+The existing accounting journeys cover both notice selectors, source order and
+provenance, independent rendering failures, and saved setup failures. Package
+journeys cover import safety, placed component findings, QR destinations and
+links, and visible content continuation. The installed-wheel journey checks
+resources outside the checkout. CLI and maintained-template tests add semantic
+language/content checks, filename confinement, literal source text and editable
+project labels. Delivery journeys exercise saved-original routing and rebundling.
 
-Coverage gaps guide test choices; coverage percentage is not a reason to keep
-obsolete interface tests. Unit tests should protect normalization,
-eligibility, assignment conflicts, malformed configuration, and precise
-diagnostics. Integration tests should compile maintained Typst entry points
-and verify mixed cohorts, manifest filenames confined to the selected tree,
-one-file cohort selection,
-disease and agent notice assignments, QR links, encryption, bundles,
-installed-wheel resources, path isolation, and failure propagation. Mock a
-compiler only for discovery or version diagnostics; mock success cannot prove
-PDF behavior.
+Preparation tests retain complete administrations and disease mappings,
+`unknown > valid > invalid` deduplication precedence, whole-cohort validity
+coverage, leading zeros, and explicit unknown birth/age. Assignment tests check
+missing or ambiguous selections, duplicate source identities, and warning-level
+applicability conflicts. Malformed shared inputs fail setup with a saved report.
+
+A warning preserves a useful PDF and makes it reviewable. Tests must check the
+warning, retained content and row outcome together. An omitted component has no
+content requirements; native reports can mark its checks `not_applicable`.
+Missing or ambiguous assignments and genuine compiler failures affect their
+rows while independent rows continue. Neither warnings nor partial runs may be
+reported as clean delivery success.
+
+Retire assertions for deleted internal artifacts, Python QR images, display-row
+payloads and hidden PDF markers. Preserve the behavior they protected through
+facts, placed native findings or `run.json`; do not keep compatibility wrappers
+for tests. Prefer extending a meaningful journey to adding another harness.
 
 ## Review rendered notices
 
-Keep semantic text checks separate from layout checks. PDF extraction may vary
-in inconsequential whitespace, so semantic comparisons normalize that
-whitespace while asserting the complete wording. Separately check page
-boundaries/counts, chart contents, signature placement, and envelope-window
-measurements. Native assertions must reject wrong language, wrong version,
-and missing agents for the agent-based notice. Typst syntax inside client
-strings must remain literal data.
+Normalize inconsequential extraction whitespace for semantic assertions, and
+keep layout checks separate. Review English/French overdue disease and agent
+notices, affirmative wording and the suspension order. The suspension example
+has one order page with no history or privacy appendix. Source province is
+preserved, and unknown age uses neutral wording.
 
-Compile and inspect English, French, affirmative, long-record, and
-long-address cases. Check branding, QR images, validity symbols, page
-numbering, history continuation, and visible date and dose wording.
-Changing a compiler or font requires layout review before fixture changes.
-Use synthetic records only. PHU-specific templates need the same review with
-their own assets and wording.
+Check complete wording, history contents, dose wording, readable marks, QR links,
+branding, page count, signatures and envelope-window measurements. Long content
+remains visible with findings; declared intentional continuation can pass. Include
+long addresses and histories. Input strings such as Typst syntax remain literal
+text. Use synthetic records only.
 
-Tests that fail on an error-level validation finding or incomplete output set
-must remain meaningful; do not update a snapshot or weaken an assertion merely
-to obtain a pass.
-
-Check that one run log covers preparation and later stages, and that both
-success and failure remove the run handler without changing caller logging.
-Failure tests should also verify that incomplete output is not delivered.
+Compiler or font changes need visual review before changing expected layout.
+Do not update a snapshot or weaken a content assertion merely to obtain a pass.
+Check failed and successful runs retain the appropriate original evidence and
+that run logging restores the caller's handlers after either outcome.

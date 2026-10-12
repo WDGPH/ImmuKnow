@@ -28,7 +28,7 @@ def catalog() -> NoticeVersionCatalog:
                 "overdue_diseases_v1", NoticeKind.OVERDUE, "has_overdue"
             ),
             "overdue_agents_v1": NoticeVersion(
-                "overdue_agents_v1", NoticeKind.OVERDUE, "has_overdue"
+                "overdue_agents_v1", NoticeKind.OVERDUE, "has_overdue_agents"
             ),
             "affirmative_schedule_v1": NoticeVersion(
                 "affirmative_schedule_v1", NoticeKind.AFFIRMATIVE, "no_overdue"
@@ -228,3 +228,15 @@ def test_eligibility_error_identifies_client_without_person_name() -> None:
     assert "C001" in str(error.value)
     assert "Sensitive" not in str(error.value)
     assert "Name" not in str(error.value)
+
+
+@pytest.mark.unit
+def test_agent_applicability_uses_supplied_agents_independently_of_diseases():
+    resolved = assigned("overdue_agents_v1", NoticeKind.OVERDUE)
+    validate_eligibility(
+        replace(client([]), overdue_agents=["MMR"]), resolved, catalog()
+    )
+    with pytest.raises(ValueError, match="has_overdue_agents"):
+        validate_eligibility(
+            replace(client(["Measles"]), overdue_agents=[]), resolved, catalog()
+        )

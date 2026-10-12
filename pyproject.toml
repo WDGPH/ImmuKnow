@@ -6,7 +6,20 @@ build-backend = "setuptools.build_meta"
 packages = ["immuknow"]
 
 [tool.setuptools.package-data]
-immuknow = ["schemas/*.json", "templates/*.typ", "templates/assets/*", "config/*.json", "config/*.yaml", "config/translations/*.json"]
+immuknow = [
+    "build.json",
+    "schemas/*.json",
+    "config/*.json",
+    "config/*.yaml",
+    "templates/*.typ",
+    "templates/assets/*",
+    "templates/translations/*.json",
+    "templates/lib/immuknow/*",
+    "templates/lib/immuknow/src/*.typ",
+    "templates/lib/immuknow/locales/*.json",
+    "templates/lib/immuknow/vendor/codetastic/*",
+    "review_templates/*.typ",
+]
 
 [project]
 name = "ImmuKnow"
@@ -16,13 +29,15 @@ dependencies = [
     "pandas",
     "PyYAML",
     "pypdf",
-    "qrcode>=7.4.2",
-    "pillow>=12.3.0",
-    "frictionless"
+    "frictionless",
+    "jsonschema>=4.26.0"
 ]
 
 [dependency-groups]
 dev = [
+    "pillow>=12.3.0",
+    "pymupdf==1.28.2",
+    "zxing-cpp==3.1.1",
     "pytest",
     "pytest-cov",
     "pre-commit",
@@ -42,6 +57,7 @@ docs = [
 
 [project.scripts]
 immuknow = "immuknow.orchestrator:main"
+immuknow-rebundle = "immuknow.rebundle:main"
 
 [tool.coverage.run]
 source = ["immuknow"]

@@ -1,0 +1,266 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:immuknow:rendering:1",
+  "title": "ImmuKnow rendering payload version 1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "version_id",
+    "language",
+    "client_id",
+    "client_data",
+    "date_of_delivery",
+    "date_as_of",
+    "overdue_diseases",
+    "overdue_agents",
+    "history",
+    "validity_coverage",
+    "row_key",
+    "template",
+    "school",
+    "board",
+    "unparsed_history"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "version_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "language": {
+      "enum": [
+        "en",
+        "fr"
+      ]
+    },
+    "client_id": {
+      "type": "string"
+    },
+    "client_data": {
+      "type": "object",
+      "required": [
+        "name",
+        "address",
+        "city",
+        "postal_code",
+        "date_of_birth_iso",
+        "school",
+        "over_16",
+        "province",
+        "first_name",
+        "last_name",
+        "age"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "address": {
+          "type": "string"
+        },
+        "city": {
+          "type": "string"
+        },
+        "postal_code": {
+          "type": "string"
+        },
+        "date_of_birth_iso": {
+          "anyOf": [
+            {
+              "const": ""
+            },
+            {
+              "type": "string",
+              "format": "date"
+            }
+          ]
+        },
+        "school": {
+          "type": "string"
+        },
+        "over_16": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "province": {
+          "type": "string"
+        },
+        "first_name": {
+          "type": "string"
+        },
+        "last_name": {
+          "type": "string"
+        },
+        "age": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "date_of_delivery": {
+      "anyOf": [
+        {
+          "const": ""
+        },
+        {
+          "type": "string",
+          "format": "date"
+        }
+      ]
+    },
+    "date_as_of": {
+      "anyOf": [
+        {
+          "const": ""
+        },
+        {
+          "type": "string",
+          "format": "date"
+        }
+      ]
+    },
+    "overdue_diseases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "disease",
+          "dose"
+        ],
+        "properties": {
+          "disease": {
+            "type": "string",
+            "minLength": 1
+          },
+          "dose": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer",
+                "minimum": 1
+              }
+            ]
+          },
+          "dose_raw": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "overdue_agents": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "date_given",
+          "agent",
+          "display_name",
+          "diseases",
+          "validity"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "date_given": {
+            "type": "string",
+            "format": "date"
+          },
+          "agent": {
+            "type": "string",
+            "minLength": 1
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "diseases": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "validity": {
+            "enum": [
+              "valid",
+              "invalid",
+              "unknown"
+            ]
+          }
+        }
+      }
+    },
+    "validity_coverage": {
+      "enum": [
+        "all_present",
+        "all_absent",
+        "mixed"
+      ]
+    },
+    "row_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "template": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]+\\.(en|fr)\\.typ$"
+    },
+    "school": {
+      "type": "object",
+      "required": [
+        "name",
+        "id"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        }
+      }
+    },
+    "board": {
+      "type": "object",
+      "required": [
+        "name",
+        "id"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        }
+      }
+    },
+    "unparsed_history": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false
+}

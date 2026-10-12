@@ -6,7 +6,7 @@ Tests cover:
 - Match classification (exact, inexact variants, no_match)
 - Mapping file loading (valid, missing file, missing PHU)
 - CSV audit file writing
-- Full validate_schools pipeline (column enrichment, warn/error/skip behaviours)
+- Full validate_schools pipeline (column enrichment and retention of unmatched rows)
 - run_school_validation integration with preprocess config
 
 Real-world significance:
@@ -67,7 +67,6 @@ def school_config_yaml(tmp_path: Path, reference_file: Path) -> Path:
             "enabled": True,
             "reference_file": str(reference_file),
             "target_phu": "Test PHU",
-            "unmatched_behavior": "warn",
             "column_prefix": "school_",
         }
     }
@@ -448,7 +447,7 @@ class TestValidateSchools:
     def test_warn_behavior_returns_all_rows_and_warning(
         self, base_df, reference_file, tmp_path
     ):
-        """unmatched_behavior='warn' keeps all rows and returns a warning string.
+        """Unmatched schools keep all rows and returns a warning string.
 
         Real-world significance:
         - Default behaviour; pipeline continues so the run is not blocked,
@@ -457,55 +456,11 @@ class TestValidateSchools:
         Assertion: returned DataFrame has same row count; warnings list non-empty.
         """
         result_df, warnings = validate_schools.validate_schools(
-            base_df, reference_file, "Test PHU", tmp_path, unmatched_behavior="warn"
+            base_df, reference_file, "Test PHU", tmp_path
         )
         assert len(result_df) == len(base_df)
         assert len(warnings) > 0
         assert "no school reference match" in warnings[0]
-
-    def test_error_behavior_raises_value_error(self, base_df, reference_file, tmp_path):
-        """unmatched_behavior='error' raises ValueError when no_match results exist.
-
-        Real-world significance:
-        - Strict mode for PHUs that require all schools to be validated before
-          notices are generated.
-
-        Assertion: ValueError raised when any school has no match.
-        """
-        with pytest.raises(ValueError, match="no school reference match"):
-            validate_schools.validate_schools(
-                base_df,
-                reference_file,
-                "Test PHU",
-                tmp_path,
-                unmatched_behavior="error",
-            )
-
-    def test_skip_behavior_filters_unmatched_rows(self, reference_file, tmp_path):
-        """unmatched_behavior='skip' removes rows whose school had no match.
-
-        Real-world significance:
-        - Ensures only validated schools proceed when the pipeline is configured
-          to exclude unverifiable records.
-
-        Assertion: rows for no_match schools removed; matched rows preserved.
-        """
-        # Use raw values with and without ID suffix to exercise both code paths
-        df = pd.DataFrame(
-            {
-                "school_name": [
-                    "Springfield Elementary - 001",  # exact  (raw value has ' - ID' suffix)
-                    "Shelbyville Middle",  # inexact/name_only
-                    "Unknown Academy",  # no_match
-                ],
-                "client_id": ["C1", "C2", "C3"],
-            }
-        )
-        result_df, _ = validate_schools.validate_schools(
-            df, reference_file, "Test PHU", tmp_path, unmatched_behavior="skip"
-        )
-        assert set(result_df["client_id"]) == {"C1", "C2"}
-        assert "C3" not in result_df["client_id"].values
 
     def test_missing_school_column_returns_df_unchanged(self, reference_file, tmp_path):
         """DataFrame without school_name column passes through unchanged.
@@ -621,33 +576,16 @@ class TestRunSchoolValidation:
         pd.testing.assert_frame_equal(result_df, base_df)
         assert warnings == []
 
-    def test_missing_reference_file_key_returns_df_unchanged(self, tmp_path, base_df):
-        """When reference_file is not set, DataFrame passes through unchanged with a log warning.
-
-        Real-world significance:
-        - Prevents crashes during misconfigured deployments where the operator
-          enabled the feature but forgot to specify the mapping path.
-
-        Assertion: original DataFrame returned; warnings list empty.
-        """
+    def test_enabled_lookup_missing_reference_fails_setup(self, tmp_path, base_df):
         config = {"school_validation": {"enabled": True, "target_phu": "Test PHU"}}
-        result_df, warnings = preprocess.run_school_validation(
-            base_df, tmp_path, config=config, config_dir=tmp_path
-        )
+        with pytest.raises(ValueError, match="school_validation.reference_file"):
+            preprocess.run_school_validation(
+                base_df, tmp_path, config=config, config_dir=tmp_path
+            )
 
-        pd.testing.assert_frame_equal(result_df, base_df)
-        assert warnings == []
-
-    def test_missing_target_phu_returns_df_unchanged(
+    def test_enabled_lookup_missing_target_fails_setup(
         self, tmp_path, base_df, reference_file
     ):
-        """When target_phu is not set, DataFrame passes through unchanged.
-
-        Real-world significance:
-        - Without a PHU, there is no mapping to load; pipeline should not crash.
-
-        Assertion: original DataFrame returned; warnings list empty.
-        """
         config = {
             "school_validation": {
                 "enabled": True,
@@ -655,12 +593,10 @@ class TestRunSchoolValidation:
                 "target_phu": "",
             }
         }
-        result_df, warnings = preprocess.run_school_validation(
-            base_df, tmp_path, config=config, config_dir=tmp_path
-        )
-
-        pd.testing.assert_frame_equal(result_df, base_df)
-        assert warnings == []
+        with pytest.raises(ValueError, match="school_validation.target_phu"):
+            preprocess.run_school_validation(
+                base_df, tmp_path, config=config, config_dir=tmp_path
+            )
 
     def test_enabled_with_valid_config_enriches_df(
         self, tmp_path, base_df, school_config_yaml
@@ -699,3 +635,20 @@ class TestRunSchoolValidation:
             base_df, tmp_path, config=config, config_dir=reference_file.parent
         )
         assert result.loc[0, "school_facility_id"] == "001"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "data",
+    [
+        [],
+        {"phus": []},
+        {"phus": {"Test PHU": []}},
+        {"phus": {"Test PHU": {"School": 1}}},
+    ],
+)
+def test_malformed_school_reference_fails_with_an_explanation(tmp_path, data):
+    path = tmp_path / "reference.json"
+    path.write_text(json.dumps(data))
+    with pytest.raises(ValueError, match="mapping|map names"):
+        validate_schools.load_mapping(path, "Test PHU")

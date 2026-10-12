@@ -1,0 +1,241 @@
+"""Three real native journeys prove run identity, failures and saved outputs."""
+
+from __future__ import annotations
+
+import json
+import shutil
+from hashlib import sha256
+from pathlib import Path
+
+import pandas as pd
+import pytest
+import yaml
+from pypdf import PdfReader
+
+from immuknow.orchestrator import run_pipeline
+from tests.fixtures.sample_input import create_test_input_dataframe
+
+ROOT = Path(__file__).resolve().parents[2]
+pytestmark = pytest.mark.integration
+
+
+def prepare_inputs(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
+    config_dir = tmp_path / "config"
+    templates = tmp_path / "templates"
+    shutil.copytree(ROOT / "immuknow/config", config_dir)
+    shutil.copytree(ROOT / "immuknow/templates", templates)
+    config_path = config_dir / "parameters.yaml"
+    config = yaml.safe_load(config_path.read_text())
+    config["bundling"] = {"bundle_size": 10}
+    config["encryption"]["enabled"] = True
+    config["encryption"]["password"] = {"template": "literal-secret-for-test"}
+    config_path.write_text(yaml.safe_dump(config))
+    frame = create_test_input_dataframe(num_clients=2)
+    # Reverse the sorting order and retain literal source text in the HTML.
+    frame.loc[0, "last_name"] = 'Zulu <script>alert("x")</script>'
+    frame.loc[1, "last_name"] = "Alpha"
+    source = tmp_path / "clients.csv"
+    frame.to_csv(source, index=False)
+    assignments = tmp_path / "assignments.json"
+    assignments.write_text(
+        json.dumps(
+            [
+                {
+                    "client_id": frame.iloc[0]["client_id"],
+                    "template": "overdue_agents_v1.en.typ",
+                    "experiment_arm": "A",
+                },
+                {
+                    "client_id": frame.iloc[1]["client_id"],
+                    "template": "overdue_agents_v1.fr.typ",
+                    "experiment_arm": "B",
+                },
+            ]
+        )
+    )
+    return source, config_dir, templates, assignments
+
+
+def test_both_selectors_keep_complete_outputs_and_original_source_order(
+    tmp_path: Path,
+) -> None:
+    source, config, templates, assignments = prepare_inputs(tmp_path)
+    outputs = tmp_path / "runs"
+    for selector in (
+        {"notice_assignments": assignments, "template_dir": templates},
+        {"notice_template": templates / "overdue_agents_v1.en.typ"},
+    ):
+        record_path = run_pipeline(source, outputs, config_dir=config, **selector)
+        record = json.loads(record_path.read_text())
+        assert record["status"] in {"completed", "completed_with_warnings"}
+        assert [entry["row_key"] for entry in record["entries"]] == [
+            "row-000001",
+            "row-000002",
+        ]
+        assert record["entries"][0]["source"]["values"]["last_name"].startswith("Zulu")
+        assert record["entries"][0]["facts"]["prepared"]["sequence"] == "row-000001"
+        run_dir = record_path.parent
+        assert record["input"]["sha256"] == sha256(source.read_bytes()).hexdigest()
+        assert record["resources"]["files"]
+        assert "password" not in record["configuration"]["effective"]["encryption"]
+        assert "literal-secret-for-test" not in record_path.read_text()
+        assert (
+            "literal-secret-for-test"
+            not in (run_dir / "resources/config/parameters.yaml").read_text()
+        )
+        assert record["delivery_attempts"][0]["status"] == "completed"
+        assert record["delivery_attempts"][0]["bundles"][0]["row_keys"] == [
+            "row-000001",
+            "row-000002",
+        ]
+        for entry in record["entries"]:
+            original = run_dir / entry["original"]["path"]
+            assert (
+                entry["original"]["sha256"] == sha256(original.read_bytes()).hexdigest()
+            )
+            assert entry["client_id"] in PdfReader(original).pages[0].extract_text()
+            assert PdfReader(run_dir / entry["encryption"]["path"]).is_encrypted
+            assert entry["bundle"]["end_page"] >= entry["bundle"]["start_page"]
+        html = (run_dir / "report.html").read_text()
+        assert '<script>alert("x")</script>' not in html
+        assert "&lt;script&gt;" in html
+        assert not list(run_dir.glob("*manifest.json"))
+        assert not list(run_dir.rglob("compilation.json"))
+        assert not list(run_dir.rglob("render_jobs.json"))
+    assert len(list(outputs.glob("*/run.json"))) == 2
+
+
+def test_broken_notice_retains_other_original_and_reports_partial_run(
+    tmp_path: Path,
+) -> None:
+    source, config, templates, assignments = prepare_inputs(tmp_path)
+    parameters = config / "parameters.yaml"
+    settings_data = yaml.safe_load(parameters.read_text())
+    settings_data["encryption"]["password"] = {
+        "template": "{date_of_birth_iso_compact}"
+    }
+    parameters.write_text(yaml.safe_dump(settings_data))
+    frame = pd.read_csv(source, dtype=str, keep_default_na=False)
+    extra = frame.iloc[0].copy()
+    extra["client_id"] = "0000000003"
+    extra["last_name"] = "Still overdue"
+    frame.loc[0, "street_address_line_1"] = ""
+    frame.loc[0, "date_of_birth"] = "unusable date"
+    frame.loc[0, "province"] = "Québec"
+    frame.loc[0, "overdue_agent"] = ""
+    frame.loc[0, "imms_given"] = (
+        "May 01, 2020 - MMR - Valid; Jun 15, 2021 - IPV; unparsed fragment 50% & raw"
+    )
+    without_evidence = extra.copy()
+    without_evidence["client_id"] = "0000000004"
+    pd.concat(
+        [frame, extra.to_frame().T, without_evidence.to_frame().T], ignore_index=True
+    ).to_csv(source, index=False)
+    manifest = json.loads(assignments.read_text())
+    manifest.append(
+        {"client_id": "0000000003", "template": "affirmative_schedule_v1.en.typ"}
+    )
+    manifest.append({"client_id": "0000000004", "template": "custom.en.typ"})
+    assignments.write_text(json.dumps(manifest))
+    (templates / "custom.en.typ").write_text(
+        '#let notice = json(sys.inputs.at("data"))\n'
+        "Useful custom notice. Client ID: #notice.client_id\n"
+    )
+    settings = templates / "settings.typ"
+    settings.write_text(
+        settings.read_text().replace("show-validity: false", "show-validity: true")
+    )
+    french = templates / "overdue_agents_v1.fr.typ"
+    french.write_text(french.read_text() + '\n#panic("deliberate notice failure")\n')
+    record_path = run_pipeline(
+        source,
+        tmp_path / "runs",
+        config_dir=config,
+        template_dir=templates,
+        notice_assignments=assignments,
+    )
+    record = json.loads(record_path.read_text())
+    assert record["status"] == "completed_with_failures"
+    assert [entry["original"]["status"] for entry in record["entries"]] == [
+        "completed",
+        "failed",
+        "completed",
+        "completed",
+    ]
+    assert (record_path.parent / record["entries"][0]["original"]["path"]).is_file()
+    assert record["entries"][1]["bundle"] is None
+    assert any(
+        check["code"] == "rendering.failed" for check in record["entries"][1]["checks"]
+    )
+    bundled = [
+        row_key
+        for bundle in record["delivery_attempts"][0]["bundles"]
+        for row_key in bundle["row_keys"]
+    ]
+    assert sorted(bundled) == ["row-000001", "row-000003", "row-000004"]
+    evidence_entry = record["entries"][3]
+    assert evidence_entry["routing"]["destination"] == "review"
+    assert any(
+        check["code"] == "render.evidence_failed" and check["status"] == "fail"
+        for check in evidence_entry["checks"]
+    )
+    assert any(
+        check["code"] == "output.evidence_unavailable" and check["status"] == "warn"
+        for check in evidence_entry["checks"]
+    )
+    warning_entry = record["entries"][0]
+    assert warning_entry["encryption"]["status"] == "failed"
+    assert record["entries"][2]["encryption"]["status"] == "completed"
+    assert not (record_path.parent / "encrypted/row-000001.pdf").exists()
+    codes = {
+        check["code"] for check in warning_entry["checks"] if check["status"] == "warn"
+    }
+    assert {
+        "source.address_incomplete",
+        "source.age_unknown",
+        "source.history_unparsed",
+        "assignment.eligibility_conflict",
+        "content.history_validity",
+        "delivery.encryption_failed",
+    } <= codes
+    facts = json.loads(
+        (record_path.parent / warning_entry["facts"]["path"]).read_text()
+    )
+    assert facts["client_data"]["over_16"] is None
+    assert facts["client_data"]["province"] == "Québec"
+    assert facts["validity_coverage"] == "mixed"
+    text = " ".join(
+        page.extract_text()
+        for page in PdfReader(
+            record_path.parent / warning_entry["original"]["path"]
+        ).pages
+    )
+    assert "unparsed fragment 50% & raw" in text
+    assert "Québec" in text
+    explicit = record["entries"][2]
+    assert explicit["assignment"]["template"] == "affirmative_schedule_v1.en.typ"
+    assert any(
+        check["code"] == "assignment.eligibility_conflict" and check["status"] == "warn"
+        for check in explicit["checks"]
+    )
+
+
+def test_setup_failure_preserves_all_source_rows_in_report(tmp_path: Path) -> None:
+    source, config, templates, assignments = prepare_inputs(tmp_path)
+    assignments.write_text("invalid JSON")
+    output = tmp_path / "runs"
+    with pytest.raises(ValueError):
+        run_pipeline(
+            source,
+            output,
+            config_dir=config,
+            template_dir=templates,
+            notice_assignments=assignments,
+        )
+    record_path = next(output.glob("*/run.json"))
+    record = json.loads(record_path.read_text())
+    assert record["status"] == "failed_setup"
+    assert len(record["entries"]) == 2
+    assert all(entry["original"]["status"] == "not_run" for entry in record["entries"])
+    assert not record["delivery_attempts"]
+    assert (record_path.parent / "report.html").is_file()

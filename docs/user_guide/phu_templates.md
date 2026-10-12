@@ -1,143 +1,142 @@
 # Authoring native Typst notices
 
-A notice is an authored `.typ` entry point that reads one JSON payload.
-Python supplies validated client data and the selected notice. Typst
-owns the document's prose, layout, dates, disease labels, dose wording, and
-visible chart headings. The included branding and contacts are samples that a
-PHU must review.
+Python prepares facts and explicit assignments. Authored Typst projects own
+letter prose, display choices, QR destinations and layout. The maintained
+branding, names and contacts are synthetic examples; replace them with reviewed
+PHU content.
 
-## Select a complete template tree
+## Select a complete project
 
-The package owns `immuknow/templates/`. Copy its entry points, `conf.typ`,
-`presentation.typ`, and assets to a directory you control, then use
-`--templates PATH`. From a checkout:
-
-```bash
-cp -r immuknow/templates /path/to/my-phu
-uv run immuknow students.csv --notice-assignments assignments.json \
-  --templates /path/to/my-phu
-```
-
-For an installed wheel:
-
-```python
-from importlib.resources import files
-from pathlib import Path
-from shutil import copytree
-
-copytree(Path(str(files("immuknow").joinpath("templates"))), Path("/path/to/my-phu"))
-```
-
-Manifest rows name entry-point files such as
-`overdue_agents_v1.fr.typ`, without paths. The pipeline resolves each name
-inside the complete tree selected with `--templates DIRECTORY`. Relative
-directory paths resolve from the working directory. To use one file for the
-whole accepted cohort, pass its path instead:
+Copy `immuknow/templates/`, including `settings.typ`, `presentation.typ`,
+`assets/`, `translations/` and `lib/immuknow/`, to a directory you control.
+The six maintained entry points are English/French overdue disease and agent
+notices, an English affirmative notice and an English suspension order.
 
 ```bash
-uv run immuknow students.csv \
-  --template /path/to/my-phu/overdue_diseases_v1.en.typ
+cp -r immuknow/templates ./my-phu
+immuknow clients.csv --template ./my-phu/overdue_diseases_v1.en.typ --output ./runs
+immuknow clients.csv --notice-assignments ./assignments.json --templates ./my-phu --output ./runs
 ```
 
-Both selectors use the `<version_id>.<language>.typ` filename contract, with
-supported `en` or `fr`; Typst still asserts literal identity. The selected
-file's name supplies the version and language; its version must be
-registered in the selected catalog and eligible for every accepted client.
-Its containing tree supplies the entry point, helpers, and assets. The
-single-file option cannot be combined with `--notice-assignments` or
-`--templates`. Selected trees are isolated; missing
-resources do not fall back to built-ins. Writes stay in the run output,
-not the installed package. Template/output overlap is rejected before copying
-or cleanup.
+For an installed wheel, use `importlib.resources.files("immuknow")` to locate
+and copy its `templates` directory. The selected tree supplies all authored
+helpers and assets. It is staged once in the run; installed files remain read-only.
 
-The maintained examples have flat entry points:
-`overdue_diseases_v1.en.typ`, `overdue_diseases_v1.fr.typ`,
-`overdue_agents_v1.en.typ`, `overdue_agents_v1.fr.typ`, and
-`affirmative_schedule_v1.en.typ`. The disease example displays overdue
-diseases; the agent example displays vaccine agents. Eligibility for both
-uses the overdue disease list.
+The filename `<version>.<language>.typ` supplies version and language. Rename
+only when the authored prose matches the intended language. Selection never
+changes language or chooses a different notice automatically. See
+[configuration](configuration.md) for the explicit manifest schema and
+warning/failure behavior.
 
-The affirmative example is never selected automatically. Assign
-`affirmative_schedule_v1.en.typ` in a manifest, or select that file with
-`--template` for a whole cohort. Its catalog `no_overdue` rule
-requires `overdue_diseases` to be empty for every selected client, based
-on the source assessment. An ineligible assignment fails preflight.
-No French affirmative example ships. Add one only after its wording and
-layout are reviewed.
+## Entry points and Settings
 
-## Assert the notice identity
-
-Each entry point names its own literal `version_id` and language, checks
-the JSON, and sets the document text language and Canadian region:
+The opening stays short:
 
 ```typst
-#let notice = json(sys.inputs.at("data"))
-#assert(notice.version_id == "overdue_agents_v1", message: "Wrong notice version")
-#assert(notice.language == "en", message: "Wrong notice language")
-#set text(lang: "en", region: "CA")
-#import "/templates/conf.typ"
+#import "settings.typ": *
+#show: notice-style
+
+#notice-page("Request for Immunization Record")[
+  #immuknow.client-block(notice, window: envelope-window)
+  As of *#date_as_of*, our files show these overdue immunizations:
+  #immuknow.overdue-diseases(notice, include-dose: include-dose)
+]
+#notice-page("Immunization Record")[
+  #immunization-history()
+  #align(center)[End of immunization record]
+]
 ```
 
-Keep assertions independent of the input values. An agent-based overdue entry
-also asserts `notice.overdue_agents.len() > 0`. Disease-based and affirmative
-entries do not require agents. Use ordinary Typst field access; input strings
-must remain literal data, never executable source.
+Settings imports `lib/immuknow/lib.typ` as `immuknow`, reads the JSON supplied
+through `sys.inputs.at("data")`, and checks trusted compiler inputs
+`notice-template`, `notice-version` and `notice-language`. Entry points do not
+repeat literal identity declarations. `notice-style` receives `notice:` and
+wraps the whole document, collecting native component findings and page count.
 
-## Per-notice JSON
+Settings follows page/envelope, theme and letter-feature order. Its configured
+`notice-page` helper supplies the header and section styling. Dates are bound
+as `date_of_delivery`, `date_as_of` and `date_of_birth`. History remains a lazy
+function so a suspension order can omit it without evaluating history display
+requirements. The suspension example has one order page and no history or
+privacy appendix.
 
-The renderer gives each entry point one small, derived JSON file:
+Use explicit `true`, `false` and unknown branches for `notice.client_data.over_16`.
+Unknown birth/age never means under 16. The maintained examples use neutral
+client wording in that case. Address components use the source province.
+
+## Facts contract
+
+`immuknow/schemas/rendering-v1.json` is the structural contract. Python validates
+it before compilation; strings remain literal data rather than executable source.
 
 | Field | Meaning |
 |---|---|
-| `version_id`, `language`, `client_id` | Resolved identity and client identifier |
-| `client_data` | `name`, `address`, `city`, `postal_code`, `school`, `over_16`, and `date_of_birth_iso`; optional `qr_img` and `qr_url` |
-| `date_as_of` | As-of date shown in the notice, in YYYY-MM-DD format, or blank when absent |
-| `overdue_diseases` | Normalized disease names and doses as `{disease, dose}`; invalid dose also has `dose_raw` |
-| `overdue_agents` | Vaccine agents available to agent-based notices |
-| `include_dose` | Whether Typst shows available numeric doses |
-| `received` | History rows with `date_given`, `date_rowspan`, `vaccines`, and validity statuses in `columns` keyed by disease name |
-| `chart_diseases` | Configured disease names in chart order |
-| `show_validity_markers` | Whether the history distinguishes validity |
-| `logo_path`, `signature_path` | Assets beneath the bounded Typst root |
+| `schema_version` | Integer `1` |
+| `row_key`, `client_id` | Stable original CSV row key and string source identifier |
+| `template`, `version_id`, `language` | Explicit selected filename and its resolved identity |
+| `client_data` | Name parts, full name, address/city/province/postal code, school, ISO birth date, age and `over_16` |
+| `school`, `board` | Source name and identifier |
+| `date_of_delivery`, `date_as_of` | ISO dates or blank |
+| `overdue_diseases` | `{disease, dose}` facts; invalid numeric doses retain `dose_raw` |
+| `overdue_agents` | Source vaccine agent names |
+| `history` | Normalized administrations with ISO `date_given`, `agent`, `display_name`, complete `diseases` and `validity` |
+| `validity_coverage` | Whole-cohort `all_present`, `all_absent` or `mixed` |
+| `unparsed_history` | Original unusable fragments, visibly retained when history is inserted |
 
-An absent dose has `dose: null`; an invalid source dose also retains
-`dose_raw` for diagnostics. Python validates dates and passes ISO strings.
-`presentation.typ` formats long dates, approved disease labels, dose suffixes,
-and shared headings for English and French. A blank optional as-of date stays
-blank; a required invalid date fails. The history retains its compact date
-format. Translation dictionaries are staged once under `/translations/` and
-looked up by disease name. Uncatalogued source labels stay visible unchanged.
-A label present only in the other language is an error. Chart membership is
-never inferred from translated labels.
+A missing birth date is blank, and unknown `age`/`over_16` are JSON null. Blank
+source values and unusable fragments are retained in `run.json` with preparation
+findings. Display choices never alter administrations or disease mappings.
 
-Templates can rearrange content, but must keep their own version and
-language checks. A selected single file applies those checks to every client.
-The [configuration contract](configuration.md) explains assignments,
-translation data, and QR/password fields.
+## Component choices and findings
+
+`immunization-history` accepts disease columns, ignored agents, validity markers,
+Other-column inclusion, invalid-dose omission and chart styling. Settings is the
+only owner of these options. Whole-cohort mixed validity produces a warning when
+validity display is requested. The displayed history preserves unexpected raw
+fragments so they remain reviewable. Omitted components produce no component checks.
+
+The package provides page/header, address/client, signature, history, overdue
+lists and QR helpers. Warnings retain visible content and useful PDFs. Long
+content continues onto extra pages and reports unexpected continuation; authors
+can explicitly allow intentional overflow. Structural misuse or compiler errors
+can prevent a PDF. Report findings show which components were used, their checks,
+resolved QR URLs and layout measurements.
+
+QR Settings uses an explicit fixed string or a function of normalized facts:
+
+```typst
+#let qr = (
+  url: notice => immuknow.query-url("https://example.org/update", (
+    client_id: notice.client_id,
+    dob: notice.client_data.date_of_birth_iso,
+    lang: notice.language,
+  )),
+  width: 3cm,
+)
+```
+
+The helper percent-encodes query values and uses the same resolved destination
+for its code and link. Python supplies facts and creates no QR images or URLs.
+Project display translations are editable in `translations/`; the library has
+its own packaged localization resources.
 
 ## Reproduce and review a notice
 
-A run stages the selected tree at `output/artifacts/render/templates/`, the
-language dictionaries at `render/translations/`, and one JSON file per client
-at `render/data/`. `artifacts/render_jobs.json` records each exact template,
-data file, expected PDF, and bounded workspace. Set
-`pipeline.after_run.remove_artifacts: false` to retain these inputs.
-
-With Typst 0.15.1, use the actual paths from that job:
+The authoritative `runs/<run-id>/run.json` records source rows, facts,
+assignments, checks and original PDF paths. The run stages the selected project
+under `resources/templates/` and facts under `facts/<row_key>.json`. To review a
+retained notice with Typst 0.15.1:
 
 ```bash
-typst compile \
-  --root "/path/to/output/artifacts/render" \
-  --input data=/data/en_notice_00001_123.json \
-  "/path/to/output/artifacts/render/templates/overdue_diseases_v1.en.typ" \
-  "/path/to/review.pdf"
+typst compile --root ./runs/<run-id> \
+  --input data=/facts/row-000001.json \
+  --input notice-template=overdue_diseases_v1.en.typ \
+  --input notice-version=overdue_diseases_v1 --input notice-language=en \
+  ./runs/<run-id>/resources/templates/overdue_diseases_v1.en.typ ./review.pdf
 ```
 
-The slash in a Typst import or data reference is relative to `--root`; the
-root is the run workspace, never the filesystem root. A manual compile aids
-review but does not certify whole-cohort validation or delivery.
-
-Review English and French prose, client details, history grouping, validity
-symbols, QR links, branding, page count, signature position, and envelope
-window. Include long records and addresses. The
-[testing guide](../developer_guide/testing.md) covers repeatable native checks.
+The root bounds file reads. A manual compile aids visual review; the complete
+pipeline also records findings and delivery accounting. Inspect English/French,
+unknown-age, long-address and long-history examples, including QR links,
+window placement, signatures, symbols and page continuation. The
+[testing guide](../developer_guide/testing.md) describes repeatable checks.

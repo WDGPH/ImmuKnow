@@ -18,21 +18,29 @@ output checks, and delivery. Internal signatures and intermediate schemas may
 change together. Preserve user-facing configuration semantics and complete
 end-to-end results, not obsolete step APIs.
 
-Python owns source validation, normalized disease names, dose facts, assessment,
-eligibility, assignment reconciliation, QR payloads, encryption, and grouping.
-Typst owns notice prose, labels, dates, dose wording, chart headings, and
-layout. The authored entry points and assets live under
-`immuknow/templates/`; package configuration and translations live under
-`immuknow/config/`. PHU template and configuration directories are isolated.
+Python owns source checks, normalized facts, applicability warnings, explicit
+assignment reconciliation, encryption, and grouping. Upstream systems assess
+immunization status. Typst owns notice prose, labels, dates, dose wording,
+history display, QR destinations and drawing, and layout findings. The authored entry points and assets live under
+`immuknow/templates/`, including project translations; factual configuration
+lives under `immuknow/config/`. PHU template and configuration directories are isolated.
 Use a bounded run workspace and never write into installed package files.
 
 Keep one authoritative resolved `version_id` and language per notice.
-Persist the prepared client list, selected resources, expected outputs, and
-successful completion where they help reproduce a run. Pass validated objects
-between internal responsibilities instead of writing files solely to separate
-functions. Compilation, validation, encryption, and bundling must account for
-the same expected set by identity and uniqueness. A failure must not publish
-a successful bundle or reuse stale PDFs.
+Persist one authoritative `run.json` and generate its escaped HTML view.
+Create a separate run directory; preserve every original source row under a
+stable row key before sorting and retain original PDFs, facts and resource
+hashes. Password settings stay in memory and are redacted from saved resources
+and effective configuration. Pass prepared objects between responsibilities;
+do not add mutable client, validation or completion manifests. Compilation,
+checking, encryption and bundling record actual per-entry outcomes. Expected
+notice failures retain independent results; shared setup errors and unexpected
+programming errors save honest partial evidence before propagating. Bundle
+only known usable PDFs with unique membership; never reuse stale outputs.
+Recoverable quality problems warn and retain the row. Missing or ambiguous
+assignments fail their rows; they never trigger automatic selection. Render
+checks come from placed Typst metadata. Missing evidence keeps a readable PDF
+with failed checking and an evidence-unavailable warning.
 
 ## Working method
 
