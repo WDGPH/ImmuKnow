@@ -1,6 +1,6 @@
 // @immuknow-settings: settings.typ
 #import "settings.typ": *
-#show: notice-style.with(privacy: none) // This order has no privacy notice
+#show: notice-style // Apply the layout and theme from Settings
 
 // The explicit assignment comes from the upstream assessment.
 // The supplied overdue diseases must already reflect exemptions and the MOH's assessment.

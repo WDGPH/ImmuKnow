@@ -2,8 +2,11 @@
 
 Python prepares facts and explicit assignments. Authored Typst projects own
 letter prose, display choices, QR destinations and layout. The maintained
-branding, names and contacts are synthetic examples; replace them with reviewed
+branding, names and contacts are examples; replace them with reviewed
 PHU content.
+
+Use [Studio](studio.md) for source editing, matching example previews and
+project exports. This guide owns the native facts and Typst component contract.
 
 ## Select a complete project
 
@@ -21,6 +24,22 @@ immuknow clients.csv --notice-assignments ./assignments.json --templates ./my-ph
 For an installed wheel, use `importlib.resources.files("immuknow")` to locate
 and copy its `templates` directory. The selected tree supplies all authored
 helpers and assets. It is staged once in the run; installed files remain read-only.
+
+Keep `lib/immuknow/` complete and unchanged, including its nested files. Native
+runs, saved-run delivery and Studio check its bytes against the supplied library;
+rewriting a project manifest does not approve an edited copy. Linked library
+paths are refused. Put your own helpers outside that directory, and edit notice
+prose, Settings, assets and project translations there. Studio opens supplied
+library files for reading only.
+
+This check protects the supplied components. It does not establish that arbitrary
+text or drawing added elsewhere in an authored template belongs to the right
+client; review authored content as well as the reported checks.
+
+Keep dependencies inside this tree and import them through relative paths.
+Native runs and Studio refuse `@local` and `@preview` package imports, including
+paths built from variables. Native compilation uses private package directories
+and blocks downloads before connecting; it cannot use a package installed elsewhere.
 
 The filename `<version>.<language>.typ` supplies version and language. Rename
 only when the authored prose matches the intended language. Selection never
@@ -60,6 +79,12 @@ function so a suspension order can omit it without evaluating history display
 requirements. The suspension example has one order page and no history or
 privacy appendix.
 
+Privacy wording lives directly at the end of each applicable template in an
+`#immuknow.privacy-notice[Your privacy wording here.]` block. Edit its wording
+and contact details in the Template editor. The helper places it at the bottom
+of the page and reports unexpected continuation. Templates without a privacy
+notice simply omit the block; Settings does not insert one automatically.
+
 Use explicit `true`, `false` and unknown branches for `notice.client_data.over_16`.
 Unknown birth/age never means under 16. The maintained examples use neutral
 client wording in that case. Address components use the source province.
@@ -81,7 +106,6 @@ it before compilation; strings remain literal data rather than executable source
 | `overdue_agents` | Source vaccine agent names |
 | `history` | Normalized administrations with ISO `date_given`, `agent`, `display_name`, complete `diseases` and `validity` |
 | `validity_coverage` | Whole-cohort `all_present`, `all_absent` or `mixed` |
-| `unparsed_history` | Original unusable fragments, visibly retained when history is inserted |
 
 A missing birth date is blank, and unknown `age`/`over_16` are JSON null. Blank
 source values and unusable fragments are retained in `run.json` with preparation
@@ -92,8 +116,14 @@ findings. Display choices never alter administrations or disease mappings.
 `immunization-history` accepts disease columns, ignored agents, validity markers,
 Other-column inclusion, invalid-dose omission and chart styling. Settings is the
 only owner of these options. Whole-cohort mixed validity produces a warning when
-validity display is requested. The displayed history preserves unexpected raw
-fragments so they remain reviewable. Omitted components produce no component checks.
+validity display is requested. Invalid source history rejects input before
+rendering; its fragments remain in the run report. Omitted components produce
+no component checks, but do not bypass source validation.
+
+History marks use the same `indicator-font` and `indicator-size` in the table
+and its legend. The default FreeSans marks keep their size and centring when
+the letter typeface changes. `indicator-offset` adjusts mark placement inside
+table cells.
 
 The package provides page/header, address/client, signature, history, overdue
 lists and QR helpers. Warnings retain visible content and useful PDFs. Long
@@ -101,6 +131,13 @@ content continues onto extra pages and reports unexpected continuation; authors
 can explicitly allow intentional overflow. Structural misuse or compiler errors
 can prevent a PDF. Report findings show which components were used, their checks,
 resolved QR URLs and layout measurements.
+
+The supplied report builder writes version 2 evidence under `report-v2.json`
+inside the library. It includes the source row and selected filename as well as
+client, version and language. Missing fields, unknown checks/components,
+contradictory presence findings and invalid page ranges are refused by native
+runs and Studio. Keep the supplied builder; do not write a replacement report
+in an authored template.
 
 QR Settings uses an explicit fixed string or a function of normalized facts:
 

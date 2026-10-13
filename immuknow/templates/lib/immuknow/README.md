@@ -58,13 +58,18 @@ Unused content emits no component findings. `url-encode(string)` encodes UTF-8
 query/path components with RFC 3986 unreserved characters; `query-url` applies
 it to raw dictionary keys and values. A fixed URL string is used verbatim.
 
-The report contains `schema_version: 1`, `identity` (`client_id`, `version_id`,
-`language`), actual `page_count`, `checks`, `qr_urls`, and `measurements`.
+The report follows `report-v2.json`: `schema_version: 2`, `identity` (`row_key`,
+`template`, `client_id`, `version_id`, `language`), actual `page_count`, `checks`,
+`qr_urls`, and `measurements`. Native and browser checks use this same schema.
 `components` has boolean keys `page`, `section`, `header`, `address`, `client`,
 `signature`, `history`, `overdue_diseases`, `overdue_agents`, `qr`, and `privacy`.
 Every absent known component has a `not_applicable` check. Checks use `code`,
 `stage: "render"`, `status`, `message`, and optional `component`, `page`, and
 `measurements`. They are invisible metadata, never hidden PDF text.
+Component measurements must agree with presence and absence findings. Page
+numbers must fall within the notice, ranges must run forwards, and client
+measurements must name the selected client. Unsupported report versions are
+refused; there is no conversion of older reports.
 
 Compile and inspect the same immutable project with a frozen creation timestamp,
 then read its report with Typst 0.15.1:

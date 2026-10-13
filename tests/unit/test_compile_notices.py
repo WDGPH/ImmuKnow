@@ -11,7 +11,10 @@ import pytest
 
 from immuknow import compile_notices
 from immuknow.data_models import RenderJob
+from immuknow.render_contract import report_schema
 from immuknow.validate_pdfs import inspect_notice
+
+FONT_PATH = Path(__file__).resolve().parents[2] / "immuknow/templates/fonts"
 
 
 @pytest.mark.unit
@@ -40,8 +43,10 @@ def test_pdf_and_required_evidence_are_separate_outputs(tmp_path: Path) -> None:
     data.write_text("{}")
     entry = tmp_path / "example.en.typ"
     summary = {
-        "schema_version": 1,
+        "schema_version": 2,
         "identity": {
+            "row_key": "row-000001",
+            "template": "example.en.typ",
             "client_id": "0000000001",
             "version_id": "example",
             "language": "en",
@@ -49,31 +54,32 @@ def test_pdf_and_required_evidence_are_separate_outputs(tmp_path: Path) -> None:
         "page_count": 1,
         "components": {
             name: name == "client"
-            for name in (
-                "page",
-                "section",
-                "header",
-                "address",
-                "client",
-                "signature",
-                "history",
-                "overdue_diseases",
-                "overdue_agents",
-                "qr",
-                "privacy",
-            )
+            for name in report_schema()["properties"]["components"]["properties"]
         },
         "checks": [
             {
-                "code": "layout.example",
+                "code": "compiler.warning",
                 "stage": "render",
                 "status": "warn",
                 "message": "Visible warning example.",
             }
         ],
         "qr_urls": [],
-        "measurements": {},
+        "measurements": {
+            "client": [{"client_id": "0000000001", "page": 1, "x_pt": 0, "y_pt": 0}]
+        },
     }
+    summary["checks"] += [
+        {
+            "code": f"component.{name}.absent",
+            "stage": "render",
+            "status": "not_applicable",
+            "message": "Component was not used.",
+            "component": name,
+        }
+        for name, placed in summary["components"].items()
+        if not placed
+    ]
     evidence = tmp_path / "evidence.json"
     evidence.write_text(json.dumps(summary))
     source = (
@@ -98,10 +104,10 @@ def test_pdf_and_required_evidence_are_separate_outputs(tmp_path: Path) -> None:
     report = compile_notices.evaluate_render_job(job, "typst")
     original, checks = inspect_notice(job, tmp_path, report)
     assert original["pages"] == 1
-    assert report["checks"][0]["code"] == "layout.example"
+    assert report["checks"][0]["code"] == "compiler.warning"
     assert (
         next(check for check in checks if check.code == "output.client_identity").status
-        == "warn"
+        == "fail"
     )
     entry.write_text(source.replace("9999999999", "0000000001"))
     compile_notices.compile_render_job(job, "typst")
@@ -118,7 +124,10 @@ def test_pdf_and_required_evidence_are_separate_outputs(tmp_path: Path) -> None:
         compile_notices.evaluate_render_job(job, "typst")
     assert job.pdf.is_file()
     _, checks = inspect_notice(job, tmp_path, None)
-    assert any(check.code == "output.evidence_unavailable" for check in checks)
+    assert any(
+        check.code == "output.evidence_matches" and check.status == "fail"
+        for check in checks
+    )
     entry.write_text('#panic("real compile failure")')
     with pytest.raises(subprocess.CalledProcessError) as failure:
         compile_notices.compile_render_job(job, "typst")

@@ -158,6 +158,8 @@ def test_placed_history_and_qr_share_honest_evidence(
     assert isinstance(action, DictionaryObject)
     assert action["/URI"] == expected_url
     assert report["identity"] == {
+        "row_key": "row-1",
+        "template": "test.en.typ",
         "client_id": "1234567890",
         "version_id": "test",
         "language": "en",

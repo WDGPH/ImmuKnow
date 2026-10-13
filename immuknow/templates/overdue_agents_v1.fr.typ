@@ -55,3 +55,8 @@ Si vous avez des questions sur #if notice.client_data.over_16 == true [vos vacci
   #immunization-history()
   #align(center)[Fin du dossier d'immunisation]
 ]
+
+// Privacy notice: edit wording and contact details here
+#immuknow.privacy-notice[
+  Les renseignements figurant dans cet avis ont été recueillis en vertu de la _Loi sur la protection et la promotion de la santé_, conformément à la _Loi sur l’accès à l’information municipale et la protection de la vie privée_ et à la _Loi sur la protection des renseignements personnels sur la santé_. Ces renseignements servent à la prestation de programmes et de services de santé publique, à l’administration de l’organisme ainsi qu’à la tenue de bases de données et de registres de santé et aux recherches connexes, dans le respect des exigences légales et réglementaires. Toute question concernant la gestion de ces renseignements doit être adressée au responsable de la protection de la vie privée au 1-800-555-0100, poste 1234, ou à privacy\@example.org.
+]

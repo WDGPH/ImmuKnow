@@ -29,6 +29,7 @@ from .assignment_manifest import (
 )
 from .load_config import parse_config
 from .build_info import current_build_info
+from .component_resources import verify_components
 from . import run_report
 from .version_notices import load_catalog, template_identity
 
@@ -255,7 +256,9 @@ def run_pipeline(
             (staged_config / "parameters.yaml").write_text(
                 yaml.safe_dump(saved_config), encoding="utf-8"
             )
+            verify_components(template_dir)
             shutil.copytree(template_dir, staged_templates)
+            verify_components(staged_templates)
             catalog = load_catalog(staged_config)
             manifest = {}
             if notice_assignments:
@@ -294,7 +297,10 @@ def run_pipeline(
                     )
             typst_settings = config.get("typst", {})
             typst_bin = os.environ.get("TYPST_BIN", typst_settings.get("bin", "typst"))
-            compile_notices.check_compiler(typst_bin)
+            timeouts = compile_notices.CompilerTimeouts.from_config(
+                typst_settings.get("timeouts_seconds", {})
+            )
+            compile_notices.check_compiler(typst_bin, timeout=timeouts.version)
             record["version"]["compiler"] = compile_notices.TYPST_VERSION
             record["resources"] = run_report.resource_manifest(
                 run_dir / "resources", run_dir
@@ -377,7 +383,9 @@ def run_pipeline(
                 ).hexdigest()
                 summary = None
                 try:
-                    diagnostics = compile_notices.compile_render_job(job, typst_bin)
+                    diagnostics = compile_notices.compile_render_job(
+                        job, typst_bin, timeout=timeouts.compile
+                    )
                     entry["checks"].extend(check.to_dict() for check in diagnostics)
                     run_report.add_check(
                         entry,
@@ -387,13 +395,19 @@ def run_pipeline(
                         "Original PDF produced",
                     )
                     try:
-                        summary = compile_notices.evaluate_render_job(job, typst_bin)
+                        summary = compile_notices.evaluate_render_job(
+                            job, typst_bin, timeout=timeouts.evidence
+                        )
                         entry["render_summary"] = summary
                         entry["qr_urls"] = summary["qr_urls"]
                         for check in summary["checks"]:
                             if check not in entry["checks"]:
                                 entry["checks"].append(check)
-                    except (ValueError, subprocess.CalledProcessError) as exc:
+                    except (
+                        ValueError,
+                        subprocess.CalledProcessError,
+                        compile_notices.CompilerTimeoutError,
+                    ) as exc:
                         detail = (
                             exc.stderr
                             if isinstance(exc, subprocess.CalledProcessError)
@@ -412,7 +426,12 @@ def run_pipeline(
                     entry["checks"].extend(check.to_dict() for check in pdf_checks)
                     successful_clients.append(client)
                     successful_jobs.append(job)
-                except (OSError, subprocess.CalledProcessError, PdfReadError) as exc:
+                except (
+                    OSError,
+                    subprocess.CalledProcessError,
+                    PdfReadError,
+                    compile_notices.CompilerTimeoutError,
+                ) as exc:
                     detail = str(exc)
                     if isinstance(exc, subprocess.CalledProcessError) and exc.stderr:
                         detail += "\n" + exc.stderr

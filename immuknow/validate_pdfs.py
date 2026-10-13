@@ -46,14 +46,16 @@ def inspect_notice(
     if summary is None:
         checks.append(
             CheckResult(
-                "output.evidence_unavailable",
+                "output.evidence_matches",
                 "output",
-                "warn",
+                "fail",
                 "Render checks could not be completed; inspect this original PDF.",
             )
         )
     else:
         expected_identity = {
+            "row_key": job.sequence,
+            "template": job.template.name,
             "client_id": job.client_id,
             "version_id": job.version_id,
             "language": job.language,
@@ -75,15 +77,6 @@ def inspect_notice(
                 },
             )
         )
-        if not matches:
-            checks.append(
-                CheckResult(
-                    "output.evidence_mismatch",
-                    "output",
-                    "warn",
-                    "The rendered evidence does not match this original notice.",
-                )
-            )
     try:
         texts = [" ".join(page.extract_text().split()) for page in reader.pages]
     except (PdfReadError, ValueError, KeyError) as exc:
@@ -94,12 +87,6 @@ def inspect_notice(
                     "output",
                     "fail",
                     f"PDF text inspection failed: {exc}",
-                ),
-                CheckResult(
-                    "output.evidence_unavailable",
-                    "output",
-                    "warn",
-                    "Visible client identity could not be checked.",
                 ),
             ]
         )
@@ -122,7 +109,7 @@ def inspect_notice(
         CheckResult(
             "output.client_identity",
             "output",
-            "pass" if found_page else "warn",
+            "pass" if found_page else "fail",
             "Labelled client ID matches the selected source row."
             if found_page
             else "The exact client ID is missing from the labelled client block.",

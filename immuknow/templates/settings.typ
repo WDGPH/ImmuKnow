@@ -35,11 +35,6 @@
 #let client-font-size = 10pt // Size of the address and client details
 
 // Letter features
-// Privacy notice appears at the bottom of the final page; edit wording and contact details here
-#let privacy-notice = (
-  en: [The information in this notice was collected under the authority of the _Health Protection and Promotion Act_ in accordance with the _Municipal Freedom of Information and Protection of Privacy Act_ and the _Personal Health Information Protection Act_. This information is used for the delivery of public health programs and services; the administration of the agency; and the maintenance of healthcare databases, registries and related research, in compliance with legal and regulatory requirements. Any questions about the management of this information should be addressed to the Chief Privacy Officer at 1-800-555-0100 ext. 1234 or privacy\@example.org.],
-  fr: [Les renseignements figurant dans cet avis ont été recueillis en vertu de la _Loi sur la protection et la promotion de la santé_, conformément à la _Loi sur l’accès à l’information municipale et la protection de la vie privée_ et à la _Loi sur la protection des renseignements personnels sur la santé_. Ces renseignements servent à la prestation de programmes et de services de santé publique, à l’administration de l’organisme ainsi qu’à la tenue de bases de données et de registres de santé et aux recherches connexes, dans le respect des exigences légales et réglementaires. Toute question concernant la gestion de ces renseignements doit être adressée au responsable de la protection de la vie privée au 1-800-555-0100, poste 1234, ou à privacy\@example.org.],
-)
 #let health-unit-name = "Cedar Ridge Health Unit" // Issuing organization
 #let health-unit-address = "123 Example Street, Demo City, ON N0N 0N0" // Mailing address
 #let records-url = "https://example.org/immunization" // Submit immunization records
@@ -94,7 +89,7 @@
 #let date_as_of = dates.date_as_of
 #let date_of_birth = dates.date_of_birth
 
-#let notice-style(body, privacy: privacy-notice.at(notice.language)) = immuknow.notice-style(
+#let notice-style(body) = immuknow.notice-style(
   body,
   notice: notice,
   language: notice.language,
@@ -103,7 +98,6 @@
   font: body-font,
   font-size: body-size,
   link-color: link-color,
-  privacy: privacy,
 )
 
 // Each section starts a fresh page; unexpected continuation produces a finding
@@ -131,7 +125,7 @@
   min-rows: 5, // Minimum number of vaccination rows
   font-size: if notice.language == "fr" { 10.6pt } else { 11pt },
   heading-size: auto, // Same size as chart text; use e.g. 11pt to override
-  indicator-font: "FreeMono", // Consistent dots across letter typefaces
+  indicator-font: "FreeSans", // Consistent dots across letter typefaces
   indicator-size: auto, // Same size as chart text
   indicator-offset: (x: 0pt, y: 0pt), // Optical adjustment for your typeface
   labels: presentation.selected-labels(),

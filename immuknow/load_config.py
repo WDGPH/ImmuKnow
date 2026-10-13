@@ -11,6 +11,7 @@ from typing import Any
 
 from .bundle_pdfs import BundleGrouping
 from .structured_input import parse_yaml
+from .compile_notices import CompilerTimeouts
 from .client_placeholders import (
     CLIENT_PLACEHOLDERS,
     extract_template_fields,
@@ -245,6 +246,7 @@ def validate_config(config: dict[str, Any]) -> None:
 
     # Validate Typst config
     typst_config = config.get("typst", {})
+    CompilerTimeouts.from_config(typst_config.get("timeouts_seconds", {}))
     typst_bin = typst_config.get("bin", "typst")
     if not isinstance(typst_bin, str) or not typst_bin.strip():
         raise ValueError("typst.bin must be a nonempty string")

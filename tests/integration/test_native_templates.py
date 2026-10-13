@@ -18,6 +18,7 @@ from immuknow.generate_notices import prepare_render_jobs
 from tests.fixtures.sample_input import create_test_client_record
 
 ROOT = Path(__file__).resolve().parents[2]
+FONT_PATH = Path(__file__).resolve().parents[2] / "immuknow/templates/fonts"
 pytestmark = pytest.mark.integration
 
 
@@ -111,6 +112,8 @@ def test_maintained_entry_points_keep_their_content_and_component_choices(
     assert reader.root_object["/Lang"] == language + "-CA"
     assert len(reader.pages) == pages
     assert report["identity"] == {
+        "row_key": job.sequence,
+        "template": job.template.name,
         "client_id": "0000000001",
         "version_id": version,
         "language": language,
@@ -126,8 +129,20 @@ def test_maintained_entry_points_keep_their_content_and_component_choices(
     suspension = version == "suspension_order_v1"
     assert report["components"]["history"] is (not suspension)
     assert report["components"]["privacy"] is (not suspension)
+    privacy_text = (
+        "The information in this notice was collected"
+        if language == "en"
+        else "Les renseignements figurant dans cet avis"
+    )
+    assert privacy_text not in first
     if not suspension:
         last = " ".join(reader.pages[-1].extract_text().split())
+        assert privacy_text in last
+        assert report["measurements"]["privacy"] == [{"page": pages}]
+        assert any(
+            check["code"] == "layout.privacy_page" and check["status"] == "pass"
+            for check in report["checks"]
+        )
         assert "2020-05-01" in last and "DTaP" in last
         assert (
             "End of immunization record"

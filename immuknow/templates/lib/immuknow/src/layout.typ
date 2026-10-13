@@ -136,26 +136,27 @@
   }
 }
 
-#let notice-style(body, notice: none, language: auto, paper: "us-letter", margins: (top: 1cm, bottom: 2cm, left: 1.75cm, right: 2cm), font: "FreeSans", font-size: 10pt, link-color: blue, privacy: none, paragraph-spacing: 0.55em, page-numbers: true) = {
+#let notice-style(body, notice: none, language: auto, paper: "us-letter", margins: (top: 1cm, bottom: 2cm, left: 1.75cm, right: 2cm), font: "FreeSans", font-size: 10pt, link-color: blue, paragraph-spacing: 0.55em, page-numbers: true) = {
   assert(notice != none, message: "notice-style requires the prepared notice for document evidence")
   let lang = if language == auto { notice.language } else { language }
   show: notice-page.with(language: lang, paper: paper, margins: margins, font: font, font-size: font-size, page-numbers: page-numbers)
   set par(spacing: paragraph-spacing)
   show link: it => underline(text(fill: link-color, it))
   body
-  if privacy != none {
-    context {
-      let expected-page = here().page()
-      v(1fr)
-      block(breakable: false, width: 100%)[#context {
-        component("privacy", measurements: (page: here().page()))
-        check("layout.privacy_page", if here().page() == expected-page { "pass" } else { "warn" }, "Privacy notice placement.", component: "privacy", page: here().page(), measurements: (expected_page: expected-page, actual_page: here().page()))
-        set par(justify: true)
-        text(size: 7pt, privacy)
-      }]
-    }
-  }
   report(notice)
+}
+
+#let privacy-notice(body) = {
+  context {
+    let expected-page = here().page()
+    v(1fr)
+    block(breakable: false, width: 100%)[#context {
+      component("privacy", measurements: (page: here().page()))
+      check("layout.privacy_page", if here().page() == expected-page { "pass" } else { "warn" }, "Privacy notice placement.", component: "privacy", page: here().page(), measurements: (expected_page: expected-page, actual_page: here().page()))
+      set par(justify: true)
+      text(size: 7pt, body)
+    }]
+  }
 }
 
 #let notice-section(title, body, logo: none, logo-width: 6cm, title-size: 20pt, fill: black, heading-above: 0.2cm, heading-below: 0.5cm, allow-overflow: false) = {

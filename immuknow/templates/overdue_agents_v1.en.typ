@@ -55,3 +55,8 @@ If you have any questions, please call #health-unit-phone.
   #immunization-history()
   #align(center)[End of immunization record]
 ]
+
+// Privacy notice: edit wording and contact details here
+#immuknow.privacy-notice[
+  The information in this notice was collected under the authority of the _Health Protection and Promotion Act_ in accordance with the _Municipal Freedom of Information and Protection of Privacy Act_ and the _Personal Health Information Protection Act_. This information is used for the delivery of public health programs and services; the administration of the agency; and the maintenance of healthcare databases, registries and related research, in compliance with legal and regulatory requirements. Any questions about the management of this information should be addressed to the Chief Privacy Officer at 1-800-555-0100 ext. 1234 or privacy\@example.org.
+]

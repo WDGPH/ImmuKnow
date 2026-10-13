@@ -7,22 +7,118 @@ inspection and delivery; metadata extraction never erases a useful PDF.
 
 from __future__ import annotations
 
-import json
-import subprocess
+import os
 import re
-from typing import Any
+import subprocess
+from dataclasses import asdict, dataclass
 from pathlib import Path
+from tempfile import TemporaryDirectory
+from typing import Any
 
 from .data_models import CheckResult, ClientRecord, RenderJob
+from .structured_input import parse_json
+from .render_contract import validate_render_report
 
 TYPST_VERSION = "0.15.1"
 
 
-def check_compiler(typst_bin: str) -> None:
+@dataclass(frozen=True)
+class CompilerTimeouts:
+    """Wall-clock limits in seconds for separate native compiler operations."""
+
+    version: float = 10
+    compile: float = 120
+    evidence: float = 120
+    review: float = 60
+
+    @classmethod
+    def from_config(cls, settings: Any) -> CompilerTimeouts:
+        """Resolve explicit limits; reject unbounded, mistyped or unknown settings."""
+        defaults = asdict(cls())
+        if not isinstance(settings, dict) or set(settings) - defaults.keys():
+            raise ValueError(
+                "typst.timeouts_seconds must contain only version, compile, evidence and review"
+            )
+        resolved = defaults | settings
+        for operation, value in resolved.items():
+            _validate_timeout(value, f"typst.timeouts_seconds.{operation}")
+        return cls(**resolved)
+
+
+class CompilerTimeoutError(TimeoutError):
+    """A native operation exceeded its deadline; its subprocess was terminated."""
+
+
+def _validate_timeout(value: Any, name: str) -> None:
+    if type(value) not in (int, float) or not 0 < value <= 86400:
+        raise ValueError(
+            f"{name} must be a finite number of seconds above 0 and at most 86400"
+        )
+
+
+def run_typst(
+    command: list[str], *, timeout: float, operation: str
+) -> subprocess.CompletedProcess[str]:
+    """Run with a deadline, private package paths and package downloads disabled.
+
+    Typst 0.15.1 has no offline flag. Its downloader reads the configured CA
+    certificate before opening a connection and fails on invalid certificate
+    bytes. Keep that failure deliberate and local, alongside empty package paths.
+    Real compiler tests cover both cached imports and attempted network access.
+    """
+    _validate_timeout(timeout, f"Typst {operation} timeout")
+    try:
+        with TemporaryDirectory(prefix="immuknow-typst-") as temporary:
+            isolated = Path(temporary)
+            packages = isolated / "packages"
+            packages.mkdir()
+            certificate = isolated / "downloads-disabled.pem"
+            certificate.write_text(
+                "Package downloads are disabled.\n", encoding="utf-8"
+            )
+            environment = {
+                key: value
+                for key, value in os.environ.items()
+                if key != "TYPST_FONT_PATHS"
+            }
+            environment.update(
+                TYPST_PACKAGE_PATH=str(packages),
+                TYPST_PACKAGE_CACHE_PATH=str(packages),
+                TYPST_CERT=str(certificate),
+            )
+            return subprocess.run(
+                command,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                env=environment,
+            )
+    except subprocess.CalledProcessError as exc:
+        if any(
+            message in (exc.stderr or "")
+            for message in (
+                "failed to download package",
+                "package not found",
+            )
+        ):
+            exc.stderr = (
+                "Package imports are not supported. Copy dependencies into the project "
+                "and use relative paths.\n" + exc.stderr
+            )
+        raise
+    except subprocess.TimeoutExpired as exc:
+        raise CompilerTimeoutError(
+            f"Typst {operation} exceeded its {timeout:g}-second deadline. "
+            "Check the template or increase the corresponding typst.timeouts_seconds setting."
+        ) from exc
+
+
+def check_compiler(typst_bin: str, *, timeout: float = CompilerTimeouts.version) -> str:
     """Require the tested stable compiler and explain how to select it."""
     try:
-        result = subprocess.run(
-            [typst_bin, "--version"], check=True, capture_output=True, text=True
+        result = run_typst(
+            [typst_bin, "--version"], timeout=timeout, operation="version probe"
         )
     except FileNotFoundError as exc:
         raise RuntimeError(
@@ -34,6 +130,7 @@ def check_compiler(typst_bin: str) -> None:
             f"Unsupported compiler: {result.stdout.strip()}. Use Typst {TYPST_VERSION}; "
             "set typst.bin or TYPST_BIN to its executable."
         )
+    return result.stdout.strip()
 
 
 def compiler_warnings(stderr: str) -> list[CheckResult]:
@@ -70,7 +167,10 @@ def compiler_options(job: RenderJob) -> list[str]:
 
 
 def compile_render_job(
-    job: RenderJob, typst_bin: str
+    job: RenderJob,
+    typst_bin: str,
+    *,
+    timeout: float = CompilerTimeouts.compile,
 ) -> list[CheckResult]:
     """Publish one PDF after successful compilation, retaining compiler warnings.
 
@@ -89,7 +189,7 @@ def compile_render_job(
         str(partial),
     ]
     try:
-        result = subprocess.run(command, check=True, capture_output=True, text=True)
+        result = run_typst(command, timeout=timeout, operation="notice compilation")
         partial.replace(job.pdf)
     finally:
         partial.unlink(missing_ok=True)
@@ -97,7 +197,10 @@ def compile_render_job(
 
 
 def evaluate_render_job(
-    job: RenderJob, typst_bin: str
+    job: RenderJob,
+    typst_bin: str,
+    *,
+    timeout: float = CompilerTimeouts.evidence,
 ) -> dict[str, Any]:
     """Read the required placed summary without interpreting component rules.
 
@@ -105,7 +208,7 @@ def evaluate_render_job(
     identity and creation timestamp used for the PDF. A missing or malformed
     report raises while leaving the PDF available for review.
     """
-    result = subprocess.run(
+    result = run_typst(
         [
             typst_bin,
             "eval",
@@ -116,75 +219,27 @@ def evaluate_render_job(
             "--format",
             "json",
         ],
-        check=True,
-        capture_output=True,
-        text=True,
+        timeout=timeout,
+        operation="evidence evaluation",
     )
     try:
-        summaries = json.loads(result.stdout)
-    except json.JSONDecodeError as exc:
+        summaries = parse_json(result.stdout)
+    except ValueError as exc:
         raise ValueError("Compiler returned unreadable render evidence") from exc
     if not isinstance(summaries, list) or len(summaries) != 1:
         raise ValueError("Expected exactly one immuknow-report document summary")
     summary = summaries[0]
-    if (
-        not isinstance(summary, dict)
-        or type(summary.get("schema_version")) is not int
-        or summary["schema_version"] != 1
-    ):
-        raise ValueError("Unsupported or missing render evidence schema")
-    identity = summary.get("identity")
-    if not isinstance(identity, dict) or any(
-        not isinstance(identity.get(key), str)
-        for key in ("client_id", "version_id", "language")
-    ):
-        raise ValueError("Render evidence is missing document identity")
-    if type(summary.get("page_count")) is not int or summary["page_count"] < 1:
-        raise ValueError("Render evidence is missing actual page count")
-    components = summary.get("components")
-    known_components = {
-        "page",
-        "section",
-        "header",
-        "address",
-        "client",
-        "signature",
-        "history",
-        "overdue_diseases",
-        "overdue_agents",
-        "qr",
-        "privacy",
-    }
-    if (
-        not isinstance(components, dict)
-        or not known_components <= components.keys()
-        or any(type(value) is not bool for value in components.values())
-    ):
-        raise ValueError("Render evidence has invalid component presence")
-    if not isinstance(summary.get("measurements"), dict):
-        raise ValueError("Render evidence is missing measurements")
-    urls = summary.get("qr_urls")
-    if not isinstance(urls, list) or any(
-        not isinstance(url, str) or not url for url in urls
-    ):
-        raise ValueError("Render evidence has invalid QR destinations")
-    checks = summary.get("checks")
-    if not isinstance(checks, list):
-        raise ValueError("Render evidence is missing check results")
-    for check in checks:
-        if not isinstance(check, dict) or any(
-            not isinstance(check.get(key), str) or not check[key]
-            for key in ("code", "stage", "status", "message")
-        ):
-            raise ValueError("Render evidence contains an invalid check result")
-        if check["status"] not in ("pass", "warn", "fail", "not_applicable", "not_run"):
-            raise ValueError("Render evidence contains an unknown check status")
-        if "page" in check and (type(check["page"]) is not int or check["page"] < 1):
-            raise ValueError("Render evidence contains an invalid check page")
-        if "measurements" in check and not isinstance(check["measurements"], dict):
-            raise ValueError("Render evidence contains invalid check measurements")
-        if "component" in check and not isinstance(check["component"], str):
-            raise ValueError("Render evidence contains an invalid component name")
+    validate_render_report(
+        summary,
+        {
+            "row_key": job.sequence,
+            "template": job.template.name,
+            "client_id": job.client_id,
+            "version_id": job.version_id,
+            "language": job.language,
+        },
+    )
+    checks = summary["checks"]
     # Layout may issue a warning during either evaluation. Store each instance once.
     for warning in compiler_warnings(result.stderr):
         if warning.to_dict() not in checks:
