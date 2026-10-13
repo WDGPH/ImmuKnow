@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self' blob:; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
+<title>ImmuKnow Studio</title>
+<link id="favicon" rel="icon" type="image/svg+xml" href="./src/assets/studio-icon-light.svg">
+<meta name="description" content="Edit notices and preview your changes.">
+</head>
+<body>
+<header>
+<a class="brand" href="./" aria-label="ImmuKnow Studio home"><img class="brand-light" src="./src/assets/studio-logo-light.svg" alt="ImmuKnow Studio" width="300" height="64"><img class="brand-dark" src="./src/assets/studio-logo-dark.svg" alt="" aria-hidden="true" width="300" height="64"></a>
+<div class="header-actions">
+<details class="project-actions"><summary aria-label="Project"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V5h7l2 2h9v13H3Z"/></svg><span>Project</span><svg class="menu-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></summary><section class="actions" aria-label="Project actions">
+<label><input type="checkbox" id="include-fonts">Include fonts</label>
+<button id="export" disabled>Download project</button><button id="import" disabled>Import project</button><input id="archive" type="file" accept=".zip" hidden>
+<button id="reset" disabled>Reset current file</button><button id="clear" disabled>Clear saved draft</button><button id="restart" disabled>Restart compiler</button>
+</section></details>
+<button id="theme-toggle" aria-label="Switch to dark mode"></button>
+<a class="github-link" href="https://github.com/WDGPH/ImmuKnow" target="_blank" rel="noopener noreferrer" aria-label="ImmuKnow on GitHub" title="ImmuKnow on GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .9a11.1 11.1 0 0 0-3.5 21.6c.6.1.8-.2.8-.5v-2.1c-3.2.7-3.9-1.4-3.9-1.4-.5-1.3-1.3-1.6-1.3-1.6-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.5 0-1.2.4-2.2 1.2-3-.1-.3-.5-1.5.1-3 0 0 1-.3 3.1 1.2a10.8 10.8 0 0 1 5.7 0c2.1-1.5 3.1-1.2 3.1-1.2.6 1.5.2 2.7.1 3 .8.8 1.2 1.8 1.2 3 0 4.2-2.7 5.2-5.3 5.5.4.4.8 1.1.8 2.2V22c0 .3.2.6.8.5A11.1 11.1 0 0 0 12 .9Z"/></svg></a>
+<button id="help-open" aria-label="Start walkthrough" title="Start walkthrough" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.7-2.5 2-2.5 4M12 16.5h.01"/></svg></button>
+</div>
+</header>
+<main>
+<p id="storage" class="hint" role="status" hidden></p>
+<div class="workspace" id="workspace">
+<section class="editor-pane" aria-label="Template source">
+<div class="pane-heading"><div class="editor-tabs" role="tablist" aria-label="Editor">
+<button id="theme-tab" role="tab" aria-selected="false" aria-controls="theme-panel" tabindex="-1" disabled><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m14 5 5 5M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15Z"/><path d="M4 15l5 5"/></svg><span>Theme</span></button><button id="template-tab" role="tab" aria-selected="true" aria-controls="editor-panel" disabled><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 3H5v18h14V8Z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></svg><span>Template</span></button><button id="settings-tab" role="tab" aria-selected="false" aria-controls="editor-panel" tabindex="-1" disabled><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m9.5 3-.5 2-2 .9-1.8-.6-2.5 4.3 1.5 1.4v2l-1.5 1.4 2.5 4.3 1.8-.6 2 .9.5 2h5l.5-2 2-.9 1.8.6 2.5-4.3-1.5-1.4v-2l1.5-1.4-2.5-4.3-1.8.6-2-.9-.5-2Z"/><circle cx="12" cy="12" r="3"/></svg><span>Settings</span></button>
+</div><span id="save-state" class="hint" role="status"></span></div>
+<div id="settings-controls" hidden><div class="preview-options"><label><input type="checkbox" id="guide">Show window guide</label></div></div>
+<div class="source-body" id="editor-panel" role="tabpanel" aria-labelledby="template-tab"><div id="editor"></div></div>
+<section id="theme-panel" class="theme-panel" role="tabpanel" aria-labelledby="theme-tab" hidden>
+<div class="theme-starters"><label>Template starters<select id="template" disabled></select></label><label>Theme starters<select id="health-unit-preset"><option value="">Choose a theme…</option></select></label></div>
+<button id="health-unit-undo" hidden>Undo theme starter</button>
+<section class="theme-pickers" aria-label="Fonts and colours"><label>Letter typeface<select id="body-font-picker"></select></label><label>Headings<input id="heading-color-picker" type="color" aria-label="Headings colour"></label><label>Links<input id="link-color-picker" type="color" aria-label="Links colour"></label><label>Accent<input id="accent-color-picker" type="color" aria-label="Accent colour"></label></section>
+<div class="asset-grid branding-controls">
+<section class="asset-card"><h3>Logo</h3><div class="asset-preview"><img id="logo-preview" alt="Logo preview" hidden><span id="logo-empty">No image</span></div><label class="asset-upload">Change logo<input id="logo-upload" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml"></label></section>
+<section class="asset-card"><h3>Signature</h3><div class="asset-preview"><img id="signature-preview" alt="Signature preview" hidden><span id="signature-empty">No image</span></div><label class="asset-upload">Change signature<input id="signature-upload" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml"></label><label class="signature-name-field">Printed name<input id="signature-name-picker" type="text" autocomplete="off"></label></section>
+<section class="asset-card"><h3>Additional image <span>Optional</span></h3><div class="asset-preview"><img id="extra-preview" alt="Additional image preview" hidden><span id="extra-empty">No image</span></div><label class="asset-upload">Add image<input id="extra-upload" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml"></label><code id="extra-path"></code></section>
+</div>
+</section>
+<section id="feedback" class="feedback" aria-label="Findings" hidden><ul id="diagnostics" aria-live="polite"></ul></section>
+</section>
+<div id="divider" title="Drag to resize" role="separator" tabindex="0" aria-label="Resize editor and preview" aria-orientation="vertical" aria-valuemin="25" aria-valuemax="75" aria-valuenow="50"><svg viewBox="0 0 16 32" aria-hidden="true"><circle cx="5" cy="10" r="1"/><circle cx="11" cy="10" r="1"/><circle cx="5" cy="16" r="1"/><circle cx="11" cy="16" r="1"/><circle cx="5" cy="22" r="1"/><circle cx="11" cy="22" r="1"/></svg></div>
+<section class="preview-pane" aria-label="Notice preview"><div class="pane-heading"><div class="client-controls"><span>Example client</span><div class="navigation"><button id="previous" aria-label="Previous example" disabled>‹</button><span id="position"></span><button id="next" aria-label="Next example" disabled>›</button></div></div><span id="pages" aria-label="Page count">—</span><div class="zoom-controls" role="group" aria-label="Zoom"><button id="zoom-out" aria-label="Zoom out" disabled>−</button><button id="zoom-in" aria-label="Zoom in" disabled>+</button></div><span id="preview-state" data-state="updating" role="status" aria-label="Updating preview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 9a8 8 0 1 0-1 9M20 3v6h-6"/></svg></span></div><div id="preview-scroll" tabindex="0" aria-label="Continuous notice pages"></div></section>
+</div>
+</main>
+<dialog id="tour-dialog" aria-labelledby="tour-title" aria-describedby="tour-text"><div id="tour-highlight" aria-hidden="true"></div><svg id="tour-arrow" aria-hidden="true"><defs><marker id="tour-arrowhead" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M 0 0 L 8 5 L 0 10" fill="none" stroke="currentColor" stroke-width="2"/></marker></defs><path id="tour-line" fill="none" stroke="currentColor" stroke-width="2" marker-end="url(#tour-arrowhead)"/></svg><section id="tour-card"><div class="help-heading"><span id="tour-progress" aria-live="polite"></span><button id="tour-close" aria-label="Close walkthrough">×</button></div><h2 id="tour-title"></h2><p id="tour-text"></p><div class="tour-navigation"><button id="tour-back">Back</button><button id="tour-next">Next</button></div></section></dialog>
+<script type="module" src="./src/main.ts"></script>
+</body>
+</html>

@@ -11,7 +11,9 @@ an entry file alone is not a complete project.
 Native compilation uses system fonts and Typst's built-in fallback fonts. No font
 files are shipped in the native package or added by the engine. Set `body-font` in
 `settings.typ` to an installed family name. A missing family produces a warning.
-
+Studio previews use FreeSans and FreeSerif as web assets; **Include fonts** adds
+those files to a project download for manual installation. Small differences in
+appearance are acceptable; check the final native PDF.
 
 Saved originals stay unchanged when creating new delivery batches. Review pages
 use the fonts available on the machine running ImmuKnow.

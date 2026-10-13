@@ -64,6 +64,15 @@ paths, [configuration](docs/user_guide/configuration.md) for options and
 assignments, and [template authoring](docs/user_guide/phu_templates.md)
 for the JSON contract.
 
+## Author notices in Studio
+
+ImmuKnow Studio provides Template, Settings and Theme editing with matching
+prepared examples and retained findings. Download the complete Typst project
+to preserve source, Settings, translations and images. Font files are optional. Use a separately
+installed native engine for cohort processing. The
+[Studio guide](docs/user_guide/studio.md) covers drafts, exports and the route to
+native cohort processing. Native usage does not require Studio.
+
 ## Call from Python
 
 ```python
