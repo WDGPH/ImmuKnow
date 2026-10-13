@@ -20,7 +20,7 @@ uv run python -m studio.scripts.examples --check
 `--check` rejects stale committed facts and still assembles ignored browser
 assets under `studio/public/generated/`. The project JSON contains unchanged
 native Typst/project files and verified SHA-256 hashes. All supported native
-fonts are verified and copied separately to `generated/fonts/`; the JSON embeds
+preview fonts are web assets copied separately to `generated/fonts/`; the JSON embeds
 only their catalogs and license metadata. The generated `build.json` identifies
 the shared native resources and Studio compiler; native package build details
 remain separate.

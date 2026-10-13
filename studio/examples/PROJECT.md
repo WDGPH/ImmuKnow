@@ -1,15 +1,15 @@
 # ImmuKnow template project
 
 This project keeps authored notices, Settings, assets, translations, the shared
-Typst components and supported fonts under `templates/`. Native source bytes are
+Typst components under `templates/`. Native source bytes are
 preserved. `config/` contains source reference data and example run options;
 `build.json` identifies the application, data format, shared resources and compiler.
 The branding and contact details are demonstration material.
 
 Use the native compiler version recorded in `build.json` and install the matching
 ImmuKnow package. Native execution needs no Node or browser runtime. Keep the
-complete project tree together when moving it; complete exports include all
-supported font files and their license metadata. QR codes are drawn by Typst
+complete project tree together when moving it; native runs use system fonts. The download can optionally include basic font
+files and licences for manual installation. QR codes are drawn by Typst
 from prepared client data, using the destination authored in Settings.
 
 Choose exactly one notice selector:

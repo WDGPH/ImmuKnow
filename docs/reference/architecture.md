@@ -91,13 +91,14 @@ and optional `component`, `page`, and `measurements`. Status is `pass`, `warn`,
 HTML report, which escapes source text and links to actual outputs.
 
 Resources include per-file full hashes and one fingerprint of the staged file
-manifest, including supporting templates, translations and assets. Native
-compilation uses system fonts and does not stage or distribute font files. All native compiler operations use private package paths and
+manifest, including supporting templates, translations and assets.
+Native compilation uses system fonts and Typst's built-in fallback fonts. It
+does not distribute or stage a font set. All native compiler operations use private package paths and
 block package downloads before making a connection. Dependencies must be stored
 inside the authored project and imported by relative paths, as in Studio.
 
 Native compilation and `typst eval --in` use the same frozen payload, resources,
-system fonts and creation timestamp. One `<immuknow-report>` summary supplies identity,
+fonts and creation timestamp. One `<immuknow-report>` summary supplies identity,
 actual pages, component presence, checks, measurements and QR destinations.
 The version 2 report schema is supplied at
 `templates/lib/immuknow/report-v2.json`. It owns render check names, component
