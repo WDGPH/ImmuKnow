@@ -14,7 +14,6 @@ from immuknow.data_models import RenderJob
 from immuknow.render_contract import report_schema
 from immuknow.validate_pdfs import inspect_notice
 
-FONT_PATH = Path(__file__).resolve().parents[2] / "immuknow/templates/fonts"
 
 
 @pytest.mark.unit

@@ -23,8 +23,18 @@ def test_packaged_configuration_has_no_display_or_qr_options():
     )
 
 
+@pytest.mark.parametrize(
+    "value", [0, -1, True, "30", None, float("inf"), float("nan"), 86401]
+)
+def test_native_deadlines_require_finite_positive_seconds(value):
+    with pytest.raises(ValueError, match="typst.timeouts_seconds.compile"):
+        validate_config({"typst": {"timeouts_seconds": {"compile": value}}})
 
 
+@pytest.mark.parametrize("settings", [None, [], {"compille": 10}])
+def test_native_deadlines_reject_malformed_or_unknown_settings(settings):
+    with pytest.raises(ValueError, match="typst.timeouts_seconds"):
+        validate_config({"typst": {"timeouts_seconds": settings}})
 
 
 @pytest.mark.unit
@@ -160,3 +170,53 @@ def test_yaml_dates_must_be_quoted_and_repeated_fields_are_rejected():
         parse_config("date_as_of: 2026-01-01")
     with pytest.raises(ValueError, match="Repeated field: enabled"):
         parse_config("encryption:\n  enabled: true\n  enabled: false")
+
+
+@pytest.mark.parametrize(
+    "settings",
+    [
+        None,
+        {"enabled": "true"},
+        {"enabled": True},
+        {"enabled": True, "count": 2},
+        {"enabled": True, "count": 2, "unit": "sheets"},
+        {"enabled": True, "count": True, "unit": "pages"},
+        {"enabled": True, "count": 0, "unit": "pages"},
+        {"enabled": True, "count": 1.5, "unit": "pages"},
+        {"enabled": False, "count": "2"},
+        {"enabled": False, "severity": "warn"},
+        {"enabled": True, "count": 2, "unit": "pages", "pad": True},
+    ],
+)
+def test_fixed_notice_length_rejects_missing_or_ambiguous_settings(settings):
+    with pytest.raises(ValueError, match="validation.notice_length"):
+        validate_config(
+            {"bundling": {"bundle_size": 10}, "validation": {"notice_length": settings}}
+        )
+
+
+def test_fixed_notice_length_requires_bundling_and_rejects_client_exceptions():
+    length = {"enabled": True, "count": 2, "unit": "pages"}
+    with pytest.raises(ValueError, match="requires bundling"):
+        validate_config({"validation": {"notice_length": length}})
+    validate_config(
+        {"bundling": {"bundle_size": 10}, "validation": {"notice_length": length}}
+    )
+    with pytest.raises(ValueError, match="Rule cannot be adjusted"):
+        validate_config(
+            {
+                "validation": {
+                    "clients": [
+                        {
+                            "selector": {"scheme": "panorama", "value": "0000000001"},
+                            "rules": {
+                                "delivery.notice_length": {
+                                    "enabled": False,
+                                    "reason": "Exception",
+                                }
+                            },
+                        }
+                    ]
+                }
+            }
+        )

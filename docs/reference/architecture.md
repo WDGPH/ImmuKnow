@@ -17,7 +17,6 @@ runs/<run-id>/
   facts/          # exact saved notice payloads
   resources/      # input and template/config snapshots
   encrypted/      # optional individual encrypted copies
-  overrides.json  # current routing choices
   bundles/        # one active delivery/ and review/ result
   logs/run.log
   work/           # disposable preparation/compiler/assembly files
@@ -30,18 +29,26 @@ Manual deletion of an entire run removes it.
 
 ## Source identity and preparation
 
-The orchestrator reads raw CSV cells into report entries before validation or
+The orchestrator reads the CSV once, rejects malformed headers and rows, and
+records the encoding and separator. It saves raw cells before checking values or
 sorting. Row keys such as `row-000001` identify original source rows, including
 missing or repeated client IDs. Report entries stay in source order; the notice
 sequence may use a different order. Original paths use row keys so client IDs
 cannot overwrite another row's output or introduce paths.
 
 Source columns and shared resources must be usable. Per-row missing addresses,
-invalid optional dates, unparsed history, unknown school matches and known
+invalid optional dates, unknown school matches and known
 assignment conflicts become findings while preserving the row. Unknown ages
-remain unknown. Repeated client IDs and missing or ambiguous assignments fail
-the affected rows without choosing a substitute. Unreadable shared resources
+remain unknown. Invalid history, malformed or repeated nonblank Panorama IDs,
+and missing or ambiguous assignments reject the complete file. Every row remains
+in the report with its findings and unattempted output status. Unreadable shared resources
 stop setup with a saved report.
+
+History is parsed once before exclusions or deduplication. The same parsed
+administrations supply coverage and display facts. `input.accepted` records the
+pre-render decision; false produces `rejected_input`. Rebundling requires accepted
+input and cannot release a rejected file. The [input guide](../user_guide/getting_started.md#history-format)
+defines the exact grammar.
 
 Python preserves normalized history independently of display choices. Typst
 Settings owns display options, translations, QR destinations and prose.
@@ -55,7 +62,7 @@ changes the assigned template based on language or clinical facts.
 
 ## One authoritative record
 
-`run_report.py` writes format version 1. It replaces `run.json` and `report.html`
+`run_report.py` writes format version 2. It replaces `run.json` and `report.html`
 atomically as individual files after completed responsibilities and on exit.
 JSON is authoritative if writing its HTML view is interrupted. There is no
 separate mutable assignment, validation, compilation or completion manifest.
@@ -63,10 +70,12 @@ Immutable build manifests describe resources; they do not duplicate run state.
 
 The top-level fields are `format_version`, `run_id`, `version`, `started_at`,
 `finished_at`, `status`, `input`, `configuration`, `resources`, `entries`,
-`checks`, and `delivery_attempts`. Application and compiler versions are actual
-installed versions. Packaged `build.json` records source/base revisions, schema,
-package and pinned compiler toolchains; the artifact builder refreshes it for
-the source being packaged.
+`checks`, `delivery_attempts`, `warning_acceptances`, `withheld_rows`, and
+`validation_policy` (after delivery evaluation). Application and compiler versions are actual
+installed versions. Packaged `build.json` records the native source revision,
+files, data format, required compiler and actual build tools. Build hooks write
+it in staging without altering source files. Checkout runs record their current
+source details directly; browser compiler details belong to Studio's own build.
 
 Each entry has `row_key`, `source`, `client_id`, `assignment`, `facts`, `checks`,
 `original`, `encryption`, `routing`, and `bundle`. Source values remain available
@@ -83,15 +92,26 @@ HTML report, which escapes source text and links to actual outputs.
 
 Resources include per-file full hashes and one fingerprint of the staged file
 manifest, including supporting templates, translations and assets. Native
-compilation uses system fonts and does not stage or distribute font files.
+compilation uses system fonts and does not stage or distribute font files. All native compiler operations use private package paths and
+block package downloads before making a connection. Dependencies must be stored
+inside the authored project and imported by relative paths, as in Studio.
 
 Native compilation and `typst eval --in` use the same frozen payload, resources,
 system fonts and creation timestamp. One `<immuknow-report>` summary supplies identity,
 actual pages, component presence, checks, measurements and QR destinations.
+The version 2 report schema is supplied at
+`templates/lib/immuknow/report-v2.json`. It owns render check names, component
+names and field types. Native and browser validators use it and the same
+valid/invalid examples. They also check source row and filename association,
+page bounds, page order and agreement between component presence and findings.
 Python verifies PDF readability, exact labelled client identity, hash and page
 count against that evidence. It does not repeat Typst geometry rules. Compiler
-warnings remain findings; missing or malformed summary evidence fails checking
-and adds a warning that defaults the readable PDF to review.
+warnings remain findings; missing or malformed summary evidence fails a mandatory
+check and keeps the readable PDF in review.
+Saved-run delivery rechecks retained reports before assembly and includes their
+findings when reevaluating rules. Removing findings from the entry's list cannot
+erase failed or missing report evidence. Each evaluation still binds the report,
+PDF, facts, source row, resources and effective rules to its warning decisions.
 
 Passwords and expanded password values are never recorded. Encryption password
 settings remain in memory and are omitted from both saved effective settings
@@ -103,18 +123,23 @@ original parameters hash. Encrypted outputs are separate from retained originals
 A notice preparation, compilation or checking failure records the affected row
 and allows independent clients to continue. A readable PDF remains available
 when checking fails. Optional encryption creates separate per-client artifacts;
-a failure is recorded and adds a delivery warning without changing originals.
+a failure is recorded for the encrypted copy without changing originals.
 Password placeholders consume normalized facts and cannot silently use missing
 values to produce an empty password.
 
-Delivery routing is explicit client override, then unallowed warnings to review,
-then delivery. All findings remain in the record. Review bundles group by client
-count, with all findings on a sheet immediately before each marked notice copy.
+`validation_policy` evaluates saved observations separately from review decisions.
+Each delivery attempt retains typed evaluation snapshots and individual warning
+tokens. The top-level `warning_acceptances` binds operator reasons to exact
+run/row/PDF/evidence/rule identities; `withheld_rows` separately keeps selected
+originals in review. Original failures always block; warnings require individual
+acceptance. Encryption failure affects its separate copy. See the
+[PDF review contract](../user_guide/pdf_validation.md) for the operator workflow.
+Review bundles group by client count, with findings preceding each marked copy.
 Delivery may group by school or board; missing grouping facts use Unknown.
 Every readable original appears once in the active set, and failed rendering
 creates no membership.
 
-`immuknow-rebundle` loads a saved run and current overrides, verifies every
+`immuknow-rebundle` loads a saved run and review decisions, verifies every
 original hash, and uses the same assembly function as generation. It neither
 reads current source/templates nor repeats encryption. Review sheets and stamps
 use fixed application templates and available system fonts. The red mark occupies an added
@@ -123,7 +148,7 @@ outer band, preserving all original content at its original scale.
 Assembly prepares `bundles.next` before replacing `bundles`. The previous set
 stays in `bundles.previous` until the successful attempt and memberships are
 saved. Attempt statuses in `run.json` support recovery after an interrupted
-replacement; no second journal is maintained. Invalid overrides, changed
+replacement; no second journal is maintained. Stale warning tokens, changed
 originals and failed assembly preserve the previous committed set. Successful
 replacement removes stale membership in the former destination. Prior attempts
 remain audit facts, and rebundle exit status describes the current attempt.

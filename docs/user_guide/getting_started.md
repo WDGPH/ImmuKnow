@@ -27,18 +27,48 @@ subdirectory. Absolute paths are also accepted. The packaged
 | Optional | `street_address_line_1`, `street_address_line_2`, `province`, `postal_code`, `overdue_disease`, `overdue_agent`, `board_name`, `board_id`, `school_id`, `version_id` |
 
 Absent optional columns are filled with empty strings. Missing required columns
-stop shared setup; missing or invalid values in a row are recorded as findings
-while known facts remain available for rendering. Client IDs are normally
-10-digit strings. A missing or malformed ID is retained unchanged under a
-run-local row key; repeated IDs make those rows ambiguous and unrenderable.
+stop shared setup. Row findings preserve the known facts and identify problems.
+Panorama client IDs are ten-digit strings using `0`–`9`; malformed or repeated
+nonblank IDs reject the complete file. Missing IDs retain their source row keys
+and may be used with the single-template selector.
 
 The CSV is read as text, with raw values saved before trimming whitespace.
+Comma, semicolon, tab and pipe separators are supported. Headers must be unique,
+nonempty names without surrounding whitespace. Every row must have the same
+number of fields as the header; quote values that contain the separator or a
+line break. Repeated headers, broken quoting and extra or missing fields stop
+the run before notices are generated.
+
+The reader first tries UTF-8, with or without a byte-order mark, then Windows-1252,
+then Latin-1. The selected encoding and separator are recorded in `run.json`.
+This is a fallback order, not guaranteed encoding detection. To select explicitly,
+use `--input-encoding utf-8-sig`, `--input-encoding cp1252`, or
+`--input-encoding latin-1`. Unsupported control characters stop the run so that
+damaged names or addresses cannot silently reach notices.
+
 Blank cells stay blank; literal `NA`, `nan`, and `NULL` stay as text. Unknown
 birth dates produce unknown ages, not an assumed age group. Incomplete mailing
 addresses remain in the cohort with warnings. Normalized history retains all
-disease mappings, and unparsed fragments remain visible when history is shown.
+disease mappings.
 The packaged input schema defines the columns and cannot be replaced through
 `--config`.
+
+### History format
+
+Separate administrations with semicolons. Each entry is exactly
+`Mon D, YYYY - Agent`, optionally followed by ` - Valid` or ` - Invalid`.
+Months use `Jan` through `Dec`; days have one or two digits, and the date must
+exist. Use one space on each side of the separating hyphens. Spaces, tabs and
+line breaks may surround complete entries. Hyphenated names such as
+`COVID-19 mRNA` remain intact; an extra field separator inside an agent name
+is ambiguous and is rejected.
+
+Blank history is allowed. Empty entries, extra fields, impossible dates and
+wrongly cased status tokens reject the entire input file before any notices
+are generated, even when a notice omits history. `Invalid` is accepted as an
+upstream assessment. An omitted status remains unknown. Every bad fragment is
+recorded with its source row, column and fragment number; correct the source
+and start a new run. Warning acceptance cannot release rejected input.
 
 ## Select notices
 
@@ -113,7 +143,6 @@ runs/<run-id>/
   facts/          # saved notice payloads
   resources/      # source and template/configuration snapshots
   encrypted/      # optional individual encrypted copies
-  overrides.json  # editable warning allowances and client destinations
   bundles/        # one active delivery/ and review/ result
   logs/
   work/           # disposable compiler and assembly files
@@ -121,9 +150,10 @@ runs/<run-id>/
 
 Open the printed `report.html` path to inspect every row, including failed and
 incomplete rows. Original source row keys remain stable when
-notices are sorted. Syntax errors or other expected notice failures retain
-independent clients' successful outputs. A shared configuration or preparation
-failure is reported as `failed_setup`; a run with individual failures is
+notices are sorted. Input failures produce `rejected_input` and no notices,
+encrypted copies or bundles. Shared configuration or file-reading failures
+produce `failed_setup`. After input is accepted, template errors retain
+independent clients' successful outputs; a run with individual failures is
 `completed_with_failures`. Warnings alone return exit 0; failures return nonzero.
 
 The report records actual original hashes and page counts, encryption outcomes,
@@ -138,14 +168,17 @@ success. The [workflow guide](../reference/architecture.md) defines run accounti
 
 ## Review and release notices
 
-Any warning defaults a readable notice to review unless its code is allowed or
-an explicit client destination overrides it. Review copies have a findings
-sheet and a red REVIEW mark; delivery copies come from unchanged originals.
-Edit the run's `overrides.json`, then rebuild the active bundles:
+Failed checks and unaccepted warnings keep a readable original in review.
+Review copies have a findings sheet and a red REVIEW mark; delivery copies come
+from unchanged originals. Inspect the original and the latest evaluation, then
+accept individual warning tokens with a reason:
 
 ```bash
-uv run immuknow-rebundle ./runs/<run-id> --overrides ./runs/<run-id>/overrides.json
+uv run immuknow-rebundle ./runs/<run-id> --accept-warning <token> --reason "Reviewed original"
 ```
+
+The [PDF review guide](pdf_validation.md) owns warning acceptance, withholding
+and invalidation rules. No choice can force delivery past failed checks.
 
 Rebundling verifies the saved original hashes and does not reread source data or
 authored templates, recompile notices, or rerun encryption. A failed attempt

@@ -1,50 +1,67 @@
-"""Rebuild a saved run's bundles from unchanged original PDFs and explicit choices."""
+"""Reevaluate saved originals and rebuild eligible delivery/review bundles."""
 
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
-from . import bundle_pdfs, run_report
+from . import bundle_pdfs, validation_policy
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Rebundle saved originals without rereading facts or recompiling notices",
+        description="Rebundle unchanged originals after reviewing individual warnings",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         allow_abbrev=False,
         epilog="""
-Example:
-  immuknow-rebundle ./runs/<run-id> --overrides ./runs/<run-id>/overrides.json
+Inspect report.html and the original PDF first. Each warning in the latest
+attempt's evaluation has a token bound to that run, row, PDF, evidence and rules.
+Accept individual warnings using those exact tokens:
+  immuknow-rebundle ./runs/<run-id> --accept-warning <token> --reason "Reviewed layout"
+Repeat --accept-warning for each warning reviewed. Acceptance remains in run.json
+and applies only while the evidence is unchanged. Failures always block their
+affected artifact; accepting a warning cannot waive them. Unknown or stale tokens
+are refused. No blanket warning allowance or force-delivery choice exists.
 
-Overrides are a UTF-8 JSON object:
-{
-  "allow_delivery_warnings": ["data.school_unmatched"],
-  "clients": {"1234567890": "delivery", "1234567891": "review"}
-}
+Use --withhold row-000001 (repeatable) to replace the set of withheld originals;
+--clear-withheld clears that set. Omitting both retains the prior selection.
+Withholding is separate from warning acceptance. Missing external identifiers
+never require name matching: review is bound to the immutable source row.
 
-An explicit client destination wins. Otherwise, any warning not allowed for
-delivery selects review. Warnings always remain in the report. IDs must be
-unique ten-digit source IDs; unknown IDs, warning-code typos and duplicate
-JSON keys are rejected. A choice cannot invent a PDF or complete failed checks.
-Review bundles add a sheet and red mark to copies. Delivery always uses the
-unchanged originals. This command verifies hashes, preserves the previous set
-if replacement fails, and never reruns encryption. Source CSV and authored
-project directories are not needed. Only run format version 1 is supported.
-Exit status describes this rebundling attempt; earlier failures remain recorded.
+Delivery uses original PDFs; review adds findings sheets and marks to copies.
+The previous bundle set survives a failed replacement. This command does not
+reread source data, recompile notices or rerun encryption. Only run format 2 is
+supported. Exit status describes this attempt; earlier failures remain recorded.
 """,
     )
     parser.add_argument(
-        "run_directory",
-        type=Path,
-        help="Saved run directory containing run.json and originals/",
+        "run_directory", type=Path, help="Saved run containing run.json and originals/"
     )
     parser.add_argument(
-        "--overrides",
+        "--accept-warning",
+        action="append",
+        default=[],
+        metavar="TOKEN",
+        help="Accept one current warning token after inspecting its PDF",
+    )
+    parser.add_argument("--reason", help="Required explanation for warning acceptance")
+    parser.add_argument(
+        "--policy",
         type=Path,
-        help="Override JSON path (default: <run-directory>/overrides.json)",
+        help="Replace rule settings using a JSON file; omitted settings return to defaults",
+    )
+    withholding = parser.add_mutually_exclusive_group()
+    withholding.add_argument(
+        "--withhold",
+        action="append",
+        metavar="ROW_KEY",
+        help="Replace the withheld-row set (repeat for each row)",
+    )
+    withholding.add_argument(
+        "--clear-withheld",
+        action="store_true",
+        help="Clear withheld rows; checks and warning acceptance still apply",
     )
     return parser.parse_args()
 
@@ -53,15 +70,13 @@ def main() -> int:
     args = parse_args()
     run_dir = args.run_directory.resolve()
     try:
-        record = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
-        if (
-            not isinstance(record, dict)
-            or record.get("format_version") != run_report.RUN_FORMAT_VERSION
-        ):
-            raise ValueError(
-                "Unsupported run format; rebundling requires format version 1"
-            )
-        attempt = bundle_pdfs.bundle_run(run_dir, record, args.overrides)
+        attempt = bundle_pdfs.bundle_run(
+            run_dir,
+            accept=args.accept_warning,
+            reason=args.reason,
+            withhold=[] if args.clear_withheld else args.withhold,
+            policy=validation_policy.read_policy(args.policy) if args.policy else None,
+        )
         print(f"Rebundling {attempt['status']}. Report: {run_dir / 'report.html'}")
         return 0 if attempt["status"] == "completed" else 1
     except (OSError, ValueError) as exc:

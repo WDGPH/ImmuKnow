@@ -25,6 +25,21 @@ history display, QR destinations and drawing, and layout findings. The authored 
 `immuknow/templates/`, including project translations; factual configuration
 lives under `immuknow/config/`. PHU template and configuration directories are isolated.
 Use a bounded run workspace and never write into installed package files.
+Native compilation uses system fonts; ship no font files in the native package
+and do not stage or verify a supplied font set. Studio's FreeSans/FreeSerif files
+are web assets only. Include them in downloads only when the user selects the
+option. Approximate appearance between Studio and native output
+is sufficient; keep client details and destinations correct.
+Keep dependencies inside the project. `run_typst` isolates native package paths
+and blocks downloads before connecting, including for computed imports.
+Keep the complete `lib/immuknow/` tree unchanged. Native staging, every delivery
+attempt and Studio compilation/import/export/draft loading compare it with the
+engine's supplied files, independently of project-declared hashes. Custom helpers
+belong outside that directory; supplied library files are read-only in Studio.
+Use its `report-v2.json` for report fields, components and render rule definitions.
+Native and browser validators share test cases; check page/range bounds and row
+association as well as structure. Regenerate Studio's validation functions after
+schema changes. Never enable runtime code evaluation for schema validation.
 
 Keep one authoritative resolved `version_id` and language per notice.
 Persist one authoritative `run.json` and generate its escaped HTML view.
@@ -37,10 +52,30 @@ checking, encryption and bundling record actual per-entry outcomes. Expected
 notice failures retain independent results; shared setup errors and unexpected
 programming errors save honest partial evidence before propagating. Bundle
 only known usable PDFs with unique membership; never reuse stale outputs.
-Recoverable quality problems warn and retain the row. Missing or ambiguous
-assignments fail their rows; they never trigger automatic selection. Render
+Recoverable quality problems warn and retain the row. Invalid history, identifier
+collisions and missing or ambiguous assignments reject the whole input before
+rendering. History is parsed once with exact `Valid`/`Invalid` tokens; all source
+fragments are checked before exclusions. Render
 checks come from placed Typst metadata. Missing evidence keeps a readable PDF
-with failed checking and an evidence-unavailable warning.
+with a failed mandatory evidence check.
+Read shared JSON/YAML through `structured_input.py`; reject repeated fields,
+unknown settings and wrong value types before rendering.
+Every native Typst operation uses the validated deadlines owned by
+`compile_notices.CompilerTimeouts`. Preserve row continuation, useful originals
+after evidence timeouts, and committed bundles after review timeouts. Failed
+checks affecting originals always route to review. Individual warning acceptance
+is bound to run/row/PDF/evidence/rules in `validation_policy.py`; no blanket
+allowance or force-delivery path is supported. Encryption failures affect the
+separate encrypted copy. Use explicit AES-256 revision 6, verify the written
+settings and password access, and preserve originals and existing copies on failure.
+Hold the per-run operating-system lock across saved-run delivery reads, recovery
+and writes. New runs hold it through the final report. Never load a saved
+record before acquiring the lock or add a global lock that blocks other runs.
+Fixed notice length means an explicit PDF page count per notice in delivery
+bundles. Add no blank pages and allow no per-client exception or warning waiver.
+Read back written bundles and compare each page with its selected source before
+replacement. Record the current delivery code, resources and review tools on
+every attempt; retain earlier attempt records.
 
 ## Working method
 
@@ -60,6 +95,24 @@ for compatibility. Catch exceptions only where there is a meaningful recovery
 or actionable error. Lock dependency versions in `uv.lock`; upgrades require
 a matching lockfile and tests. Use `uv run ty check`,
 `uv run pytest`, and `uv run pre-commit run --all-files` as applicable.
+Native build records belong in wheel/source-archive staging, never tracked
+package source. Keep browser pins in `studio/compiler-pins.json`. Project and
+draft compatibility compares shared resources and compiler identity, not an
+unrelated package version or checkout revision. Use non-mutating type/lint checks
+and locked dependencies in CI.
+
+Studio offers one download: the complete authored Typst project with its
+required resources. Preserve source bytes and relative paths. Keep browser/native
+output comparisons independent of the download; do not bundle Python runners,
+dependency environments or engine wheels.
+Save current Studio work in the v2 draft store and leave older storage untouched.
+Keep the opened project as the reset baseline, retain it across reloads, and allow
+only one editing tab per origin. Show Saved only after the newest write commits.
+Theme controls share the comment-aware value lookup in `theme-settings.ts`.
+Preserve surrounding source and refuse expressions the controls cannot safely edit.
+
+Use plain language in the app, documentation and follow-up questions. Keep app
+instructions short and only add text that helps the person complete their task.
 
 Do not commit private PHU assets or real client data. Client-linked diagnostics
 are sensitive run output. The [template guide](docs/user_guide/phu_templates.md)

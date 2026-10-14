@@ -27,11 +27,15 @@
 #par(text(size: 8.5pt, review.measurements))
 
 #block[#text(weight: "bold")[After reviewing]]
-Edit #raw("overrides.json") in this run directory. Add this client ID under
-#raw("clients") with #raw("\"delivery\"") or #raw("\"review\""). For example:
-#raw(review.override_example, block: true)
-Warnings stay in the report. Delivery copies are rebuilt from the unchanged
-original PDF; review sheets and marks are never removed from an old bundle.
-#raw("immuknow-rebundle . --overrides ./overrides.json", block: true)
-Run this command from the saved run directory. The command does not reread
-source data or recompile client notices.
+Failed checks must be corrected; they cannot be accepted as warnings.
+Inspect the original PDF and the latest evaluation in #raw("report.html").
+Accept each eligible warning with its exact token and a reason:
+#raw("immuknow-rebundle . --accept-warning <token> --reason \"Reviewed\"", block: true)
+#for (code, token) in review.warning_tokens {
+  block(breakable: true)[*#code* \ #text(size: 8pt, raw(token))]
+}
+Tokens expire when the PDF, evidence, warnings or rules change. Findings and
+individual acceptances stay in #raw("run.json"). Delivery copies use unchanged
+originals; review sheets and marks are never removed from an old bundle.
+Use #raw("--withhold " + review.row_key) to keep this row in review. The command
+does not reread source data or recompile client notices.

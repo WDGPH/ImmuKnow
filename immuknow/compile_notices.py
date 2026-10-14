@@ -76,11 +76,7 @@ def run_typst(
             certificate.write_text(
                 "Package downloads are disabled.\n", encoding="utf-8"
             )
-            environment = {
-                key: value
-                for key, value in os.environ.items()
-                if key != "TYPST_FONT_PATHS"
-            }
+            environment = os.environ.copy()
             environment.update(
                 TYPST_PACKAGE_PATH=str(packages),
                 TYPST_PACKAGE_CACHE_PATH=str(packages),

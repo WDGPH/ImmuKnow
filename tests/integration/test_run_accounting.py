@@ -190,7 +190,14 @@ def test_both_selectors_keep_complete_outputs_and_original_source_order(
         {"notice_assignments": assignments, "template_dir": templates},
         {"notice_template": templates / "overdue_agents_v1.en.typ"},
     ):
-        record_path = run_pipeline(source, outputs, config_dir=config, **selector)
+        record_path = run_pipeline(
+            source,
+            outputs,
+            config_dir=config,
+            notice_template=selector.get("notice_template"),
+            notice_assignments=selector.get("notice_assignments"),
+            template_dir=selector.get("template_dir"),
+        )
         record = json.loads(record_path.read_text())
         assert record["status"] in {"completed", "completed_with_warnings"}
         assert [entry["row_key"] for entry in record["entries"]] == [
@@ -318,7 +325,6 @@ def test_broken_notice_retains_other_original_and_reports_partial_run(
         "source.age_unknown",
         "assignment.eligibility_conflict",
         "content.history_validity",
-        "delivery.encryption_failed",
     } <= codes
     facts = json.loads(
         (record_path.parent / warning_entry["facts"]["path"]).read_text()

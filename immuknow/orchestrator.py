@@ -28,9 +28,10 @@ from .assignment_manifest import (
     print_preflight_summary,
 )
 from .load_config import parse_config
-from .build_info import current_build_info
 from .component_resources import verify_components
-from . import run_report
+from .run_lock import run_lock
+from .build_info import current_build_info
+from . import run_report, validation_policy
 from .version_notices import load_catalog, template_identity
 
 # Pipeline stages follow the main workflow below; imports do not run the stages.
@@ -75,9 +76,10 @@ Template names are basenames inside --templates, not paths. Their filename
 must be <version_id>.<language>.typ; supported languages are en and fr.
 --template selects that file for every client; it never switches automatically.
 Extra assignments are reported and do not create clients. Warnings remain in
-the report; missing or ambiguous assignments cannot produce a selected notice.
+the report; any input failure rejects the complete file before rendering.
+This includes invalid history, identifier collisions and missing or ambiguous assignments.
 Known applicability conflicts warn and retain the selected notice. Malformed
-shared JSON/configuration stops setup; independent unclients rows fail separately.
+shared JSON/configuration stops setup. After input is accepted, notice rendering failures remain independent.
 Each run keeps its own originals, run.json and report.html under --output.
         """,
     )
@@ -87,7 +89,11 @@ Each run keeps its own originals, run.json and report.html under --output.
         type=Path,
         help="CSV cohort path, absolute or relative to the working directory",
     )
-    parser.add_argument("--input-encoding", choices=preprocess.CSV_ENCODINGS)
+    parser.add_argument(
+        "--input-encoding",
+        choices=preprocess.CSV_ENCODINGS,
+        help="CSV encoding; default tries UTF-8 (with or without BOM), Windows-1252, then Latin-1",
+    )
     parser.add_argument(
         "--output",
         type=Path,
@@ -161,7 +167,8 @@ def run_pipeline(
 ) -> Path:
     """Run a cohort, retain independent results, and return its authoritative record.
 
-    Shared setup failures save ``failed_setup`` before propagating. Expected
+    Shared setup failures save ``failed_setup`` before propagating. Input failures
+    return a ``rejected_input`` report without rendering. After acceptance,
     per-notice errors are recorded and the remaining notices continue. The CLI
     returns nonzero for a record containing failed entries or delivery steps.
     """
@@ -185,330 +192,336 @@ def run_pipeline(
     # Start the record before loading shared inputs so setup errors have evidence.
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f")
     run_dir = output_directory.prepare_run_directory(output_dir, run_id)
-    build = current_build_info()
-    record: dict[str, Any] = {
-        "format_version": run_report.RUN_FORMAT_VERSION,
-        "run_id": run_id,
-        "version": {
-            "application": version("ImmuKnow"),
-            "compiler": None,
-            "build": build,
-        },
-        "started_at": run_report.timestamp(),
-        "finished_at": None,
-        "status": "running",
-        "input": {
-            "source": str(input_path),
-            "requested_encoding": input_encoding or "auto",
-        },
-        "configuration": {},
-        "resources": {},
-        "entries": [],
-        "checks": [],
-        "delivery_attempts": [],
-    }
-    run_report.write_report(run_dir, record)
-    setup_complete = False
-    config: dict[str, Any] = {}
-    with run_logging(run_dir / "logs" / "run.log"):
-        try:
-            # Freeze source and selected resources. All later reads use these bytes.
-            preprocess.validate_csv_path(input_path)
-            source_snapshot = run_dir / "resources" / "input.csv"
-            shutil.copyfile(input_path, source_snapshot)
-            record["input"] = {
-                **record["input"],
-                **run_report.artifact_record(source_snapshot, run_dir),
-            }
-            source_frame = preprocess.read_input(
-                source_snapshot, encoding=input_encoding
-            )
-            record["input"].update(
-                encoding=source_frame.attrs["encoding"],
-                delimiter=source_frame.attrs["delimiter"],
-            )
-            _record_source_rows(source_frame, record)
-            run_report.write_report(run_dir, record)
-            selected_notice = (
-                template_identity(notice_template) if notice_template else None
-            )
-            staged_config = run_dir / "resources" / "config"
-            staged_templates = run_dir / "resources" / "templates"
-            parameters = (config_dir / "parameters.yaml").read_bytes()
-            config = parse_config(parameters)
-            config["creation_timestamp"] = int(
-                datetime.fromisoformat(record["started_at"]).timestamp()
-            )
-            saved_config = deepcopy(config)
-            saved_config.get("encryption", {}).pop("password", None)
-            record["configuration"] = {
-                "source": str(config_dir),
-                "templates": str(template_dir),
-                "source_parameters_sha256": sha256(parameters).hexdigest(),
-                "redacted_fields": ["encryption.password"],
-                "effective": saved_config,
-            }
-            shutil.copytree(
-                config_dir,
-                staged_config,
-                ignore=shutil.ignore_patterns("parameters.yaml"),
-            )
-            (staged_config / "parameters.yaml").write_text(
-                yaml.safe_dump(saved_config), encoding="utf-8"
-            )
-            verify_components(template_dir)
-            shutil.copytree(template_dir, staged_templates)
-            verify_components(staged_templates)
-            catalog = load_catalog(staged_config)
-            manifest = {}
-            if notice_assignments:
-                assignment_snapshot = run_dir / "resources" / "assignments.json"
-                shutil.copyfile(notice_assignments, assignment_snapshot)
+    with run_lock(run_dir):
+        build = current_build_info()
+        record: dict[str, Any] = {
+            "format_version": run_report.RUN_FORMAT_VERSION,
+            "run_id": run_id,
+            "version": {
+                "application": version("ImmuKnow"),
+                "compiler": None,
+                "build": build,
+            },
+            "started_at": run_report.timestamp(),
+            "finished_at": None,
+            "status": "running",
+            "input": {
+                "source": str(input_path),
+                "requested_encoding": input_encoding or "auto",
+            },
+            "configuration": {},
+            "resources": {},
+            "entries": [],
+            "checks": [],
+            "delivery_attempts": [],
+            "warning_acceptances": [],
+            "withheld_rows": [],
+        }
+        run_report.write_report(run_dir, record)
+        setup_complete = False
+        config: dict[str, Any] = {}
+        with run_logging(run_dir / "logs" / "run.log"):
+            try:
+                # Freeze source and selected resources. All later reads use these bytes.
+                preprocess.validate_csv_path(input_path)
+                source_snapshot = run_dir / "resources" / "input.csv"
+                shutil.copyfile(input_path, source_snapshot)
                 record["input"] = {
                     **record["input"],
-                    "assignments": run_report.artifact_record(
-                        assignment_snapshot, run_dir
-                    ),
+                    **run_report.artifact_record(source_snapshot, run_dir),
                 }
-                manifest = load_manifest(assignment_snapshot, staged_templates)
-            for entry in record["entries"]:
-                requested = config.get("encryption", {}).get("enabled", False)
-                entry["encryption"] = {
-                    "requested": requested,
-                    "status": "not_run" if requested else "not_requested",
+                source_frame = preprocess.read_input(
+                    source_snapshot, encoding=input_encoding
+                )
+                record["input"].update(
+                    encoding=source_frame.attrs["encoding"],
+                    delimiter=source_frame.attrs["delimiter"],
+                )
+                _record_source_rows(source_frame, record)
+                run_report.write_report(run_dir, record)
+                selected_notice = (
+                    template_identity(notice_template) if notice_template else None
+                )
+                staged_config = run_dir / "resources" / "config"
+                staged_templates = run_dir / "resources" / "templates"
+                parameters = (config_dir / "parameters.yaml").read_bytes()
+                config = parse_config(parameters)
+                validation_policy.resolve_policy(config.get("validation", {}), record)
+                timeouts = compile_notices.CompilerTimeouts.from_config(
+                    config.get("typst", {}).get("timeouts_seconds", {})
+                )
+                config.setdefault("typst", {})["timeouts_seconds"] = asdict(timeouts)
+                config["creation_timestamp"] = int(
+                    datetime.fromisoformat(record["started_at"]).timestamp()
+                )
+                saved_config = deepcopy(config)
+                saved_config.get("encryption", {}).pop("password", None)
+                record["configuration"] = {
+                    "source": str(config_dir),
+                    "templates": str(template_dir),
+                    "source_parameters_sha256": sha256(parameters).hexdigest(),
+                    "redacted_fields": ["encryption.password"],
+                    "effective": saved_config,
                 }
-                selection = manifest.get(entry["client_id"])
-                if selection:
-                    selection_fields = asdict(selection)
-                    selection_fields["source"] = selection_fields.pop(
-                        "assignment_source"
-                    )
-                    selection_fields.pop("client_id")
-                    entry["assignment"].update(selection_fields)
-                    entry["assignment"]["template"] = selection.template
-                elif notice_template and selected_notice is not None:
-                    entry["assignment"].update(
-                        source="template",
-                        template=notice_template.name,
-                        version_id=selected_notice[0],
-                        language=selected_notice[1],
-                        experiment_id=None,
-                        experiment_arm=None,
-                    )
-            typst_settings = config.get("typst", {})
-            typst_bin = os.environ.get("TYPST_BIN", typst_settings.get("bin", "typst"))
-            timeouts = compile_notices.CompilerTimeouts.from_config(
-                typst_settings.get("timeouts_seconds", {})
-            )
-            compile_notices.check_compiler(typst_bin, timeout=timeouts.version)
-            record["version"]["compiler"] = compile_notices.TYPST_VERSION
-            record["resources"] = run_report.resource_manifest(
-                run_dir / "resources", run_dir
-            )
-            record["resources"]["compiler_fonts"] = {"source": "system"}
-            run_report.write_report(run_dir, record)
+                shutil.copytree(
+                    config_dir,
+                    staged_config,
+                    ignore=shutil.ignore_patterns("parameters.yaml"),
+                )
+                (staged_config / "parameters.yaml").write_text(
+                    yaml.safe_dump(saved_config), encoding="utf-8"
+                )
+                verify_components(template_dir)
+                shutil.copytree(template_dir, staged_templates)
+                verify_components(staged_templates)
+                catalog = load_catalog(staged_config)
+                manifest = {}
+                if notice_assignments:
+                    assignment_snapshot = run_dir / "resources" / "assignments.json"
+                    shutil.copyfile(notice_assignments, assignment_snapshot)
+                    record["input"] = {
+                        **record["input"],
+                        "assignments": run_report.artifact_record(
+                            assignment_snapshot, run_dir
+                        ),
+                    }
+                    manifest = load_manifest(assignment_snapshot, staged_templates)
+                for entry in record["entries"]:
+                    requested = config.get("encryption", {}).get("enabled", False)
+                    entry["encryption"] = {
+                        "requested": requested,
+                        "status": "not_run" if requested else "not_requested",
+                    }
+                    selection = manifest.get(entry["client_id"])
+                    if selection:
+                        selection_fields = asdict(selection)
+                        selection_fields["source"] = selection_fields.pop(
+                            "assignment_source"
+                        )
+                        selection_fields.pop("client_id")
+                        entry["assignment"].update(selection_fields)
+                        entry["assignment"]["template"] = selection.template
+                    elif notice_template and selected_notice is not None:
+                        entry["assignment"].update(
+                            source="template",
+                            template=notice_template.name,
+                            version_id=selected_notice[0],
+                            language=selected_notice[1],
+                            experiment_id=None,
+                            experiment_arm=None,
+                        )
+                typst_settings = config.get("typst", {})
+                typst_bin = os.environ.get(
+                    "TYPST_BIN", typst_settings.get("bin", "typst")
+                )
+                compile_notices.check_compiler(typst_bin, timeout=timeouts.version)
+                record["version"]["compiler"] = compile_notices.TYPST_VERSION
+                record["resources"] = run_report.resource_manifest(
+                    run_dir / "resources", run_dir
+                )
+                run_report.write_report(run_dir, record)
 
-            # Preserve every row and its explicit assignment before rendering.
-            prepared_result, reconciliation = preprocess.prepare_clients(
-                source_frame,
-                run_dir / "work",
-                config,
-                staged_config,
-                catalog,
-                manifest,
-                selected_notice,
-            )
-            print_preflight_summary(reconciliation)
-            _record_assignment_findings(record, reconciliation)
-            for warning in prepared_result.warnings:
-                run_report.add_check(
-                    record, "data.preparation_warning", "preparation", "warn", warning
+                # Preserve every row and its explicit assignment before rendering.
+                prepared_result, reconciliation = preprocess.prepare_clients(
+                    source_frame,
+                    run_dir / "work",
+                    config,
+                    staged_config,
+                    catalog,
+                    manifest,
+                    selected_notice,
                 )
-            by_row = {entry["row_key"]: entry for entry in record["entries"]}
-            clients = prepared_result.clients
-            if len(clients) != len(by_row) or {
-                client.sequence for client in clients
-            } != set(by_row):
-                raise ValueError(
-                    "Preparation must account for every source row exactly once"
-                )
-            for client in clients:
-                entry = by_row[client.sequence]
-                entry["facts"] = {"prepared": asdict(client)}
-                entry["checks"].extend(
-                    check.to_dict()
-                    for check in prepared_result.row_checks[client.sequence]
-                )
-                if client.version_id and client.language:
-                    entry["assignment"].update(
-                        version_id=client.version_id,
-                        language=client.language,
-                        template=f"{client.version_id}.{client.language}.typ",
-                    )
-            failed_rows = [
-                entry["row_key"]
-                for entry in record["entries"]
-                if any(check["status"] == "fail" for check in entry["checks"])
-            ]
-            record["input"]["accepted"] = not (
-                failed_rows
-                or any(check["status"] == "fail" for check in record["checks"])
-            )
-            if not record["input"]["accepted"]:
-                run_report.add_check(
-                    record,
-                    "input.rejected",
-                    "preparation",
-                    "fail",
-                    f"Input file rejected: {len(failed_rows)} source rows failed checks. Correct the reported problems and run again. No notices were generated.",
-                    measurements={"failed_rows": failed_rows},
-                )
-                run_report.finish_run(record)
-                result = run_report.write_report(run_dir, record)
-                print(f"Input file rejected. Report: {run_dir / 'report.html'}")
-                return result
-            setup_complete = True
-            run_report.write_report(run_dir, record)
-
-            # Write factual inputs once. Invalid internal structures are programming
-            # failures, not source warnings to turn into plausible-looking notices.
-            jobs = generate_notices.prepare_render_jobs(clients, run_dir, config)
-            compile_notices.check_expected_notices(clients, jobs)
-            successful_clients, successful_jobs = [], []
-            for client, job in zip(clients, jobs):
-                entry = by_row[client.sequence]
-                entry["facts"].update(run_report.artifact_record(job.data, run_dir))
-                entry["assignment"]["sha256"] = sha256(
-                    job.template.read_bytes()
-                ).hexdigest()
-                summary = None
-                try:
-                    diagnostics = compile_notices.compile_render_job(
-                        job, typst_bin, timeout=timeouts.compile
-                    )
-                    entry["checks"].extend(check.to_dict() for check in diagnostics)
+                print_preflight_summary(reconciliation)
+                _record_assignment_findings(record, reconciliation)
+                for warning in prepared_result.warnings:
                     run_report.add_check(
-                        entry,
-                        "rendering.completed",
-                        "render",
-                        "pass",
-                        "Original PDF produced",
+                        record,
+                        "data.preparation_warning",
+                        "preparation",
+                        "warn",
+                        warning,
                     )
+                by_row = {entry["row_key"]: entry for entry in record["entries"]}
+                clients = prepared_result.clients
+                if len(clients) != len(by_row) or {
+                    client.sequence for client in clients
+                } != set(by_row):
+                    raise ValueError(
+                        "Preparation must account for every source row exactly once"
+                    )
+                for client in clients:
+                    entry = by_row[client.sequence]
+                    entry["facts"] = {"prepared": asdict(client)}
+                    entry["checks"].extend(
+                        check.to_dict()
+                        for check in prepared_result.row_checks[client.sequence]
+                    )
+                    if client.version_id and client.language:
+                        entry["assignment"].update(
+                            version_id=client.version_id,
+                            language=client.language,
+                            template=f"{client.version_id}.{client.language}.typ",
+                        )
+                failed_rows = [
+                    entry["row_key"]
+                    for entry in record["entries"]
+                    if any(check["status"] == "fail" for check in entry["checks"])
+                ]
+                record["input"]["accepted"] = not (
+                    failed_rows
+                    or any(check["status"] == "fail" for check in record["checks"])
+                )
+                if not record["input"]["accepted"]:
+                    run_report.add_check(
+                        record,
+                        "input.rejected",
+                        "preparation",
+                        "fail",
+                        f"Input file rejected: {len(failed_rows)} source rows failed checks. Correct the reported problems and run again. No notices were generated.",
+                        measurements={"failed_rows": failed_rows},
+                    )
+                    run_report.finish_run(record)
+                    result = run_report.write_report(run_dir, record)
+                    print(f"Input file rejected. Report: {run_dir / 'report.html'}")
+                    return result
+                setup_complete = True
+                run_report.write_report(run_dir, record)
+
+                # Write factual inputs once. Invalid internal structures are programming
+                # failures, not source warnings to turn into plausible-looking notices.
+                jobs = generate_notices.prepare_render_jobs(clients, run_dir, config)
+                compile_notices.check_expected_notices(clients, jobs)
+                successful_clients, successful_jobs = [], []
+                for client, job in zip(clients, jobs):
+                    entry = by_row[client.sequence]
+                    entry["facts"].update(run_report.artifact_record(job.data, run_dir))
+                    entry["assignment"]["sha256"] = sha256(
+                        job.template.read_bytes()
+                    ).hexdigest()
+                    summary = None
                     try:
-                        summary = compile_notices.evaluate_render_job(
-                            job, typst_bin, timeout=timeouts.evidence
+                        diagnostics = compile_notices.compile_render_job(
+                            job, typst_bin, timeout=timeouts.compile
                         )
-                        entry["render_summary"] = summary
-                        entry["qr_urls"] = summary["qr_urls"]
-                        for check in summary["checks"]:
-                            if check not in entry["checks"]:
-                                entry["checks"].append(check)
-                    except (
-                        ValueError,
-                        subprocess.CalledProcessError,
-                        compile_notices.CompilerTimeoutError,
-                    ) as exc:
-                        detail = (
-                            exc.stderr
-                            if isinstance(exc, subprocess.CalledProcessError)
-                            else str(exc)
-                        )
+                        entry["checks"].extend(check.to_dict() for check in diagnostics)
                         run_report.add_check(
                             entry,
-                            "render.evidence_failed",
+                            "rendering.completed",
                             "render",
-                            "fail",
-                            str(detail),
+                            "pass",
+                            "Original PDF produced",
                         )
-                    entry["original"], pdf_checks = validate_pdfs.inspect_notice(
-                        job, run_dir, summary
-                    )
-                    entry["checks"].extend(check.to_dict() for check in pdf_checks)
-                    successful_clients.append(client)
-                    successful_jobs.append(job)
-                except (
-                    OSError,
-                    subprocess.CalledProcessError,
-                    PdfReadError,
-                    compile_notices.CompilerTimeoutError,
-                ) as exc:
-                    detail = str(exc)
-                    if isinstance(exc, subprocess.CalledProcessError) and exc.stderr:
-                        detail += "\n" + exc.stderr
-                    entry["original"]["status"] = "failed"
-                    run_report.add_check(
-                        entry, "rendering.failed", "render", "fail", detail
-                    )
-                    logging.getLogger("immuknow").exception(
-                        "Notice %s failed", entry["row_key"]
-                    )
-                finally:
-                    run_report.write_report(run_dir, record)
+                        try:
+                            summary = compile_notices.evaluate_render_job(
+                                job, typst_bin, timeout=timeouts.evidence
+                            )
+                            entry["render_summary"] = summary
+                            entry["qr_urls"] = summary["qr_urls"]
+                            for check in summary["checks"]:
+                                if check not in entry["checks"]:
+                                    entry["checks"].append(check)
+                        except (
+                            ValueError,
+                            subprocess.CalledProcessError,
+                            compile_notices.CompilerTimeoutError,
+                        ) as exc:
+                            detail = (
+                                exc.stderr
+                                if isinstance(exc, subprocess.CalledProcessError)
+                                else str(exc)
+                            )
+                            run_report.add_check(
+                                entry,
+                                "render.evidence_failed",
+                                "render",
+                                "fail",
+                                str(detail),
+                            )
+                        entry["original"], pdf_checks = validate_pdfs.inspect_notice(
+                            job, run_dir, summary
+                        )
+                        entry["checks"].extend(check.to_dict() for check in pdf_checks)
+                        successful_clients.append(client)
+                        successful_jobs.append(job)
+                    except (
+                        OSError,
+                        subprocess.CalledProcessError,
+                        PdfReadError,
+                    ) as exc:
+                        detail = str(exc)
+                        if (
+                            isinstance(exc, subprocess.CalledProcessError)
+                            and exc.stderr
+                        ):
+                            detail += "\n" + exc.stderr
+                        entry["original"]["status"] = "failed"
+                        run_report.add_check(
+                            entry, "rendering.failed", "render", "fail", detail
+                        )
+                        logging.getLogger("immuknow").exception(
+                            "Notice %s failed", entry["row_key"]
+                        )
+                    finally:
+                        run_report.write_report(run_dir, record)
 
-            # Encryption is separate from originals and reports each actual result.
-            for client, job in zip(successful_clients, successful_jobs):
-                entry = by_row[client.sequence]
-                if not entry["encryption"]["requested"]:
-                    continue
-                try:
-                    destination = run_dir / "encrypted" / f"{entry['row_key']}.pdf"
-                    encrypt_notices.encrypt_notice(
-                        client, job.pdf, destination, config["encryption"]
-                    )
-                    entry["encryption"].update(
-                        status="completed",
-                        **run_report.artifact_record(destination, run_dir),
-                    )
-                except (OSError, ValueError, PdfReadError) as exc:
-                    entry["encryption"]["status"] = "failed"
-                    run_report.add_check(
-                        entry, "encryption.failed", "delivery", "fail", str(exc)
-                    )
-                    run_report.add_check(
-                        entry,
-                        "delivery.encryption_failed",
-                        "delivery",
-                        "warn",
-                        "Requested individual encryption failed; the original remains available for review.",
-                    )
-                finally:
-                    run_report.write_report(run_dir, record)
-            bundle_pdfs.bundle_run(run_dir, record)
-            output_directory.cleanup_output(run_dir, config)
-            run_report.finish_run(record)
-            result = run_report.write_report(run_dir, record)
-            produced = sum(
-                entry["original"]["status"] == "completed"
-                for entry in record["entries"]
-            )
-            print(
-                f"Run {record['status']}: {produced}/{len(record['entries'])} original PDFs. {run_dir / 'report.html'}"
-            )
-            return result
-        except Exception as exc:
-            record["resources"] = {
-                **record["resources"],
-                **run_report.resource_manifest(run_dir / "resources", run_dir),
-            }
-            run_report.add_check(
-                record,
-                "run.failed",
-                "execution" if setup_complete else "setup",
-                "fail",
-                str(exc),
-            )
-            for entry in record["entries"]:
-                if entry["original"]["status"] == "not_run":
-                    entry["original"]["status"] = (
-                        "failed" if setup_complete else "not_run"
-                    )
-            run_report.finish_run(record, failed_setup=not setup_complete)
-            run_report.write_report(run_dir, record)
-            print(
-                f"Run {record['status']}. Report: {run_dir / 'report.html'}",
-                file=sys.stderr,
-            )
-            raise
+                # Encryption is separate from originals and reports each actual result.
+                for client, job in zip(successful_clients, successful_jobs):
+                    entry = by_row[client.sequence]
+                    if not entry["encryption"]["requested"]:
+                        continue
+                    try:
+                        destination = run_dir / "encrypted" / f"{entry['row_key']}.pdf"
+                        encryption_details = encrypt_notices.encrypt_notice(
+                            client, job.pdf, destination, config["encryption"]
+                        )
+                        entry["encryption"].update(
+                            status="completed",
+                            method=encryption_details,
+                            **run_report.artifact_record(destination, run_dir),
+                        )
+                    except (OSError, ValueError, PdfReadError) as exc:
+                        entry["encryption"]["status"] = "failed"
+                        run_report.add_check(
+                            entry, "encryption.failed", "delivery", "fail", str(exc)
+                        )
+                    finally:
+                        run_report.write_report(run_dir, record)
+                bundle_pdfs._bundle_run(run_dir, record)
+                output_directory.cleanup_output(run_dir, config)
+                run_report.finish_run(record)
+                result = run_report.write_report(run_dir, record)
+                produced = sum(
+                    entry["original"]["status"] == "completed"
+                    for entry in record["entries"]
+                )
+                print(
+                    f"Run {record['status']}: {produced}/{len(record['entries'])} original PDFs. {run_dir / 'report.html'}"
+                )
+                return result
+            except Exception as exc:
+                record["resources"] = {
+                    **record["resources"],
+                    **run_report.resource_manifest(run_dir / "resources", run_dir),
+                }
+                run_report.add_check(
+                    record,
+                    "run.failed",
+                    "execution" if setup_complete else "setup",
+                    "fail",
+                    str(exc),
+                )
+                for entry in record["entries"]:
+                    if entry["original"]["status"] == "not_run":
+                        entry["original"]["status"] = (
+                            "failed" if setup_complete else "not_run"
+                        )
+                run_report.finish_run(record, failed_setup=not setup_complete)
+                run_report.write_report(run_dir, record)
+                print(
+                    f"Run {record['status']}. Report: {run_dir / 'report.html'}",
+                    file=sys.stderr,
+                )
+                raise
 
 
 def _record_source_rows(frame: pd.DataFrame, record: dict[str, Any]) -> None:
@@ -524,7 +537,7 @@ def _record_source_rows(frame: pd.DataFrame, record: dict[str, Any]) -> None:
                 "checks": [],
                 "original": {"status": "not_run"},
                 "encryption": {"requested": False, "status": "not_requested"},
-                "routing": {"destination": None, "reason": "not_run", "override": None},
+                "routing": {"destination": None, "reason": "not_run"},
                 "bundle": None,
             }
         )

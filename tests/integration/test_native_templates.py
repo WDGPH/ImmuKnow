@@ -18,7 +18,6 @@ from immuknow.generate_notices import prepare_render_jobs
 from tests.fixtures.sample_input import create_test_client_record
 
 ROOT = Path(__file__).resolve().parents[2]
-FONT_PATH = Path(__file__).resolve().parents[2] / "immuknow/templates/fonts"
 pytestmark = pytest.mark.integration
 
 

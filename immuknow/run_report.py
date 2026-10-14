@@ -3,16 +3,34 @@
 from __future__ import annotations
 
 import json
+import platform
 from collections import Counter
 from datetime import datetime, timezone
 from hashlib import sha256
 from html import escape
+from importlib.metadata import version
+from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
 from .data_models import CheckResult, CheckStatus
 
-RUN_FORMAT_VERSION = 1
+RUN_FORMAT_VERSION = 2
+
+
+def engine_identity() -> dict[str, Any]:
+    """Identify the installed native code and contracts used for this attempt."""
+    package = Path(str(files("immuknow")))
+    return {
+        "application_version": version("ImmuKnow"),
+        "python_version": platform.python_version(),
+        "pdf_library_version": version("pypdf"),
+        "run_format_version": RUN_FORMAT_VERSION,
+        "code": [
+            artifact_record(path, package) for path in sorted(package.glob("*.py"))
+        ],
+        "schemas": resource_manifest(package / "schemas", package),
+    }
 
 
 def timestamp() -> str:
@@ -61,6 +79,12 @@ def finish_run(record: dict[str, Any], *, failed_setup: bool = False) -> None:
             for attempt in record["delivery_attempts"]
             for check in attempt.get("checks", [])
         ]
+        + [
+            result
+            for attempt in record["delivery_attempts"]
+            for evaluation in attempt.get("evaluations", {}).values()
+            for result in evaluation["results"]
+        ]
     )
     if failed_setup:
         record["status"] = "failed_setup"
@@ -99,6 +123,7 @@ def render_html(record: dict[str, Any]) -> str:
         f"<h1>ImmuKnow run {escape(record['run_id'])}</h1>",
         f"<p>{escape(record['status'])} · {len(record['entries'])} source rows · {counts['completed']} original PDFs · {counts['failed']} failed notices</p>",
         "<p>Client information in this report and its linked files is sensitive.</p>",
+        '<p>After inspecting a PDF, accept a warning with <code>immuknow-rebundle RUN --accept-warning TOKEN --reason "Your review reason"</code>.</p>',
         "<h2>Run checks</h2>",
         _checks_html(record["checks"]),
     ]
@@ -107,7 +132,6 @@ def render_html(record: dict[str, Any]) -> str:
         parts.extend(
             [
                 f"<details><summary>{escape(title)}</summary>",
-                _checks_html(entry["checks"]),
             ]
         )
         for label, artifact in (
@@ -119,6 +143,31 @@ def render_html(record: dict[str, Any]) -> str:
                 parts.append(
                     f'<p><a href="{escape(artifact["path"], quote=True)}">{label}</a> · SHA-256 {escape(artifact.get("sha256", "")[:12])}</p>'
                 )
+        latest = next(
+            (
+                attempt
+                for attempt in reversed(record["delivery_attempts"])
+                if entry["row_key"] in attempt.get("evaluations", {})
+            ),
+            None,
+        )
+        if latest is not None:
+            evaluation = latest["evaluations"][entry["row_key"]]
+            parts.append(f"<h3>Latest evaluation · attempt {latest['number']}</h3>")
+            parts.append(_checks_html(evaluation["results"]))
+            if evaluation["warning_tokens"]:
+                accepted = {
+                    item["token"] for item in record.get("warning_acceptances", [])
+                }
+                parts.append("<ul>")
+                for warning_id, token in evaluation["warning_tokens"].items():
+                    state = "Accepted" if token in accepted else "Awaiting review"
+                    parts.append(
+                        f"<li>{escape(warning_id)} · {state}<br><code>{escape(token)}</code></li>"
+                    )
+                parts.append("</ul>")
+        else:
+            parts.append(_checks_html(entry["checks"]))
         parts.append(
             "<pre>"
             + escape(json.dumps(entry, ensure_ascii=False, indent=2))

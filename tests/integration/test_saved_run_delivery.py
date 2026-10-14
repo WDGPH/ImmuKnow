@@ -1,4 +1,4 @@
-"""One saved native run exercises review, overrides, relocation and replacement recovery."""
+"""Saved native runs exercise review, rule changes and replacement recovery."""
 
 from __future__ import annotations
 
@@ -61,13 +61,7 @@ def test_saved_run_review_and_rebundle_journey(tmp_path: Path) -> None:
                 "code": "render.evidence_failed",
                 "stage": "render",
                 "status": "fail",
-                "message": "Synthetic unavailable summary",
-            },
-            {
-                "code": "output.evidence_unavailable",
-                "stage": "output",
-                "status": "warn",
-                "message": "Saved original is readable but checking did not complete",
+                "message": "Required summary unavailable",
             },
         ]
     )
@@ -101,18 +95,14 @@ def test_saved_run_review_and_rebundle_journey(tmp_path: Path) -> None:
             run_report.add_check(
                 entry, "encryption.failed", "delivery", "fail", str(exc)
             )
-            run_report.add_check(
-                entry,
-                "delivery.encryption_failed",
-                "delivery",
-                "warn",
-                "Requested encryption failed",
-            )
     assert PdfReader(run_dir / first["encryption"]["path"]).decrypt("20150102")
     assert unknown["encryption"]["status"] == "failed"
     assert not (run_dir / "encrypted" / f"{unknown['row_key']}.pdf").exists()
 
-    attempt = bundle_pdfs.bundle_run(run_dir, record)
+    run_report.write_report(run_dir, record)
+    attempt = bundle_pdfs.bundle_run(run_dir)
+    record = json.loads((run_dir / "run.json").read_text())
+    first, unknown, evidence = record["entries"]
     assert attempt["status"] == "completed", attempt["checks"]
     assert [entry["routing"]["destination"] for entry in record["entries"]] == [
         "delivery",
@@ -124,7 +114,7 @@ def test_saved_run_review_and_rebundle_journey(tmp_path: Path) -> None:
         bundle for bundle in attempt["bundles"] if bundle["destination"] == "review"
     )
     assert review_bundle["row_keys"] == [unknown["row_key"], evidence["row_key"]]
-    assert (run_dir / "overrides.json").is_file()
+    assert not (run_dir / "overrides.json").exists()
     review = PdfReader(run_dir / review_bundle["path"])
     for entry in (unknown, evidence):
         membership = entry["bundle"]
@@ -159,13 +149,23 @@ def test_saved_run_review_and_rebundle_journey(tmp_path: Path) -> None:
     source.unlink()
     shutil.rmtree(templates)
     shutil.rmtree(config)
-    overrides = {
-        "allow_delivery_warnings": [],
-        "clients": {unknown["client_id"]: "delivery", first["client_id"]: "review"},
-    }
-    (run_dir / "overrides.json").write_text(json.dumps(overrides))
+    tokens = list(
+        record["delivery_attempts"][-1]["evaluations"][unknown["row_key"]][
+            "warning_tokens"
+        ].values()
+    )
     result = subprocess.run(
-        [sys.executable, "-m", "immuknow.rebundle", str(run_dir)],
+        [
+            sys.executable,
+            "-m",
+            "immuknow.rebundle",
+            str(run_dir),
+            *[arg for token in tokens for arg in ("--accept-warning", token)],
+            "--reason",
+            "Reviewed source and original",
+            "--withhold",
+            first["row_key"],
+        ],
         capture_output=True,
         text=True,
     )
@@ -189,8 +189,9 @@ def test_saved_run_review_and_rebundle_journey(tmp_path: Path) -> None:
     before = {
         entry["row_key"]: deepcopy(entry["bundle"]) for entry in record["entries"]
     }
-    identical = bundle_pdfs.bundle_run(run_dir, record)
+    identical = bundle_pdfs.bundle_run(run_dir)
     assert identical["status"] == "completed"
+    record = json.loads((run_dir / "run.json").read_text())
     assert {entry["row_key"]: entry["bundle"] for entry in record["entries"]} == before
 
     # Invalid choices and changed originals cannot replace the current committed set.
@@ -202,15 +203,30 @@ def test_saved_run_review_and_rebundle_journey(tmp_path: Path) -> None:
         [(entry["routing"], entry["bundle"]) for entry in record["entries"]]
     )
     invalid = bundle_pdfs.bundle_run(
-        run_dir, record, {"allow_delivery_warnings": ["data.school_unmatced"]}
+        run_dir, accept=["unknown-warning-token"], reason="Reviewed"
     )
     assert invalid["status"] == "failed"
-    assert "Unknown warning code" in invalid["checks"][0]["message"]
+    assert "Unknown or stale warning token" in invalid["checks"][0]["message"]
     damaged = run_dir / first["original"]["path"]
     original = damaged.read_bytes()
     damaged.write_bytes(original + b"tampered")
-    assert bundle_pdfs.bundle_run(run_dir, record, overrides)["status"] == "failed"
+    assert bundle_pdfs.bundle_run(run_dir)["status"] == "failed"
     damaged.write_bytes(original)
+    resource = run_dir / "resources/templates/settings.typ"
+    original_resource = resource.read_bytes()
+    resource.write_bytes(original_resource + b"\n// changed after review\n")
+    changed = bundle_pdfs.bundle_run(run_dir)
+    assert changed["status"] == "failed"
+    assert "Saved resources changed" in changed["checks"][-1]["message"]
+    resource.write_bytes(original_resource)
+    payload = run_dir / first["facts"]["path"]
+    original_payload = payload.read_bytes()
+    payload.write_bytes(original_payload + b" ")
+    changed = bundle_pdfs.bundle_run(run_dir)
+    assert changed["status"] == "failed"
+    assert "Saved notice payload changed" in changed["checks"][-1]["message"]
+    payload.write_bytes(original_payload)
+    record = json.loads((run_dir / "run.json").read_text())
     assert [
         (entry["routing"], entry["bundle"]) for entry in record["entries"]
     ] == memberships
@@ -233,15 +249,20 @@ def test_saved_run_review_and_rebundle_journey(tmp_path: Path) -> None:
         patch.object(Path, "replace", interrupt_swap),
         pytest.raises(KeyboardInterrupt),
     ):
-        bundle_pdfs.bundle_run(
-            run_dir, record, {"clients": {first["client_id"]: "delivery"}}
-        )
+        bundle_pdfs.bundle_run(run_dir, withhold=[])
     assert (run_dir / "bundles.previous").is_dir()
-    assert record["delivery_attempts"][-1]["status"] == "replacing"
-    # Recovery reads saved state, as a fresh CLI invocation would.
     record = json.loads((run_dir / "run.json").read_text())
-    bundle_pdfs.recover_delivery(run_dir, record)
-    assert record["delivery_attempts"][-1]["status"] == "failed"
+    assert record["delivery_attempts"][-1]["status"] == "replacing"
+    # A fresh attempt recovers before evaluating the requested warning choices.
+    attempt = bundle_pdfs.bundle_run(
+        run_dir, accept=["unknown-warning-token"], reason="Reviewed"
+    )
+    assert attempt["status"] == "failed"
+    record = json.loads((run_dir / "run.json").read_text())
+    assert record["delivery_attempts"][-2]["status"] == "failed"
+    assert (
+        record["delivery_attempts"][-2]["checks"][-1]["code"] == "delivery.interrupted"
+    )
     assert [
         (entry["routing"], entry["bundle"]) for entry in record["entries"]
     ] == memberships
@@ -251,7 +272,8 @@ def test_saved_run_review_and_rebundle_journey(tmp_path: Path) -> None:
     } == active
     assert not (run_dir / "bundles.previous").exists()
     assert not (run_dir / "bundles.next").exists()
-    assert bundle_pdfs.bundle_run(run_dir, record, overrides)["status"] == "completed"
+    assert bundle_pdfs.bundle_run(run_dir)["status"] == "completed"
+    record = json.loads((run_dir / "run.json").read_text())
     for entry in record["entries"]:
         assert (
             sha256((run_dir / entry["original"]["path"]).read_bytes()).hexdigest()
@@ -264,3 +286,73 @@ def test_saved_run_review_and_rebundle_journey(tmp_path: Path) -> None:
             )
             == original_text[entry["row_key"]]
         )
+
+
+def test_saved_rule_changes_recheck_originals_and_preserve_earlier_results(tmp_path):
+    config = tmp_path / "config"
+    templates = tmp_path / "templates"
+    shutil.copytree(ROOT / "immuknow/config", config)
+    shutil.copytree(ROOT / "immuknow/templates", templates)
+    parameters = yaml.safe_load((config / "parameters.yaml").read_text())
+    parameters["bundling"] = {"bundle_size": 10}
+    parameters["encryption"]["enabled"] = False
+    code = "layout.address_outside_window"
+    parameters["validation"] = {
+        "rules": {code: {"severity": "fail", "reason": "Use narrow window"}}
+    }
+    (config / "parameters.yaml").write_text(yaml.safe_dump(parameters))
+    settings = templates / "settings.typ"
+    settings.write_text(settings.read_text().replace("height: 81pt", "height: 30pt"))
+    source = tmp_path / "clients.csv"
+    frame = create_test_input_dataframe(num_clients=1)
+    frame["overdue_disease"] = "Measles - 2"
+    frame.to_csv(source, index=False)
+    saved = run_pipeline(
+        source,
+        tmp_path / "runs",
+        config_dir=config,
+        notice_template=templates / "overdue_diseases_v1.en.typ",
+    )
+    record = json.loads(saved.read_text())
+    entry = record["entries"][0]
+    row = entry["row_key"]
+    previous = deepcopy(record["delivery_attempts"][0])
+    assert code in previous["evaluations"][row]["failed_checks"]
+    assert entry["routing"]["destination"] == "review"
+    assert (
+        next(check for check in entry["checks"] if check["code"] == code)["status"]
+        == "warn"
+    )
+    original = (saved.parent / entry["original"]["path"]).read_bytes()
+    policy_file = tmp_path / "rules.json"
+    policy_file.write_text("{}")
+    command = [sys.executable, "-m", "immuknow.rebundle", str(saved.parent)]
+    result = subprocess.run(
+        command + ["--policy", str(policy_file)], capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    record = json.loads(saved.read_text())
+    current = record["delivery_attempts"][-1]["evaluations"][row]
+    assert code not in current["failed_checks"]
+    assert current["settings"][code]["severity"] == "warn"
+    assert any(key.startswith(code + ":") for key in current["warning_tokens"])
+    result = subprocess.run(
+        command
+        + [
+            arg
+            for token in current["warning_tokens"].values()
+            for arg in ("--accept-warning", token)
+        ]
+        + ["--reason", "Inspected window placement"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    record = json.loads(saved.read_text())
+    assert record["entries"][0]["routing"]["destination"] == "delivery"
+    assert record["delivery_attempts"][0] == previous
+    assert (saved.parent / entry["original"]["path"]).read_bytes() == original
+    report = (saved.parent / "report.html").read_text()
+    assert "Latest evaluation" in report
+    assert "Accepted" in report
+    assert all(token in report for token in current["warning_tokens"].values())

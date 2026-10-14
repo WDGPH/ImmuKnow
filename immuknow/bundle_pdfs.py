@@ -7,7 +7,6 @@ import os
 import re
 import shutil
 import subprocess
-from collections import Counter
 from copy import deepcopy
 from enum import Enum
 from hashlib import sha256
@@ -18,52 +17,22 @@ from typing import Any
 
 from pypdf import PageObject, PdfReader, PdfWriter, Transformation
 from pypdf.errors import PdfReadError
+from jsonschema import ValidationError
 
-from . import run_report
-from .compile_notices import check_compiler, compiler_warnings
-
-# Known warning types remain usable as allowances even when absent in this run.
-# Custom authored warning codes may also be allowed when recorded in this run.
-WARNING_CODES = frozenset(
-    {
-        "data.school_unmatched",
-        "source.client_id_missing",
-        "source.first_name_missing",
-        "source.last_name_missing",
-        "source.school_name_missing",
-        "source.board_name_missing",
-        "source.client_id_format",
-        "source.address_incomplete",
-        "source.age_unknown",
-        "source.overdue_unusable",
-        "source.history_unparsed",
-        "assignment.extra_manifest_row",
-        "assignment.version_conflict",
-        "assignment.check_unavailable",
-        "assignment.eligibility_conflict",
-        "compiler.warning",
-        "compiler.font_substitution",
-        "compiler.layout_nonconvergent",
-        "content.translation_missing",
-        "content.history_validity",
-        "content.history_age_unknown",
-        "content.history_unparsed",
-        "content.address_age_unknown",
-        "content.birth_date_unknown",
-        "layout.history_width",
-        "layout.header_title_lines",
-        "layout.address_outside_window",
-        "layout.signature_page",
-        "layout.privacy_page",
-        "layout.section_pages",
-        "output.evidence_unavailable",
-        "output.evidence_mismatch",
-        "output.client_identity",
-        "delivery.encryption_failed",
-        "delivery.group_unknown",
-    }
+from . import run_report, validation_policy
+from .run_lock import run_lock
+from .structured_input import parse_json, read_json
+from .component_resources import verify_components
+from .render_payload import validate_render_payload
+from .render_contract import validate_render_report
+from .compile_notices import (
+    CompilerTimeouts,
+    TYPST_VERSION,
+    check_compiler,
+    compiler_warnings,
+    run_typst,
 )
-DEFAULT_OVERRIDES = {"allow_delivery_warnings": [], "clients": {}}
+
 REVIEW_BAND_PT = 18
 
 
@@ -88,71 +57,33 @@ class BundleGrouping(Enum):
         )
 
 
-def validate_overrides(overrides: Any, record: dict[str, Any]) -> dict[str, Any]:
-    """Reject typos and ambiguous public IDs before preparing replacement PDFs."""
-    if not isinstance(overrides, dict) or set(overrides) - set(DEFAULT_OVERRIDES):
-        raise ValueError(
-            "Overrides must contain only allow_delivery_warnings and clients"
-        )
-    warnings = overrides.get("allow_delivery_warnings", [])
-    clients = overrides.get("clients", {})
-    if not isinstance(warnings, list) or any(
-        not isinstance(code, str) for code in warnings
-    ):
-        raise ValueError("allow_delivery_warnings must be a list of warning codes")
-    known = WARNING_CODES | {
-        check["code"]
-        for entry in record["entries"]
-        for check in entry["checks"]
-        if check["status"] == "warn"
-    }
-    unknown = sorted(set(warnings) - known)
-    if unknown:
-        raise ValueError("Unknown warning code(s): " + ", ".join(unknown))
-    if not isinstance(clients, dict):
-        raise ValueError("clients must map client IDs to delivery or review")
-    counts = Counter(entry["client_id"] for entry in record["entries"])
-    for client_id, destination in clients.items():
-        if (
-            not isinstance(client_id, str)
-            or not re.fullmatch(r"\d{10}", client_id)
-            or counts[client_id] != 1
-        ):
-            raise ValueError(
-                f"Override client ID must be a unique ten-digit source ID: {client_id!r}"
-            )
-        if destination not in ("delivery", "review"):
-            raise ValueError(f"Override for {client_id} must be delivery or review")
-    return {
-        "allow_delivery_warnings": sorted(set(warnings)),
-        "clients": dict(sorted(clients.items())),
-    }
-
-
-def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
-    result = {}
-    for key, value in pairs:
-        if key in result:
-            raise ValueError(f"Duplicate override key: {key}")
-        result[key] = value
-    return result
-
-
-def _read_overrides(overrides: dict | Path | None, run_dir: Path, record: dict) -> dict:
-    if overrides is None:
-        overrides = run_dir / "overrides.json"
-        if not overrides.exists():
-            with overrides.open("x", encoding="utf-8") as stream:
-                json.dump(DEFAULT_OVERRIDES, stream, indent=2)
-            overrides.chmod(0o600)
-    if isinstance(overrides, Path):
-        overrides = json.loads(
-            overrides.read_text(encoding="utf-8"), object_pairs_hook=_unique_object
-        )
-    return validate_overrides(overrides, record)
-
-
 def _original_reader(entry: dict, run_dir: Path) -> PdfReader:
+    """Verify the retained payload binding and PDF bytes before any delivery use."""
+    facts = entry["facts"]
+    payload_path = (run_dir / facts["path"]).resolve()
+    if not payload_path.is_relative_to((run_dir / "facts").resolve()):
+        raise ValueError(f"Payload path is outside facts/: {entry['row_key']}")
+    payload_bytes = payload_path.read_bytes()
+    if sha256(payload_bytes).hexdigest() != facts["sha256"]:
+        raise ValueError(f"Saved notice payload changed: {entry['row_key']}")
+    payload = parse_json(payload_bytes, label="Saved notice payload")
+    try:
+        validate_render_payload(payload)
+    except ValidationError as exc:
+        raise ValueError(
+            f"Saved notice payload does not match the supported format: {entry['row_key']}"
+        ) from exc
+    if (
+        payload.get("row_key") != entry["row_key"]
+        or payload.get("client_id") != entry["client_id"]
+        or any(
+            payload[key] != entry["assignment"][key]
+            for key in ("template", "version_id", "language")
+        )
+    ):
+        raise ValueError(
+            f"Saved payload does not belong to this source row: {entry['row_key']}"
+        )
     original = entry["original"]
     path = (run_dir / original["path"]).resolve()
     if not path.is_relative_to((run_dir / "originals").resolve()):
@@ -167,62 +98,92 @@ def _original_reader(entry: dict, run_dir: Path) -> PdfReader:
         )
     if len(reader.pages) != original["pages"]:
         raise ValueError(f"Original PDF page count changed: {entry['row_key']}")
+    summary = entry.get("render_summary")
+    if summary is not None:
+        validate_render_report(
+            summary,
+            {
+                key: payload[key]
+                for key in (
+                    "row_key",
+                    "template",
+                    "client_id",
+                    "version_id",
+                    "language",
+                )
+            },
+        )
+        if summary["page_count"] != len(reader.pages):
+            raise ValueError(
+                f"Render evidence page count differs from the original: {entry['row_key']}"
+            )
     return reader
 
 
 def _routes(
-    entries: list[dict], group_by: BundleGrouping, overrides: dict
+    record: dict,
+    entries: list[dict],
+    group_by: BundleGrouping,
+    attempt: dict,
+    accept: list[str],
+    reason: str | None,
+    withheld: list[str],
+    resolved: dict,
 ) -> list[tuple[dict, dict]]:
-    routed = []
-    allowed = set(overrides["allow_delivery_warnings"])
+    """Evaluate each original before deciding membership, retaining every result."""
+    known_rows = {entry["row_key"] for entry in record["entries"]}
+    if any(row not in known_rows for row in withheld) or len(set(withheld)) != len(
+        withheld
+    ):
+        raise ValueError("Withheld rows must be distinct source row keys from this run")
+    evaluations = {}
     for entry in entries:
+        observations = deepcopy(entry["checks"])
+        summary = entry.get("render_summary")
+        if summary is None:
+            observations.append(
+                {
+                    "code": "render.evidence_failed",
+                    "stage": "render",
+                    "status": "fail",
+                    "message": "Required render evidence is missing; generate and check a new notice.",
+                }
+            )
+        else:
+            for check in summary["checks"]:
+                if check not in observations:
+                    observations.append(deepcopy(check))
         facts = entry["facts"]["prepared"]
         if group_by != BundleGrouping.SIZE and not facts[group_by.value].get("id"):
-            if not any(
-                check["code"] == "delivery.group_unknown" for check in entry["checks"]
-            ):
-                run_report.add_check(
-                    entry,
-                    "delivery.group_unknown",
-                    "delivery",
-                    "warn",
-                    f"Missing {group_by.value} identifier; delivery grouping uses Unknown",
-                    measurements={"group_by": group_by.value},
-                )
-        unresolved = sorted(
-            {
-                check["code"]
-                for check in entry["checks"]
-                if check["status"] == "warn" and check["code"] not in allowed
-            }
-        )
-        explicit = overrides["clients"].get(entry["client_id"])
-        destination = explicit or ("review" if unresolved else "delivery")
-        reason = (
-            "Explicit client override"
-            if explicit
-            else ("Unresolved warnings" if unresolved else "No unresolved warnings")
-        )
-        routed.append(
-            (
-                entry,
+            observations.append(
                 {
-                    "destination": destination,
-                    "reason": reason,
-                    "override": explicit,
-                    "unresolved_warnings": unresolved,
-                    "allowed_warnings": sorted(
-                        {
-                            check["code"]
-                            for check in entry["checks"]
-                            if check["status"] == "warn"
-                        }
-                        & allowed
-                    ),
-                },
+                    "code": "delivery.group_unknown",
+                    "stage": "delivery",
+                    "status": "warn",
+                    "message": f"Missing {group_by.value} identifier; delivery grouping uses Unknown",
+                    "measurements": {"group_by": group_by.value},
+                }
             )
+        evaluation = validation_policy.evaluate_original(
+            record, entry, observations, resolved[entry["row_key"]]
         )
-    return routed
+        evaluations[entry["row_key"]] = evaluation
+    attempt["evaluations"] = {
+        key: value.to_dict() for key, value in evaluations.items()
+    }
+    validation_policy.accept_warnings(record, evaluations, accept, reason)
+    record["withheld_rows"] = list(withheld)
+    return [
+        (
+            entry,
+            validation_policy.route_original(
+                record,
+                evaluations[entry["row_key"]],
+                withheld=entry["row_key"] in withheld,
+            ),
+        )
+        for entry in entries
+    ]
 
 
 def _compile_review(
@@ -234,9 +195,8 @@ def _compile_review(
     attempt: dict,
 ) -> None:
     settings = record["configuration"]["effective"]
-    typst_bin = os.environ.get(
-        "TYPST_BIN", settings.get("typst", {}).get("bin", "typst")
-    )
+    review_tools = attempt["review_tools"]
+    typst_bin = review_tools["compiler"]["path"]
     timestamp = settings.get("creation_timestamp")
     if type(timestamp) is not int:
         raise ValueError("Saved run is missing its frozen creation timestamp")
@@ -251,11 +211,49 @@ def _compile_review(
     for key, value in inputs.items():
         command.extend(["--input", f"{key}={value}"])
     command.extend([str(template), str(destination)])
-    result = subprocess.run(command, check=True, capture_output=True, text=True)
+    timeouts = CompilerTimeouts.from_config(
+        settings.get("typst", {}).get("timeouts_seconds", {})
+    )
+    result = run_typst(command, timeout=timeouts.review, operation="review compilation")
     for warning in compiler_warnings(result.stderr):
         check = warning.to_dict()
         if check not in attempt["checks"]:
             attempt["checks"].append(check)
+
+
+def _prepare_review(work: Path, record: dict, attempt: dict) -> None:
+    """Copy and identify the review templates and executable actually used."""
+    settings = record["configuration"]["effective"]
+    requested = os.environ.get(
+        "TYPST_BIN", settings.get("typst", {}).get("bin", "typst")
+    )
+    tools = {"compiler": {"requested": requested}, "templates": []}
+    attempt["review_tools"] = tools
+    for name in ("review_sheet.typ", "review_stamp.typ"):
+        shutil.copyfile(
+            Path(str(files("immuknow").joinpath("review_templates").joinpath(name))),
+            work / name,
+        )
+        tools["templates"].append(run_report.artifact_record(work / name, work))
+    executable = shutil.which(requested)
+    if executable is None:
+        raise ValueError(f"Typst executable not found: {requested}")
+    executable_path = Path(executable).resolve()
+    tools["compiler"].update(
+        path=str(executable_path),
+        sha256=sha256(executable_path.read_bytes()).hexdigest(),
+    )
+    run_report.write_report(work.parent.parent, record)
+    timeouts = CompilerTimeouts.from_config(
+        settings.get("typst", {}).get("timeouts_seconds", {})
+    )
+    try:
+        tools["compiler"]["version_output"] = check_compiler(
+            str(executable_path), timeout=timeouts.version
+        )
+    except RuntimeError as exc:
+        raise ValueError(str(exc)) from exc
+    run_report.write_report(work.parent.parent, record)
 
 
 def _measurement_text(measurements: dict) -> str:
@@ -279,7 +277,7 @@ def _measurement_text(measurements: dict) -> str:
 def _review_sheet(entry: dict, work: Path, record: dict, attempt: dict) -> PdfReader:
     facts = entry["facts"]["prepared"]
     findings = []
-    for check in entry["checks"]:
+    for check in attempt["evaluations"][entry["row_key"]]["results"]:
         if check["status"] not in ("warn", "fail", "not_run"):
             continue
         findings.append(
@@ -312,11 +310,7 @@ def _review_sheet(entry: dict, work: Path, record: dict, attempt: dict) -> PdfRe
         "board": facts["board"].get("name", "") or "Unknown",
         "findings": findings,
         "measurements": f"Original PDF pages: {entry['original']['pages']}. Full checks and layout measurements remain in report.html.",
-        "override_example": json.dumps(
-            {"clients": {entry["client_id"]: "delivery"}}, ensure_ascii=False, indent=2
-        )
-        if re.fullmatch(r"\d{10}", entry["client_id"])
-        else "This source row has no valid public override ID. Correct source identity before generating a new notice.",
+        "warning_tokens": attempt["evaluations"][entry["row_key"]]["warning_tokens"],
     }
     data = work / f"{entry['row_key']}.json"
     data.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
@@ -357,6 +351,18 @@ def _review_page(
     return reviewed
 
 
+def _page_hash(page: PageObject) -> str:
+    """Compare complete page copies after writing, independent of PDF object numbers."""
+    writer = PdfWriter()
+    writer.add_page(page)
+    # A new review page has no source header; a read-back page inherits the
+    # bundle header. Keep this comparison copy's header independent of either.
+    writer.pdf_header = "%PDF-1.7"
+    stream = BytesIO()
+    writer.write(stream)
+    return sha256(stream.getvalue()).hexdigest()
+
+
 def _assemble(
     routed: list[tuple[dict, dict]],
     next_dir: Path,
@@ -376,21 +382,7 @@ def _assemble(
         )
     review_needed = any(destination == "review" for destination, _ in groups)
     if review_needed:
-        settings = record["configuration"]["effective"]
-        executable = os.environ.get(
-            "TYPST_BIN", settings.get("typst", {}).get("bin", "typst")
-        )
-        try:
-            check_compiler(executable)
-        except RuntimeError as exc:
-            raise ValueError(str(exc)) from exc
-        for name in ("review_sheet.typ", "review_stamp.typ"):
-            shutil.copyfile(
-                Path(
-                    str(files("immuknow").joinpath("review_templates").joinpath(name))
-                ),
-                work / name,
-            )
+        _prepare_review(work, record, attempt)
     stamps: dict = {}
     for group_number, ((destination, group_id), members) in enumerate(
         sorted(groups.items()), 1
@@ -404,7 +396,8 @@ def _assemble(
             output = directory / name
             path = "bundles/" + output.relative_to(next_dir).as_posix()
             writer = PdfWriter()
-            memberships = []
+            expected_pages = []
+            memberships: list[tuple[dict, dict, dict]] = []
             cursor = 1
             for entry, routing in chunk:
                 first_page = cursor
@@ -413,17 +406,20 @@ def _assemble(
                     sheet = _review_sheet(entry, work, record, attempt)
                     sheet_first = cursor
                     for page in sheet.pages:
+                        expected_pages.append(_page_hash(page))
                         writer.add_page(page)
                         cursor += 1
                     sheet_last = cursor - 1
                 notice_first = cursor
                 original = _original_reader(entry, next_dir.parent)
                 for page in original.pages:
-                    writer.add_page(
+                    selected_page = (
                         _review_page(page, work, record, attempt, stamps)
                         if destination == "review"
                         else page
                     )
+                    expected_pages.append(_page_hash(selected_page))
+                    writer.add_page(selected_page)
                     cursor += 1
                 memberships.append(
                     (
@@ -443,9 +439,40 @@ def _assemble(
                 )
             with output.open("wb") as stream:
                 writer.write(stream)
-            if len(PdfReader(output).pages) != cursor - 1:
+            written = PdfReader(output)
+            if len(written.pages) != cursor - 1:
                 raise ValueError(
                     "Assembled bundle page count does not match memberships"
+                )
+            if [_page_hash(page) for page in written.pages] != expected_pages:
+                raise ValueError(
+                    "Assembled bundle pages do not match the selected notices in order"
+                )
+            length = attempt["notice_length"]
+            if destination == "delivery" and length["enabled"]:
+                counts = [
+                    {
+                        "row_key": entry["row_key"],
+                        "pages": membership["notice_end_page"]
+                        - membership["notice_start_page"]
+                        + 1,
+                    }
+                    for entry, _, membership in memberships
+                ]
+                passed = all(item["pages"] == length["count"] for item in counts)
+                run_report.add_check(
+                    attempt,
+                    "delivery.notice_length",
+                    "delivery",
+                    "pass" if passed else "fail",
+                    "Every notice has the required PDF page count"
+                    if passed
+                    else "Delivery batch contains a notice with the wrong PDF page count",
+                    measurements={
+                        "bundle": path,
+                        "expected_pages": length["count"],
+                        "notices": counts,
+                    },
                 )
             checksum = sha256(output.read_bytes()).hexdigest()
             if destination == "review":
@@ -478,10 +505,27 @@ def _assemble(
                 }
     if set(attempt["memberships"]) != {entry["row_key"] for entry, _ in routed}:
         raise ValueError("Every readable original must belong to exactly one bundle")
+    if attempt["notice_length"]["enabled"] and not any(
+        check["code"] == "delivery.notice_length" for check in attempt["checks"]
+    ):
+        run_report.add_check(
+            attempt,
+            "delivery.notice_length",
+            "delivery",
+            "not_applicable",
+            "No notices are eligible for a delivery batch",
+        )
+    if any(
+        check["code"] == "delivery.notice_length" and check["status"] == "fail"
+        for check in attempt["checks"]
+    ):
+        raise ValueError(
+            "Fixed page count failed; the previous bundle set remains active"
+        )
 
 
-def recover_delivery(run_dir: Path, record: dict[str, Any]) -> None:
-    """Use only saved attempt state and the two fixed replacement directories."""
+def _recover_delivery(run_dir: Path, record: dict[str, Any]) -> None:
+    """Recover saved replacement state while the caller holds this run's lock."""
     next_dir, previous = run_dir / "bundles.next", run_dir / "bundles.previous"
     attempts = record["delivery_attempts"]
     latest = attempts[-1] if attempts else None
@@ -520,26 +564,61 @@ def recover_delivery(run_dir: Path, record: dict[str, Any]) -> None:
 
 
 def bundle_run(
-    run_dir: Path, record: dict[str, Any], overrides: dict | Path | None = None
+    run_dir: Path,
+    *,
+    accept: list[str] | None = None,
+    reason: str | None = None,
+    withhold: list[str] | None = None,
+    policy: dict | None = None,
 ) -> dict[str, Any]:
-    """Validate, assemble, then commit one complete delivery result.
+    """Lock a saved run before loading, recovering or changing its delivery."""
+    run_dir = run_dir.resolve()
+    with run_lock(run_dir):
+        record = read_json(run_dir / "run.json")
+        if not isinstance(record, dict):
+            raise ValueError(
+                "Unsupported run format; rebundling requires format version 2"
+            )
+        return _bundle_run(
+            run_dir,
+            record,
+            accept=accept,
+            reason=reason,
+            withhold=withhold,
+            policy=policy,
+        )
+
+
+def _bundle_run(
+    run_dir: Path,
+    record: dict[str, Any],
+    *,
+    accept: list[str] | None = None,
+    reason: str | None = None,
+    withhold: list[str] | None = None,
+    policy: dict | None = None,
+) -> dict[str, Any]:
+    """Validate, assemble, then commit while the caller holds this run's lock.
 
     Expected operation failures return a failed attempt while preserving the
     previous set. Unexpected errors save the same evidence and propagate.
     """
     if record.get("format_version") != run_report.RUN_FORMAT_VERSION:
-        raise ValueError("Unsupported run format; rebundling requires format version 1")
-    if record.get("input", {}).get("accepted") is False:
-        raise ValueError("Input checks did not accept this file")
+        raise ValueError("Unsupported run format; rebundling requires format version 2")
+    if record["input"].get("accepted") is not True:
+        raise ValueError(
+            "Input checks did not accept this run; correct the source and generate a new run"
+        )
     run_dir = run_dir.resolve()
-    recover_delivery(run_dir, record)
+    _recover_delivery(run_dir, record)
     attempt: dict[str, Any] = {
         "number": len(record["delivery_attempts"]) + 1,
         "started_at": run_report.timestamp(),
         "finished_at": None,
         "status": "running",
         "configuration": {},
-        "overrides": {},
+        "review": {"accepted_tokens": accept or [], "reason": reason},
+        "evaluations": {},
         "checks": [],
         "bundles": [],
         "memberships": {},
@@ -560,12 +639,41 @@ def bundle_run(
         run_dir / "bundles",
     )
     try:
-        attempt["overrides"] = _read_overrides(overrides, run_dir, record)
+        attempt["engine"] = run_report.engine_identity()
+        attempt["review_tools"] = None
+        if record.get("version", {}).get("compiler") != TYPST_VERSION:
+            raise ValueError(
+                "Saved run uses an unsupported notice compiler; generate and check a new run"
+            )
+        requested = (
+            record.get(
+                "validation_policy",
+                record["configuration"]["effective"].get("validation", {}),
+            )
+            if policy is None
+            else policy
+        )
+        attempt["rule_definitions"] = validation_policy.policy_snapshot()
+        attempt["rule_settings"] = deepcopy(requested)
+        resolved = validation_policy.resolve_policy(requested, record)
+        attempt["resolved_rules"] = deepcopy(resolved)
+        attempt["notice_length"] = validation_policy.notice_length_settings(requested)
+        retained = run_report.resource_manifest(run_dir / "resources", run_dir)
+        if retained["sha256"] != record["resources"].get("sha256"):
+            raise ValueError(
+                "Saved resources changed; generate and check a new run before delivery"
+            )
+        attempt["resources_sha256"] = retained["sha256"]
+        verify_components(run_dir / "resources/templates")
         settings = record["configuration"]["effective"].get("bundling", {})
         attempt["configuration"] = deepcopy(settings)
         size = settings.get("bundle_size", 0)
         if type(size) is not int or size < 0:
             raise ValueError("bundle_size must be a nonnegative integer")
+        if size == 0 and attempt["notice_length"]["enabled"]:
+            raise ValueError(
+                "Fixed notice length requires bundling.bundle_size above zero"
+            )
         group_by = BundleGrouping.from_string(settings.get("group_by"))
         entries = [
             entry
@@ -578,6 +686,27 @@ def bundle_run(
             raise ValueError("Run entries must have unique source row keys")
         for entry in entries:
             _original_reader(entry, run_dir)
+        record["validation_policy"] = deepcopy(requested)
+        routed = _routes(
+            record,
+            entries,
+            group_by,
+            attempt,
+            accept or [],
+            reason,
+            record.get("withheld_rows", []) if withhold is None else withhold,
+            resolved,
+        )
+        if not attempt["notice_length"]["enabled"]:
+            run_report.add_check(
+                attempt,
+                "delivery.notice_length",
+                "delivery",
+                "not_run",
+                "Fixed notice length is disabled",
+            )
+        attempt["review"]["withheld_rows"] = record["withheld_rows"]
+        run_report.write_report(run_dir, record)
         if size == 0:
             attempt["status"] = "completed"
             run_report.add_check(
@@ -588,7 +717,6 @@ def bundle_run(
                 "Bundling is disabled; originals remain available",
             )
         else:
-            routed = _routes(entries, group_by, attempt["overrides"])
             work = run_dir / "work" / "delivery"
             if work.exists():
                 shutil.rmtree(work)
@@ -611,9 +739,6 @@ def bundle_run(
                     entry["routing"] = {
                         "destination": None,
                         "reason": "No readable original PDF",
-                        "override": attempt["overrides"]["clients"].get(
-                            entry["client_id"]
-                        ),
                     }
             attempt["status"] = "completed"
         attempt["finished_at"] = run_report.timestamp()
@@ -625,7 +750,7 @@ def bundle_run(
         return attempt
     except Exception as exc:
         # JSON is authoritative if its HTML view fails after the commit write.
-        saved = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
+        saved = read_json(run_dir / "run.json")
         saved_attempt = saved["delivery_attempts"][-1]
         if (
             saved_attempt["number"] == attempt["number"]
@@ -633,7 +758,7 @@ def bundle_run(
         ):
             record.clear()
             record.update(saved)
-            recover_delivery(run_dir, record)
+            _recover_delivery(run_dir, record)
             raise
         if previous.exists():
             if active.exists():

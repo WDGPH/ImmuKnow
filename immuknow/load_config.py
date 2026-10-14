@@ -10,8 +10,9 @@ from pathlib import Path
 from typing import Any
 
 from .bundle_pdfs import BundleGrouping
-from .structured_input import parse_yaml
 from .compile_notices import CompilerTimeouts
+from .validation_policy import notice_length_settings, validate_policy
+from .structured_input import parse_yaml
 from .client_placeholders import (
     CLIENT_PLACEHOLDERS,
     extract_template_fields,
@@ -169,6 +170,7 @@ def validate_config(config: dict[str, Any]) -> None:
     """Reject malformed run settings and retired display or destructive cleanup options."""
     if not isinstance(config, dict):
         raise ValueError("Configuration must be a mapping")
+    validate_policy(config.get("validation", {}))
 
     retired = {
         "qr",
@@ -257,6 +259,11 @@ def validate_config(config: dict[str, Any]) -> None:
 
     if type(bundle_size) is not int or bundle_size < 0:
         raise ValueError("bundling.bundle_size must be a nonnegative integer")
+    if (
+        bundle_size == 0
+        and notice_length_settings(config.get("validation", {}))["enabled"]
+    ):
+        raise ValueError("Fixed notice length requires bundling.bundle_size above zero")
     group_by = bundling_config.get("group_by")
     try:
         if group_by is not None:
