@@ -59,3 +59,12 @@
   let query = values.pairs().map(pair => url-encode(pair.at(0)) + "=" + url-encode(pair.at(1))).join("&")
   address + (if address.contains("?") { "&" } else { "?" }) + query + fragment
 }
+
+// Record a placed external link for comparison with the PDF destination.
+#let notice-link(destination, ..body) = {
+  assert(type(destination) == str and destination != "", message: "Link destination must be nonempty text")
+  context {
+    component("link", measurements: (page: here().page(), url: destination))
+    link(destination, ..body)
+  }
+}

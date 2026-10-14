@@ -43,12 +43,27 @@
       status: if defined { "pass" } else { "warn" }, component: "address", page: addresses.first().page,
       message: if defined { "An envelope window was specified." } else { "No envelope window was specified; address placement could not be checked." }))
   }
+  let qr-urls = evidence.filter(it => it.url != none).map(it => it.url).dedup()
+  let link-urls = evidence.filter(it => it.name == "link").map(it => it.measurements.url)
+  let destinations = (qr-urls + link-urls).dedup()
+  let web-urls = (qr-urls + link-urls.filter(url => not url.contains(regex("(?i)^(mailto|tel):")))).dedup()
+  let invalid = web-urls.any(url => not url.contains(regex("(?i)^https://[^\\s/?#]+([/?#]|$)")) or url.contains(regex("\\s")))
+  checks.push((code: "content.link_https", stage: "render",
+    status: if web-urls.len() == 0 { "not_applicable" } else if invalid { "warn" } else { "pass" },
+    message: if web-urls.len() == 0 { "No web links were placed." }
+      else if invalid { "A web link is missing HTTPS or a host, or contains spaces." }
+      else { "Web links use HTTPS and include a host." }))
+  checks.push((code: "content.multiple_links", stage: "render",
+    status: if destinations.len() == 0 { "not_applicable" } else if destinations.len() > 1 { "warn" } else { "pass" },
+    message: if destinations.len() == 0 { "No links were placed." }
+      else if destinations.len() > 1 { "This notice has " + str(destinations.len()) + " different link destinations. Check that each is intended." }
+      else { "One link destination was placed." }))
   [#metadata((
     schema_version: report-schema.properties.schema_version.const,
     notice: notice,
     identity: (row_key: notice.row_key, template: notice.template, client_id: notice.client_id, version_id: notice.version_id, language: notice.language),
     page_count: counter(page).final().first(), components: components, checks: checks,
-    qr_urls: evidence.filter(it => it.url != none).map(it => it.url).dedup(),
+    qr_urls: qr-urls,
     measurements: measurements,
   )) <immuknow-report>]
 }

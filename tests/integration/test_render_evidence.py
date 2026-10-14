@@ -13,10 +13,63 @@ from pypdf.generic import DecodedStreamObject, NameObject, NullObject, TextStrin
 from immuknow import bundle_pdfs, compile_notices, run_report
 from immuknow.orchestrator import run_pipeline
 from immuknow.validate_pdfs import inspect_notice
+from tests.fixtures.sample_input import create_test_input_dataframe
 from tests.integration.test_native_templates import prepare_case, compile_case
 from tests.integration.test_run_accounting import prepare_inputs
 
 pytestmark = pytest.mark.integration
+
+
+def test_multiple_link_warning_can_be_reviewed_or_configured_on_saved_notices(tmp_path):
+    source, config, templates, _ = prepare_inputs(tmp_path)
+    frame = create_test_input_dataframe(num_clients=1)
+    frame["overdue_disease"] = "Measles - 2"
+    frame["overdue_agent"] = "M"
+    frame.to_csv(source, index=False)
+    saved = run_pipeline(
+        source,
+        tmp_path / "runs",
+        config_dir=config,
+        notice_template=templates / "overdue_agents_v1.en.typ",
+    )
+    record = json.loads(saved.read_text())
+    entry = record["entries"][0]
+    assert entry["routing"]["destination"] == "review"
+    checks = {check["code"]: check for check in entry["checks"]}
+    assert checks["content.multiple_links"]["status"] == "warn"
+    assert checks["content.link_https"]["status"] == "pass"
+    original = (saved.parent / entry["original"]["path"]).read_bytes()
+    attempt = bundle_pdfs.bundle_run(
+        saved.parent,
+        policy={
+            "rules": {
+                "content.multiple_links": {
+                    "severity": "fail",
+                    "reason": "Use one destination",
+                }
+            }
+        },
+    )
+    assert (
+        "content.multiple_links"
+        in attempt["evaluations"][entry["row_key"]]["failed_checks"]
+    )
+    attempt = bundle_pdfs.bundle_run(
+        saved.parent,
+        policy={
+            "rules": {
+                "content.multiple_links": {
+                    "enabled": False,
+                    "reason": "These destinations are intentional",
+                }
+            }
+        },
+    )
+    assert attempt["status"] == "completed"
+    after = json.loads(saved.read_text())
+    assert after["entries"][0]["routing"]["destination"] == "delivery"
+    assert (saved.parent / entry["original"]["path"]).read_bytes() == original
+    assert record["delivery_attempts"][0] == after["delivery_attempts"][0]
 
 
 @pytest.mark.parametrize("language", ["en", "fr"])
@@ -432,6 +485,203 @@ def test_unicode_qr_chooses_a_size_that_fits_its_encoding(
     details = decoded[0].extra
     assert isinstance(details, dict)
     assert details["Version"] == str(version + extra)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://example.org/record#form",
+        "https://exämple.org/élève?name=Élodie",
+        "mailto:records@example.org?subject=Record",
+        "tel:+18005550100",
+    ],
+)
+def test_placed_links_match_pdf_destinations_without_a_qr_code(tmp_path, url):
+    job, _ = prepare_case(tmp_path)
+    job.template.write_text(
+        '#import "settings.typ": *\n#show: notice-style\n'
+        "#immuknow.client-block(notice)\n#pagebreak()\n"
+        f"#immuknow.notice-link({json.dumps(url, ensure_ascii=False)})\n\n"
+        f"#immuknow.notice-link({json.dumps(url, ensure_ascii=False)})[Read the record information and complete the requested information for the health unit.]"
+    )
+    summary, _ = compile_case(job)
+    assert not summary["qr_urls"]
+    assert summary["measurements"]["link"] == [{"page": 2, "url": url}] * 2
+    original, checks = inspect_notice(job, tmp_path, summary)
+    assert original["status"] == "completed"
+    assert all(c.status in ("pass", "not_applicable") for c in checks)
+
+
+def test_link_evidence_follows_an_automatic_page_break(tmp_path):
+    job, _ = prepare_case(tmp_path)
+    job.template.write_text(
+        '#import "settings.typ": *\n#show: notice-style\n'
+        '#let unused = immuknow.notice-link("https://example.org/unused")\n'
+        "#immuknow.client-block(notice)\n#v(500pt)\n"
+        '#text(size: 40pt)[#immuknow.notice-link("https://example.org/record")[Read the record]]'
+    )
+    summary, _ = compile_case(job)
+    assert summary["measurements"]["link"] == [
+        {"page": 2, "url": "https://example.org/record"}
+    ]
+    _, checks = inspect_notice(job, tmp_path, summary)
+    assert all(c.status in ("pass", "not_applicable") for c in checks)
+
+
+@pytest.mark.parametrize("damage", ["missing", "changed", "unreadable"])
+def test_a_link_on_another_page_cannot_hide_a_broken_link(tmp_path, damage):
+    job, _ = prepare_case(tmp_path)
+    job.template.write_text(
+        '#import "settings.typ": *\n#show: notice-style\n'
+        "#immuknow.client-block(notice)\n"
+        '#immuknow.notice-link("https://example.org/record")[Read the record]\n'
+        '#pagebreak()\n#immuknow.notice-link("https://example.org/record")[Read the record]'
+    )
+    summary, reader = compile_case(job)
+    assert [link["page"] for link in summary["measurements"]["link"]] == [1, 2]
+    writer = PdfWriter(clone_from=reader)
+    annotations = writer.pages[0].annotations
+    assert annotations
+    for reference in annotations:
+        annotation = reference.get_object()
+        if damage == "missing":
+            del annotation["/A"]
+        elif damage == "changed":
+            annotation["/A"][NameObject("/URI")] = TextStringObject(
+                "https://example.org/other"
+            )
+        else:
+            annotation["/A"][NameObject("/URI")] = NullObject()
+    writer.write(job.pdf)
+    original, checks = inspect_notice(job, tmp_path, summary)
+    assert original["status"] == "completed"
+    assert (
+        next(c for c in checks if c.code == "output.evidence_matches").status == "fail"
+    )
+
+
+def test_saved_delivery_rechecks_ordinary_link_destinations(tmp_path):
+    source, config, templates, _ = prepare_inputs(tmp_path)
+    saved = run_pipeline(
+        source,
+        tmp_path / "runs",
+        config_dir=config,
+        notice_template=templates / "overdue_agents_v1.en.typ",
+    )
+    record = json.loads(saved.read_text())
+    first = record["entries"][0]
+    assert not first["routing"]["failed_checks"]
+    first["render_summary"]["measurements"]["link"][0]["page"] = 2
+    run_report.write_report(saved.parent, record)
+    attempt = bundle_pdfs.bundle_run(saved.parent)
+    assert attempt["status"] == "completed"
+    first, second = json.loads(saved.read_text())["entries"]
+    assert "output.evidence_matches" in first["routing"]["failed_checks"]
+    assert first["routing"]["destination"] == "review"
+    assert not second["routing"]["failed_checks"]
+
+
+@pytest.mark.parametrize("recorded", [False, True])
+@pytest.mark.parametrize(
+    "url", ["https://example.org/extra", "https://exämple.org/élève"]
+)
+def test_link_destinations_outside_helpers_warn_even_without_a_qr(
+    tmp_path, recorded, url
+):
+    job, _ = prepare_case(tmp_path)
+    body = (
+        '#import "settings.typ": *\n#show: notice-style\n'
+        "#immuknow.client-block(notice)\n"
+    )
+    if recorded:
+        body += (
+            '#immuknow.notice-link("https://example.org/record")[Read the record]\n\n'
+        )
+    job.template.write_text(
+        body + f"#link({json.dumps(url, ensure_ascii=False)})[Extra information]"
+    )
+    summary, _ = compile_case(job)
+    assert not summary["qr_urls"]
+    original, checks = inspect_notice(job, tmp_path, summary)
+    assert original["status"] == "completed"
+    check = next(c for c in checks if c.code == "output.unrecorded_link")
+    assert check.status == "warn"
+    assert check.measurements == {
+        "checked_links": 2 if recorded else 1,
+        "unrecorded_links": 1,
+    }
+    assert (
+        next(c for c in checks if c.code == "output.evidence_matches").status == "pass"
+    )
+
+
+def test_a_recorded_link_can_continue_across_pages(tmp_path):
+    job, _ = prepare_case(tmp_path)
+    text = json.dumps("Read the record. " * 400)
+    job.template.write_text(
+        '#import "settings.typ": *\n#show: notice-style\n'
+        "#immuknow.client-block(notice)\n"
+        f'#immuknow.notice-link("https://example.org/record")[#{text}]'
+    )
+    summary, reader = compile_case(job)
+    assert len(reader.pages) > 1
+    assert len(summary["measurements"]["link"]) == 1
+    _, checks = inspect_notice(job, tmp_path, summary)
+    assert all(c.status in ("pass", "not_applicable") for c in checks)
+    check = next(c for c in checks if c.code == "output.unrecorded_link")
+    assert check.measurements is not None
+    assert check.measurements["checked_links"] > 1
+
+
+def test_internal_page_links_do_not_need_external_link_evidence(tmp_path):
+    job, _ = prepare_case(tmp_path)
+    job.template.write_text(
+        '#import "settings.typ": *\n#show: notice-style\n'
+        "#immuknow.client-block(notice)\n"
+        "#link(<details>)[Read the details]\n#pagebreak()\n= Details <details>"
+    )
+    summary, _ = compile_case(job)
+    _, checks = inspect_notice(job, tmp_path, summary)
+    check = next(c for c in checks if c.code == "output.unrecorded_link")
+    assert check.status == "not_applicable"
+    assert check.measurements == {"checked_links": 0, "unrecorded_links": 0}
+    assert all(c.status in ("pass", "not_applicable") for c in checks)
+
+
+def test_saved_delivery_restores_a_deleted_unrecorded_link_warning(tmp_path):
+    source, config, templates, _ = prepare_inputs(tmp_path)
+    template = templates / "overdue_agents_v1.en.typ"
+    template.write_text(
+        template.read_text() + '\n#link("https://example.org/extra")[Extra information]'
+    )
+    saved = run_pipeline(
+        source,
+        tmp_path / "runs",
+        config_dir=config,
+        notice_template=template,
+    )
+    record = json.loads(saved.read_text())
+    first = record["entries"][0]
+    assert any(
+        c["code"] == "output.unrecorded_link" and c["status"] == "warn"
+        for c in first["checks"]
+    )
+    original = saved.parent / first["original"]["path"]
+    before = original.read_bytes()
+    first["checks"] = [
+        c for c in first["checks"] if c["code"] != "output.unrecorded_link"
+    ]
+    run_report.write_report(saved.parent, record)
+    attempt = bundle_pdfs.bundle_run(saved.parent)
+    results = attempt["evaluations"][first["row_key"]]["results"]
+    assert any(
+        c["code"] == "output.unrecorded_link" and c["status"] == "warn" for c in results
+    )
+    assert (
+        json.loads(saved.read_text())["entries"][0]["routing"]["destination"]
+        == "review"
+    )
+    assert original.read_bytes() == before
 
 
 def test_saved_delivery_restores_a_deleted_qr_destination_warning(tmp_path):

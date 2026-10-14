@@ -147,7 +147,7 @@ the letter typeface changes. `indicator-offset` adjusts mark placement inside
 table cells.
 
 The package provides page/header, address/client, signature, history, overdue
-lists and QR helpers. Warnings retain visible content and useful PDFs. Long
+lists, links and QR helpers. Warnings retain visible content and useful PDFs. Long
 content continues onto extra pages and reports unexpected continuation; authors
 can explicitly allow intentional overflow. Structural misuse or compiler errors
 can prevent a PDF. Report findings show which components were used, their checks,
@@ -159,6 +159,11 @@ client, version and language. Missing fields, unknown checks/components,
 contradictory presence findings and invalid page ranges are refused by native
 runs and Studio. Keep the supplied builder; do not write a replacement report
 in an authored template.
+
+Use `immuknow.notice-link("https://example.org/record")[Read the record]` for
+external links. It also accepts `mailto:` and `tel:` destinations. Omitting the
+bracketed text keeps Typst's default label. Python compares its destination with
+a clickable link on the recorded page, including during saved-run delivery.
 
 QR Settings uses an explicit fixed string or a function of normalized facts:
 

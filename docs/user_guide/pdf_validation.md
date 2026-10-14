@@ -24,11 +24,25 @@ and each placed personal-content helper must use that same data. This catches
 changed facts even when row and client IDs are unchanged. It does not compare
 printed vaccine history or overdue lists with the PDF.
 
-Every QR destination recorded by the supplied helper must occur in the PDF's
-clickable links. Missing or unreadable links fail the evidence check, including
-when rebundling a saved run. This compares exact destinations without contacting
-websites. It does not decode the printed QR image, match links to page positions,
-or check additional links authored outside the helper.
+Every recorded QR destination must occur in the PDF's clickable links.
+Destinations from `notice-link` must also occur on the page where the helper
+starts. Missing, changed or unreadable destinations fail the evidence check,
+including when rebundling a saved run. These comparisons make no network requests.
+They do not check individual link positions or decode printed QR images.
+
+Native checking also warns when an external PDF link has a destination absent
+from the supplied helpers' records, including links made with Typst's plain
+`link` function. Internal page links are excluded. A plain link to a destination
+already recorded elsewhere cannot be distinguished this way. Studio does not
+run this native check.
+
+The supplied link and QR helpers warn when a web link lacks HTTPS or a host, or
+contains spaces, in Studio and native runs. They also warn when the notice has several different link
+destinations, counting QR codes and ordinary links together. Repeated links to
+the same destination count once. Several destinations may be intentional; review
+the warning or change its rule setting. Email and phone details still need author
+review. These checks do not contact websites or parse email addresses and phone
+numbers.
 
 Native PDF checks also warn when a recorded QR destination is not a complete
 HTTP or HTTPS web address. They check the host, port, spaces and percent escapes,
@@ -95,7 +109,10 @@ or `severity: fail`, for a run or an explicitly selected source row.
 | History columns have enough width | `layout.history_width` |
 | Title fits its line limit | `layout.header_title_lines` |
 | Placed content has a translation | `content.translation_missing` |
+| Web links use HTTPS and include a host | `content.link_https` |
+| Multiple link destinations have been reviewed | `content.multiple_links` |
 | QR destination has an HTTP or HTTPS web address | `output.qr_destination` |
+| PDF link destinations are recorded by supplied helpers | `output.unrecorded_link` |
 
 The client-details check compares the supplied block's bounds with the window
 on the first page, for both right and below placement. It does not check other
@@ -130,8 +147,8 @@ fields, invalid types and multiple selectors for the same row are refused.
 
 Disabled checks appear as `not_run`, never as passed. Identity, row binding,
 required evidence and PDF readability cannot be disabled or downgraded.
-Other rules retain their recorded severity. Contact and link checks are not yet
-available as controls. `immuknow/validation_policy.py` owns policy resolution
+Other rules retain their recorded severity. `immuknow/validation_policy.py` owns
+policy resolution
 and mandatory protections. Render check definitions come from the shared
 `templates/lib/immuknow/report-v2.json` schema in the package.
 
@@ -221,7 +238,8 @@ immuknow-rebundle ./runs/<run-id>
 
 Rebundling reads the saved record and original PDFs, checks every original hash
 and page count, verifies retained payload bindings and resource hashes, and assembles a complete replacement set. It uses the run's
-available system fonts and frozen timestamp for review sheets and marks. Source CSV
+available system fonts and frozen timestamp for review sheets
+and marks. Source CSV
 and authored template directories can be moved or removed. Notices are not
 recompiled, facts are not prepared again, and encryption is not rerun.
 
@@ -229,8 +247,8 @@ Each attempt records the application code and data format files it uses, along
 with the Python and pypdf versions and saved resources. For review
 pages, it also records the review templates, compiler file and reported version.
 File hashes identify the exact copies; earlier attempt records stay unchanged.
-Unsupported saved data or compiler versions are refused before
-delivery, including when no review pages are needed.
+Unsupported saved data or compiler versions and changed saved resources are
+refused before delivery, including when no review pages are needed.
 
 A notice moved from review to delivery comes from its original PDF. Its old
 review copy is replaced with the active set; no stamp-erasure operation is used.

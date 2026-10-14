@@ -100,7 +100,16 @@ def test_saved_run_review_and_rebundle_journey(tmp_path: Path) -> None:
     assert not (run_dir / "encrypted" / f"{unknown['row_key']}.pdf").exists()
 
     run_report.write_report(run_dir, record)
-    attempt = bundle_pdfs.bundle_run(run_dir)
+    link_tokens = [
+        token
+        for code, token in record["delivery_attempts"][-1]["evaluations"][
+            first["row_key"]
+        ]["warning_tokens"].items()
+        if code.startswith("content.multiple_links:")
+    ]
+    attempt = bundle_pdfs.bundle_run(
+        run_dir, accept=link_tokens, reason="Reviewed the first notice's contact links"
+    )
     record = json.loads((run_dir / "run.json").read_text())
     first, unknown, evidence = record["entries"]
     assert attempt["status"] == "completed", attempt["checks"]

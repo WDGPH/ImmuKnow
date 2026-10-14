@@ -106,6 +106,71 @@ def compile_package(tmp_path: Path, body: str) -> tuple[dict, PdfReader]:
     return reports[0], reader
 
 
+@pytest.mark.parametrize(
+    "body,https,multiple",
+    [
+        ("No links", "not_applicable", "not_applicable"),
+        (
+            '#immuknow.notice-link("https://example.org/records")[Records]',
+            "pass",
+            "pass",
+        ),
+        (
+            '#immuknow.notice-link("https://example.org/records")[Records] ' * 2,
+            "pass",
+            "pass",
+        ),
+        (
+            '#immuknow.notice-link("https://example.org/records")[Records] '
+            '#immuknow.qr-code(notice, url: "https://example.org/records")',
+            "pass",
+            "pass",
+        ),
+        (
+            '#immuknow.notice-link("https://example.org/records")[Records] '
+            '#immuknow.qr-code(notice, url: "https://example.org/update")',
+            "pass",
+            "warn",
+        ),
+        (
+            '#immuknow.notice-link("https://example.org/records")[Records] '
+            '#immuknow.notice-link("mailto:records@example.org")[Email] '
+            '#immuknow.notice-link("tel:+15555550100")[Call]',
+            "pass",
+            "warn",
+        ),
+        (
+            '#immuknow.notice-link("mailto:records@example.org")[Email]',
+            "not_applicable",
+            "pass",
+        ),
+        (
+            '#immuknow.notice-link("http://example.org/records")[Records]',
+            "warn",
+            "pass",
+        ),
+        ('#immuknow.notice-link("https:///records")[Records]', "warn", "pass"),
+        (
+            '#immuknow.notice-link("https://example.org/has space")[Records]',
+            "warn",
+            "pass",
+        ),
+        ('#immuknow.notice-link("https://exämple.org/élève")[Records]', "pass", "pass"),
+    ],
+)
+def test_placed_links_get_basic_https_and_multiple_destination_findings(
+    tmp_path, body, https, multiple
+):
+    report, _ = compile_package(tmp_path, body)
+    checks = {check["code"]: check for check in report["checks"]}
+    assert checks["content.link_https"]["status"] == https
+    assert checks["content.multiple_links"]["status"] == multiple
+    if multiple == "warn":
+        assert (
+            "different link destinations" in checks["content.multiple_links"]["message"]
+        )
+
+
 def test_package_import_and_unused_history_require_no_facts(tmp_path: Path) -> None:
     shutil.copytree(ROOT / "immuknow/templates/lib", tmp_path / "lib")
     source = tmp_path / "import.typ"

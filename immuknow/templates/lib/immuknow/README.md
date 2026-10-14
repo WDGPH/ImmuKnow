@@ -49,6 +49,9 @@ display-default adapter or separate layout-settings file.
   rounded modules are configurable. The resolved destination is shared by the
   drawn code, PDF link, and report.
 
+`notice-link(destination)[label]` records an external link's destination and
+starting page for PDF checks. The label is optional, as with Typst's `link`.
+
 For client-specific links, encode raw query values once:
 
 ```typst
@@ -73,7 +76,7 @@ browser checks compare that data with the prepared input. Each placed personal
 component also records `source_matches`; changed helper data is refused even
 when its row and client IDs are unchanged. Use helper options for display changes.
 `components` has boolean keys `page`, `section`, `header`, `address`, `client`,
-`signature`, `history`, `overdue_diseases`, `overdue_agents`, `qr`, and `privacy`.
+`signature`, `history`, `overdue_diseases`, `overdue_agents`, `qr`, `privacy`, and `link`.
 Every absent known component has a `not_applicable` check. Checks use `code`,
 `stage: "render"`, `status`, `message`, and optional `component`, `page`, and
 `measurements`. They are invisible metadata, never hidden PDF text.

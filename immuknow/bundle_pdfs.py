@@ -135,7 +135,7 @@ def _routes(
         reader = _original_reader(entry, run_dir)
         observations = deepcopy(entry["checks"])
         summary = entry.get("render_summary")
-        current = check_pdf_evidence(
+        for current_check in check_pdf_evidence(
             reader,
             summary,
             {
@@ -146,9 +146,10 @@ def _routes(
                     for key in ("template", "version_id", "language")
                 },
             },
-        ).to_dict()
-        if current not in observations:
-            observations.append(current)
+        ):
+            current = current_check.to_dict()
+            if current not in observations:
+                observations.append(current)
         client_check = check_client_identity(
             reader, summary, entry["client_id"]
         ).to_dict()

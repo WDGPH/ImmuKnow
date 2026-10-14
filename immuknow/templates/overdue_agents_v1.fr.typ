@@ -21,8 +21,8 @@ En date du *#date_as_of*, nos dossiers indiquent que #if notice.client_data.over
 
 Veuillez examiner le dossier d'immunisation à la page 2 et mettre à jour #if notice.client_data.over_16 == true [votre dossier] else if notice.client_data.over_16 == false [le dossier de votre enfant] else [le dossier de la personne nommée] en utilisant l'une des options suivantes :
 
-1. En visitant #link(records-url)
-2. En envoyant un courriel à #link("mailto:" + records-email)[#records-email]
+1. En visitant #immuknow.notice-link(records-url)
+2. En envoyant un courriel à #immuknow.notice-link("mailto:" + records-email)[#records-email]
 3. En envoyant par la poste une photocopie #if notice.client_data.over_16 == true [de votre dossier d'immunisation] else if notice.client_data.over_16 == false [du dossier d'immunisation de votre enfant] else [du dossier d'immunisation de la personne nommée] à #health-unit-name, #health-unit-address
 4. Par téléphone : #health-unit-phone
 
@@ -31,7 +31,7 @@ Veuillez informer la Santé publique#if notice.client_data.over_16 == false [ et
 #grid(
   columns: (1fr, auto),
   gutter: 10pt,
-  [*Si vous choisissez de ne pas #if notice.client_data.over_16 == true [vous faire vacciner] else if notice.client_data.over_16 == false [immuniser votre enfant] else [immuniser la personne nommée]*, une exemption médicale valide ou une déclaration de conscience ou de croyance religieuse doit être remplie et soumise à la Santé publique. Les liens vers ces formulaires se trouvent à #link(exemptions-url). Veuillez noter que cette exemption est uniquement pour la garde d'enfants et qu'une nouvelle exemption sera requise lors de l'inscription à l'école primaire.],
+  [*Si vous choisissez de ne pas #if notice.client_data.over_16 == true [vous faire vacciner] else if notice.client_data.over_16 == false [immuniser votre enfant] else [immuniser la personne nommée]*, une exemption médicale valide ou une déclaration de conscience ou de croyance religieuse doit être remplie et soumise à la Santé publique. Les liens vers ces formulaires se trouvent à #immuknow.notice-link(exemptions-url). Veuillez noter que cette exemption est uniquement pour la garde d'enfants et qu'une nouvelle exemption sera requise lors de l'inscription à l'école primaire.],
   [#immuknow.qr-code(notice, ..qr)]
 )
 

@@ -19,7 +19,7 @@ from .data_models import CheckResult
 from .render_contract import report_schema
 from .structured_input import read_json
 
-POLICY_VERSION = 15
+POLICY_VERSION = 18
 
 
 @dataclass(frozen=True)
@@ -61,6 +61,12 @@ RULES = {
         RuleDefinition(
             "output.qr_destination",
             "QR destinations have HTTP or HTTPS web addresses",
+            "validate_pdfs",
+            adjustable=True,
+        ),
+        RuleDefinition(
+            "output.unrecorded_link",
+            "PDF link destinations were recorded by supplied helpers",
             "validate_pdfs",
             adjustable=True,
         ),

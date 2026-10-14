@@ -29,8 +29,8 @@ As of *#date_as_of* our files show that #if notice.client_data.over_16 == true [
 
 Please review the Immunization Record on page 2 and update #if notice.client_data.over_16 == true [your record] else if notice.client_data.over_16 == false [your child's record] else [the client's record] by using one of the following options:
 
-1. By visiting #link(records-url)
-2. By emailing #link("mailto:" + records-email)[#records-email]
+1. By visiting #immuknow.notice-link(records-url)
+2. By emailing #immuknow.notice-link("mailto:" + records-email)[#records-email]
 3. By mailing a photocopy of #if notice.client_data.over_16 == true [your] else if notice.client_data.over_16 == false [your child's] else [the client's] immunization record to #health-unit-name, #health-unit-address
 4. By Phone: #health-unit-phone
 
@@ -39,7 +39,7 @@ Please update Public Health#if notice.client_data.over_16 == false [ and your ch
 #grid(
   columns: (1fr, auto),
   gutter: 10pt,
-  [*If you are choosing not to #if notice.client_data.over_16 == true [be immunized] else if notice.client_data.over_16 == false [immunize your child] else [immunize the client]*, a valid medical exemption or statement of conscience or religious belief must be submitted. Links to these forms can be located at #link(exemptions-url). Please note this exemption is for childcare only and a new exemption will be required upon enrollment in elementary school.],
+  [*If you are choosing not to #if notice.client_data.over_16 == true [be immunized] else if notice.client_data.over_16 == false [immunize your child] else [immunize the client]*, a valid medical exemption or statement of conscience or religious belief must be submitted. Links to these forms can be located at #immuknow.notice-link(exemptions-url). Please note this exemption is for childcare only and a new exemption will be required upon enrollment in elementary school.],
   [#immuknow.qr-code(notice, ..qr)]
 )
 

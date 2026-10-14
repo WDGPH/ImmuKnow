@@ -82,6 +82,9 @@
         },
         "privacy": {
           "type": "boolean"
+        },
+        "link": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -95,7 +98,8 @@
         "overdue_diseases",
         "overdue_agents",
         "qr",
-        "privacy"
+        "privacy",
+        "link"
       ],
       "additionalProperties": false
     },
@@ -527,6 +531,29 @@
             ],
             "additionalProperties": false
           }
+        },
+        "link": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "properties": {
+              "page": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "url": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "page",
+              "url"
+            ],
+            "additionalProperties": false
+          }
         }
       },
       "required": [],
@@ -790,6 +817,29 @@
               "x-components": [
                 "address"
               ]
+            },
+            {
+              "const": "content.link_https",
+              "description": "Web links use HTTPS and include a host",
+              "x-evaluator": "Typst report",
+              "x-adjustable": true,
+              "x-components": []
+            },
+            {
+              "const": "content.multiple_links",
+              "description": "Multiple link destinations have been reviewed",
+              "x-evaluator": "Typst report",
+              "x-adjustable": true,
+              "x-components": []
+            },
+            {
+              "const": "component.link.absent",
+              "description": "Component was not placed",
+              "x-evaluator": "Typst report",
+              "x-adjustable": false,
+              "x-components": [
+                "link"
+              ]
             }
           ]
         },
@@ -821,7 +871,8 @@
             "overdue_diseases",
             "overdue_agents",
             "qr",
-            "privacy"
+            "privacy",
+            "link"
           ]
         },
         "page": {

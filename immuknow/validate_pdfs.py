@@ -63,66 +63,106 @@ def check_qr_destinations(summary: dict[str, Any] | None) -> CheckResult:
 
 def check_pdf_evidence(
     reader: PdfReader, summary: dict[str, Any] | None, identity: dict[str, str]
-) -> CheckResult:
-    """Compare the report with PDF pages and the recorded QR link destinations."""
+) -> list[CheckResult]:
+    """Compare PDF evidence and find destinations outside the supplied helpers."""
+    unchecked_links = CheckResult(
+        "output.unrecorded_link",
+        "output",
+        "not_run",
+        "PDF link destinations could not be compared with the supplied helpers.",
+    )
     if summary is None:
-        return CheckResult(
-            "output.evidence_matches",
-            "output",
-            "fail",
-            "Render checks could not be completed; inspect this original PDF.",
-        )
+        return [
+            CheckResult(
+                "output.evidence_matches",
+                "output",
+                "fail",
+                "Render checks could not be completed; inspect this original PDF.",
+            ),
+            unchecked_links,
+        ]
     destinations = set()
+    links = summary["measurements"].get("link", [])
+    expected = {url.encode("utf-8") for url in summary["qr_urls"]} | {
+        link["url"].encode("utf-8") for link in links
+    }
+    checked = unrecorded = 0
     try:
-        if summary["qr_urls"]:
-            for page in reader.pages:
-                for reference in page.annotations or []:
-                    annotation = reference.get_object()
-                    if not isinstance(annotation, DictionaryObject):
-                        raise ValueError("Invalid PDF annotation")
-                    if annotation.get("/Subtype") != "/Link" or "/A" not in annotation:
-                        continue
-                    action = annotation["/A"]
-                    if not isinstance(action, DictionaryObject):
-                        raise ValueError("Invalid PDF link action")
-                    if action.get("/S") == "/URI":
-                        destination = action.get("/URI")
-                        if isinstance(destination, bytes):
-                            destinations.add(destination)
-                            continue
-                        if not isinstance(destination, str):
-                            raise ValueError("Invalid PDF link destination")
-                        destinations.add(destination.encode("utf-8"))
-                        if isinstance(destination, TextStringObject):
-                            # Typst writes URI text as UTF-8 bytes; PDF text decoding
-                            # can interpret those bytes as a different character set.
-                            destinations.add(destination.original_bytes)
+        for number, page in enumerate(reader.pages, 1):
+            for reference in page.annotations or []:
+                annotation = reference.get_object()
+                if not isinstance(annotation, DictionaryObject):
+                    raise ValueError("Invalid PDF annotation")
+                if annotation.get("/Subtype") != "/Link" or "/A" not in annotation:
+                    continue
+                action = annotation["/A"]
+                if not isinstance(action, DictionaryObject):
+                    raise ValueError("Invalid PDF link action")
+                if action.get("/S") != "/URI":
+                    continue
+                destination = action.get("/URI")
+                if isinstance(destination, bytes):
+                    values = {destination}
+                elif isinstance(destination, str):
+                    values = {destination.encode("utf-8")}
+                    if isinstance(destination, TextStringObject):
+                        # Typst writes URI text as UTF-8 bytes; PDF text decoding
+                        # can interpret those bytes as a different character set.
+                        values.add(destination.original_bytes)
+                else:
+                    raise ValueError("Invalid PDF link destination")
+                destinations.update((number, value) for value in values)
+                checked += 1
+                unrecorded += not bool(values & expected)
     except (PdfReadError, ValueError, KeyError):
-        return CheckResult(
-            "output.evidence_matches",
-            "output",
-            "fail",
-            "PDF links could not be checked against the QR destinations.",
-        )
-    missing = {url.encode("utf-8") for url in summary["qr_urls"]} - destinations
+        return [
+            CheckResult(
+                "output.evidence_matches",
+                "output",
+                "fail",
+                "PDF links could not be checked against the recorded destinations.",
+            ),
+            unchecked_links,
+        ]
+    missing = {url.encode("utf-8") for url in summary["qr_urls"]} - {
+        url for _, url in destinations
+    }
+    missing_links = {
+        (link["page"], link["url"].encode("utf-8")) for link in links
+    } - destinations
     matches = (
         summary["page_count"] == len(reader.pages)
         and summary["identity"] == identity
         and not missing
+        and not missing_links
     )
-    return CheckResult(
-        "output.evidence_matches",
-        "output",
-        "pass" if matches else "fail",
-        "PDF page count, document identity and QR links agree with render evidence."
-        if matches
-        else "PDF page count, selected identity or QR links disagree with render evidence.",
-        measurements={
-            "pdf_page_count": len(reader.pages),
-            "evidence_page_count": summary["page_count"],
-            "missing_qr_links": len(missing),
-        },
-    )
+    return [
+        CheckResult(
+            "output.evidence_matches",
+            "output",
+            "pass" if matches else "fail",
+            "PDF page count, document identity and link destinations agree with render evidence."
+            if matches
+            else "PDF page count, selected identity or link destinations disagree with render evidence.",
+            measurements={
+                "pdf_page_count": len(reader.pages),
+                "evidence_page_count": summary["page_count"],
+                "missing_qr_links": len(missing),
+                "missing_links": len(missing_links),
+            },
+        ),
+        CheckResult(
+            "output.unrecorded_link",
+            "output",
+            "warn" if unrecorded else "pass" if checked else "not_applicable",
+            "A PDF link destination was not recorded by a supplied helper; use notice-link for external links."
+            if unrecorded
+            else "PDF link destinations are recorded by supplied helpers."
+            if checked
+            else "No external PDF links were placed.",
+            measurements={"checked_links": checked, "unrecorded_links": unrecorded},
+        ),
+    ]
 
 
 def check_client_identity(
@@ -243,7 +283,7 @@ def inspect_notice(
             measurements={"page_count": pages},
         )
     ]
-    checks.append(
+    checks.extend(
         check_pdf_evidence(
             reader,
             summary,

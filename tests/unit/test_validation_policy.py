@@ -231,6 +231,9 @@ def test_encryption_failure_does_not_invalidate_print_original():
     "code",
     [
         "output.qr_destination",
+        "output.unrecorded_link",
+        "content.link_https",
+        "content.multiple_links",
         "layout.client_details_in_window",
         "layout.envelope_window_missing",
     ],

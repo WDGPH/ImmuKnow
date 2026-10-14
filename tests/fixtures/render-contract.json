@@ -152,7 +152,8 @@
       "overdue_diseases": true,
       "overdue_agents": false,
       "qr": true,
-      "privacy": true
+      "privacy": true,
+      "link": true
     },
     "checks": [
       {
@@ -398,6 +399,20 @@
       "privacy": [
         {
           "page": 2
+        }
+      ],
+      "link": [
+        {
+          "page": 1,
+          "url": "https://example.org/immunization"
+        },
+        {
+          "page": 1,
+          "url": "mailto:records@example.org"
+        },
+        {
+          "page": 1,
+          "url": "https://example.org/exemptions"
         }
       ]
     }
@@ -1394,6 +1409,38 @@
             "text"
           ],
           "remove": true
+        }
+      ]
+    },
+    {
+      "name": "link destination is required",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "measurements",
+            "link",
+            0,
+            "url"
+          ],
+          "remove": true
+        }
+      ]
+    },
+    {
+      "name": "link page is outside the notice",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "measurements",
+            "link",
+            0,
+            "page"
+          ],
+          "value": 3
         }
       ]
     }
