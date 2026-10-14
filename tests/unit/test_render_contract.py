@@ -31,19 +31,7 @@ def test_shared_render_contract_cases(case):
 
     def validate():
         validate_render_payload(values["payload"])
-        validate_render_report(
-            values["report"],
-            {
-                key: values["payload"][key]
-                for key in (
-                    "row_key",
-                    "template",
-                    "client_id",
-                    "version_id",
-                    "language",
-                )
-            },
-        )
+        validate_render_report(values["report"], values["payload"])
 
     if case["valid"]:
         validate()
@@ -57,4 +45,4 @@ def test_nonfinite_measurements_are_not_accepted(number):
     report = deepcopy(CASES["report"])
     report["measurements"]["header"][0]["title_height_pt"] = number
     with pytest.raises(ValueError):
-        validate_render_report(report, report["identity"])
+        validate_render_report(report, CASES["payload"])

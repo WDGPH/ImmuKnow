@@ -31,5 +31,8 @@ test("nonfinite measurements are refused", () => {
     report.measurements.header[0].title_height_pt = value;
     validateNotice(cases.payload);
     expect(() => validateSummary(report, cases.payload)).toThrow();
+    const changedSource = structuredClone(cases.report);
+    changedSource.notice.client_data.age = value;
+    expect(() => validateSummary(changedSource, cases.payload)).toThrow();
   }
 });

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import re
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -14,14 +13,131 @@ from pypdf.errors import PdfReadError
 from .data_models import CheckResult, RenderJob
 
 
+def check_pdf_evidence(
+    reader: PdfReader, summary: dict[str, Any] | None, identity: dict[str, str]
+) -> CheckResult:
+    """Compare the report with PDF pages and the selected identity."""
+    if summary is None:
+        return CheckResult(
+            "output.evidence_matches",
+            "output",
+            "fail",
+            "Render checks could not be completed; inspect this original PDF.",
+        )
+    matches = (
+        summary["page_count"] == len(reader.pages) and summary["identity"] == identity
+    )
+    return CheckResult(
+        "output.evidence_matches",
+        "output",
+        "pass" if matches else "fail",
+        "PDF page count and document identity agree with render evidence."
+        if matches
+        else "PDF page count or selected identity disagrees with render evidence.",
+        measurements={
+            "pdf_page_count": len(reader.pages),
+            "evidence_page_count": summary["page_count"],
+        },
+    )
+
+
+def check_client_identity(
+    reader: PdfReader, summary: dict[str, Any] | None, client_id: str
+) -> CheckResult:
+    """Check personal text inside the supplied client and address PDF areas."""
+    ids = summary["measurements"].get("client", []) if summary else []
+    addresses = summary["measurements"].get("address", []) if summary else []
+    regions = ids + addresses
+    observed: list[list[str]] = [[] for _ in regions]
+    try:
+        for number, page in enumerate(reader.pages, 1):
+            placed = [
+                (index, area)
+                for index, area in enumerate(regions)
+                if area["page"] == number
+            ]
+            if placed and (page.rotation or page.user_unit != 1):
+                raise ValueError(
+                    "Personal content positions cannot be checked on transformed PDF pages"
+                )
+            width, height = float(page.mediabox.width), float(page.mediabox.height)
+            for _, area in placed:
+                if not (
+                    0 <= area["x_pt"] < area["x_pt"] + area["width_pt"] <= width
+                    and 0 <= area["y_pt"] < area["y_pt"] + area["height_pt"] <= height
+                ):
+                    raise ValueError(
+                        "Personal content area is empty or outside the PDF page"
+                    )
+
+            unsupported = False
+
+            def collect(text, cm, tm, _font, _size):
+                nonlocal unsupported
+                if not text:
+                    return
+                x = tm[4] * cm[0] + tm[5] * cm[2] + cm[4] - float(page.mediabox.left)
+                y = float(page.mediabox.top) - (tm[4] * cm[1] + tm[5] * cm[3] + cm[5])
+                for index, area in placed:
+                    # Typst and PDF numbers round independently; allow a quarter point.
+                    if (
+                        area["x_pt"] - 0.25
+                        <= x
+                        <= area["x_pt"] + area["width_pt"] + 0.25
+                        and area["y_pt"] - 0.25
+                        <= y
+                        <= area["y_pt"] + area["height_pt"] + 0.25
+                    ):
+                        matrix = (
+                            tm[0] * cm[0] + tm[1] * cm[2],
+                            tm[0] * cm[1] + tm[1] * cm[3],
+                            tm[2] * cm[0] + tm[3] * cm[2],
+                            tm[2] * cm[1] + tm[3] * cm[3],
+                        )
+                        if text.strip() and any(
+                            abs(value - expected) > 0.000001
+                            for value, expected in zip(matrix, (1, 0, 0, 1))
+                        ):
+                            unsupported = True
+                        observed[index].append(text)
+
+            page.extract_text(visitor_text=collect)
+            if unsupported:
+                raise ValueError("Personal content text is rotated or scaled")
+    except (PdfReadError, ValueError, KeyError) as exc:
+        return CheckResult(
+            "output.client_identity",
+            "output",
+            "fail",
+            f"PDF text could not be checked: {exc}",
+        )
+    matches = (
+        bool(client_id and ids)
+        and all(area["client_id"] == client_id for area in ids)
+        and all(
+            " ".join("".join(parts).split()) == " ".join(area["text"].split())
+            for area, parts in zip(regions, observed)
+        )
+    )
+    return CheckResult(
+        "output.client_identity",
+        "output",
+        "pass" if matches else "fail",
+        "Placed client details and mailing addresses match the notice data."
+        if matches
+        else "Client details or a mailing address are missing or differ in the PDF.",
+        measurements={"client_blocks": len(ids), "address_blocks": len(addresses)},
+    )
+
+
 def inspect_notice(
     job: RenderJob, run_dir: Path, summary: dict[str, Any] | None
 ) -> tuple[dict[str, Any], list[CheckResult]]:
     """Inspect actual original bytes; Typst alone owns layout measurements.
 
     A readable PDF remains an output even if its text or render evidence cannot
-    be checked. Identity requires the labelled client block and exact expected
-    value; an incidental phone number cannot satisfy it.
+    be checked. Identity requires the exact expected value inside each supplied client
+    block; an incidental phone number cannot satisfy it.
     """
     content = job.pdf.read_bytes()
     reader = PdfReader(BytesIO(content))
@@ -43,77 +159,18 @@ def inspect_notice(
             measurements={"page_count": pages},
         )
     ]
-    if summary is None:
-        checks.append(
-            CheckResult(
-                "output.evidence_matches",
-                "output",
-                "fail",
-                "Render checks could not be completed; inspect this original PDF.",
-            )
-        )
-    else:
-        expected_identity = {
-            "row_key": job.sequence,
-            "template": job.template.name,
-            "client_id": job.client_id,
-            "version_id": job.version_id,
-            "language": job.language,
-        }
-        matches = (
-            summary["page_count"] == pages and summary["identity"] == expected_identity
-        )
-        checks.append(
-            CheckResult(
-                "output.evidence_matches",
-                "output",
-                "pass" if matches else "fail",
-                "PDF page count and document identity agree with render evidence."
-                if matches
-                else "PDF page count or selected identity disagrees with render evidence.",
-                measurements={
-                    "pdf_page_count": pages,
-                    "evidence_page_count": summary["page_count"],
-                },
-            )
-        )
-    try:
-        texts = [" ".join(page.extract_text().split()) for page in reader.pages]
-    except (PdfReadError, ValueError, KeyError) as exc:
-        checks.extend(
-            [
-                CheckResult(
-                    "output.text_readable",
-                    "output",
-                    "fail",
-                    f"PDF text inspection failed: {exc}",
-                ),
-            ]
-        )
-        return original, checks
-    expected_id = " ".join(job.client_id.split())
-    pattern = re.compile(
-        r"(?:Client ID|Identifiant du client)\s*:\s*"
-        + re.escape(expected_id)
-        + r"(?![\w-])"
-    )
-    found_page = next(
-        (
-            index
-            for index, text in enumerate(texts, 1)
-            if expected_id and pattern.search(text)
-        ),
-        None,
-    )
     checks.append(
-        CheckResult(
-            "output.client_identity",
-            "output",
-            "pass" if found_page else "fail",
-            "Labelled client ID matches the selected source row."
-            if found_page
-            else "The exact client ID is missing from the labelled client block.",
-            page=found_page,
+        check_pdf_evidence(
+            reader,
+            summary,
+            {
+                "row_key": job.sequence,
+                "template": job.template.name,
+                "client_id": job.client_id,
+                "version_id": job.version_id,
+                "language": job.language,
+            },
         )
     )
+    checks.append(check_client_identity(reader, summary, job.client_id))
     return original, checks

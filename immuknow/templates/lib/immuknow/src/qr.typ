@@ -34,7 +34,7 @@
   let ecl = if error-correction == auto { if logo == none { "l" } else { "h" } } else { error-correction }
   assert(logo == none or ecl == "h", message: "QR centre images require error-correction: h (or auto)")
   let styled = module-shape != "square" or corner-style != "square" or logo != none
-  component("qr", url: destination)
+  component("qr", notice: notice, url: destination)
   link(destination, codes.qrcode(destination, width: width, quiet-zone: 4, ecl: ecl,
     colors: (background, foreground),
     draw: if styled { draw-qr.with(module-shape: module-shape, corner-style: corner-style, logo: picture, logo-size: logo-size, logo-padding: logo-padding, logo-mask: mask) } else { none },

@@ -25,6 +25,7 @@ from .structured_input import parse_json, read_json
 from .component_resources import verify_components
 from .render_payload import validate_render_payload
 from .render_contract import validate_render_report
+from .validate_pdfs import check_client_identity, check_pdf_evidence
 from .compile_notices import (
     CompilerTimeouts,
     TYPST_VERSION,
@@ -100,19 +101,7 @@ def _original_reader(entry: dict, run_dir: Path) -> PdfReader:
         raise ValueError(f"Original PDF page count changed: {entry['row_key']}")
     summary = entry.get("render_summary")
     if summary is not None:
-        validate_render_report(
-            summary,
-            {
-                key: payload[key]
-                for key in (
-                    "row_key",
-                    "template",
-                    "client_id",
-                    "version_id",
-                    "language",
-                )
-            },
-        )
+        validate_render_report(summary, payload)
         if summary["page_count"] != len(reader.pages):
             raise ValueError(
                 f"Render evidence page count differs from the original: {entry['row_key']}"
@@ -121,6 +110,7 @@ def _original_reader(entry: dict, run_dir: Path) -> PdfReader:
 
 
 def _routes(
+    run_dir: Path,
     record: dict,
     entries: list[dict],
     group_by: BundleGrouping,
@@ -138,8 +128,28 @@ def _routes(
         raise ValueError("Withheld rows must be distinct source row keys from this run")
     evaluations = {}
     for entry in entries:
+        reader = _original_reader(entry, run_dir)
         observations = deepcopy(entry["checks"])
         summary = entry.get("render_summary")
+        current = check_pdf_evidence(
+            reader,
+            summary,
+            {
+                "row_key": entry["row_key"],
+                "client_id": entry["client_id"],
+                **{
+                    key: entry["assignment"][key]
+                    for key in ("template", "version_id", "language")
+                },
+            },
+        ).to_dict()
+        if current not in observations:
+            observations.append(current)
+        client_check = check_client_identity(
+            reader, summary, entry["client_id"]
+        ).to_dict()
+        if client_check not in observations:
+            observations.append(client_check)
         if summary is None:
             observations.append(
                 {
@@ -684,10 +694,9 @@ def _bundle_run(
             record["entries"]
         ):
             raise ValueError("Run entries must have unique source row keys")
-        for entry in entries:
-            _original_reader(entry, run_dir)
         record["validation_policy"] = deepcopy(requested)
         routed = _routes(
+            run_dir,
             record,
             entries,
             group_by,

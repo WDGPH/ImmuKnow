@@ -2,17 +2,267 @@
 
 import json
 from copy import deepcopy
+from dataclasses import replace
 
 import pytest
+import pymupdf
+from pypdf import PdfReader, PdfWriter
+from pypdf.generic import DecodedStreamObject
 
 from immuknow import bundle_pdfs, compile_notices, run_report
 from immuknow.orchestrator import run_pipeline
+from immuknow.validate_pdfs import inspect_notice
+from tests.integration.test_native_templates import prepare_case, compile_case
 from tests.integration.test_run_accounting import prepare_inputs
 
 pytestmark = pytest.mark.integration
 
 
-@pytest.mark.parametrize("damage", ["row", "stage", "page", "component"])
+@pytest.mark.parametrize("language", ["en", "fr"])
+def test_custom_labels_and_repeated_client_blocks_match_the_pdf(tmp_path, language):
+    job, payload = prepare_case(tmp_path, language=language)
+    payload["client_data"]["name"] = "Élodie O’Connor"
+    payload["client_data"]["address"] = "123 Main Street\nApartment 20"
+    payload["client_data"]["school"] = (
+        "École des élèves de la vallée et du quartier nord"
+    )
+    job.data.write_text(json.dumps(payload))
+    job.template.write_text(
+        '#import "settings.typ": *\n#show: notice-style\n'
+        '#immuknow.client-block(notice, id-label: "Record number", school-label: "Learning centre")\n'
+        '#pagebreak()\n#immuknow.client-block(notice, id-label: "Dossier")\n'
+        "#pagebreak()\n#immuknow.address-block(notice)"
+    )
+    summary, reader = compile_case(job)
+    assert "Client ID:" not in reader.pages[0].extract_text()
+    assert "Identifiant du client:" not in reader.pages[0].extract_text()
+    assert len(summary["measurements"]["client"]) == 2
+    assert len(summary["measurements"]["address"]) == 3
+    _, checks = inspect_notice(job, tmp_path, summary)
+    assert all(check.status == "pass" for check in checks)
+
+
+@pytest.mark.parametrize("replacement", ["", "9999999999", "00000000010"])
+def test_correct_id_elsewhere_cannot_hide_a_missing_or_wrong_client_block(
+    tmp_path, replacement
+):
+    job, _ = prepare_case(tmp_path)
+    job.template.write_text(
+        '#import "settings.typ": *\n#show: notice-style\n'
+        "#immuknow.client-block(notice)\n"
+        "#pagebreak()\n#immuknow.client-block(notice)"
+    )
+    summary, _ = compile_case(job)
+    area = summary["measurements"]["client"][0]
+    with pymupdf.open(job.pdf) as pdf:
+        page = pdf[0]
+        page.add_redact_annot(
+            pymupdf.Rect(
+                area["x_pt"] - 0.1,
+                area["y_pt"] - 0.1,
+                area["x_pt"] + area["width_pt"] + 0.1,
+                area["y_pt"] + area["height_pt"] + 0.1,
+            )
+        )
+        page.apply_redactions()
+        if replacement:
+            page.insert_text(
+                (area["x_pt"], area["y_pt"] + area["height_pt"]),
+                replacement,
+                fontsize=10,
+            )
+        page.insert_text((50, 500), "Client ID: " + job.client_id)
+        pdf.saveIncr()
+    original, checks = inspect_notice(job, tmp_path, summary)
+    assert original["status"] == "completed"
+    assert (
+        next(check for check in checks if check.code == "output.client_identity").status
+        == "fail"
+    )
+
+
+@pytest.mark.parametrize("field", ["name", "address", "postal_code"])
+def test_correct_address_elsewhere_cannot_hide_changed_mailing_details(tmp_path, field):
+    job, payload = prepare_case(tmp_path)
+    summary, _ = compile_case(job)
+    expected = payload["client_data"][field]
+    with pymupdf.open(job.pdf) as pdf:
+        page = pdf[0]
+        matches = page.search_for(expected)
+        assert matches
+        for rect in matches:
+            page.add_redact_annot(rect)
+        page.apply_redactions()
+        page.insert_text((50, 500), expected)
+        pdf.saveIncr()
+    original, checks = inspect_notice(job, tmp_path, summary)
+    assert original["status"] == "completed"
+    assert (
+        next(c for c in checks if c.code == "output.client_identity").status == "fail"
+    )
+
+
+@pytest.mark.parametrize("language", ["en", "fr"])
+@pytest.mark.parametrize("field", ["birth_date", "school"])
+def test_correct_details_elsewhere_cannot_hide_changed_client_details(
+    tmp_path, language, field
+):
+    job, payload = prepare_case(tmp_path, language=language)
+    payload["client_data"]["date_of_birth_iso"] = "2014-07-08"
+    job.data.write_text(json.dumps(payload))
+    summary, _ = compile_case(job)
+    _, checks = inspect_notice(job, tmp_path, summary)
+    assert all(c.status in ("pass", "not_applicable") for c in checks)
+    expected = (
+        ("July 8, 2014" if language == "en" else "8 juillet 2014")
+        if field == "birth_date"
+        else payload["client_data"]["school"]
+    )
+    with pymupdf.open(job.pdf) as pdf:
+        page = pdf[0]
+        matches = page.search_for(expected)
+        assert matches
+        for rect in matches:
+            page.add_redact_annot(rect)
+        page.apply_redactions()
+        page.insert_text((50, 500), expected)
+        pdf.saveIncr()
+    original, checks = inspect_notice(job, tmp_path, summary)
+    assert original["status"] == "completed"
+    assert (
+        next(c for c in checks if c.code == "output.client_identity").status == "fail"
+    )
+
+
+@pytest.mark.parametrize("language", ["en", "fr"])
+@pytest.mark.parametrize("show", [True, False])
+def test_blank_or_hidden_client_details_match_the_pdf(tmp_path, language, show):
+    job, payload = prepare_case(tmp_path, language=language)
+    payload["client_data"]["date_of_birth_iso"] = ""
+    payload["client_data"]["school"] = "" if show else "School should not appear"
+    job.data.write_text(json.dumps(payload))
+    job.template.write_text(
+        '#import "settings.typ": *\n#show: notice-style\n'
+        f"#immuknow.client-block(notice, show-birth-date: {str(show).lower()}, show-school: {str(show).lower()})"
+    )
+    summary, reader = compile_case(job)
+    assert "School should not appear" not in reader.pages[0].extract_text()
+    _, checks = inspect_notice(job, tmp_path, summary)
+    assert all(c.status in ("pass", "not_applicable") for c in checks)
+
+
+def test_component_for_another_row_cannot_repeat_the_same_external_id(tmp_path):
+    job, _ = prepare_case(tmp_path)
+    job.template.write_text(
+        '#import "settings.typ": *\n#show: notice-style\n'
+        "#immuknow.client-block(notice)\n#pagebreak()\n"
+        '#immuknow.client-block((..notice, row_key: "row-000002"))'
+    )
+    with pytest.raises(ValueError, match="different source row"):
+        compile_case(job)
+    assert job.pdf.is_file()
+
+
+@pytest.mark.parametrize("blank_id", [False, True])
+@pytest.mark.parametrize("change_row", [False, True])
+@pytest.mark.parametrize(
+    "content",
+    [
+        "address-block(other)",
+        "immunization-history(other)",
+        "overdue-diseases(other)",
+        "overdue-agents(other)",
+        'qr-code(other, url: "https://example.test/record")',
+    ],
+)
+def test_placed_personal_content_must_use_the_prepared_notice(
+    tmp_path, content, blank_id, change_row
+):
+    job, payload = prepare_case(tmp_path)
+    if blank_id:
+        payload["client_id"] = ""
+        job.data.write_text(json.dumps(payload))
+        job = replace(job, client_id="")
+    job.template.write_text(
+        '#import "settings.typ": *\n#show: notice-style\n'
+        "#immuknow.client-block(notice)\n"
+        f"#let other = (..notice, row_key: {json.dumps('row-000002' if change_row else job.sequence)},\n"
+        '  client_data: (..notice.client_data, name: "Morgan Example", address: "88 Other Road"),\n'
+        '  history: ((date_given: "2018-03-04", agent: "IPV", display_name: "Other vaccine", diseases: ("Polio",), validity: "valid"),),\n'
+        '  overdue_diseases: ((disease: "Polio", dose: 1),), overdue_agents: ("Other vaccine",))\n'
+        f"#immuknow.{content}"
+    )
+    reason = "different source row" if change_row else "changed notice data"
+    with pytest.raises(ValueError, match=reason):
+        compile_case(job)
+    assert job.pdf.is_file()
+
+    marker = {
+        "address-block": "Morgan Example",
+        "immunization-history": "Other vaccine",
+        "overdue-diseases": "Polio",
+        "overdue-agents": "Other vaccine",
+        "qr-code": None,
+    }[content.split("(")[0]]
+    if marker:
+        assert marker in "".join(
+            page.extract_text() for page in PdfReader(job.pdf).pages
+        )
+
+
+def test_changing_both_the_report_and_components_cannot_replace_source_facts(tmp_path):
+    job, _ = prepare_case(tmp_path)
+    job.template.write_text(
+        '#import "settings.typ": *\n'
+        '#let changed = (..notice, client_data: (..notice.client_data, name: "Morgan Example"))\n'
+        "#show: immuknow.notice-style.with(notice: changed)\n"
+        "#immuknow.client-block(changed)"
+    )
+    with pytest.raises(ValueError, match="differs from the prepared notice"):
+        compile_case(job)
+    assert "Morgan Example" in PdfReader(job.pdf).pages[0].extract_text()
+
+
+@pytest.mark.parametrize("component", ["client", "address"])
+def test_saved_personal_area_is_checked_again_before_delivery(tmp_path, component):
+    source, config, templates, _ = prepare_inputs(tmp_path)
+    saved = run_pipeline(
+        source,
+        tmp_path / "runs",
+        config_dir=config,
+        notice_template=templates / "overdue_agents_v1.en.typ",
+    )
+    record = json.loads(saved.read_text())
+    first, _ = record["entries"]
+    assert not first["routing"]["failed_checks"]
+    first["render_summary"]["measurements"][component][0]["y_pt"] += 100
+    run_report.write_report(saved.parent, record)
+    attempt = bundle_pdfs.bundle_run(saved.parent)
+    assert attempt["status"] == "completed"
+    first, second = json.loads(saved.read_text())["entries"]
+    assert "output.client_identity" in first["routing"]["failed_checks"]
+    assert first["routing"]["destination"] == "review"
+    assert not second["routing"]["failed_checks"]
+
+
+def test_unreadable_text_on_a_page_without_a_client_block_still_fails(tmp_path):
+    job, _ = prepare_case(tmp_path)
+    summary, reader = compile_case(job)
+    assert len(reader.pages) == 2
+    assert all(area["page"] == 1 for area in summary["measurements"]["client"])
+    writer = PdfWriter(clone_from=reader)
+    contents = DecodedStreamObject()
+    contents.set_data(b"BT (unterminated")
+    writer.pages[1].replace_contents(contents.flate_encode())
+    writer.write(job.pdf)
+    original, checks = inspect_notice(job, tmp_path, summary)
+    assert original["status"] == "completed"
+    assert any(
+        check.status == "fail" and "PDF text" in check.message for check in checks
+    )
+
+
+@pytest.mark.parametrize("damage", ["row", "stage", "page", "component", "history_row"])
 def test_invalid_evidence_keeps_original_and_independent_row(
     tmp_path, monkeypatch, damage
 ):
@@ -30,6 +280,8 @@ def test_invalid_evidence_keeps_original_and_independent_row(
                 report["checks"][0]["stage"] = "output"
             elif damage == "page":
                 report["measurements"]["client"][0]["page"] = report["page_count"] + 1
+            elif damage == "history_row":
+                report["measurements"]["history"][0]["row_key"] = "row-000002"
             else:
                 report["components"]["unknown"] = True
             result.stdout = json.dumps(reports)
@@ -73,13 +325,19 @@ def test_saved_report_is_rechecked_before_replacing_bundles(tmp_path):
     active = {
         path: path.read_bytes() for path in (saved.parent / "bundles").rglob("*.pdf")
     }
-    for damage in ("swapped", "version", "pages"):
+    for damage in ("swapped", "version", "pages", "facts", "component_facts"):
         changed = deepcopy(record)
         first, second = changed["entries"]
         if damage == "swapped":
             first["render_summary"] = deepcopy(second["render_summary"])
         elif damage == "version":
             first["render_summary"]["schema_version"] = 1
+        elif damage == "facts":
+            first["render_summary"]["notice"]["client_data"]["name"] = "Other Person"
+        elif damage == "component_facts":
+            first["render_summary"]["measurements"]["history"][0]["source_matches"] = (
+                False
+            )
         else:
             first["render_summary"]["page_count"] += 1
         run_report.write_report(saved.parent, changed)

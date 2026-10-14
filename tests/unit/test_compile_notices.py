@@ -39,9 +39,14 @@ def test_unsupported_compiler_is_rejected(version: str) -> None:
 def test_pdf_and_required_evidence_are_separate_outputs(tmp_path: Path) -> None:
     """A real warning PDF survives missing evidence, and a phone is not identity."""
     data = tmp_path / "data.json"
-    data.write_text("{}")
+    payload = json.loads(
+        (Path(__file__).parents[1] / "fixtures/render-contract.json").read_text()
+    )["payload"]
+    payload.update(template="example.en.typ", version_id="example")
+    data.write_text(json.dumps(payload))
     entry = tmp_path / "example.en.typ"
     summary = {
+        "notice": payload,
         "schema_version": 2,
         "identity": {
             "row_key": "row-000001",
@@ -65,7 +70,19 @@ def test_pdf_and_required_evidence_are_separate_outputs(tmp_path: Path) -> None:
         ],
         "qr_urls": [],
         "measurements": {
-            "client": [{"client_id": "0000000001", "page": 1, "x_pt": 0, "y_pt": 0}]
+            "client": [
+                {
+                    "row_key": "row-000001",
+                    "client_id": "0000000001",
+                    "text": "Client ID: 0000000001",
+                    "page": 1,
+                    "x_pt": 0,
+                    "y_pt": 0,
+                    "width_pt": 60,
+                    "height_pt": 10,
+                    "source_matches": True,
+                }
+            ]
         },
     }
     summary["checks"] += [
@@ -115,7 +132,7 @@ def test_pdf_and_required_evidence_are_separate_outputs(tmp_path: Path) -> None:
     )
     assert (
         next(check for check in checks if check.code == "output.client_identity").status
-        == "pass"
+        == "fail"
     )
     entry.write_text("Client ID: 0000000001")
     compile_notices.compile_render_job(job, "typst")

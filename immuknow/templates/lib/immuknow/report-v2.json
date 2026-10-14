@@ -220,6 +220,19 @@
                   "window_padding_pt": {
                     "type": "number",
                     "minimum": 0
+                  },
+                  "row_key": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "client_id": {
+                    "type": "string"
+                  },
+                  "source_matches": {
+                    "type": "boolean"
+                  },
+                  "text": {
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -232,14 +245,61 @@
                   "window_y_pt",
                   "window_width_pt",
                   "window_height_pt",
-                  "window_padding_pt"
+                  "window_padding_pt",
+                  "row_key",
+                  "client_id",
+                  "source_matches",
+                  "text"
                 ],
                 "additionalProperties": false
               },
               {
                 "type": "object",
-                "properties": {},
-                "required": [],
+                "properties": {
+                  "row_key": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "client_id": {
+                    "type": "string"
+                  },
+                  "source_matches": {
+                    "type": "boolean"
+                  },
+                  "page": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "x_pt": {
+                    "type": "number"
+                  },
+                  "y_pt": {
+                    "type": "number"
+                  },
+                  "width_pt": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "height_pt": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "row_key",
+                  "client_id",
+                  "source_matches",
+                  "page",
+                  "x_pt",
+                  "y_pt",
+                  "width_pt",
+                  "height_pt",
+                  "text"
+                ],
                 "additionalProperties": false
               }
             ]
@@ -264,13 +324,36 @@
               },
               "y_pt": {
                 "type": "number"
+              },
+              "row_key": {
+                "type": "string",
+                "minLength": 1
+              },
+              "width_pt": {
+                "type": "number",
+                "minimum": 0
+              },
+              "height_pt": {
+                "type": "number",
+                "minimum": 0
+              },
+              "source_matches": {
+                "type": "boolean"
+              },
+              "text": {
+                "type": "string"
               }
             },
             "required": [
               "client_id",
               "page",
               "x_pt",
-              "y_pt"
+              "y_pt",
+              "row_key",
+              "width_pt",
+              "height_pt",
+              "source_matches",
+              "text"
             ],
             "additionalProperties": false
           }
@@ -329,12 +412,25 @@
                 "type": "integer",
                 "minimum": 1,
                 "maximum": 9007199254740991
+              },
+              "row_key": {
+                "type": "string",
+                "minLength": 1
+              },
+              "client_id": {
+                "type": "string"
+              },
+              "source_matches": {
+                "type": "boolean"
               }
             },
             "required": [
               "administrations",
               "displayed_rows",
-              "page"
+              "page",
+              "row_key",
+              "client_id",
+              "source_matches"
             ],
             "additionalProperties": false
           }
@@ -344,8 +440,23 @@
           "minItems": 1,
           "items": {
             "type": "object",
-            "properties": {},
-            "required": [],
+            "properties": {
+              "row_key": {
+                "type": "string",
+                "minLength": 1
+              },
+              "client_id": {
+                "type": "string"
+              },
+              "source_matches": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "row_key",
+              "client_id",
+              "source_matches"
+            ],
             "additionalProperties": false
           }
         },
@@ -354,8 +465,23 @@
           "minItems": 1,
           "items": {
             "type": "object",
-            "properties": {},
-            "required": [],
+            "properties": {
+              "row_key": {
+                "type": "string",
+                "minLength": 1
+              },
+              "client_id": {
+                "type": "string"
+              },
+              "source_matches": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "row_key",
+              "client_id",
+              "source_matches"
+            ],
             "additionalProperties": false
           }
         },
@@ -364,8 +490,23 @@
           "minItems": 1,
           "items": {
             "type": "object",
-            "properties": {},
-            "required": [],
+            "properties": {
+              "row_key": {
+                "type": "string",
+                "minLength": 1
+              },
+              "client_id": {
+                "type": "string"
+              },
+              "source_matches": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "row_key",
+              "client_id",
+              "source_matches"
+            ],
             "additionalProperties": false
           }
         },
@@ -390,6 +531,9 @@
       },
       "required": [],
       "additionalProperties": false
+    },
+    "notice": {
+      "type": "object"
     }
   },
   "required": [
@@ -399,7 +543,8 @@
     "components",
     "checks",
     "qr_urls",
-    "measurements"
+    "measurements",
+    "notice"
   ],
   "additionalProperties": false,
   "$defs": {

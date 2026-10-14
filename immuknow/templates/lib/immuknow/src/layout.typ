@@ -54,19 +54,31 @@
     if client.over_16 { "To:" } else { "To Parent/Guardian of:" }
   } else { if client.over_16 { "À:" } else { "Au parent ou tuteur de:" } }
   let region = if province == auto { client.province } else { province }
-  [#salutation#linebreak()#strong(client.name)#linebreak()#strong(client.address)#linebreak()#strong(client.city), #strong(region) #strong(client.postal_code)]
+  assert(type(salutation) == str and type(region) == str, message: "Address addressee and province must be plain text")
+  (
+    body: [#salutation#linebreak()#strong(client.name)#linebreak()#strong(client.address)#linebreak()#strong(client.city), #strong(region) #strong(client.postal_code)],
+    text: salutation + "\n" + client.name + "\n" + client.address + "\n" + client.city + ", " + region + " " + client.postal_code,
+  )
 }
 
-#let address-block(client, language: "en", addressee: auto, province: auto) = {
-  component("address")
-  context if client.over_16 == none and addressee == auto {
-    check("content.address_age_unknown", "warn", "Recipient age is unknown; a neutral addressee is used.", component: "address", page: here().page())
-  }
-  address-content(client, language: language, addressee: addressee, province: province)
+#let address-block(notice, language: auto, addressee: auto, province: auto) = {
+  let client = notice.client_data
+  let language = if language == auto { notice.language } else { language }
+  let address = address-content(client, language: language, addressee: addressee, province: province)
+  block(breakable: false)[#layout(available => context {
+    let position = here().position()
+    let size = measure(address.body, width: available.width)
+    component("address", notice: notice, measurements: (page: position.page,
+      x_pt: position.x.pt(), y_pt: position.y.pt(), width_pt: size.width.pt(), height_pt: size.height.pt(), text: address.text))
+    if client.over_16 == none and addressee == auto {
+      check("content.address_age_unknown", "warn", "Recipient age is unknown; a neutral addressee is used.", component: "address", page: position.page)
+    }
+    address.body
+  })]
 }
 
 #let client-block(notice, window: envelope-preset, font-size: 10pt, min-font-size: 10pt,
-  addressee: auto, province: auto, school-label: auto, show-birth-date: true,
+  addressee: auto, province: auto, id-label: auto, school-label: auto, show-birth-date: true,
   show-school: true, details: "right", spacing: 0pt, border: none) = {
   check-window(window)
   assert(font-size >= min-font-size, message: "Client font is below the declared readable minimum")
@@ -74,11 +86,19 @@
   set text(size: font-size)
   let lang = notice.language
   let client = notice.client_data
+  let id-label = if id-label != auto { id-label } else if lang == "en" { "Client ID" } else { "Identifiant du client" }
+  assert(type(id-label) == str, message: "Client ID label must be text")
   let school-label = if school-label != auto { school-label } else if lang == "en" { "School" } else { "École" }
   let address = address-content(client, language: lang, addressee: addressee, province: province)
+  assert(not show-school or type(school-label) == str, message: "School label must be text")
+  let birth-label = if lang == "en" { "Date of Birth" } else { "Date de naissance" }
+  let birth-date = if show-birth-date { long-date(client.date_of_birth_iso, lang, required: false) } else { "" }
+  let info-text = id-label + ": " + notice.client_id
+  if show-birth-date { info-text += "\n" + birth-label + ": " + birth-date }
+  if show-school { info-text += "\n" + school-label + ": " + client.school }
   let info = [
-    #if lang == "en" [Client ID:] else [Identifiant du client:] #strong(notice.client_id)
-    #if show-birth-date [#linebreak()#if lang == "en" [Date of Birth:] else [Date de naissance:] #strong(long-date(client.date_of_birth_iso, lang, required: false))]
+    #id-label: #box[#strong(notice.client_id)]
+    #if show-birth-date [#linebreak()#birth-label: #strong(birth-date)]
     #if show-school [#linebreak()#school-label: #strong(client.school)]
   ]
   block(width: 100%, breakable: false)[
@@ -87,7 +107,7 @@
     let origin = query(selector(<immuknow-client-origin>).before(here())).last().location().position()
     let dx = calc.max(0pt, window.x - origin.x)
     let dy = calc.max(0pt, window.y - origin.y)
-    let size = measure(address, width: window.width - 2 * window.padding)
+    let size = measure(address.body, width: window.width - 2 * window.padding)
     let bottom-padding = calc.max(window.padding, window.height - size.height - window.padding)
     v(dy)
     pad(left: dx)[#grid(
@@ -100,17 +120,20 @@
           right_pt: calc.max(0pt, position.x + size.width - (window.x + window.width - window.padding)).pt(),
           bottom_pt: calc.max(0pt, position.y + size.height - (window.y + window.height - window.padding)).pt())
         let fits = position.page == 1 and overflow.values().all(value => value <= 0.1)
-        component("address", measurements: bounds)
+        component("address", notice: notice, measurements: (..bounds, text: address.text))
         check("layout.address_outside_window", if fits { "pass" } else { "warn" }, if fits { "Address fits the envelope safe area." } else { "Address extends outside the envelope safe area." }, component: "address", page: position.page, measurements: (: ..bounds, ..overflow))
         if client.over_16 == none and addressee == auto { check("content.address_age_unknown", "warn", "Recipient age is unknown; a neutral addressee is used.", component: "address", page: position.page) }
-        address
+        address.body
       }],
-      block(inset: window.padding)[#context {
-        component("client", measurements: (client_id: notice.client_id, page: here().page(), x_pt: here().position().x.pt(), y_pt: here().position().y.pt()))
-        [#metadata(notice.client_id) <immuknow-client-id>]
+      block(inset: window.padding)[#layout(available => context {
+        let position = here().position()
+        let size = measure(info, width: available.width)
+        component("client", notice: notice, measurements: (
+          page: position.page, x_pt: position.x.pt(), y_pt: position.y.pt(),
+          width_pt: size.width.pt(), height_pt: size.height.pt(), text: info-text))
         if show-birth-date and client.date_of_birth_iso == "" { check("content.birth_date_unknown", "warn", "Birth date is unknown.", component: "client", page: here().page()) }
         info
-      }],
+      })],
     )]
   }]
 }

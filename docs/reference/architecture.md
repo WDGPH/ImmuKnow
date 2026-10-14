@@ -105,8 +105,8 @@ The version 2 report schema is supplied at
 names and field types. Native and browser validators use it and the same
 valid/invalid examples. They also check source row and filename association,
 page bounds, page order and agreement between component presence and findings.
-Python verifies PDF readability, exact labelled client identity, hash and page
-count against that evidence. It does not repeat Typst geometry rules. Compiler
+Python verifies PDF readability, personal text in the measured client and address
+areas, hash and page count against that evidence. It does not repeat Typst geometry rules. Compiler
 warnings remain findings; missing or malformed summary evidence fails a mandatory
 check and keeps the readable PDF in review.
 Saved-run delivery rechecks retained reports before assembly and includes their

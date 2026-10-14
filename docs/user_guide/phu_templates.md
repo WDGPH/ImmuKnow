@@ -113,6 +113,23 @@ findings. Display choices never alter administrations or disease mappings.
 
 ## Component choices and findings
 
+Use `client-block` for the client ID. Set `id-label: "Record number"` to change
+its label without changing the check. Labels for the ID and school accept plain
+text. The helper records the client-details area; Python checks its ID, displayed
+birth date and school against the PDF text, allowing spaces and line breaks to
+change. Repeated blocks are allowed when each belongs to the same source row.
+
+Pass the complete, unchanged `notice` to address, history, overdue-list and QR helpers too.
+Their placed content records the source row and client ID. Mixing helpers from
+different rows fails the report check, even when the external ID is blank.
+Use `address-block(notice)` when only the mailing address is needed.
+Address blocks stay on one page. The `addressee` and `province` options accept
+plain text. Python checks the mailing name and address in each block against
+the PDF, allowing changes in spaces and line breaks.
+Change presentation through helper options; correct factual errors in the input.
+The report retains the notice data used for layout and checks that each placed
+helper used the same data. Native and browser checks compare it with the prepared input.
+
 `immunization-history` accepts disease columns, ignored agents, validity markers,
 Other-column inclusion, invalid-dose omission and chart styling. Settings is the
 only owner of these options. Whole-cohort mixed validity produces a warning when

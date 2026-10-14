@@ -94,7 +94,7 @@
   let footer(body) = table.cell(colspan: count, stroke: none, align: left, body)
   set text(size: font-size, lang: lang, region: "CA")
   context {
-    component("history", measurements: (administrations: notice.history.len(), displayed_rows: view.rows.len(), page: here().page()))
+    component("history", notice: notice, measurements: (administrations: notice.history.len(), displayed_rows: view.rows.len(), page: here().page()))
     if show-validity {
       let complete = notice.validity_coverage == "all_present" and notice.history.all(item => item.validity != "unknown")
       check("content.history_validity", if complete { "pass" } else { "warn" }, if complete { "Administration validity is known." } else { "Validity is mixed or unknown; unknown administrations have a distinct mark." }, component: "history", page: here().page())

@@ -37,8 +37,7 @@ for (const [scenario, filename] of cases) {
     // browser context, so this starts at the first compatible example.
     for (let step = 0; step < index; step++) await page.locator("#next").click();
     if (scenario === "short" && filename === "overdue_diseases_v1.en.typ") {
-      // Exercise the real font control with a commented example, then compare
-      // the edited download with the independently available native engine.
+      // Check a custom ID label and the font control through the downloaded project.
       const imported: Files = Object.fromEntries(
         Object.entries(bundle.files).map(([path, bytes]) => [
           path,
@@ -50,6 +49,12 @@ for (const [scenario, filename] of cases) {
         '\ufeff/*\r\n#let body-font = "FreeSerif"\r\n/* nested example */\r\n*/\r\n' +
         new TextDecoder().decode(imported[path]).replaceAll("\n", "\r\n");
       imported[path] = new TextEncoder().encode(authored);
+      const templatePath = `templates/${filename}`;
+      const labelled = new TextDecoder()
+        .decode(imported[templatePath])
+        .replace("  notice,", '  notice, id-label: "Record number",');
+      imported[templatePath] = new TextEncoder().encode(labelled);
+      expectedFiles[templatePath] = Buffer.from(labelled).toString("base64");
       const zip = await exportProject(imported, `templates/${filename}`, bundle.build);
       await page.locator("#archive").setInputFiles({
         name: "commented-settings.zip",

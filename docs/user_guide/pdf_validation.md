@@ -5,11 +5,24 @@ and actual output results. `run.json` is the authoritative record. Findings do
 not disappear when a delivery choice changes.
 
 Python checks the actual original PDF's readability, page count, hash and
-labelled client ID. Typst supplies component checks and measured layout evidence
-from the content placed in the notice. A readable PDF is retained when checking
+client ID, displayed birth date and school, and mailing name and address inside
+the supplied blocks. Typst supplies measured layout evidence from the content placed in the notice. A readable PDF is retained when checking
 fails, with a blocking evidence failure. Quality warnings preserve useful
 PDFs; missing templates and failed compilation cannot produce a selected notice.
 There is no default fixed page count.
+
+These checks use each block's recorded position. Every repeated client and address block
+must match; matching text elsewhere cannot fill in for a missing or incorrect
+block. Text comparisons allow changes in spaces and line breaks. Missing IDs,
+areas outside the page, and rotated or scaled text stay in review.
+Saved-run delivery repeats this check. It does not prove that arbitrary text
+or images outside the supplied components contain
+no other person's details.
+
+Reports retain the notice data used for layout. It must match the prepared input,
+and each placed personal-content helper must use that same data. This catches
+changed facts even when row and client IDs are unchanged. It does not compare
+printed vaccine history or overdue lists with the PDF.
 
 ## Delivery and review
 

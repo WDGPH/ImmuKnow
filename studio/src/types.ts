@@ -20,6 +20,7 @@ export interface Notice {
   [key: string]: unknown;
 }
 export interface RenderSummary {
+  notice: Notice;
   schema_version: 2;
   identity: {
     row_key: string;

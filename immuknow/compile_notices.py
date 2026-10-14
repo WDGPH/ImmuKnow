@@ -16,7 +16,7 @@ from tempfile import TemporaryDirectory
 from typing import Any
 
 from .data_models import CheckResult, ClientRecord, RenderJob
-from .structured_input import parse_json
+from .structured_input import parse_json, read_json
 from .render_contract import validate_render_report
 
 TYPST_VERSION = "0.15.1"
@@ -144,7 +144,7 @@ def compiler_warnings(stderr: str) -> list[CheckResult]:
 
 
 def compiler_options(job: RenderJob) -> list[str]:
-    """PDF compilation and evidence evaluation use identical frozen inputs."""
+    """PDF compilation and evidence evaluation use the same project inputs."""
     options = [
         "--root",
         str(job.workspace),
@@ -225,16 +225,19 @@ def evaluate_render_job(
     if not isinstance(summaries, list) or len(summaries) != 1:
         raise ValueError("Expected exactly one immuknow-report document summary")
     summary = summaries[0]
-    validate_render_report(
-        summary,
-        {
-            "row_key": job.sequence,
-            "template": job.template.name,
-            "client_id": job.client_id,
-            "version_id": job.version_id,
-            "language": job.language,
-        },
-    )
+    notice = read_json(job.data)
+    expected = {
+        "row_key": job.sequence,
+        "template": job.template.name,
+        "client_id": job.client_id,
+        "version_id": job.version_id,
+        "language": job.language,
+    }
+    if not isinstance(notice, dict) or any(
+        notice.get(key) != value for key, value in expected.items()
+    ):
+        raise ValueError("Prepared notice does not match the selected render job")
+    validate_render_report(summary, notice)
     checks = summary["checks"]
     # Layout may issue a warning during either evaluation. Store each instance once.
     for warning in compiler_warnings(result.stderr):

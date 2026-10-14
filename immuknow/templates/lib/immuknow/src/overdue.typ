@@ -18,7 +18,7 @@
   assert(lang in ("en", "fr"), message: "Unsupported notice language")
   let doses = include-dose
   assert(type(doses) == bool, message: "include-dose must be a boolean or auto")
-  component("overdue_diseases")
+  component("overdue_diseases", notice: notice)
   let items = notice.overdue_diseases.map(entry => overdue-label(entry, doses, lang, labels: labels))
   items-grid(items, columns, spacing, row-spacing, empty, style)
 }
@@ -26,6 +26,6 @@
 #let overdue-agents(notice, style: "bullets", columns: auto, spacing: 12pt, row-spacing: 4pt, empty: none, language: auto) = {
   let lang = if language == auto { notice.language } else { language }
   assert(lang in ("en", "fr"), message: "Unsupported notice language")
-  component("overdue_agents")
+  component("overdue_agents", notice: notice)
   items-grid(notice.overdue_agents, columns, spacing, row-spacing, empty, style)
 }

@@ -7,6 +7,7 @@ from typing import Any
 from jsonschema import Draft202012Validator, ValidationError
 
 from .structured_input import parse_json
+from .render_payload import validate_render_payload
 
 
 def report_schema() -> dict:
@@ -17,7 +18,7 @@ def report_schema() -> dict:
     )
 
 
-def validate_render_report(summary: Any, identity: dict[str, str]) -> None:
+def validate_render_report(summary: Any, notice: dict[str, Any]) -> None:
     """Reject unsupported evidence, contradictory components and out-of-range pages."""
     schema = report_schema()
     try:
@@ -26,12 +27,18 @@ def validate_render_report(summary: Any, identity: dict[str, str]) -> None:
         raise ValueError("Render evidence contains an unsupported value") from exc
     try:
         Draft202012Validator(schema).validate(summary)
+        validate_render_payload(summary["notice"])
     except ValidationError as exc:
         path = "/".join(str(part) for part in exc.absolute_path) or "report"
         raise ValueError(f"Render evidence has an invalid field: {path}") from exc
+    identity = {key: notice[key] for key in summary["identity"]}
     if summary["identity"] != identity:
         raise ValueError(
             "Render evidence does not belong to the selected source row and notice"
+        )
+    if summary["notice"] != notice:
+        raise ValueError(
+            "Render evidence used data that differs from the prepared notice"
         )
 
     def bounds(value: dict) -> None:
@@ -58,10 +65,14 @@ def validate_render_report(summary: Any, identity: dict[str, str]) -> None:
             raise ValueError(f"Render evidence contradicts the placed {name} component")
         for value in measurements:
             bounds(value)
-            if name == "client" and value["client_id"] != identity["client_id"]:
+            if "row_key" in value and any(
+                value[key] != identity[key] for key in ("client_id", "row_key")
+            ):
                 raise ValueError(
-                    "Placed client evidence belongs to a different source row"
+                    f"Placed {name} evidence belongs to a different source row"
                 )
+            if "source_matches" in value and not value["source_matches"]:
+                raise ValueError(f"Placed {name} content used changed notice data")
     for check in summary["checks"]:
         bounds(check)
         bounds(check.get("measurements", {}))

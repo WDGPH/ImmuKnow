@@ -3,6 +3,26 @@ import validators from "../generated/render-contract.js";
 const { validatePayload, validateReport } = validators;
 import type { Notice, RenderSummary } from "./types";
 
+function sameData(left: unknown, right: unknown): boolean {
+  if (left === right) return true;
+  if (
+    !left ||
+    !right ||
+    typeof left !== "object" ||
+    typeof right !== "object" ||
+    Array.isArray(left) !== Array.isArray(right)
+  )
+    return false;
+  const fields = Object.entries(left);
+  return (
+    fields.length === Object.keys(right).length &&
+    fields.every(
+      ([key, value]) =>
+        Object.hasOwn(right, key) && sameData(value, (right as Record<string, unknown>)[key]),
+    )
+  );
+}
+
 export function validateNotice(value: unknown): asserts value is Notice {
   if (!validatePayload(value))
     throw new Error(
@@ -19,8 +39,11 @@ export function validateSummary(value: unknown, notice: Notice): asserts value i
       `Render evidence has an invalid field: ${validateReport.errors?.[0]?.instancePath || "report"}`,
     );
   const summary = value as RenderSummary;
+  validateNotice(summary.notice);
   if (Object.entries(summary.identity).some(([key, value]) => value !== notice[key]))
     throw new Error("Render evidence does not belong to the selected source row and notice");
+  if (!sameData(summary.notice, notice))
+    throw new Error("Render evidence used data that differs from the prepared notice");
   function bounds(value: Record<string, unknown>) {
     for (const [key, number] of Object.entries(value))
       if ((key === "page" || key.endsWith("_page")) && Number(number) > summary.page_count)
@@ -36,8 +59,13 @@ export function validateSummary(value: unknown, notice: Notice): asserts value i
       throw new Error(`Render evidence contradicts the placed ${name} component`);
     for (const value of measurements) {
       bounds(value);
-      if (name === "client" && value.client_id !== notice.client_id)
-        throw new Error("Placed client evidence belongs to a different source row");
+      if (
+        "row_key" in value &&
+        (value.client_id !== notice.client_id || value.row_key !== notice.row_key)
+      )
+        throw new Error(`Placed ${name} evidence belongs to a different source row`);
+      if ("source_matches" in value && !value.source_matches)
+        throw new Error(`Placed ${name} content used changed notice data`);
     }
   }
   for (const check of summary.checks) {

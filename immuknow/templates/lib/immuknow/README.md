@@ -23,8 +23,13 @@ display-default adapter or separate layout-settings file.
   warns when it exceeds three lines.
 - `client-block(notice, window: envelope-preset)` places the address and labeled
   client ID, with details beside the address or below it (`details: "below"`).
+  `id-label: "Record number"` changes the label. Each placed ID records its
+  source row, value and measured area for checking against the PDF text.
   The source province is the default. Unknown age uses a neutral addressee;
   unknown birth dates remain blank and produce a warning when displayed.
+- `address-block(notice)` places an address on its own and records the source
+  row, text and measured area, just as the full client block does. Addresses
+  stay on one page; `addressee` and `province` options accept plain text.
 - `signature-block(signature: ..., name: ..., title: ...)` permits continuation
   and reports a warning when the signature moves or spans pages. Its
   `allow-overflow: true` option declares intentional continuation.
@@ -60,15 +65,19 @@ it to raw dictionary keys and values. A fixed URL string is used verbatim.
 
 The report follows `report-v2.json`: `schema_version: 2`, `identity` (`row_key`,
 `template`, `client_id`, `version_id`, `language`), actual `page_count`, `checks`,
-`qr_urls`, and `measurements`. Native and browser checks use this same schema.
+`qr_urls`, `measurements`, and the `notice` data used for layout. Native and
+browser checks compare that data with the prepared input. Each placed personal
+component also records `source_matches`; changed helper data is refused even
+when its row and client IDs are unchanged. Use helper options for display changes.
 `components` has boolean keys `page`, `section`, `header`, `address`, `client`,
 `signature`, `history`, `overdue_diseases`, `overdue_agents`, `qr`, and `privacy`.
 Every absent known component has a `not_applicable` check. Checks use `code`,
 `stage: "render"`, `status`, `message`, and optional `component`, `page`, and
 `measurements`. They are invisible metadata, never hidden PDF text.
 Component measurements must agree with presence and absence findings. Page
-numbers must fall within the notice, ranges must run forwards, and client
-measurements must name the selected client. Unsupported report versions are
+numbers must fall within the notice and ranges must run forwards. Address,
+client, history, overdue-list and QR measurements must name the selected client
+and source row, including when the external ID is blank. Unsupported report versions are
 refused; there is no conversion of older reports.
 
 Compile and inspect the same immutable project with a frozen creation timestamp,
