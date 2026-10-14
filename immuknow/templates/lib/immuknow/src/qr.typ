@@ -52,7 +52,10 @@
 }
 #let query-url(base, values) = {
   assert(type(base) == str and type(values) == dictionary, message: "query-url needs a URL and a dictionary of strings")
-  base + if values.len() == 0 { "" } else {
-    (if base.contains("?") { "&" } else { "?" }) + values.pairs().map(pair => url-encode(pair.at(0)) + "=" + url-encode(pair.at(1))).join("&")
-  }
+  if values.len() == 0 { return base }
+  let parts = base.split("#")
+  let address = parts.first()
+  let fragment = if parts.len() > 1 { "#" + parts.slice(1).join("#") } else { "" }
+  let query = values.pairs().map(pair => url-encode(pair.at(0)) + "=" + url-encode(pair.at(1))).join("&")
+  address + (if address.contains("?") { "&" } else { "?" }) + query + fragment
 }

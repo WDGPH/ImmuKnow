@@ -92,4 +92,5 @@ typst eval --in notice.typ 'query(<immuknow-report>).map(it => it.value)' \
 ```
 
 Bundled QR drawing code is derived from Codetastic; its licence and upstream
-provenance are in `vendor/codetastic/`.
+provenance are in `vendor/codetastic/`. Local changes support styled drawing and
+UTF-8 text with an explicit encoding declaration and matching size calculation.

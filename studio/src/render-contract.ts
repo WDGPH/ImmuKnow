@@ -1,7 +1,8 @@
 import schema from "../../immuknow/templates/lib/immuknow/report-v2.json";
 import validators from "../generated/render-contract.js";
-const { validatePayload, validateReport } = validators;
 import type { Notice, RenderSummary } from "./types";
+
+const { validatePayload, validateReport } = validators;
 
 function sameData(left: unknown, right: unknown): boolean {
   if (left === right) return true;

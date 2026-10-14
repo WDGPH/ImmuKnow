@@ -37,7 +37,7 @@ for (const [scenario, filename] of cases) {
     // browser context, so this starts at the first compatible example.
     for (let step = 0; step < index; step++) await page.locator("#next").click();
     if (scenario === "short" && filename.startsWith("overdue_diseases_v1.")) {
-      // Check a custom ID label, envelope settings and font control after download.
+      // Check a custom ID label, Unicode QR destination and font control after download.
       const imported: Files = Object.fromEntries(
         Object.entries(bundle.files).map(([path, bytes]) => [
           path,
@@ -49,6 +49,7 @@ for (const [scenario, filename] of cases) {
         '\ufeff/*\r\n#let body-font = "FreeSerif"\r\n/* nested example */\r\n*/\r\n' +
         new TextDecoder()
           .decode(imported[path])
+          .replace("https://example.org/update", "https://exämple.org/élève")
           .replaceAll("\n", "\r\n");
       if (filename.endsWith(".fr.typ")) {
         authored = authored.replace(/^#let envelope-window = .*$/m, "#let envelope-window = none");

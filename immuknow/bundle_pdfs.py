@@ -25,7 +25,11 @@ from .structured_input import parse_json, read_json
 from .component_resources import verify_components
 from .render_payload import validate_render_payload
 from .render_contract import validate_render_report
-from .validate_pdfs import check_client_identity, check_pdf_evidence
+from .validate_pdfs import (
+    check_client_identity,
+    check_pdf_evidence,
+    check_qr_destinations,
+)
 from .compile_notices import (
     CompilerTimeouts,
     TYPST_VERSION,
@@ -150,6 +154,9 @@ def _routes(
         ).to_dict()
         if client_check not in observations:
             observations.append(client_check)
+        qr_check = check_qr_destinations(summary).to_dict()
+        if qr_check not in observations:
+            observations.append(qr_check)
         if summary is None:
             observations.append(
                 {

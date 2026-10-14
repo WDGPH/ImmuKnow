@@ -173,8 +173,9 @@ QR Settings uses an explicit fixed string or a function of normalized facts:
 )
 ```
 
-The helper percent-encodes query values and uses the same resolved destination
-for its code and link. Python supplies facts and creates no QR images or URLs.
+The helper percent-encodes query values, adds them before any `#section`, and
+uses the same destination for its code and link. Existing query values are kept.
+Python supplies facts and creates no QR images or URLs.
 Project display translations are editable in `translations/`; the library has
 its own packaged localization resources.
 

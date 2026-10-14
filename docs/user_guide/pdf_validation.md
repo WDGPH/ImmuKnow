@@ -24,6 +24,19 @@ and each placed personal-content helper must use that same data. This catches
 changed facts even when row and client IDs are unchanged. It does not compare
 printed vaccine history or overdue lists with the PDF.
 
+Every QR destination recorded by the supplied helper must occur in the PDF's
+clickable links. Missing or unreadable links fail the evidence check, including
+when rebundling a saved run. This compares exact destinations without contacting
+websites. It does not decode the printed QR image, match links to page positions,
+or check additional links authored outside the helper.
+
+Native PDF checks also warn when a recorded QR destination is not a complete
+HTTP or HTTPS web address. They check the host, port, spaces and percent escapes,
+including encoded international domain names and IPv6 addresses. They do not check
+whether a website exists or responds. Other QR schemes need an explicit review
+or a change to the rule below. Studio does not run this native check.
+QR destinations support accented characters and other Unicode text.
+
 ## Delivery and review
 
 For each readable original, the shared evaluator in
@@ -82,6 +95,7 @@ or `severity: fail`, for a run or an explicitly selected source row.
 | History columns have enough width | `layout.history_width` |
 | Title fits its line limit | `layout.header_title_lines` |
 | Placed content has a translation | `content.translation_missing` |
+| QR destination has an HTTP or HTTPS web address | `output.qr_destination` |
 
 The client-details check compares the supplied block's bounds with the window
 on the first page, for both right and below placement. It does not check other

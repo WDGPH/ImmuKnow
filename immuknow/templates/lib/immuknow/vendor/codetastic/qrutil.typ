@@ -95,10 +95,14 @@
 /// >>> qrutil.best-version(755, "q", 2) == 27
 /// >>> qrutil.best-version(3908, "m", 0) == 33
 /// >>> qrutil.best-version(3910, "m", 0) == 34
-#let best-version(char-count, ecl, mode) = {
+#let best-version(char-count, ecl, mode, utf8: false) = {
   for ver in range(40) {
-    let cap = capacities(ver + 1, ecl)
-    if cap.at(mode) >= char-count {
+    let capacity = if utf8 {
+      // Byte payload plus its mode/count and UTF-8 encoding declaration.
+      let count-bits = if ver < 9 { 8 } else { 16 }
+      calc.floor((data-codewords(ver + 1, ecl) * 8 - 4 - count-bits - 12) / 8)
+    } else { capacities(ver + 1, ecl).at(mode) }
+    if capacity >= char-count {
       return ver + 1
     }
   }
@@ -119,21 +123,17 @@
 /// >>> qrutil.best-mode("a") == 2
 /// >>> qrutil.best-mode("abcxyz") == 2
 /// >>> qrutil.best-mode("ABCD:XYZ!") == 2
-/// >>> qrutil.best-mode("€") == none
+/// >>> qrutil.best-mode("€") == 2
 #let best-mode(data) = {
-  let nums = regex(`^\d*$`.text)
-  let alphnum = regex(`^[\dA-Z $%*+\-./:]*$`.text)
-  let byte = regex(`^[\x00-\xff]*$`.text)
+  let nums = regex(`^[0-9]*$`.text)
+  let alphnum = regex(`^[0-9A-Z $%*+\-./:]*$`.text)
   if data.match(nums) != none {
     return 0
   }
   if data.match(alphnum) != none {
     return 1
   }
-  if data.match(byte) != none {
-    return 2
-  }
-  return none
+  return 2
 }
 
 /// >>> qrutil.mode-bits(0) == (false, false, false, true)
@@ -302,15 +302,11 @@
   return (bytes(code), buffer)
 }
 
-#let ASCII = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
-
 /// >>> qrutil.encode-byte("https://www.qrcode.com/", bits.from-str("010000010111")) == (bytes((65, 118, 135, 71, 71, 7, 51, 162, 242, 247, 119, 119, 114, 231, 23, 38, 54, 246, 70, 82, 230, 54, 246, 210)), (true, true, true, true))
 #let encode-byte(chars, buffer) = {
   let code = ()
-  let len = chars.len()
-
-  for i in range(len) {
-    buffer += bits.from-int( 32 + ASCII.position(chars.at(i)), pad:8 )
+  for byte in array(bytes(chars)) {
+    buffer += bits.from-int(byte, pad:8)
 
     while buffer.len() >= 8 {
       code.push( bits.to-int(buffer.slice(0, 8)) )
@@ -333,11 +329,15 @@
     mode = best-mode(data)
   }
 
+  // ECI 26 declares UTF-8; ASCII keeps the original encoding and capacity.
+  let encoding = if mode == 2 and data.contains(regex(`[^\x00-\x7f]`.text)) {
+    bits.from-str("011100011010")
+  } else { () }
   let (codewords, buffer) = ((
     encode-numeric,
     encode-alphanumeric,
     encode-byte
-  ).at(mode))(data, mode-bits(mode) + char-count-bits(data.len(), version, mode))
+  ).at(mode))(data, encoding + mode-bits(mode) + char-count-bits(data.len(), version, mode))
 
   // required length of data
   let cw-count = data-codewords(version, ecl)

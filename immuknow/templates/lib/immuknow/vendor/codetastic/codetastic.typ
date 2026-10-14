@@ -506,16 +506,14 @@
   // prepare encoding method
   // (numeric, alphanumeric, byte or kanji)
   let mode = qrutil.best-mode(data)
-  if mode == none {
-    panic("Supplied data contains characters that can't be encoded with one of the supported methods numeric, alphanumeric or byte (iso-8859-1).")
-  }
+  let utf8 = data.contains(regex(`[^\x00-\x7f]`.text))
 
   // determine final qr-code version from
   // data size and min-version argument
   min-version = if min-version == auto {1} else {calc.clamp(min-version, 1, 40)}
   let version = calc.max(min-version,
     qrutil.best-version(
-      data.len(), ecl, mode)
+      data.len(), ecl, mode, utf8: utf8)
   )
 
   // encode data

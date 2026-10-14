@@ -66,7 +66,7 @@ changes the assigned template based on language or clinical facts.
 atomically as individual files after completed responsibilities and on exit.
 JSON is authoritative if writing its HTML view is interrupted. There is no
 separate mutable assignment, validation, compilation or completion manifest.
-Immutable build manifests describe resources; they do not duplicate run state.
+Immutable font/build manifests describe resources; they do not duplicate run state.
 
 The top-level fields are `format_version`, `run_id`, `version`, `started_at`,
 `finished_at`, `status`, `input`, `configuration`, `resources`, `entries`,
@@ -97,9 +97,10 @@ does not distribute or stage a font set. All native compiler operations use priv
 block package downloads before making a connection. Dependencies must be stored
 inside the authored project and imported by relative paths, as in Studio.
 
-Native compilation and `typst eval --in` use the same frozen payload, resources,
-fonts and creation timestamp. One `<immuknow-report>` summary supplies identity,
+Native compilation and `typst eval --in` use the same payload, project resources,
+font discovery and creation timestamp. One `<immuknow-report>` summary supplies identity,
 actual pages, component presence, checks, measurements and QR destinations.
+The entry's `render_summary` retains that report.
 The version 2 report schema is supplied at
 `templates/lib/immuknow/report-v2.json`. It owns render check names, component
 names and field types. Native and browser validators use it and the same

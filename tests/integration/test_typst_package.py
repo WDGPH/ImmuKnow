@@ -128,9 +128,20 @@ def test_package_import_and_unused_history_require_no_facts(tmp_path: Path) -> N
 
 
 @pytest.mark.parametrize("show_history", [False, True])
+@pytest.mark.parametrize(
+    "base,query_start,fragment",
+    [
+        ("https://example.test/record", "?", ""),
+        ("https://example.test/record#details", "?", "#details"),
+        ("https://example.test/record?lang=fr#details", "?lang=fr&", "#details"),
+    ],
+)
 def test_placed_history_and_qr_share_honest_evidence(
     tmp_path: Path,
     show_history: bool,
+    base: str,
+    query_start: str,
+    fragment: str,
 ) -> None:
     body = """
 #let history = [#immuknow.immunization-history(notice,
@@ -145,9 +156,14 @@ def test_placed_history_and_qr_share_honest_evidence(
 """
     if show_history:
         body += '#immuknow.notice-section("History")[#history]'
+    body = body.replace('"https://example.test/record"', json.dumps(base))
     report, reader = compile_package(tmp_path, body)
-    expected_url = "https://example.test/record?id=1234567890&name=" + quote(
-        "Éloïse & 50% $(hello)", safe=""
+    expected_url = (
+        "https://example.test/record"
+        + query_start
+        + "id=1234567890&name="
+        + quote("Éloïse & 50% $(hello)", safe="")
+        + fragment
     )
     assert report["qr_urls"] == [expected_url]
     annotations = reader.pages[0].annotations

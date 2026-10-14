@@ -6,8 +6,9 @@ from dataclasses import replace
 
 import pytest
 import pymupdf
+import zxingcpp
 from pypdf import PdfReader, PdfWriter
-from pypdf.generic import DecodedStreamObject
+from pypdf.generic import DecodedStreamObject, NameObject, NullObject, TextStringObject
 
 from immuknow import bundle_pdfs, compile_notices, run_report
 from immuknow.orchestrator import run_pipeline
@@ -49,7 +50,7 @@ def test_custom_labels_and_repeated_client_blocks_match_the_pdf(tmp_path, langua
         if c["code"] == "layout.envelope_window_missing"
     ] == ["pass"]
     _, checks = inspect_notice(job, tmp_path, summary)
-    assert all(check.status == "pass" for check in checks)
+    assert all(check.status in ("pass", "not_applicable") for check in checks)
 
 
 @pytest.mark.parametrize(
@@ -365,6 +366,191 @@ def test_unreadable_text_on_a_page_without_a_client_block_still_fails(tmp_path):
     assert any(
         check.status == "fail" and "PDF text" in check.message for check in checks
     )
+
+
+@pytest.mark.parametrize(
+    "url,status",
+    [
+        ("https://example.org/update?name=%C3%89lodie#form", "pass"),
+        ("HTTP://localhost:8080/record", "pass"),
+        ("https://[2001:db8::1]:443/", "pass"),
+        ("https://xn--exmple-cua.org/", "pass"),
+        ("https://exämple.org/élève?name=Élodie&city=東京", "pass"),
+        ("https://example.org/record?mark=🙂", "pass"),
+        ("https:///record", "warn"),
+        ("example.org/record", "warn"),
+        ("https://example.org:99999/", "warn"),
+        ("https://example.org/a b", "warn"),
+        ("https://example.org/%zz", "warn"),
+        ("https://-example.org/", "warn"),
+        ("https://[not-an-address]/", "warn"),
+        ("javascript:alert(1)", "warn"),
+    ],
+)
+def test_qr_destination_quality_is_checked_without_discarding_the_pdf(
+    tmp_path, url, status
+):
+    job, _ = prepare_case(tmp_path)
+    job.template.write_text(
+        '#import "settings.typ": *\n#show: notice-style\n'
+        "#immuknow.client-block(notice)\n"
+        f"#immuknow.qr-code(notice, url: {json.dumps(url, ensure_ascii=False)})"
+    )
+    summary, _ = compile_case(job)
+    original, checks = inspect_notice(job, tmp_path, summary)
+    assert original["status"] == "completed"
+    assert (
+        next(c for c in checks if c.code == "output.evidence_matches").status == "pass"
+    )
+    assert next(c for c in checks if c.code == "output.qr_destination").status == status
+    with pymupdf.open(job.pdf) as pdf:
+        decoded = zxingcpp.read_barcodes(pdf[0].get_pixmap(dpi=200).pil_image())
+    assert [code.bytes for code in decoded] == [url.encode("utf-8")]
+    assert [code.text for code in decoded] == [url]
+
+
+@pytest.mark.parametrize(
+    "level,capacity,version",
+    [("l", 16, 1), ("m", 13, 1), ("q", 10, 1), ("h", 6, 1), ("l", 229, 9)],
+)
+@pytest.mark.parametrize("extra", [0, 1])
+def test_unicode_qr_chooses_a_size_that_fits_its_encoding(
+    tmp_path, level, capacity, version, extra
+):
+    value = "é" + "a" * (capacity + extra - 2)
+    job, _ = prepare_case(tmp_path)
+    job.template.write_text(
+        '#import "settings.typ": *\n#show: notice-style\n'
+        f'#immuknow.qr-code(notice, url: {json.dumps(value, ensure_ascii=False)}, error-correction: "{level}")'
+    )
+    compile_case(job)
+    with pymupdf.open(job.pdf) as pdf:
+        decoded = zxingcpp.read_barcodes(pdf[0].get_pixmap(dpi=300).pil_image())
+    assert len(decoded) == 1
+    assert decoded[0].bytes == value.encode("utf-8")
+    assert decoded[0].text == value
+    details = decoded[0].extra
+    assert isinstance(details, dict)
+    assert details["Version"] == str(version + extra)
+
+
+def test_saved_delivery_restores_a_deleted_qr_destination_warning(tmp_path):
+    source, config, templates, _ = prepare_inputs(tmp_path)
+    settings = templates / "settings.typ"
+    settings.write_text(
+        settings.read_text().replace("https://example.org/update", "https:///update")
+    )
+    saved = run_pipeline(
+        source,
+        tmp_path / "runs",
+        config_dir=config,
+        notice_template=templates / "overdue_agents_v1.en.typ",
+    )
+    record = json.loads(saved.read_text())
+    first = record["entries"][0]
+    assert any(
+        c["code"] == "output.qr_destination" and c["status"] == "warn"
+        for c in first["checks"]
+    )
+    first["checks"] = [
+        c for c in first["checks"] if c["code"] != "output.qr_destination"
+    ]
+    run_report.write_report(saved.parent, record)
+    attempt = bundle_pdfs.bundle_run(saved.parent)
+    results = attempt["evaluations"][first["row_key"]]["results"]
+    assert any(
+        c["code"] == "output.qr_destination" and c["status"] == "warn" for c in results
+    )
+    assert (
+        json.loads(saved.read_text())["entries"][0]["routing"]["destination"]
+        == "review"
+    )
+
+
+@pytest.mark.parametrize("damage", ["missing", "other_client", "unreadable"])
+def test_qr_link_failure_keeps_original_and_is_rechecked_on_delivery(
+    tmp_path, monkeypatch, damage
+):
+    source, config, templates, _ = prepare_inputs(tmp_path)
+    compile_original = compile_notices.compile_render_job
+
+    def changed_pdf(job, *args, **kwargs):
+        warnings = compile_original(job, *args, **kwargs)
+        if job.sequence != "row-000001":
+            return warnings
+        writer = PdfWriter(clone_from=PdfReader(job.pdf))
+        changed = 0
+        for page in writer.pages:
+            for reference in page.annotations or []:
+                annotation = reference.get_object()
+                action = annotation.get("/A", {})
+                destination = action.get("/URI", "")
+                if job.client_id not in destination:
+                    continue
+                if damage == "missing":
+                    del annotation["/A"]
+                elif damage == "other_client":
+                    action[NameObject("/URI")] = TextStringObject(
+                        destination.replace(job.client_id, "0000000002")
+                    )
+                else:
+                    action[NameObject("/URI")] = NullObject()
+                changed += 1
+        assert changed
+        writer.write(job.pdf)
+        return warnings
+
+    monkeypatch.setattr(compile_notices, "compile_render_job", changed_pdf)
+    saved = run_pipeline(
+        source,
+        tmp_path / "runs",
+        config_dir=config,
+        notice_template=templates / "overdue_agents_v1.en.typ",
+    )
+    record = json.loads(saved.read_text())
+    first, second = record["entries"]
+    assert first["original"]["status"] == second["original"]["status"] == "completed"
+    assert first["render_summary"]["qr_urls"]
+    assert any(
+        check["code"] == "output.evidence_matches" and check["status"] == "fail"
+        for check in first["checks"]
+    )
+    assert first["routing"]["destination"] == "review"
+    assert not second["routing"]["failed_checks"]
+    original = saved.parent / first["original"]["path"]
+    before = original.read_bytes()
+    first["checks"] = [
+        check for check in first["checks"] if check["code"] != "output.evidence_matches"
+    ]
+    run_report.write_report(saved.parent, record)
+    attempt = bundle_pdfs.bundle_run(saved.parent)
+    assert attempt["status"] == "completed"
+    current = json.loads(saved.read_text())["entries"][0]
+    assert "output.evidence_matches" in current["routing"]["failed_checks"]
+    assert current["routing"]["destination"] == "review"
+    assert original.read_bytes() == before
+
+
+def test_saved_qr_destinations_cannot_be_swapped_between_clients(tmp_path):
+    source, config, templates, _ = prepare_inputs(tmp_path)
+    saved = run_pipeline(
+        source,
+        tmp_path / "runs",
+        config_dir=config,
+        notice_template=templates / "overdue_agents_v1.en.typ",
+    )
+    record = json.loads(saved.read_text())
+    first, second = record["entries"]
+    assert not first["routing"]["failed_checks"]
+    assert first["render_summary"]["qr_urls"] != second["render_summary"]["qr_urls"]
+    first["render_summary"]["qr_urls"] = second["render_summary"]["qr_urls"]
+    run_report.write_report(saved.parent, record)
+    attempt = bundle_pdfs.bundle_run(saved.parent)
+    assert attempt["status"] == "completed"
+    first, second = json.loads(saved.read_text())["entries"]
+    assert "output.evidence_matches" in first["routing"]["failed_checks"]
+    assert first["routing"]["destination"] == "review"
+    assert not second["routing"]["failed_checks"]
 
 
 @pytest.mark.parametrize("damage", ["row", "stage", "page", "component", "history_row"])

@@ -3,20 +3,68 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from io import BytesIO
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
+from pypdf.generic import DictionaryObject, TextStringObject
 
 from .data_models import CheckResult, RenderJob
+
+
+def check_qr_destinations(summary: dict[str, Any] | None) -> CheckResult:
+    """Check recorded QR web addresses without contacting their destinations."""
+    urls = summary["qr_urls"] if summary else []
+    invalid = 0
+    for url in urls:
+        try:
+            parts = urlsplit(url)
+            host = (parts.hostname or "").encode("idna").decode("ascii")
+            host_valid = ":" in host or all(
+                re.fullmatch(r"[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?", label)
+                for label in host.rstrip(".").split(".")
+            )
+            valid = (
+                parts.scheme in ("http", "https")
+                and host_valid
+                and (parts.port is None or 0 < parts.port <= 65535)
+                and not any(
+                    char.isspace() or ord(char) < 32 or char in '\\<>"^`{|}\x7f'
+                    for char in url
+                )
+                and not re.search(r"%(?![0-9a-fA-F]{2})", url)
+            )
+        except (ValueError, UnicodeError):
+            valid = False
+        invalid += not valid
+    if summary is None:
+        status, message = "not_run", "QR destinations could not be checked."
+    elif not urls:
+        status, message = "not_applicable", "No QR code was placed."
+    elif invalid:
+        status, message = (
+            "warn",
+            "Use complete HTTP or HTTPS web addresses for QR destinations; check hosts, ports, spaces and percent escapes.",
+        )
+    else:
+        status, message = "pass", "QR destinations have HTTP or HTTPS web addresses."
+    return CheckResult(
+        "output.qr_destination",
+        "output",
+        status,
+        message,
+        measurements={"checked": len(urls), "invalid": invalid},
+    )
 
 
 def check_pdf_evidence(
     reader: PdfReader, summary: dict[str, Any] | None, identity: dict[str, str]
 ) -> CheckResult:
-    """Compare the report with PDF pages and the selected identity."""
+    """Compare the report with PDF pages and the recorded QR link destinations."""
     if summary is None:
         return CheckResult(
             "output.evidence_matches",
@@ -24,19 +72,55 @@ def check_pdf_evidence(
             "fail",
             "Render checks could not be completed; inspect this original PDF.",
         )
+    destinations = set()
+    try:
+        if summary["qr_urls"]:
+            for page in reader.pages:
+                for reference in page.annotations or []:
+                    annotation = reference.get_object()
+                    if not isinstance(annotation, DictionaryObject):
+                        raise ValueError("Invalid PDF annotation")
+                    if annotation.get("/Subtype") != "/Link" or "/A" not in annotation:
+                        continue
+                    action = annotation["/A"]
+                    if not isinstance(action, DictionaryObject):
+                        raise ValueError("Invalid PDF link action")
+                    if action.get("/S") == "/URI":
+                        destination = action.get("/URI")
+                        if isinstance(destination, bytes):
+                            destinations.add(destination)
+                            continue
+                        if not isinstance(destination, str):
+                            raise ValueError("Invalid PDF link destination")
+                        destinations.add(destination.encode("utf-8"))
+                        if isinstance(destination, TextStringObject):
+                            # Typst writes URI text as UTF-8 bytes; PDF text decoding
+                            # can interpret those bytes as a different character set.
+                            destinations.add(destination.original_bytes)
+    except (PdfReadError, ValueError, KeyError):
+        return CheckResult(
+            "output.evidence_matches",
+            "output",
+            "fail",
+            "PDF links could not be checked against the QR destinations.",
+        )
+    missing = {url.encode("utf-8") for url in summary["qr_urls"]} - destinations
     matches = (
-        summary["page_count"] == len(reader.pages) and summary["identity"] == identity
+        summary["page_count"] == len(reader.pages)
+        and summary["identity"] == identity
+        and not missing
     )
     return CheckResult(
         "output.evidence_matches",
         "output",
         "pass" if matches else "fail",
-        "PDF page count and document identity agree with render evidence."
+        "PDF page count, document identity and QR links agree with render evidence."
         if matches
-        else "PDF page count or selected identity disagrees with render evidence.",
+        else "PDF page count, selected identity or QR links disagree with render evidence.",
         measurements={
             "pdf_page_count": len(reader.pages),
             "evidence_page_count": summary["page_count"],
+            "missing_qr_links": len(missing),
         },
     )
 
@@ -173,4 +257,5 @@ def inspect_notice(
         )
     )
     checks.append(check_client_identity(reader, summary, job.client_id))
+    checks.append(check_qr_destinations(summary))
     return original, checks

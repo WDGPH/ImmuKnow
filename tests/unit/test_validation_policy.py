@@ -230,6 +230,7 @@ def test_encryption_failure_does_not_invalidate_print_original():
 @pytest.mark.parametrize(
     "code",
     [
+        "output.qr_destination",
         "layout.client_details_in_window",
         "layout.envelope_window_missing",
     ],

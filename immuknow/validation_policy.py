@@ -19,7 +19,7 @@ from .data_models import CheckResult
 from .render_contract import report_schema
 from .structured_input import read_json
 
-POLICY_VERSION = 12
+POLICY_VERSION = 15
 
 
 @dataclass(frozen=True)
@@ -57,6 +57,12 @@ RULES = {
                 adjustable=item["x-adjustable"],
             )
             for item in report_schema()["$defs"]["check"]["properties"]["code"]["oneOf"]
+        ),
+        RuleDefinition(
+            "output.qr_destination",
+            "QR destinations have HTTP or HTTPS web addresses",
+            "validate_pdfs",
+            adjustable=True,
         ),
         RuleDefinition(
             "output.readable", "PDF can be opened", "validate_pdfs", mandatory=True

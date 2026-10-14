@@ -15,7 +15,6 @@ from immuknow.render_contract import report_schema
 from immuknow.validate_pdfs import inspect_notice
 
 
-
 @pytest.mark.unit
 def test_missing_compiler_has_installation_guidance() -> None:
     """An unavailable executable should explain the supported selection routes."""

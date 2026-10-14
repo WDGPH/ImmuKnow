@@ -434,7 +434,6 @@ def run_pipeline(
                                 job, typst_bin, timeout=timeouts.evidence
                             )
                             entry["render_summary"] = summary
-                            entry["qr_urls"] = summary["qr_urls"]
                             for check in summary["checks"]:
                                 if check not in entry["checks"]:
                                     entry["checks"].append(check)
