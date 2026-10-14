@@ -268,6 +268,24 @@ def run_pipeline(
                     staged_config,
                     ignore=shutil.ignore_patterns("parameters.yaml"),
                 )
+                school = config.get("school_validation", {})
+                if school.get("enabled"):
+                    reference = Path(school["reference_file"])
+                    if not reference.is_absolute():
+                        reference = config_dir / reference
+                    reference = reference.resolve()
+                    record["configuration"]["school_reference_source"] = str(reference)
+                    if reference.is_relative_to(config_dir):
+                        saved_reference = reference.relative_to(config_dir).as_posix()
+                    else:
+                        shutil.copyfile(
+                            reference, run_dir / "resources" / "school-reference.json"
+                        )
+                        saved_reference = "../school-reference.json"
+                    school["reference_file"] = saved_reference
+                    saved_config["school_validation"]["reference_file"] = (
+                        saved_reference
+                    )
                 (staged_config / "parameters.yaml").write_text(
                     yaml.safe_dump(saved_config), encoding="utf-8"
                 )

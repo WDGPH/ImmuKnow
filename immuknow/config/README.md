@@ -77,9 +77,18 @@ Inspect the recorded operation and template before increasing its limit.
 
 School validation uses `target_phu` and `reference_file` in the selected
 configuration directory. Exact, inexact and unmatched results are saved as
-run artifacts. Unmatched schools warn and retain the source row; validation
-never silently removes clients. Source school and board IDs stay blank when
-absent. Delivery groups missing grouping information under Unknown.
+run artifacts. Each row's check in `run.json` records the reference file hash,
+PHU, matched name/ID and mismatch reason. An unknown school or conflicting
+name/ID rejects the whole cohort before any PDFs are generated. A matching
+name with no facility ID warns; an exact name/ID match passes.
+
+The lookup reads `school_name`, which may include ` - FACILITY ID`. It does not
+replace the source name or the separate `school_id` and `board_id` fields.
+Missing source IDs stay blank. Delivery groups missing grouping information
+under Unknown. When school validation is disabled, no lookup result is claimed.
+Relative reference paths are resolved from the selected configuration directory.
+Absolute paths are also accepted. Each run uses a saved copy and records the
+original path; later changes to the source reference do not affect that run.
 
 ## Password placeholders
 

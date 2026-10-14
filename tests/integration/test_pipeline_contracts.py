@@ -114,7 +114,8 @@ def test_school_mapping_from_selected_config_preserves_prepared_clients(
     assert result.clients[1].school["id"] == "0008"
     assert enriched.loc[1, "school_match_type"] == "no_match"
     assert any(
-        c.code == "data.school_unmatched" for c in result.row_checks["row-000002"]
+        c.code == "data.school_match" and c.status == "fail"
+        for c in result.row_checks["row-000002"]
     )
 
 

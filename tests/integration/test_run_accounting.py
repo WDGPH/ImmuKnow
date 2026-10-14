@@ -14,6 +14,7 @@ import pytest
 import yaml
 from pypdf import PdfReader
 
+from immuknow import preprocess
 from immuknow.orchestrator import run_pipeline
 from tests.fixtures.sample_input import create_test_input_dataframe
 
@@ -383,6 +384,149 @@ def test_bad_history_rejects_input_before_any_template_is_rendered(
     assert entry["original"]["status"] == "not_run"
     assert not record["delivery_attempts"]
     assert not list(record_path.parent.rglob("*.pdf"))
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        "external_absolute",
+        "external_relative",
+        "internal_absolute",
+        "internal_relative",
+    ],
+)
+def test_school_lookup_uses_saved_reference_after_source_changes(
+    tmp_path, monkeypatch, location
+):
+    source, config, templates, _ = prepare_inputs(tmp_path)
+    frame = pd.read_csv(source, dtype=str, keep_default_na=False)
+    frame["school_name"] = "Example School - 001"
+    frame.to_csv(source, index=False)
+    reference = (
+        tmp_path if location.startswith("external") else config
+    ) / "schools.json"
+    content = json.dumps({"phus": {"Example PHU": {"EXAMPLE SCHOOL": "001"}}}).encode()
+    reference.write_bytes(content)
+    configured_path = (
+        str(reference)
+        if location.endswith("absolute")
+        else ("../schools.json" if location.startswith("external") else "schools.json")
+    )
+    parameters = config / "parameters.yaml"
+    settings = yaml.safe_load(parameters.read_text())
+    settings["school_validation"] = {
+        "enabled": True,
+        "reference_file": configured_path,
+        "target_phu": "Example PHU",
+    }
+    parameters.write_text(yaml.safe_dump(settings))
+    prepare = preprocess.prepare_clients
+
+    def change_source_before_lookup(*args, **kwargs):
+        reference.write_text('{"phus":{"Example PHU":{}}}')
+        return prepare(*args, **kwargs)
+
+    monkeypatch.setattr(preprocess, "prepare_clients", change_source_before_lookup)
+    saved = run_pipeline(
+        source,
+        tmp_path / "runs",
+        config_dir=config,
+        notice_template=templates / "overdue_agents_v1.en.typ",
+    )
+    record = json.loads(saved.read_text())
+    frozen_config = saved.parent / "resources/config"
+    effective = record["configuration"]["effective"]["school_validation"][
+        "reference_file"
+    ]
+    retained = (frozen_config / effective).resolve()
+    assert retained.is_relative_to(saved.parent)
+    assert retained.read_bytes() == content
+    assert reference.read_bytes() != content
+    assert record["configuration"]["school_reference_source"] == str(reference)
+    assert (
+        yaml.safe_load((frozen_config / "parameters.yaml").read_text())[
+            "school_validation"
+        ]["reference_file"]
+        == effective
+    )
+    assert {
+        "path": retained.relative_to(saved.parent).as_posix(),
+        "sha256": sha256(content).hexdigest(),
+    } in record["resources"]["files"]
+    for entry in record["entries"]:
+        check = next(c for c in entry["checks"] if c["code"] == "data.school_match")
+        assert check["status"] == "pass"
+        assert check["measurements"]["reference_sha256"] == sha256(content).hexdigest()
+        assert entry["original"]["status"] == "completed"
+
+
+def test_school_conflicts_reject_the_cohort_with_reference_details(tmp_path):
+    source, config, templates, _ = prepare_inputs(tmp_path)
+    frame = pd.concat(
+        [create_test_input_dataframe(num_clients=2)] * 3, ignore_index=True
+    )
+    frame["client_id"] = [f"{index:010d}" for index in range(1, 7)]
+    names = [
+        "Tunnel Academy - 001",
+        "Tunnel Academy",
+        "Tunnel Academy - 999",
+        "Different School - 001",
+        "Foreign School - 003",
+        "Unknown School",
+    ]
+    frame["school_name"] = names
+    frame["school_id"] = "0007"
+    frame.to_csv(source, index=False)
+    reference = config / "school_reference.json"
+    reference.write_text(
+        json.dumps(
+            {
+                "phus": {
+                    "Example PHU": {"TUNNEL ACADEMY": "001"},
+                    "Other PHU": {"FOREIGN SCHOOL": "003"},
+                }
+            }
+        )
+    )
+    parameters = config / "parameters.yaml"
+    settings = yaml.safe_load(parameters.read_text())
+    settings["school_validation"] = {
+        "enabled": True,
+        "target_phu": "Example PHU",
+        "reference_file": reference.name,
+        "column_prefix": "lookup_",
+    }
+    parameters.write_text(yaml.safe_dump(settings))
+    saved = run_pipeline(
+        source,
+        tmp_path / "runs",
+        config_dir=config,
+        notice_template=templates / "overdue_agents_v1.en.typ",
+    )
+    record = json.loads(saved.read_text())
+    assert record["status"] == "rejected_input"
+    assert len(record["entries"]) == 6
+    expected_hash = sha256(
+        (saved.parent / "resources/config/school_reference.json").read_bytes()
+    ).hexdigest()
+    for entry, name, status, reason in zip(
+        record["entries"],
+        names,
+        ["pass", "warn", "fail", "fail", "fail", "fail"],
+        ["exact", "name_only", "id_mismatch", "id_only", "not_found", "not_found"],
+    ):
+        checks = [c for c in entry["checks"] if c["code"] == "data.school_match"]
+        assert len(checks) == 1
+        check = checks[0]
+        assert check["status"] == status
+        assert check["measurements"]["reason"] == reason
+        assert check["measurements"]["reference_sha256"] == expected_hash
+        assert check["measurements"]["target_phu"] == "Example PHU"
+        assert check["measurements"]["source_school"] == name
+        assert entry["facts"]["prepared"]["school"] == {"name": name, "id": "0007"}
+        assert entry["original"]["status"] == "not_run"
+    assert not record["delivery_attempts"]
+    assert not list(saved.parent.rglob("*.pdf"))
 
 
 def test_setup_failure_preserves_all_source_rows_in_report(tmp_path: Path) -> None:

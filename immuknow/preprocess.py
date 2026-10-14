@@ -268,6 +268,10 @@ def build_preprocess_result(
     clients: list[ClientRecord] = []
     row_checks: dict[str, list[CheckResult]] = {}
     source_rows: dict[str, dict[str, Any]] = {}
+    school_config = config.get("school_validation", {})
+    school_reference = df.attrs.get("school_reference", {})
+    if school_config.get("enabled") and not school_reference:
+        raise ValueError("Enabled school validation has no reference results")
     birth_field = Schema.from_descriptor(
         json.loads(INPUT_SCHEMA_PATH.read_text())
     ).get_field("date_of_birth")
@@ -276,17 +280,42 @@ def build_preprocess_result(
         source_rows[key] = raw_rows[index - 1]
         checks: list[CheckResult] = []
         row_checks[key] = checks
-        match_field = (
-            config.get("school_validation", {}).get("column_prefix", "school_")
-            + "match_type"
-        )
-        if row.get(match_field) == "no_match":
+        if school_config.get("enabled"):
+            prefix = school_config.get("column_prefix", "school_")
+            match = row[prefix + "match_type"]
+            reason = row[prefix + "mismatch_reason"]
+            if match == "exact":
+                status, message = (
+                    "pass",
+                    "Source school matches the selected reference.",
+                )
+            elif reason == "name_only":
+                status, message = (
+                    "warn",
+                    "School name matches, but no facility ID was supplied.",
+                )
+            else:
+                status = "fail"
+                message = {
+                    "id_mismatch": "School facility ID differs from the reference for this name.",
+                    "id_only": "School name differs from the reference for this facility ID.",
+                    "": "School was not found in the selected PHU reference.",
+                }[reason]
             checks.append(
                 CheckResult(
-                    "data.school_unmatched",
+                    "data.school_match",
                     "preparation",
-                    "warn",
-                    "Source school has no reference match",
+                    status,
+                    message,
+                    measurements={
+                        **school_reference,
+                        "source_school": row["school_name"],
+                        "match_type": match,
+                        "reason": reason
+                        or ("exact" if match == "exact" else "not_found"),
+                        "matched_name": row[prefix + "matched_name"],
+                        "matched_id": row[prefix + "facility_id"],
+                    },
                 )
             )
         for field in (

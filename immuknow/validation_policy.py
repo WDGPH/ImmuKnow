@@ -19,7 +19,7 @@ from .data_models import CheckResult
 from .render_contract import report_schema
 from .structured_input import read_json
 
-POLICY_VERSION = 4
+POLICY_VERSION = 5
 
 
 @dataclass(frozen=True)
@@ -149,7 +149,7 @@ RULES = {
             "assignment_manifest",
         ),
         RuleDefinition(
-            "data.school_unmatched",
+            "data.school_match",
             "School matches the selected reference",
             "validate_schools",
         ),

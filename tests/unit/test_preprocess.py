@@ -256,13 +256,13 @@ def test_required_columns_fail_setup_but_blank_cells_do_not():
 
 
 @pytest.mark.unit
-def test_school_unmatched_and_absent_history_have_component_appropriate_checks():
+def test_disabled_school_lookup_ignores_source_match_columns_and_absent_history():
     frame = source_rows()
     frame["school_match_type"] = ["exact", "no_match"]
     frame.loc[1, "imms_given"] = ""
     result, _ = prepare(frame)
-    assert any(
-        c.code == "data.school_unmatched" for c in result.row_checks["row-000002"]
+    assert not any(
+        c.code == "data.school_match" for c in result.row_checks["row-000002"]
     )
     assert not any(c.component == "history" for c in result.row_checks["row-000002"])
     assert result.clients[1].school["id"] == ""

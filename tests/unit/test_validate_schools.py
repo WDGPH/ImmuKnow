@@ -294,7 +294,7 @@ class TestLoadMapping:
 
         Assertion: name_to_id and id_to_name populated from the target PHU only.
         """
-        name_to_id, id_to_name = validate_schools.load_mapping(
+        name_to_id, id_to_name, _ = validate_schools.load_mapping(
             reference_file, "Test PHU"
         )
         assert name_to_id["SPRINGFIELD ELEMENTARY"] == "001"
