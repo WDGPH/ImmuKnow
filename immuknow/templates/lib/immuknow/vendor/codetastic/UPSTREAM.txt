@@ -1,0 +1,7 @@
+Codetastic 0.2.2 (MIT), J. Neugebauer
+https://github.com/jneug/typst-codetastic
+Source: https://packages.typst.org/preview/codetastic-0.2.2.tar.gz
+SHA256: ed2c0dac5ace901ea48fbb2330d2477501ce0900051c0a19d7e7cf5a75f20da3
+Local change: qrcode accepts an optional draw callback receiving the encoded
+matrix, version, module size, quiet zone, background and foreground. Encoding
+and the default renderer are unchanged. LICENSE and package metadata retained.

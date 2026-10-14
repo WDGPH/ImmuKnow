@@ -1,87 +1,107 @@
-"""Encryption contracts for compiled notices."""
-
-from __future__ import annotations
+"""Individual encrypted copies preserve originals and require known password facts."""
 
 from pathlib import Path
 
 import pytest
 from pypdf import PdfReader, PdfWriter
+from pypdf.generic import DictionaryObject
+from pypdf.errors import DependencyError
 
-from immuknow import encrypt_notices
+from immuknow.encrypt_notices import encrypt_notice
+from tests.fixtures.sample_input import create_test_client_record
 
-pytestmark = pytest.mark.unit
 
-
-def make_pdf(path: Path) -> None:
+def test_encryption_verifies_password_and_preserves_original(tmp_path: Path) -> None:
+    original, encrypted = tmp_path / "original.pdf", tmp_path / "encrypted.pdf"
     writer = PdfWriter()
     writer.add_blank_page(width=612, height=792)
-    writer.add_metadata({"/Title": "Test Notice"})
-    with path.open("wb") as stream:
+    writer.add_metadata({"/Title": "Original notice"})
+    with original.open("wb") as stream:
         writer.write(stream)
-
-
-def test_password_from_client_birth_date_opens_pdf(tmp_path: Path) -> None:
-    """The expected client password opens the encrypted output."""
-    pdf = tmp_path / "notice.pdf"
-    make_pdf(pdf)
-    encrypted = Path(
-        encrypt_notices.encrypt_pdf(
-            str(pdf),
-            {"date_of_birth_iso_compact": "20150315"},
-            config={"password": {"template": "{date_of_birth_iso_compact}"}},
-        )
+    content = original.read_bytes()
+    client = create_test_client_record()
+    details = encrypt_notice(
+        client,
+        original,
+        encrypted,
+        {"password": {"template": "{client_id}_{date_of_birth_iso_compact}"}},
     )
-    assert pdf.exists()
     reader = PdfReader(encrypted)
+    assert details == {"algorithm": "AES-256", "revision": 6, "key_bits": 256}
     assert reader.is_encrypted
-    assert reader.decrypt("20150315")
+    profile = reader.trailer["/Encrypt"]
+    assert isinstance(profile, DictionaryObject)
+    assert (profile["/V"], profile["/R"], profile["/Length"]) == (5, 6, 256)
+    assert profile.get("/CF", {}).get("/StdCF", {}).get("/CFM") == "/AESV3"
+    assert not reader.decrypt("")
+    assert not reader.decrypt("20150102")
+    assert reader.decrypt("0000000001_20150102")
     assert len(reader.pages) == 1
     assert reader.metadata is not None
-    assert reader.metadata.title == "Test Notice"
-
-
-def test_default_password_remains_compact_iso_date(tmp_path: Path) -> None:
-    pdf = tmp_path / "notice.pdf"
-    make_pdf(pdf)
-    encrypted = encrypt_notices.encrypt_pdf(
-        str(pdf), {"date_of_birth_iso_compact": "20150315"}, config={}
-    )
-    assert PdfReader(encrypted).decrypt("20150315")
-
-
-def test_custom_password_template_uses_client_context(tmp_path: Path) -> None:
-    pdf = tmp_path / "notice.pdf"
-    make_pdf(pdf)
-    encrypted = encrypt_notices.encrypt_pdf(
-        str(pdf),
-        {"client_id": "12345", "date_of_birth_iso_compact": "20150315"},
-        config={"password": {"template": "{client_id}_{date_of_birth_iso_compact}"}},
-    )
-    reader = PdfReader(encrypted)
-    assert not reader.decrypt("20150315")
-    assert reader.decrypt("12345_20150315")
-
-
-@pytest.mark.parametrize("template", ["{unknown_field}", "{client_ID}"])
-def test_invalid_password_field_fails_clearly(tmp_path: Path, template: str) -> None:
-    pdf = tmp_path / "notice.pdf"
-    make_pdf(pdf)
+    assert reader.metadata.title == "Original notice"
+    assert original.read_bytes() == content
+    with pytest.raises(ValueError, match="unavailable"):
+        encrypt_notice(
+            create_test_client_record(date_of_birth=""),
+            original,
+            tmp_path / "missing.pdf",
+            {"password": {"template": "Prefix-{date_of_birth_iso_compact}"}},
+        )
+    assert not (tmp_path / "missing.pdf").exists()
+    with pytest.raises(ValueError, match="must not be empty"):
+        encrypt_notice(
+            client, original, tmp_path / "empty.pdf", {"password": {"template": " "}}
+        )
+    assert not (tmp_path / "empty.pdf").exists()
     with pytest.raises(ValueError, match="Invalid password template"):
-        encrypt_notices.encrypt_pdf(
-            str(pdf),
-            {"client_id": "12345"},
-            config={"password": {"template": template}},
+        encrypt_notice(
+            client,
+            original,
+            tmp_path / "typo.pdf",
+            {"password": {"template": "{client_ID}"}},
         )
-    assert not (tmp_path / "notice_encrypted.pdf").exists()
+    assert not (tmp_path / "typo.pdf").exists()
+
+    with pytest.raises(ValueError) as invalid_spec:
+        encrypt_notice(
+            client,
+            original,
+            tmp_path / "specifier.pdf",
+            {"password": {"template": "{client_id:private-test-value}"}},
+        )
+    assert "private-test-value" not in str(invalid_spec.value)
+    assert not (tmp_path / "specifier.pdf").exists()
 
 
-def test_ambiguous_password_placeholder_fails_before_pdf_write(tmp_path: Path) -> None:
-    pdf = tmp_path / "notice.pdf"
-    make_pdf(pdf)
-    with pytest.raises(ValueError, match="date_of_birth_iso"):
-        encrypt_notices.encrypt_pdf(
-            str(pdf),
-            {"date_of_birth": "March 15, 2015"},
-            config={"password": {"template": "{date_of_birth}"}},
+@pytest.mark.parametrize("failure", ["backend", "algorithm", "password"])
+def test_encryption_failure_preserves_original_and_existing_copy(
+    tmp_path, monkeypatch, failure
+):
+    original, encrypted = tmp_path / "original.pdf", tmp_path / "encrypted.pdf"
+    writer = PdfWriter()
+    writer.add_blank_page(width=612, height=792)
+    writer.write(original)
+    content = original.read_bytes()
+    encrypted.write_bytes(b"previous encrypted copy")
+    encrypt = PdfWriter.encrypt
+
+    def unavailable(self, *args, **kwargs):
+        if failure == "backend":
+            raise DependencyError("backend missing")
+        if failure == "password":
+            raise ValueError("private-test-password")
+        kwargs["algorithm"] = "RC4-128"
+        return encrypt(self, *args, **kwargs)
+
+    monkeypatch.setattr(PdfWriter, "encrypt", unavailable)
+    with pytest.raises(ValueError) as error:
+        encrypt_notice(
+            create_test_client_record(),
+            original,
+            encrypted,
+            {"password": {"template": "private-test-password"}},
         )
-    assert not (tmp_path / "notice_encrypted.pdf").exists()
+    assert "private-test-password" not in str(error.value)
+    assert original.read_bytes() == content
+    assert encrypted.read_bytes() == b"previous encrypted copy"
+    assert not list(tmp_path.glob("*.partial.pdf"))

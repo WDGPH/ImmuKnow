@@ -1,0 +1,1448 @@
+{
+  "payload": {
+    "schema_version": 1,
+    "row_key": "row-000001",
+    "client_id": "0000000001",
+    "template": "overdue_diseases_v1.en.typ",
+    "version_id": "overdue_diseases_v1",
+    "language": "en",
+    "client_data": {
+      "name": "Alice Zephyr",
+      "first_name": "Alice",
+      "last_name": "Zephyr",
+      "address": "123 Main St",
+      "city": "Guelph",
+      "province": "ON",
+      "postal_code": "N1H 2T2",
+      "date_of_birth_iso": "2015-01-02",
+      "age": 9,
+      "over_16": false,
+      "school": "Tunnel Academy"
+    },
+    "school": {
+      "id": "sch_row-000001",
+      "name": "Tunnel Academy"
+    },
+    "board": {
+      "id": "brd_row-000001",
+      "name": "Guelph Board"
+    },
+    "date_of_delivery": "2025-04-08",
+    "date_as_of": "2025-08-31",
+    "overdue_diseases": [
+      {
+        "disease": "Measles",
+        "dose": 2
+      }
+    ],
+    "overdue_agents": [
+      "MMR",
+      "DTaP"
+    ],
+    "history": [
+      {
+        "date_given": "2020-05-01",
+        "diseases": [
+          "Diphtheria",
+          "Tetanus",
+          "Pertussis"
+        ],
+        "agent": "DTaP",
+        "display_name": "DTaP",
+        "validity": "unknown"
+      },
+      {
+        "date_given": "2021-06-15",
+        "diseases": [
+          "Measles",
+          "Mumps",
+          "Rubella"
+        ],
+        "agent": "MMR",
+        "display_name": "MMR",
+        "validity": "unknown"
+      }
+    ],
+    "validity_coverage": "all_absent"
+  },
+  "report": {
+    "schema_version": 2,
+    "notice": {
+      "schema_version": 1,
+      "row_key": "row-000001",
+      "client_id": "0000000001",
+      "template": "overdue_diseases_v1.en.typ",
+      "version_id": "overdue_diseases_v1",
+      "language": "en",
+      "client_data": {
+        "name": "Alice Zephyr",
+        "first_name": "Alice",
+        "last_name": "Zephyr",
+        "address": "123 Main St",
+        "city": "Guelph",
+        "province": "ON",
+        "postal_code": "N1H 2T2",
+        "date_of_birth_iso": "2015-01-02",
+        "age": 9,
+        "over_16": false,
+        "school": "Tunnel Academy"
+      },
+      "school": {
+        "id": "sch_row-000001",
+        "name": "Tunnel Academy"
+      },
+      "board": {
+        "id": "brd_row-000001",
+        "name": "Guelph Board"
+      },
+      "date_of_delivery": "2025-04-08",
+      "date_as_of": "2025-08-31",
+      "overdue_diseases": [
+        {
+          "disease": "Measles",
+          "dose": 2
+        }
+      ],
+      "overdue_agents": [
+        "MMR",
+        "DTaP"
+      ],
+      "history": [
+        {
+          "date_given": "2020-05-01",
+          "diseases": [
+            "Diphtheria",
+            "Tetanus",
+            "Pertussis"
+          ],
+          "agent": "DTaP",
+          "display_name": "DTaP",
+          "validity": "unknown"
+        },
+        {
+          "date_given": "2021-06-15",
+          "diseases": [
+            "Measles",
+            "Mumps",
+            "Rubella"
+          ],
+          "agent": "MMR",
+          "display_name": "MMR",
+          "validity": "unknown"
+        }
+      ],
+      "validity_coverage": "all_absent"
+    },
+    "identity": {
+      "row_key": "row-000001",
+      "template": "overdue_diseases_v1.en.typ",
+      "client_id": "0000000001",
+      "version_id": "overdue_diseases_v1",
+      "language": "en"
+    },
+    "page_count": 2,
+    "components": {
+      "page": true,
+      "section": true,
+      "header": true,
+      "address": true,
+      "client": true,
+      "signature": true,
+      "history": true,
+      "overdue_diseases": true,
+      "overdue_agents": false,
+      "qr": true,
+      "privacy": true,
+      "link": true
+    },
+    "checks": [
+      {
+        "code": "layout.header_title_lines",
+        "stage": "render",
+        "status": "pass",
+        "message": "Title fits within three lines.",
+        "component": "header",
+        "page": 1,
+        "measurements": {
+          "title_height_pt": 46.98,
+          "three_line_height_pt": 93.08
+        }
+      },
+      {
+        "code": "layout.address_outside_window",
+        "stage": "render",
+        "status": "pass",
+        "message": "Address fits the envelope safe area.",
+        "component": "address",
+        "page": 1,
+        "measurements": {
+          "x_pt": 74.0,
+          "y_pt": 131.0,
+          "width_pt": 99.27000000000002,
+          "height_pt": 48.66,
+          "page": 1,
+          "window_x_pt": 63.0,
+          "window_y_pt": 120.0,
+          "window_width_pt": 324.0,
+          "window_height_pt": 81.0,
+          "window_padding_pt": 11.0,
+          "left_pt": 0.0,
+          "top_pt": 0.0,
+          "right_pt": 0.0,
+          "bottom_pt": 0.0
+        }
+      },
+      {
+        "code": "layout.client_details_in_window",
+        "stage": "render",
+        "status": "pass",
+        "message": "Client details stay outside the envelope window.",
+        "component": "client",
+        "page": 1,
+        "measurements": {
+          "x_pt": 398.0,
+          "y_pt": 131.0,
+          "width_pt": 133.59,
+          "height_pt": 34.87,
+          "window_x_pt": 63.0,
+          "window_y_pt": 120.0,
+          "window_width_pt": 324.0,
+          "window_height_pt": 81.0,
+          "window_padding_pt": 11.0
+        }
+      },
+      {
+        "code": "layout.signature_page",
+        "stage": "render",
+        "status": "pass",
+        "message": "Signature remains with preceding content.",
+        "component": "signature",
+        "page": 1,
+        "measurements": {
+          "expected_page": 1,
+          "first_page": 1,
+          "last_page": 1,
+          "x_pt": 49.60629921259842,
+          "y_pt": 476.8133070866143,
+          "end_y_pt": 547.9129921259844
+        }
+      },
+      {
+        "code": "layout.section_pages",
+        "stage": "render",
+        "status": "pass",
+        "message": "Section fits on one page.",
+        "component": "section",
+        "page": 1,
+        "measurements": {
+          "first_page": 1,
+          "last_page": 1
+        }
+      },
+      {
+        "code": "layout.header_title_lines",
+        "stage": "render",
+        "status": "pass",
+        "message": "Title fits within three lines.",
+        "component": "header",
+        "page": 2,
+        "measurements": {
+          "title_height_pt": 15.04,
+          "three_line_height_pt": 93.08
+        }
+      },
+      {
+        "code": "layout.history_width",
+        "stage": "render",
+        "status": "pass",
+        "message": "History column width compared with available space.",
+        "component": "history",
+        "page": 2,
+        "measurements": {
+          "available_width_pt": 505.7007874015748,
+          "minimum_width_pt": 271.0
+        }
+      },
+      {
+        "code": "layout.section_pages",
+        "stage": "render",
+        "status": "pass",
+        "message": "Section fits on one page.",
+        "component": "section",
+        "page": 2,
+        "measurements": {
+          "first_page": 2,
+          "last_page": 2
+        }
+      },
+      {
+        "code": "layout.privacy_page",
+        "stage": "render",
+        "status": "pass",
+        "message": "Privacy notice placement.",
+        "component": "privacy",
+        "page": 2,
+        "measurements": {
+          "expected_page": 2,
+          "actual_page": 2
+        }
+      },
+      {
+        "code": "component.overdue_agents.absent",
+        "stage": "render",
+        "status": "not_applicable",
+        "message": "Component was not used.",
+        "component": "overdue_agents"
+      },
+      {
+        "code": "layout.envelope_window_missing",
+        "stage": "render",
+        "status": "pass",
+        "component": "address",
+        "page": 1,
+        "message": "An envelope window was specified."
+      }
+    ],
+    "qr_urls": [
+      "https://example.org/update?client_id=0000000001&dob=2015-01-02&lang=en"
+    ],
+    "measurements": {
+      "page": [
+        {}
+      ],
+      "section": [
+        {
+          "title": "Request for Immunization Record",
+          "first_page": 1,
+          "last_page": 1
+        },
+        {
+          "title": "Immunization Record",
+          "first_page": 2,
+          "last_page": 2
+        }
+      ],
+      "header": [
+        {
+          "title_height_pt": 46.98,
+          "three_line_height_pt": 93.08
+        },
+        {
+          "title_height_pt": 15.04,
+          "three_line_height_pt": 93.08
+        }
+      ],
+      "address": [
+        {
+          "x_pt": 74.0,
+          "y_pt": 131.0,
+          "width_pt": 99.27000000000002,
+          "height_pt": 48.66,
+          "page": 1,
+          "window_x_pt": 63.0,
+          "window_y_pt": 120.0,
+          "window_width_pt": 324.0,
+          "window_height_pt": 81.0,
+          "window_padding_pt": 11.0,
+          "text": "To Parent/Guardian of:\nAlice Zephyr\n123 Main St\nGuelph, ON N1H 2T2",
+          "row_key": "row-000001",
+          "client_id": "0000000001",
+          "source_matches": true
+        }
+      ],
+      "client": [
+        {
+          "page": 1,
+          "x_pt": 398.0,
+          "y_pt": 131.0,
+          "width_pt": 133.59,
+          "height_pt": 34.87,
+          "text": "Client ID: 0000000001\nDate of Birth: January 2, 2015\nSchool: Tunnel Academy",
+          "row_key": "row-000001",
+          "client_id": "0000000001",
+          "source_matches": true
+        }
+      ],
+      "signature": [
+        {
+          "first_page": 1,
+          "last_page": 1,
+          "x_pt": 49.60629921259842,
+          "y_pt": 476.8133070866143,
+          "end_y_pt": 547.9129921259844
+        }
+      ],
+      "history": [
+        {
+          "administrations": 2,
+          "displayed_rows": 2,
+          "page": 2,
+          "row_key": "row-000001",
+          "client_id": "0000000001",
+          "source_matches": true
+        }
+      ],
+      "overdue_diseases": [
+        {
+          "row_key": "row-000001",
+          "client_id": "0000000001",
+          "source_matches": true
+        }
+      ],
+      "qr": [
+        {
+          "row_key": "row-000001",
+          "client_id": "0000000001",
+          "source_matches": true
+        }
+      ],
+      "privacy": [
+        {
+          "page": 2
+        }
+      ],
+      "link": [
+        {
+          "page": 1,
+          "url": "https://example.org/immunization"
+        },
+        {
+          "page": 1,
+          "url": "mailto:records@example.org"
+        },
+        {
+          "page": 1,
+          "url": "https://example.org/exemptions"
+        }
+      ]
+    }
+  },
+  "cases": [
+    {
+      "name": "current report",
+      "valid": true,
+      "changes": []
+    },
+    {
+      "name": "unsupported report version",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "schema_version"
+          ],
+          "value": 1
+        }
+      ]
+    },
+    {
+      "name": "missing row binding",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "identity",
+            "row_key"
+          ],
+          "remove": true
+        }
+      ]
+    },
+    {
+      "name": "different source row",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "identity",
+            "row_key"
+          ],
+          "value": "row-000002"
+        }
+      ]
+    },
+    {
+      "name": "different selected template",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "identity",
+            "template"
+          ],
+          "value": "another.en.typ"
+        }
+      ]
+    },
+    {
+      "name": "different client",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "identity",
+            "client_id"
+          ],
+          "value": "0000000002"
+        }
+      ]
+    },
+    {
+      "name": "extra report field",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "ignored"
+          ],
+          "value": true
+        }
+      ]
+    },
+    {
+      "name": "invalid language",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "identity",
+            "language"
+          ],
+          "value": "es"
+        }
+      ]
+    },
+    {
+      "name": "boolean page count",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "page_count"
+          ],
+          "value": true
+        }
+      ]
+    },
+    {
+      "name": "zero page count",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "page_count"
+          ],
+          "value": 0
+        }
+      ]
+    },
+    {
+      "name": "partial component list",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "components",
+            "client"
+          ],
+          "remove": true
+        }
+      ]
+    },
+    {
+      "name": "unknown component",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "components",
+            "invented"
+          ],
+          "value": true
+        }
+      ]
+    },
+    {
+      "name": "missing component measurements",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "measurements",
+            "client"
+          ],
+          "remove": true
+        }
+      ]
+    },
+    {
+      "name": "changed placed client",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "measurements",
+            "client",
+            0,
+            "client_id"
+          ],
+          "value": "0000000002"
+        }
+      ]
+    },
+    {
+      "name": "misplaced client page",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "measurements",
+            "client",
+            0,
+            "page"
+          ],
+          "value": 3
+        }
+      ]
+    },
+    {
+      "name": "component not placed",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "components",
+            "client"
+          ],
+          "value": false
+        }
+      ]
+    },
+    {
+      "name": "missing component",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "components",
+            "client"
+          ],
+          "remove": true
+        }
+      ]
+    },
+    {
+      "name": "wrong component measurement",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "measurements",
+            "client",
+            0,
+            "invented"
+          ],
+          "value": 0
+        }
+      ]
+    },
+    {
+      "name": "reversed section range",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "measurements",
+            "section",
+            0,
+            "first_page"
+          ],
+          "value": 2
+        }
+      ]
+    },
+    {
+      "name": "check stage",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "checks",
+            4,
+            "stage"
+          ],
+          "value": "output"
+        }
+      ]
+    },
+    {
+      "name": "check component",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "checks",
+            4,
+            "component"
+          ],
+          "value": "client"
+        }
+      ]
+    },
+    {
+      "name": "check page outside notice",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "checks",
+            4,
+            "page"
+          ],
+          "value": 3
+        }
+      ]
+    },
+    {
+      "name": "unknown check",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "checks",
+            4,
+            "code"
+          ],
+          "value": "layout.unknown"
+        }
+      ]
+    },
+    {
+      "name": "missing check page",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "checks",
+            4,
+            "page"
+          ],
+          "remove": true
+        }
+      ]
+    },
+    {
+      "name": "string measurement",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "checks",
+            4,
+            "measurements",
+            "first_page"
+          ],
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "name": "negative measurement",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "measurements",
+            "header",
+            0,
+            "title_height_pt"
+          ],
+          "value": -1
+        }
+      ]
+    },
+    {
+      "name": "absence marked passed",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "checks",
+            9,
+            "status"
+          ],
+          "value": "pass"
+        }
+      ]
+    },
+    {
+      "name": "missing absence result",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "checks",
+            9
+          ],
+          "remove": true
+        }
+      ]
+    },
+    {
+      "name": "duplicate QR URL",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "qr_urls"
+          ],
+          "value": [
+            "https://example.org/update?client_id=0000000001&dob=2015-01-02&lang=en",
+            "https://example.org/update?client_id=0000000001&dob=2015-01-02&lang=en"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "unknown payload field",
+      "valid": false,
+      "changes": [
+        {
+          "target": "payload",
+          "path": [
+            "extra"
+          ],
+          "value": false
+        }
+      ]
+    },
+    {
+      "name": "invalid source date",
+      "valid": false,
+      "changes": [
+        {
+          "target": "payload",
+          "path": [
+            "client_data",
+            "date_of_birth_iso"
+          ],
+          "value": "2025-02-30"
+        }
+      ]
+    },
+    {
+      "name": "invalid history date",
+      "valid": false,
+      "changes": [
+        {
+          "target": "payload",
+          "path": [
+            "history",
+            0,
+            "date_given"
+          ],
+          "value": "2025-02-30"
+        }
+      ]
+    },
+    {
+      "name": "wrong payload version",
+      "valid": false,
+      "changes": [
+        {
+          "target": "payload",
+          "path": [
+            "schema_version"
+          ],
+          "value": 2
+        }
+      ]
+    },
+    {
+      "name": "wrong filename identity",
+      "valid": false,
+      "changes": [
+        {
+          "target": "payload",
+          "path": [
+            "template"
+          ],
+          "value": "another.en.typ"
+        }
+      ]
+    },
+    {
+      "name": "wrong age type",
+      "valid": false,
+      "changes": [
+        {
+          "target": "payload",
+          "path": [
+            "client_data",
+            "age"
+          ],
+          "value": true
+        }
+      ]
+    },
+    {
+      "name": "unknown age",
+      "valid": true,
+      "changes": [
+        {
+          "target": "payload",
+          "path": [
+            "client_data",
+            "age"
+          ],
+          "value": null
+        },
+        {
+          "target": "report",
+          "path": [
+            "notice",
+            "client_data",
+            "age"
+          ],
+          "value": null
+        }
+      ]
+    },
+    {
+      "name": "blank optional birth date",
+      "valid": true,
+      "changes": [
+        {
+          "target": "payload",
+          "path": [
+            "client_data",
+            "date_of_birth_iso"
+          ],
+          "value": ""
+        },
+        {
+          "target": "report",
+          "path": [
+            "notice",
+            "client_data",
+            "date_of_birth_iso"
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "name": "literal client name",
+      "valid": true,
+      "changes": [
+        {
+          "target": "payload",
+          "path": [
+            "client_data",
+            "name"
+          ],
+          "value": "Élise #not-executable() – 王"
+        },
+        {
+          "target": "report",
+          "path": [
+            "notice",
+            "client_data",
+            "name"
+          ],
+          "value": "Élise #not-executable() – 王"
+        }
+      ]
+    },
+    {
+      "name": "French notice binding",
+      "valid": true,
+      "changes": [
+        {
+          "target": "payload",
+          "path": [
+            "language"
+          ],
+          "value": "fr"
+        },
+        {
+          "target": "payload",
+          "path": [
+            "template"
+          ],
+          "value": "overdue_diseases_v1.fr.typ"
+        },
+        {
+          "target": "report",
+          "path": [
+            "identity",
+            "language"
+          ],
+          "value": "fr"
+        },
+        {
+          "target": "report",
+          "path": [
+            "identity",
+            "template"
+          ],
+          "value": "overdue_diseases_v1.fr.typ"
+        },
+        {
+          "target": "report",
+          "path": [
+            "notice",
+            "language"
+          ],
+          "value": "fr"
+        },
+        {
+          "target": "report",
+          "path": [
+            "notice",
+            "template"
+          ],
+          "value": "overdue_diseases_v1.fr.typ"
+        }
+      ]
+    },
+    {
+      "name": "row binding without external identity",
+      "valid": true,
+      "changes": [
+        {
+          "target": "payload",
+          "path": [
+            "client_id"
+          ],
+          "value": ""
+        },
+        {
+          "target": "report",
+          "path": [
+            "identity",
+            "client_id"
+          ],
+          "value": ""
+        },
+        {
+          "target": "report",
+          "path": [
+            "measurements",
+            "client",
+            0,
+            "client_id"
+          ],
+          "value": ""
+        },
+        {
+          "target": "report",
+          "path": [
+            "measurements",
+            "address",
+            0,
+            "client_id"
+          ],
+          "value": ""
+        },
+        {
+          "target": "report",
+          "path": [
+            "measurements",
+            "history",
+            0,
+            "client_id"
+          ],
+          "value": ""
+        },
+        {
+          "target": "report",
+          "path": [
+            "measurements",
+            "overdue_diseases",
+            0,
+            "client_id"
+          ],
+          "value": ""
+        },
+        {
+          "target": "report",
+          "path": [
+            "measurements",
+            "qr",
+            0,
+            "client_id"
+          ],
+          "value": ""
+        },
+        {
+          "target": "report",
+          "path": [
+            "notice",
+            "client_id"
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "name": "client row differs",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "measurements",
+            "client",
+            0,
+            "row_key"
+          ],
+          "value": "row-000002"
+        }
+      ]
+    },
+    {
+      "name": "missing client width",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "measurements",
+            "client",
+            0,
+            "width_pt"
+          ],
+          "remove": true
+        }
+      ]
+    },
+    {
+      "name": "negative client height",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "measurements",
+            "client",
+            0,
+            "height_pt"
+          ],
+          "value": -1
+        }
+      ]
+    },
+    {
+      "name": "address belongs to another row",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "measurements",
+            "address",
+            0,
+            "row_key"
+          ],
+          "value": "row-000002"
+        }
+      ]
+    },
+    {
+      "name": "history belongs to another row",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "measurements",
+            "history",
+            0,
+            "row_key"
+          ],
+          "value": "row-000002"
+        }
+      ]
+    },
+    {
+      "name": "overdue_diseases belongs to another row",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "measurements",
+            "overdue_diseases",
+            0,
+            "row_key"
+          ],
+          "value": "row-000002"
+        }
+      ]
+    },
+    {
+      "name": "qr belongs to another row",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "measurements",
+            "qr",
+            0,
+            "row_key"
+          ],
+          "value": "row-000002"
+        }
+      ]
+    },
+    {
+      "name": "changed rendered name",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "notice",
+            "client_data",
+            "name"
+          ],
+          "value": "Other Person"
+        }
+      ]
+    },
+    {
+      "name": "changed rendered birth date",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "notice",
+            "client_data",
+            "date_of_birth_iso"
+          ],
+          "value": "2016-02-03"
+        }
+      ]
+    },
+    {
+      "name": "changed rendered history",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "notice",
+            "history",
+            0,
+            "date_given"
+          ],
+          "value": "2024-06-01"
+        }
+      ]
+    },
+    {
+      "name": "changed component data",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "measurements",
+            "address",
+            0,
+            "source_matches"
+          ],
+          "value": false
+        }
+      ]
+    },
+    {
+      "name": "missing component source check",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "measurements",
+            "history",
+            0,
+            "source_matches"
+          ],
+          "remove": true
+        }
+      ]
+    },
+    {
+      "name": "source object field order is irrelevant",
+      "valid": true,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "notice"
+          ],
+          "value": {
+            "validity_coverage": "all_absent",
+            "history": [
+              {
+                "date_given": "2020-05-01",
+                "diseases": [
+                  "Diphtheria",
+                  "Tetanus",
+                  "Pertussis"
+                ],
+                "agent": "DTaP",
+                "display_name": "DTaP",
+                "validity": "unknown"
+              },
+              {
+                "date_given": "2021-06-15",
+                "diseases": [
+                  "Measles",
+                  "Mumps",
+                  "Rubella"
+                ],
+                "agent": "MMR",
+                "display_name": "MMR",
+                "validity": "unknown"
+              }
+            ],
+            "overdue_agents": [
+              "MMR",
+              "DTaP"
+            ],
+            "overdue_diseases": [
+              {
+                "disease": "Measles",
+                "dose": 2
+              }
+            ],
+            "date_as_of": "2025-08-31",
+            "date_of_delivery": "2025-04-08",
+            "board": {
+              "id": "brd_row-000001",
+              "name": "Guelph Board"
+            },
+            "school": {
+              "id": "sch_row-000001",
+              "name": "Tunnel Academy"
+            },
+            "client_data": {
+              "name": "Alice Zephyr",
+              "first_name": "Alice",
+              "last_name": "Zephyr",
+              "address": "123 Main St",
+              "city": "Guelph",
+              "province": "ON",
+              "postal_code": "N1H 2T2",
+              "date_of_birth_iso": "2015-01-02",
+              "age": 9,
+              "over_16": false,
+              "school": "Tunnel Academy"
+            },
+            "language": "en",
+            "version_id": "overdue_diseases_v1",
+            "template": "overdue_diseases_v1.en.typ",
+            "client_id": "0000000001",
+            "row_key": "row-000001",
+            "schema_version": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "rendered source flag has the wrong type",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "notice",
+            "client_data",
+            "over_16"
+          ],
+          "value": 0
+        }
+      ]
+    },
+    {
+      "name": "client details text is required",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "measurements",
+            "client",
+            0,
+            "text"
+          ],
+          "remove": true
+        }
+      ]
+    },
+    {
+      "name": "link destination is required",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "measurements",
+            "link",
+            0,
+            "url"
+          ],
+          "remove": true
+        }
+      ]
+    },
+    {
+      "name": "link page is outside the notice",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "measurements",
+            "link",
+            0,
+            "page"
+          ],
+          "value": 3
+        }
+      ]
+    }
+  ]
+}

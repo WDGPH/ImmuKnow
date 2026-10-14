@@ -3,19 +3,40 @@ name: Run Pytest
   push:
     branches:
       - '*'
+    paths:
+      - 'immuknow/**'
+      - 'tests/**'
+      - 'scripts/build-native.py'
+      - 'setup.py'
+      - 'MANIFEST.in'
+      - 'pytest.ini'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.pre-commit-config.yaml'
+      - '.github/workflows/test.yml'
   pull_request:
     branches:
       - '*'
+    paths:
+      - 'immuknow/**'
+      - 'tests/**'
+      - 'scripts/build-native.py'
+      - 'setup.py'
+      - 'MANIFEST.in'
+      - 'pytest.ini'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.pre-commit-config.yaml'
+      - '.github/workflows/test.yml'
 permissions:
   contents: read
   id-token: write
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      typst_ver: 0.15.1
-      TYPST_FONT_PATHS: /usr/share/fonts/truetype/freefont
-      TYPST_IGNORE_SYSTEM_FONTS: 'true'
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.12', '3.14']
     steps:
       - uses: actions/checkout@v7
         with:
@@ -23,35 +44,41 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: '3.12'
+          python-version: ${{ matrix.python-version }}
       - name: Install uv
         uses: astral-sh/setup-uv@v7
       - name: Install dependencies
-        run: uv sync --group dev
+        run: uv sync --locked --group dev
+      - name: Install system fonts for notice tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fonts-freefont-ttf
+      - name: Read the native compiler pin
+        id: native
+        run: |
+          echo "version=$(python scripts/build-native.py --print-typst-version)" >> "$GITHUB_OUTPUT"
       - name: Download and install Typst CLI locally
         run: |
           mkdir -p $HOME/.local/bin
           curl -fL -o /tmp/typst.tar.xz \
-            https://github.com/typst/typst/releases/download/v${{ env.typst_ver }}/typst-x86_64-unknown-linux-musl.tar.xz
+            https://github.com/typst/typst/releases/download/v${{ steps.native.outputs.version }}/typst-x86_64-unknown-linux-musl.tar.xz
           tar -xf /tmp/typst.tar.xz -C /tmp/ --strip-components=1
           chmod +x /tmp/typst
           mv /tmp/typst $HOME/.local/bin/typst
           echo "$HOME/.local/bin" >> $GITHUB_PATH
-          typst --version
+          "$HOME/.local/bin/typst" --version
 
-      - name: Install pinned notice fonts
-        # Font metrics are part of the notice layout, including the PDF fixtures.
+      - name: Check Python types and formatting
         run: |
-          curl -fL --retry 3 \
-            https://archive.ubuntu.com/ubuntu/pool/main/f/fonts-freefont/fonts-freefont-ttf_20120503-10build1_all.deb \
-            -o "$RUNNER_TEMP/notice-fonts.deb"
-          echo "d1424c9d47b2a6bd0d5149ca66f2bab9b4365237bfbb6063659d961bab2f8ccb  $RUNNER_TEMP/notice-fonts.deb" | sha256sum --check
-          dpkg-deb --extract "$RUNNER_TEMP/notice-fonts.deb" "$RUNNER_TEMP/notice-fonts"
-          sudo install -d /usr/share/fonts/truetype/freefont
-          sudo install -m 644 "$RUNNER_TEMP/notice-fonts/usr/share/fonts/truetype/freefont/"*.ttf /usr/share/fonts/truetype/freefont/
+          uv run --locked ty check
+          uv run --locked ruff check --no-fix .
+          uv run --locked ruff format --check .
 
       - name: Run tests
-        run: uv run pytest --cov --cov-branch --cov-report=xml
+        run: uv run --locked pytest --cov --cov-branch --cov-report=xml
+
+      - name: Verify source files were not changed
+        run: test -z "$(git status --porcelain)"
 
       - name: Upload results to Codecov
         uses: codecov/codecov-action@v7

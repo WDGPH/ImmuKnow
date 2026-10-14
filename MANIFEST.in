@@ -1,0 +1,5 @@
+include uv.lock
+include scripts/build-native.py
+graft immuknow
+prune tests
+global-exclude *.py[cod]

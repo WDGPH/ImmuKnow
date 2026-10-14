@@ -1,34 +1,43 @@
 # Python interface
 
-The supported callable interface is `immuknow.orchestrator.run_pipeline`.
-Pass a CSV path and output directory, plus exactly one of
-`notice_assignments=Path(...)` or `notice_template=Path(...)`. A manifest
-names one `<version_id>.<language>.typ` file per client within the selected
-template tree; a full-path Typst file selects both for
-the whole accepted cohort. `config_dir` selects configuration for either route;
-`template_dir` selects a template tree for manifest selection. The
-function returns the successful completion record path, or `None` when the user cancels an output-directory prompt.
-The CLI `immuknow` calls the same workflow.
+`immuknow.orchestrator.run_pipeline` runs one CSV cohort with exactly one
+selector: `notice_assignments=Path(...)` for explicit per-client filenames, or
+`notice_template=Path(...)` for one selected file applied unchanged to every row.
+`config_dir` selects source references and run options; `template_dir` selects the
+complete authored tree in manifest mode.
 
 ```python
 from pathlib import Path
 from immuknow.orchestrator import run_pipeline
 
-completion = run_pipeline(
-    Path("students.csv"),
-    Path("notices"),
+record_path = run_pipeline(
+    Path("clients.csv"),
+    Path("runs"),
     notice_assignments=Path("assignments.json"),
+    template_dir=Path("my-phu"),
 )
 
-# Or select one version and language for the whole accepted cohort.
-completion = run_pipeline(
-    Path("students.csv"),
-    Path("notices"),
+record_path = run_pipeline(
+    Path("clients.csv"),
+    Path("runs"),
     notice_template=Path("my-phu/overdue_diseases_v1.en.typ"),
 )
 ```
 
-Internal preparation, rendering, validation, and delivery functions may change
-together with the end-to-end workflow. See the [workflow](architecture.md),
-[configuration](../user_guide/configuration.md), and
-[template contract](../user_guide/phu_templates.md).
+The filename `<version>.<language>.typ` supplies the selected identity, with
+`en` and `fr` supported. The callable returns the authoritative
+`runs/<run-id>/run.json` path, including partial outcomes and warnings. Shared
+setup failures save a `failed_setup` record before propagating an exception.
+Expected row failures are recorded while independent rows continue. The CLI
+uses the same workflow and returns nonzero for failed rows or delivery steps.
+Previous runs are retained.
+
+The run freezes source bytes, selected resources and compiler inputs. Raw source
+values, normalized facts, assignments, placed findings and original/delivery
+results are recorded by stable original-order row keys. Password values are
+excluded from saved configuration. Python supplies facts; authored Typst owns
+prose, display choices, QR construction and component findings.
+
+Internal preparation, rendering and delivery functions may change together.
+See the [workflow](architecture.md), [configuration](../user_guide/configuration.md)
+and [template contract](../user_guide/phu_templates.md) for their current boundaries.

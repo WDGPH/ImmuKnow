@@ -22,3 +22,14 @@ phu_templates/*
 !phu_templates/README.md
 !phu_templates/.gitkeep
 .gitmodules
+
+studio/node_modules
+studio/generated/*.cjs
+studio/generated/*.js
+studio/vendor/compiler/
+studio/vendor/renderer/
+studio/public/generated/
+studio/dist/
+studio/.compiler-build/
+studio/test-results/
+studio/playwright-report/

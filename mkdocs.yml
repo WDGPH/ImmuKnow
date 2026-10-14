@@ -82,6 +82,7 @@ nav:
   - User Guide:
     - Getting Started: user_guide/getting_started.md
     - Configuration Reference: user_guide/configuration.md
+    - ImmuKnow Studio: user_guide/studio.md
     - PHU Templates: user_guide/phu_templates.md
     - Input Schema: user_guide/input_schema.md
     - PDF Validation: user_guide/pdf_validation.md
