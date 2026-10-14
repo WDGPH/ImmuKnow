@@ -103,20 +103,15 @@ or actionable error. Lock dependency versions in `uv.lock`; upgrades require
 a matching lockfile and tests. Use `uv run ty check`,
 `uv run pytest`, and `uv run pre-commit run --all-files` as applicable.
 Native build records belong in wheel/source-archive staging, never tracked
-package source. Keep browser pins in `studio/compiler-pins.json`. Project and
+package source. Studio keeps browser pins in its separate repository. Project and
 draft compatibility compares shared resources and compiler identity, not an
 unrelated package version or checkout revision. Use non-mutating type/lint checks
 and locked dependencies in CI.
 
-Studio offers one download: the complete authored Typst project with its
-required resources. Preserve source bytes and relative paths. Keep browser/native
-output comparisons independent of the download; do not bundle Python runners,
-dependency environments or engine wheels.
-Save current Studio work in the v2 draft store and leave older storage untouched.
-Keep the opened project as the reset baseline, retain it across reloads, and allow
-only one editing tab per origin. Show Saved only after the newest write commits.
-Theme controls share the comment-aware value lookup in `theme-settings.ts`.
-Preserve surrounding source and refuse expressions the controls cannot safely edit.
+Studio owns its browser build, example scenarios and editing workflows in a
+separate repository. Core exposes read-only resources through
+`immuknow.resources`; its internal preparation APIs remain internal. Studio
+locks an exact Core commit when using those APIs for its examples.
 
 Use plain language in the app, documentation and follow-up questions. Keep app
 instructions short and only add text that helps the person complete their task.

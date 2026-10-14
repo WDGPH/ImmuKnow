@@ -3,8 +3,8 @@
 Keep one current guide for each contract: [getting started](../user_guide/getting_started.md)
 for inputs and the complete workflow, [configuration](../user_guide/configuration.md)
 for user options and reference data, [template authoring](../user_guide/phu_templates.md)
-for native JSON and assertions, [Studio](../user_guide/studio.md) for browser
-authoring, drafts and export boundaries, and [testing](testing.md) for checks.
+for native JSON and assertions, [Studio overview](../user_guide/studio.md) for the separate editor,
+and [testing](testing.md) for native checks.
 The [architecture](../reference/architecture.md) explains output evidence.
 Link to these guides instead of copying them into new step descriptions.
 
@@ -29,6 +29,5 @@ uv run python docs/generate_schema_docs.py
 uv run --group docs mkdocs build --strict --site-dir /tmp/immuknow-docs-check
 ```
 
-The integrated documentation/Studio artifact and proxy checks belong to the
-[testing workflow](testing.md#build-studio). Describe actual checks in
-the handoff; a docs build does not establish native/browser parity.
+Studio maintains its own build and browser checks in its separate repository.
+A Core documentation build does not establish native/browser parity.

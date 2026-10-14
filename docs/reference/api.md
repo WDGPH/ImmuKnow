@@ -38,6 +38,21 @@ results are recorded by stable original-order row keys. Password values are
 excluded from saved configuration. Python supplies facts; authored Typst owns
 prose, display choices, QR construction and component findings.
 
-Internal preparation, rendering and delivery functions may change together.
+## Resources for authoring tools
+
+`immuknow.resources.resource_root()` returns the installed package directory.
+The supported resource directories are `templates/`, `config/` and `schemas/`.
+Treat them as read-only and copy files before customization. Resources are
+included in wheels and source distributions; no source checkout is needed.
+
+`immuknow.resources.rendering_build_info()` returns the engine version, native
+Typst version, rendering schema version, Core source identity, and a file/hash
+manifest covering the payload schema and complete shared Typst library. Tools
+such as Studio add their own application and browser compiler identities.
+
+These resource functions and `run_pipeline` are supported interfaces. Internal
+preparation, rendering and delivery functions may change together. Studio's
+example generator currently uses those internal preparation functions against
+an exact locked Core commit; this does not make them a public API.
 See the [workflow](architecture.md), [configuration](../user_guide/configuration.md)
 and [template contract](../user_guide/phu_templates.md) for their current boundaries.

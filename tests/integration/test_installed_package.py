@@ -185,7 +185,16 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
         [
             str(python),
             "-c",
-            "from importlib.resources import files; print(files('immuknow'))",
+            "from hashlib import sha256; "
+            "from immuknow.resources import resource_root, rendering_build_info; "
+            "p = resource_root(); b = rendering_build_info(); "
+            "assert (p / 'templates/settings.typ').is_file(); "
+            "assert (p / 'config/parameters.yaml').is_file(); "
+            "assert b['rendering_schema_version'] == 1; "
+            "assert b['core_source_revision']; "
+            "assert all(sha256((p / f['path']).read_bytes()).hexdigest() == "
+            "f['sha256'] for f in b['shared_resources']['files']); "
+            "print(p)",
         ],
         unrelated,
     )

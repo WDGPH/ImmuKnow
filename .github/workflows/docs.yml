@@ -1,221 +1,44 @@
 name: docs
-permissions:
-  contents: write
-
 on:
   push:
-    branches:
-      - main
-    paths:
-      - '.github/workflows/docs.yml'
-      - '.pre-commit-config.yaml'
-      - 'docs/**'
-      - 'immuknow/**'
-      - 'studio/**'
-      - 'tests/**'
-      - 'scripts/**'
-      - 'uv.lock'
-      - 'pyproject.toml'
-      - 'setup.py'
-      - 'MANIFEST.in'
-      - 'pytest.ini'
-      - 'mkdocs.yml'
-      - '*.md'
+    branches: [main, studio-core]
   pull_request:
-    branches:
-      - main
-    paths:
-      - '.github/workflows/docs.yml'
-      - '.pre-commit-config.yaml'
-      - 'docs/**'
-      - 'immuknow/**'
-      - 'studio/**'
-      - 'tests/**'
-      - 'scripts/**'
-      - 'uv.lock'
-      - 'pyproject.toml'
-      - 'setup.py'
-      - 'MANIFEST.in'
-      - 'pytest.ini'
-      - 'mkdocs.yml'
-      - '*.md'
-
+    branches: [main]
+permissions:
+  contents: read
 jobs:
-  changes:
+  build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    outputs:
-      product: ${{ steps.changed.outputs.product }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - id: changed
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: |
-          python - <<'PYTHON' >> "$GITHUB_OUTPUT"
-          import os, re, subprocess
-          base = os.environ.get("BASE_SHA", "")
-          product = True
-          if re.fullmatch(r"[0-9a-f]{40,64}", base) and set(base) != {"0"}:
-              changed = subprocess.run(["git", "diff", "--name-only", "-z", base, "HEAD", "--"], capture_output=True, text=True)
-              if changed.returncode == 0:
-                  files = changed.stdout.split("\0")
-                  product = any(path.startswith(("immuknow/", "studio/", "tests/", "scripts/")) or path in {
-                      "pyproject.toml", "uv.lock", "setup.py", "MANIFEST.in", "pytest.ini",
-                      ".pre-commit-config.yaml", ".github/workflows/docs.yml", ".github/workflows/test.yml",
-                  } for path in files)
-          print("product=" + str(product).lower())
-          PYTHON
-
-  documentation:
-    needs: changes
-    if: github.event_name == 'pull_request' && needs.changes.outputs.product != 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - uses: astral-sh/setup-uv@v7
-      - name: Check documentation
+      - name: Install documentation dependencies
+        run: uv sync --locked --no-default-groups --group docs
+      - name: Build Core documentation
         run: |
-          uv sync --locked --no-default-groups --group docs
           uv run --locked --no-default-groups --group docs python docs/generate_schema_docs.py
-          uv run --locked --no-default-groups --group docs mkdocs build --strict --site-dir "$RUNNER_TEMP/docs-check"
-
-  build:
-    needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.product == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: "3.12"
-
-      - name: Install the project with docs dependencies
-        run: uv sync --locked --all-groups
-
-      - name: Read compiler pins
-        id: pins
-        run: |
-          echo "native=$(python scripts/build-native.py --print-typst-version)" >> "$GITHUB_OUTPUT"
-          python - <<'PYTHON' >> "$GITHUB_OUTPUT"
-          import hashlib, json
-          build = json.load(open("studio/compiler-pins.json"))
-          compiler = build["browser_compiler"]
-          print("rust=" + compiler["rust_version"])
-          print("bindgen=" + compiler["wasm_bindgen_version"])
-          print("compiler_key=" + hashlib.sha256(json.dumps(compiler, sort_keys=True).encode()).hexdigest())
-          print("renderer_key=" + hashlib.sha256(json.dumps(build["browser_renderer"], sort_keys=True).encode()).hexdigest())
-          PYTHON
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: npm
-          cache-dependency-path: studio/package-lock.json
-
-      - name: Install frontend dependencies
-        run: npm ci --prefix studio
-
-      - name: Cache pinned compiler build
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo
-            studio/.compiler-build
-            studio/vendor/compiler
-            studio/vendor/renderer
-          key: browser-typst-${{ runner.os }}-${{ steps.pins.outputs.compiler_key }}-${{ steps.pins.outputs.renderer_key }}-${{ hashFiles('studio/scripts/build-compiler.sh') }}
-
-      - name: Build pinned browser compiler
-        run: |
-          rustup toolchain install ${{ steps.pins.outputs.rust }} --profile minimal
-          cargo +${{ steps.pins.outputs.rust }} install --locked wasm-bindgen-cli --version ${{ steps.pins.outputs.bindgen }}
-          bash studio/scripts/build-compiler.sh
-          uv run python -m studio.scripts.notices --compiler-source studio/.compiler-build
-
-      - name: Install native Typst
-        if: needs.changes.outputs.product == 'true'
-        run: |
-          curl -fL --retry 3 -o "$RUNNER_TEMP/typst.tar.xz" \
-            https://github.com/typst/typst/releases/download/v${{ steps.pins.outputs.native }}/typst-x86_64-unknown-linux-musl.tar.xz
-          tar -xf "$RUNNER_TEMP/typst.tar.xz" -C "$RUNNER_TEMP"
-          sudo install "$RUNNER_TEMP/typst-x86_64-unknown-linux-musl/typst" /usr/local/bin/typst
-
-      - name: Check frontend
-        if: needs.changes.outputs.product == 'true'
-        run: |
-          npm run typecheck --prefix studio
-          npm run lint --prefix studio
-          npm run test:unit --prefix studio
-
-      - name: Build complete Pages artifact
-        run: uv run python -m studio.scripts.build-site
-
-      - name: Test built Studio and native rendering
-        if: needs.changes.outputs.product == 'true'
-        working-directory: studio
-        run: |
-          npx playwright install --with-deps chromium
-          IMMUKNOW_SITE=1 npm run test:browser
-
-      - name: Upload render evidence
-        if: always() && needs.changes.outputs.product == 'true'
-        uses: actions/upload-artifact@v7
-        with:
-          name: studio-render-evidence
-          path: studio/test-results/
-          retention-days: 7
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v7
+          uv run --locked --no-default-groups --group docs mkdocs build --strict
+      - uses: actions/upload-artifact@v7
         with:
           name: docs-site
           path: site/
-          retention-days: 1
-
   deploy:
     needs: build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-
-      - name: Configure Git Credentials
-        run: |
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-
-      - name: Download artifact
-        uses: actions/download-artifact@v8
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           name: docs-site
           path: site
-
-      - name: Ensure .nojekyll exists
-        run: touch site/.nojekyll
-
-      - name: Deploy to GitHub Pages
-        uses: JamesIves/github-pages-deploy-action@v4
+      - run: touch site/.nojekyll
+      - uses: JamesIves/github-pages-deploy-action@v4
         with:
           branch: gh-pages
           folder: site

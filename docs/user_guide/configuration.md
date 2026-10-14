@@ -39,5 +39,5 @@ revision is available, it is recorded as unknown rather than guessed.
 
 Running from a checkout records current source details in the run itself and
 creates no source `build.json`. Studio keeps its browser compiler pins in
-`studio/compiler-pins.json` and generates separate project build details. Native
+`compiler-pins.json` in the separate Studio repository and generates separate project build details. Native
 builds and installed execution do not read Studio files.

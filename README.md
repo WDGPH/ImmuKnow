@@ -70,8 +70,8 @@ ImmuKnow Studio provides Template, Settings and Theme editing with matching
 prepared examples and retained findings. Download the complete Typst project
 to preserve source, Settings, translations and images. Font files are optional. Use a separately
 installed native engine for cohort processing. The
-[Studio guide](docs/user_guide/studio.md) covers drafts, exports and the route to
-native cohort processing. Native usage does not require Studio.
+[Studio overview](docs/user_guide/studio.md) explains the separate application
+and its connection to Core. Native usage does not require Studio.
 
 ## Call from Python
 
