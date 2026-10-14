@@ -11,13 +11,13 @@ reference, not its source workbook.
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
+from .structured_input import read_json
 
 LOG = logging.getLogger(__name__)
 
@@ -114,7 +114,7 @@ def load_mapping(
     if not reference_path.exists():
         raise FileNotFoundError(f"school reference file not found: {reference_path}")
 
-    data = json.loads(reference_path.read_text(encoding="utf-8"))
+    data = read_json(reference_path)
     if not isinstance(data, dict) or not isinstance(data.get("phus"), dict):
         raise ValueError("School reference must contain a phus mapping")
     phus: dict = data["phus"]

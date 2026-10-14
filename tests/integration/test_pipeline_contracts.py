@@ -131,7 +131,7 @@ def test_configuration_cannot_replace_the_packaged_input_contract(
     source = tmp_path / "clients.csv"
     frame.to_csv(source, index=False)
     result, _ = preprocess.prepare_clients(
-        source,
+        preprocess.read_input(source),
         tmp_path / "output",
         {},
         config_dir,
@@ -150,7 +150,7 @@ def test_configuration_cannot_replace_the_packaged_input_contract(
     frame.drop(columns="client_id").to_csv(source, index=False)
     with pytest.raises(ValueError, match="client_id"):
         preprocess.prepare_clients(
-            source,
+            preprocess.read_input(source),
             tmp_path / "output",
             {},
             config_dir,

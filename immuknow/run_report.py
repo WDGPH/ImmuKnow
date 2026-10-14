@@ -64,6 +64,8 @@ def finish_run(record: dict[str, Any], *, failed_setup: bool = False) -> None:
     )
     if failed_setup:
         record["status"] = "failed_setup"
+    elif record["input"].get("accepted") is False:
+        record["status"] = "rejected_input"
     elif any(check["status"] == "fail" for check in checks):
         record["status"] = "completed_with_failures"
     elif any(check["status"] == "warn" for check in checks):

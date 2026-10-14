@@ -53,7 +53,7 @@ class ClientRecord:
 
 @dataclass(frozen=True)
 class PreprocessResult:
-    """Prepared client list and nonfatal source warnings."""
+    """Prepared facts and all source findings, including failures that reject input."""
 
     clients: list[ClientRecord]
     warnings: list[str]

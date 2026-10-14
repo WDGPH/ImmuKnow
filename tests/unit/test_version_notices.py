@@ -139,6 +139,8 @@ def test_catalog_rejects_malformed_versions(tmp_path: Path, versions: object) ->
         ({"kind": "unknown"}, "kind"),
         ({"kind": "overdue", "requires": "unknown"}, "requires"),
         ({"kind": "overdue", "requires": ["any"]}, "requires"),
+        ({"kind": "overdue", "requires": None}, "requires"),
+        ({"kind": "overdue", "require": "any"}, "unknown fields"),
     ],
 )
 def test_catalog_rejects_invalid_rule_with_version_context(

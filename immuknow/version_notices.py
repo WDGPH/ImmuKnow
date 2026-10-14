@@ -9,7 +9,7 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import yaml
+from .structured_input import parse_yaml
 
 if TYPE_CHECKING:
     from .data_models import ClientRecord
@@ -132,10 +132,7 @@ def load_catalog(config_dir: Path) -> NoticeVersionCatalog:
     if not catalog_path.is_file():
         raise FileNotFoundError(f"Notice catalog not found: {catalog_path}")
 
-    try:
-        raw = yaml.safe_load(catalog_path.read_text(encoding="utf-8"))
-    except yaml.YAMLError as exc:
-        raise ValueError(f"notice_versions.yaml is invalid YAML: {exc}") from exc
+    raw = parse_yaml(catalog_path.read_bytes(), label=catalog_path.name)
 
     if not isinstance(raw, dict):
         raise ValueError("notice_versions.yaml must be a mapping")
@@ -154,6 +151,8 @@ def load_catalog(config_dir: Path) -> NoticeVersionCatalog:
             "notice_versions.yaml: default_version and default_language are no longer "
             "supported; select a .typ file in assignments or with --template"
         )
+    if set(raw) - {"schema_version", "versions"}:
+        raise ValueError("notice_versions.yaml contains unknown fields")
 
     raw_versions = raw.get("versions")
     if not isinstance(raw_versions, dict) or not raw_versions:
@@ -171,6 +170,10 @@ def load_catalog(config_dir: Path) -> NoticeVersionCatalog:
             raise ValueError(
                 f"notice_versions.yaml: version {version_id!r} must be a mapping"
             )
+        if set(version_data) - {"kind", "requires"}:
+            raise ValueError(
+                f"notice_versions.yaml: version {version_id!r} contains unknown fields"
+            )
         kind_raw = version_data.get("kind")
         try:
             kind = NoticeKind(kind_raw)
@@ -182,7 +185,7 @@ def load_catalog(config_dir: Path) -> NoticeVersionCatalog:
             )
 
         requires_raw = version_data.get("requires")
-        if requires_raw is None:
+        if "requires" not in version_data:
             requires = _KIND_DEFAULT_RULE[kind]
         elif not isinstance(requires_raw, str) or requires_raw not in ELIGIBILITY_RULES:
             valid_rules = ", ".join(sorted(ELIGIBILITY_RULES))

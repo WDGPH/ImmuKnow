@@ -103,3 +103,35 @@ def test_duplicate_source_ids_never_choose_a_row(tmp_path: Path):
 def test_malformed_shared_manifest_stops_setup(tmp_path: Path, rows):
     with pytest.raises(ValueError):
         load_rows(tmp_path, rows)
+
+
+def test_assignment_whitespace_matches_source_trimming_and_exposes_collisions(tmp_path):
+    (tmp_path / "custom.en.typ").write_text("letter")
+    manifest = load_rows(
+        tmp_path, [{"client_id": " 0000000001 ", "template": " custom.en.typ "}]
+    )
+    assert list(manifest) == ["0000000001"]
+    assert manifest["0000000001"].template == "custom.en.typ"
+    assert manifest["0000000001"].error is None
+    manifest = load_rows(
+        tmp_path,
+        [
+            {"client_id": " 0000000001 ", "template": "custom.en.typ"},
+            {"client_id": "0000000001", "template": "custom.en.typ"},
+        ],
+    )
+    assert manifest["0000000001"].error_kind == "ambiguous_assignment"
+
+
+def test_assignment_unknown_fields_cannot_hide_a_typo(tmp_path):
+    with pytest.raises(ValueError, match="unknown fields"):
+        load_rows(
+            tmp_path,
+            [
+                {
+                    "client_id": "0000000001",
+                    "template": "custom.en.typ",
+                    "experiment_arn": "B",
+                }
+            ],
+        )

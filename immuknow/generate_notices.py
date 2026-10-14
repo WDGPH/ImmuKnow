@@ -101,6 +101,10 @@ def prepare_render_jobs(
 
 def build_notice_data(client: ClientRecord, config: dict[str, Any]) -> dict[str, Any]:
     """Supply facts and trusted selected identity; display and QR choices belong to Typst."""
+    if client.unparsed_history:
+        raise ValueError(
+            "History contains invalid fragments; correct the source before rendering"
+        )
     return {
         "schema_version": 1,
         "row_key": client.sequence,
@@ -131,5 +135,4 @@ def build_notice_data(client: ClientRecord, config: dict[str, Any]) -> dict[str,
         "overdue_agents": client.overdue_agents,
         "history": client.history,
         "validity_coverage": client.validity_coverage,
-        "unparsed_history": client.unparsed_history,
     }

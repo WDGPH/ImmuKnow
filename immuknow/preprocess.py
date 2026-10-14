@@ -6,12 +6,14 @@ values. Python normalizes administrations; Typst chooses their presentation.
 
 from __future__ import annotations
 
+import csv
 import json
 import re
-import warnings
-from dataclasses import replace
+from collections import Counter
+from dataclasses import dataclass, replace
 from datetime import date, datetime
 from importlib.resources import files
+from io import StringIO
 from pathlib import Path
 from typing import Any, Literal
 
@@ -22,9 +24,12 @@ from . import validate_schools
 from .assignment_manifest import ManifestRow, ReconciliationResult, reconcile
 from .data_models import CheckResult, ClientRecord, PreprocessResult
 from .version_notices import NoticeVersionCatalog, attach_notice
+from .structured_input import read_json
+from .load_config import validate_dates
 
 CONFIG_DIR = Path(str(files("immuknow").joinpath("config")))
 INPUT_SCHEMA_PATH = Path(str(files("immuknow").joinpath("schemas/input_schema.json")))
+CSV_ENCODINGS = ("utf-8-sig", "cp1252", "latin-1")
 UNSPECIFIED_AGENTS = [
     "-unspecified",
     "unspecified",
@@ -35,7 +40,7 @@ UNSPECIFIED_AGENTS = [
 
 
 def prepare_clients(
-    input_path: Path,
+    raw_frame: pd.DataFrame,
     output_dir: Path,
     config: dict,
     config_dir: Path,
@@ -44,7 +49,6 @@ def prepare_clients(
     selected_notice: tuple[str, str] | None,
 ) -> tuple[PreprocessResult, ReconciliationResult]:
     """Prepare all source rows; malformed shared resources raise during setup."""
-    raw_frame = read_input(input_path)
     frame = validate_input(clean_csv_text(raw_frame))
     frame, school_warnings = run_school_validation(
         frame, output_dir, config=config, config_dir=config_dir
@@ -58,7 +62,7 @@ def prepare_clients(
             for cid in frame["client_id"]
         }
     reference = config_dir / "vaccine_reference.json"
-    vaccine_reference = json.loads(reference.read_text(encoding="utf-8"))
+    vaccine_reference = read_json(reference)
     if not isinstance(vaccine_reference, dict) or any(
         not isinstance(key, str)
         or not key
@@ -98,32 +102,84 @@ def validate_csv_path(file_path: Path) -> None:
         raise ValueError(f"Input must be a CSV file: {file_path}")
 
 
-def read_input(file_path: Path) -> pd.DataFrame:
-    """Read original strings once; trimming and validation belong to preparation."""
+def read_input(file_path: Path, *, encoding: str | None = None) -> pd.DataFrame:
+    """Read exact strings and reject damaged rows before assigning source row keys."""
     validate_csv_path(file_path)
-    for encoding in ("utf-8-sig", "latin-1", "cp1252"):
+    if encoding is not None and encoding not in CSV_ENCODINGS:
+        raise ValueError("CSV encoding must be utf-8-sig, cp1252 or latin-1")
+    content = file_path.read_bytes()
+    selected = ""
+    text = ""
+    for candidate in (encoding,) if encoding is not None else CSV_ENCODINGS:
         try:
-            # Without this guard pandas can treat an extra field as an implicit
-            # index and shift every source value beneath the wrong column.
-            with warnings.catch_warnings():
-                warnings.simplefilter("error", pd.errors.ParserWarning)
-                frame = pd.read_csv(
-                    file_path,
-                    sep=None,
-                    encoding=encoding,
-                    engine="python",
-                    dtype=str,
-                    keep_default_na=False,
-                    index_col=False,
-                )
-        except pd.errors.ParserWarning:
-            raise ValueError(
-                "CSV rows contain more fields than the header; source values would be lost"
-            ) from None
-        except (UnicodeDecodeError, pd.errors.ParserError):
+            text = content.decode(candidate)
+        except UnicodeDecodeError:
             continue
-        return frame
-    raise ValueError("Could not decode CSV with common encodings or delimiters")
+        selected = candidate
+        break
+    if not selected:
+        raise ValueError(
+            f"CSV cannot be read using {encoding}; check the file encoding"
+        )
+    controls = sorted(
+        {
+            ord(char)
+            for char in text
+            if ord(char) < 32 and char not in "\t\r\n" or 127 <= ord(char) <= 159
+        }
+    )
+    if controls:
+        raise ValueError(
+            "CSV contains unsupported control characters after reading as "
+            + selected
+            + ": "
+            + ", ".join(f"U+{code:04X}" for code in controls)
+            + ". Check the source file and its encoding."
+        )
+    first_line = next((line for line in text.splitlines() if line.strip()), "")
+    if not first_line:
+        raise ValueError("CSV is empty")
+    try:
+        dialect = (
+            csv.Sniffer().sniff(first_line, delimiters=",;\t|")
+            if any(char in first_line for char in ",;\t|")
+            else csv.excel
+        )
+        reader = csv.reader(
+            StringIO(text, newline=""),
+            delimiter=dialect.delimiter,
+            strict=True,
+            skipinitialspace=False,
+        )
+        header = next(row for row in reader if row)
+        if any(
+            not name or name != name.strip() or "\n" in name or "\r" in name
+            for name in header
+        ):
+            raise ValueError(
+                "CSV headers must be nonempty names without surrounding whitespace or line breaks"
+            )
+        duplicates = sorted(
+            name for name, count in Counter(header).items() if count > 1
+        )
+        if duplicates:
+            raise ValueError("Repeated CSV headers: " + ", ".join(duplicates))
+        rows = []
+        for row in reader:
+            if not row:
+                continue
+            if len(row) != len(header):
+                direction = "more" if len(row) > len(header) else "fewer"
+                raise ValueError(
+                    f"CSV line {reader.line_num} contains {direction} fields than the header; expected {len(header)}, found {len(row)}"
+                )
+            rows.append(row)
+    except csv.Error as exc:
+        raise ValueError(f"CSV structure is invalid: {exc}") from None
+    frame = pd.DataFrame(rows, columns=pd.Index(header), dtype=str)
+    frame.attrs["encoding"] = selected
+    frame.attrs["delimiter"] = dialect.delimiter
+    return frame
 
 
 def clean_csv_text(df: pd.DataFrame) -> pd.DataFrame:
@@ -203,25 +259,19 @@ def build_preprocess_result(
     """Prepare original-order row keys, cohort validity coverage and explicit assignments."""
     normalization_path = config_dir / "disease_normalization.json"
     normalization = load_normalization(normalization_path)
+    validate_dates(config)
     delivery = config.get("date_of_delivery") or ""
-    for field in ("date_of_delivery", "date_as_of"):
-        value = config.get(field) or ""
-        if value and (
-            not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value)
-        ):
-            raise ValueError(f"{field} must be an ISO calendar date")
-        if value:
-            date.fromisoformat(value)
     raw_rows = df.fillna("").astype(str).to_dict(orient="records")
     rows = validate_input(clean_csv_text(df)).to_dict(orient="records")
-    coverage = classify_dataset_validity(pd.Series([row["imms_given"] for row in rows]))
+    histories = [parse_history(row["imms_given"]) for row in raw_rows]
+    coverage = classify_dataset_validity(histories)
     clients: list[ClientRecord] = []
     row_checks: dict[str, list[CheckResult]] = {}
     source_rows: dict[str, dict[str, Any]] = {}
     birth_field = Schema.from_descriptor(
         json.loads(INPUT_SCHEMA_PATH.read_text())
     ).get_field("date_of_birth")
-    for index, row in enumerate(rows, 1):
+    for index, (row, parsed) in enumerate(zip(rows, histories), 1):
         key = f"row-{index:06d}"
         source_rows[key] = raw_rows[index - 1]
         checks: list[CheckResult] = []
@@ -255,13 +305,13 @@ def build_preprocess_result(
                         f"Source {field.replace('_', ' ')} is missing",
                     )
                 )
-        if row["client_id"] and not re.fullmatch(r"\d{10}", row["client_id"]):
+        if row["client_id"] and not re.fullmatch(r"[0-9]{10}", row["client_id"]):
             checks.append(
                 CheckResult(
                     "source.client_id_format",
                     "preparation",
-                    "warn",
-                    "Source client ID is not a ten-digit identifier",
+                    "fail",
+                    "Source Panorama client ID must contain ten digits (0–9)",
                 )
             )
         street = " ".join(
@@ -305,18 +355,20 @@ def build_preprocess_result(
             checks.append(
                 CheckResult("source.overdue_unusable", "preparation", "warn", warning)
             )
-        unparsed: list[str] = []
-        history = build_history_items(
-            row["imms_given"], excluded_agents, vaccine_reference, unparsed=unparsed
-        )
-        if unparsed:
+        history = build_history_items(parsed.doses, excluded_agents, vaccine_reference)
+        for issue in parsed.issues:
             checks.append(
                 CheckResult(
-                    "source.history_unparsed",
+                    "source.history_invalid",
                     "preparation",
-                    "warn",
-                    "Unusable history fragments were preserved",
+                    "fail",
+                    f"Row {index}, imms_given fragment {issue.number}: {issue.reason}. Expected 'Mon D, YYYY - Agent', optionally followed by ' - Valid' or ' - Invalid'.",
                     component="history",
+                    measurements={
+                        "column": "imms_given",
+                        "fragment_number": issue.number,
+                        "fragment": issue.fragment,
+                    },
                 )
             )
         clients.append(
@@ -345,7 +397,7 @@ def build_preprocess_result(
                 version_id=row["version_id"] or None,
                 history=history,
                 validity_coverage=coverage,
-                unparsed_history=unparsed,
+                unparsed_history=[issue.fragment for issue in parsed.issues],
             )
         )
     reconciliation = reconcile(clients, manifest, catalog)
@@ -360,7 +412,7 @@ def build_preprocess_result(
 
 def load_normalization(path: Path) -> dict[str, str]:
     """Read the selected normalization resource for one pipeline run."""
-    data = json.loads(path.read_text(encoding="utf-8"))
+    data = read_json(path)
     if not isinstance(data, dict) or any(
         not isinstance(key, str)
         or not key.strip()
@@ -475,65 +527,113 @@ def calculate_age_at_date(date_of_birth, date_of_delivery):
     return age
 
 
+@dataclass(frozen=True)
+class HistoryIssue:
+    number: int
+    fragment: str
+    reason: str
+
+
+@dataclass(frozen=True)
+class ParsedHistory:
+    doses: list[dict[str, str]]
+    issues: list[HistoryIssue]
+
+
+_HISTORY_DATE = re.compile(
+    r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) ([0-9]{1,2}), ([0-9]{4})"
+)
+_MONTHS = {
+    name: number
+    for number, name in enumerate(
+        (
+            "Jan",
+            "Feb",
+            "Mar",
+            "Apr",
+            "May",
+            "Jun",
+            "Jul",
+            "Aug",
+            "Sep",
+            "Oct",
+            "Nov",
+            "Dec",
+        ),
+        1,
+    )
+}
+
+
+def parse_history(raw: str) -> ParsedHistory:
+    """Parse each fragment once, before exclusions, and retain every syntax error."""
+    doses: list[dict[str, str]] = []
+    issues = []
+    if not raw.strip(" \t\r\n"):
+        return ParsedHistory(doses, issues)
+    for number, fragment in enumerate(raw.split(";"), 1):
+        parts = fragment.strip(" \t\r\n").split(" - ")
+        reason = ""
+        if len(parts) not in (2, 3):
+            reason = "Use one date, one agent and at most one validity status"
+        elif len(parts) == 3 and parts[2] not in ("Valid", "Invalid"):
+            reason = "Validity must be exactly Valid or Invalid"
+        elif (
+            not parts[1]
+            or parts[1] != parts[1].strip()
+            or any(char in parts[1] for char in "\r\n\t")
+            or re.search(r"\s-|-\s", parts[1])
+        ):
+            reason = (
+                "Agent must be nonempty and cannot contain an extra field separator"
+            )
+        else:
+            match = _HISTORY_DATE.fullmatch(parts[0])
+            try:
+                if match is None:
+                    raise ValueError
+                given = date(
+                    int(match[3]), _MONTHS[match[1]], int(match[2])
+                ).isoformat()
+            except ValueError:
+                reason = "Date must be a real calendar date in Mon D, YYYY form"
+        if reason:
+            issues.append(HistoryIssue(number, fragment, reason))
+            continue
+        doses.append(
+            {
+                "date_given": given,
+                "vaccine": parts[1],
+                "validity": {"Valid": "valid", "Invalid": "invalid"}[parts[2]]
+                if len(parts) == 3
+                else "unknown",
+            }
+        )
+    return ParsedHistory(sorted(doses, key=lambda item: item["date_given"]), issues)
+
+
 def classify_dataset_validity(
-    imms_given_series: pd.Series,
+    histories: list[ParsedHistory],
 ) -> Literal["all_present", "all_absent", "mixed"]:
-    """Classify all recognizable source administrations before deduplication or display."""
-    states: set[bool] = set()
-    for raw in imms_given_series:
-        for dose in parse_dose_segments(raw, []):
-            states.add(dose["validity"] != "unknown")
+    """Use all parsed administrations before exclusions or deduplication."""
+    states = {
+        dose["validity"] != "unknown" for history in histories for dose in history.doses
+    }
     if len(states) > 1:
         return "mixed"
     return "all_present" if True in states else "all_absent"
 
 
-def parse_dose_segments(
-    raw: Any, excluded_agents: list[str], *, unparsed: list[str] | None = None
-) -> list[dict[str, str]]:
-    """Parse whole fragments and preserve unusable fragments for display and review."""
-    if not isinstance(raw, str) or not raw.strip():
-        return []
-    doses: list[dict[str, str]] = []
-    pattern = re.compile(
-        r"(\w{3} \d{1,2}, \d{4}) - (.+?)(?:\s+-\s+([Vv]alid|[Ii]nvalid))?"
-    )
-    for fragment in raw.split(";"):
-        fragment = fragment.strip()
-        if not fragment:
-            continue
-        match = pattern.fullmatch(fragment)
-        try:
-            given = convert_date_iso(match[1]) if match else None
-        except ValueError:
-            given = None
-        if not match or given is None:
-            if unparsed is not None:
-                unparsed.append(fragment)
-            continue
-        agent = match[2].strip()
-        if agent in excluded_agents:
-            continue
-        doses.append(
-            {
-                "date_given": given,
-                "vaccine": agent,
-                "validity": normalize_validity_status(match[3]),
-            }
-        )
-    return sorted(doses, key=lambda item: item["date_given"])
-
-
 def build_history_items(
-    raw: Any,
+    doses: list[dict[str, str]],
     placeholder_agents: list[str],
     vaccine_reference: dict[str, Any],
-    *,
-    unparsed: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Keep full mappings; duplicates follow unknown > valid > invalid precedence."""
     grouped: dict[tuple[str, str], list[str]] = {}
-    for dose in parse_dose_segments(raw, placeholder_agents, unparsed=unparsed):
+    for dose in doses:
+        if dose["vaccine"] in placeholder_agents:
+            continue
         grouped.setdefault((dose["date_given"], dose["vaccine"]), []).append(
             dose["validity"]
         )
@@ -560,17 +660,3 @@ def build_history_items(
             }
         )
     return result
-
-
-def convert_date_iso(date_str: str) -> str:
-    """Normalize the source export's English administration date."""
-    return datetime.strptime(date_str, "%b %d, %Y").date().isoformat()
-
-
-def normalize_validity_status(raw_status: Any) -> str:
-    """Keep absent validity separate from an invalid dose."""
-    if raw_status in ("valid", "Valid"):
-        return "valid"
-    if raw_status in ("invalid", "Invalid"):
-        return "invalid"
-    return "unknown"

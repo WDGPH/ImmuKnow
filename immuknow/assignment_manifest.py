@@ -1,16 +1,17 @@
 """Read explicit assignments and reconcile each source row without choosing notices.
 
-Malformed shared JSON stops setup. Missing files and ambiguous assignments fail
-only the affected rows; unknown applicability and conflicting facts warn.
+Malformed shared JSON stops setup. Missing files and ambiguous assignments
+produce row failures that reject the input file; unknown applicability and
+conflicting facts warn.
 """
 
 from __future__ import annotations
 
 import dataclasses
-import json
 from collections import Counter
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
+from .structured_input import read_json
 
 from .version_notices import (
     NoticeVersionCatalog,
@@ -58,13 +59,22 @@ class ReconciliationResult:
 
 def load_manifest(path: Path, template_dir: Path) -> dict[str, ManifestRow]:
     """Read UTF-8 JSON; preserve duplicate assignments as ambiguous, never select one."""
-    raw = json.loads(path.read_text(encoding="utf-8"))
+    raw = read_json(path)
     if not isinstance(raw, list):
         raise ValueError("Assignment manifest must be a JSON array")
     result: dict[str, ManifestRow] = {}
     for index, item in enumerate(raw, 1):
         if not isinstance(item, dict):
             raise ValueError(f"Assignment manifest row {index} must be an object")
+        if set(item) - {
+            "client_id",
+            "template",
+            "experiment_id",
+            "experiment_arm",
+            "version_id",
+            "language",
+        }:
+            raise ValueError(f"Assignment manifest row {index} contains unknown fields")
         for field in ("client_id", "template"):
             if not isinstance(item.get(field), str) or not item[field].strip():
                 raise ValueError(
@@ -79,7 +89,7 @@ def load_manifest(path: Path, template_dir: Path) -> dict[str, ManifestRow]:
             raise ValueError(
                 "Version and language are derived from the template filename"
             )
-        client_id, template = item["client_id"], item["template"]
+        client_id, template = item["client_id"].strip(), item["template"].strip()
         error = None
         version, language = "", ""
         try:

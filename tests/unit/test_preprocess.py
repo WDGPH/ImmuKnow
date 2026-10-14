@@ -85,13 +85,90 @@ def test_every_source_row_keeps_its_key_raw_values_and_unknown_state(tmp_path: P
     assert result.clients[1].version_id is None
     assert result.clients[1].unparsed_history == [
         "unparsed history",
-        "Feb 31, 2020 - MMR",
+        " Feb 31, 2020 - MMR",
     ]
     assert any(
         c.code == "source.address_incomplete" for c in result.row_checks["row-000002"]
     )
     assert assignment.findings[0].kind == "missing_assignment"
     assert assignment.findings[0].row_key == "row-000002"
+    errors = [
+        check
+        for check in result.row_checks["row-000002"]
+        if check.code == "source.history_invalid"
+    ]
+    assert len(errors) == 2
+    assert all(check.status == "fail" for check in errors)
+
+
+@pytest.mark.parametrize(
+    "fragment",
+    [
+        "May 1, 2020 - MMR - valid",
+        "May 1, 2020 - MMR - invalid",
+        "May 1, 2020 - MMR - VALID",
+        "May 1, 2020 - MMR - INVALID",
+        "May 1, 2020 - MMR - VaLiD",
+        "May 1, 2020 - MMR - Invalid - Valid",
+        "Feb 30, 2020 - MMR - Valid",
+        "Feb 29, 2021 - MMR - Valid",
+        "May 0, 2020 - MMR",
+        "May 1, 2020 - ",
+        "May 1, 2020 - MMR - ",
+        "May 1, 2020 - MMR -Invalid",
+        "May 1, 2020 -  MMR",
+        "May 1, 2020 - MMR - Unknown",
+        "May 1, 2020 - MMR;",
+        ";May 1, 2020 - MMR",
+        "May 1, 2020 - MMR;;May 2, 2020 - MMR",
+    ],
+)
+def test_history_refuses_bad_status_dates_separators_and_empty_fragments(fragment):
+    assert preprocess.parse_history(fragment).issues
+
+
+def test_history_valid_tokens_hyphens_and_defined_whitespace_preserve_upstream_facts():
+    parsed = preprocess.parse_history(
+        "\tFeb 29, 2020 - COVID-19 mRNA - Invalid ;\n May 01, 2020 - HB-unspecified\r\n"
+    )
+    assert not parsed.issues
+    assert parsed.doses == [
+        {"date_given": "2020-02-29", "vaccine": "COVID-19 mRNA", "validity": "invalid"},
+        {
+            "date_given": "2020-05-01",
+            "vaccine": "HB-unspecified",
+            "validity": "unknown",
+        },
+    ]
+
+
+def test_history_checks_excluded_and_duplicate_entries_before_building_rows(
+    monkeypatch,
+):
+    frame = source_rows()
+    frame.loc[0, "imms_given"] = (
+        "May 1, 2020 - MMR - Valid; May 1, 2020 - MMR - INVALID; Feb 31, 2020 - Not Specified - Valid"
+    )
+    frame.loc[1, "imms_given"] = "May 1, 2020 - Not Specified"
+    parse = preprocess.parse_history
+    seen = []
+
+    def counted(raw):
+        seen.append(raw)
+        return parse(raw)
+
+    monkeypatch.setattr(preprocess, "parse_history", counted)
+    result, _ = prepare(frame)
+    assert len(seen) == len(frame)
+    errors = [
+        check
+        for check in result.row_checks["row-000001"]
+        if check.code == "source.history_invalid"
+    ]
+    assert [check.measurements["fragment_number"] for check in errors] == [2, 3]
+    assert result.clients[0].history[0]["validity"] == "valid"
+    assert result.clients[0].validity_coverage == "mixed"
+    assert not result.clients[1].history
 
 
 @pytest.mark.unit
@@ -111,7 +188,9 @@ def test_same_agent_same_date_validity_precedence(states: str, expected: str):
         for value in states.split("; ")
     )
     history = preprocess.build_history_items(
-        raw, [], {"MMR": ["Measles", "Mumps", "Rubella"]}
+        preprocess.parse_history(raw).doses,
+        [],
+        {"MMR": ["Measles", "Mumps", "Rubella"]},
     )
     assert history == [
         {
@@ -127,7 +206,9 @@ def test_same_agent_same_date_validity_precedence(states: str, expected: str):
 @pytest.mark.unit
 def test_history_keeps_complete_disease_maps_and_named_display_exclusions():
     history = preprocess.build_history_items(
-        "May 1, 2020 - HB-unspecified - Valid; May 1, 2020 - Ig; May 1, 2020 - Not Specified",
+        preprocess.parse_history(
+            "May 1, 2020 - HB-unspecified - Valid; May 1, 2020 - Ig; May 1, 2020 - Not Specified"
+        ).doses,
         preprocess.UNSPECIFIED_AGENTS,
         {"HB-unspecified": ["Hepatitis B"]},
     )
@@ -143,7 +224,7 @@ def test_validity_coverage_sees_whole_cohort_before_dedup_and_display():
     result, _ = prepare(frame)
     assert all(c.validity_coverage == "mixed" for c in result.clients)
     assert (
-        preprocess.classify_dataset_validity(pd.Series(["bad history", ""]))
+        preprocess.classify_dataset_validity([preprocess.parse_history("")])
         == "all_absent"
     )
 
@@ -194,10 +275,11 @@ def test_one_file_selector_can_render_missing_ids_without_changing_language(
 ):
     frame = source_rows()
     frame["client_id"] = ""
+    frame.loc[1, "imms_given"] = ""
     path = tmp_path / "source.csv"
     frame.to_csv(path, index=False)
     result, assignment = preprocess.prepare_clients(
-        path,
+        preprocess.read_input(path),
         tmp_path,
         {"date_of_delivery": "2026-10-12"},
         preprocess.CONFIG_DIR,
@@ -252,17 +334,75 @@ def test_extra_csv_fields_fail_without_shifting_identifiers(tmp_path: Path, deli
     assert source.read_bytes() == original
 
 
+@pytest.mark.parametrize("encoding", ["utf-8-sig", "cp1252"])
+@pytest.mark.parametrize("delimiter", [",", ";", "\t", "|"])
+def test_csv_preserves_quoted_text_windows_punctuation_and_leading_zeros(
+    tmp_path, encoding, delimiter
+):
+    path = tmp_path / "clients.csv"
+    with path.open("w", encoding=encoding, newline="") as handle:
+        writer = csv.writer(handle, delimiter=delimiter)
+        writer.writerow(
+            ["client_id", "first_name", "last_name", "street_address_line_1"]
+        )
+        writer.writerow(
+            ["0000000001", " Zoë ", "O’Neil", "12 Main St., Unit 4\nSecond line"]
+        )
+        writer.writerow(["0000000002", "NA", "NULL", ""])
+    frame = preprocess.read_input(path)
+    assert frame.attrs == {"encoding": encoding, "delimiter": delimiter}
+    assert frame.iloc[0].tolist() == [
+        "0000000001",
+        " Zoë ",
+        "O’Neil",
+        "12 Main St., Unit 4\nSecond line",
+    ]
+    assert frame.iloc[1].tolist() == ["0000000002", "NA", "NULL", ""]
+
+
+@pytest.mark.parametrize(
+    ("text", "message"),
+    [
+        ("client_id,client_id\n0000000001,0000000002\n", "Repeated CSV headers"),
+        ("client_id, first_name\n0000000001,Alice\n", "surrounding whitespace"),
+        ("client_id,\n0000000001,Alice\n", "nonempty names"),
+        ("client_id,first_name\n0000000001\n", "fewer fields"),
+        ('client_id,first_name\n0000000001,"unfinished\n', "structure is invalid"),
+        ("client_id,first_name\n0000000001,A\x00lice\n", "control characters"),
+    ],
+)
+def test_invalid_csv_cannot_silently_change_source_fields(tmp_path, text, message):
+    path = tmp_path / "clients.csv"
+    path.write_text(text)
+    with pytest.raises(ValueError, match=message):
+        preprocess.read_input(path)
+
+
+def test_explicit_encoding_is_respected_and_control_bytes_are_refused(tmp_path):
+    path = tmp_path / "clients.csv"
+    path.write_bytes("client_id,first_name\n0000000001,Zoë\n".encode("latin-1"))
+    frame = preprocess.read_input(path, encoding="latin-1")
+    assert frame.attrs["encoding"] == "latin-1"
+    assert frame.iloc[0]["first_name"] == "Zoë"
+    with pytest.raises(ValueError, match="cannot be read"):
+        preprocess.read_input(path, encoding="utf-8-sig")
+    path.write_bytes(b"client_id,first_name\n0000000001,A\x81lice\n")
+    with pytest.raises(ValueError, match="control characters"):
+        preprocess.read_input(path)
+
+
 @pytest.mark.unit
 def test_empty_agent_fragments_keep_source_warning_and_valid_independent_facts(
     tmp_path: Path,
 ):
     frame = source_rows()
     frame.loc[0, "overdue_agent"] = "\"\"; MMR; ''"
+    frame.loc[1, "imms_given"] = ""
     frame.loc[0, "overdue_disease"] = '"  "; Measles - 2'
     source = tmp_path / "clients.csv"
     frame.to_csv(source, index=False)
     result, assignment = preprocess.prepare_clients(
-        source,
+        preprocess.read_input(source),
         tmp_path,
         {},
         preprocess.CONFIG_DIR,

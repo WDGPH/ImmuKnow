@@ -529,6 +529,8 @@ def bundle_run(
     """
     if record.get("format_version") != run_report.RUN_FORMAT_VERSION:
         raise ValueError("Unsupported run format; rebundling requires format version 1")
+    if record.get("input", {}).get("accepted") is False:
+        raise ValueError("Input checks did not accept this file")
     run_dir = run_dir.resolve()
     recover_delivery(run_dir, record)
     attempt: dict[str, Any] = {

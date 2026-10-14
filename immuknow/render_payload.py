@@ -17,3 +17,5 @@ def validate_render_payload(payload: dict[str, Any]) -> None:
         .read_text(encoding="utf-8")
     )
     Draft202012Validator(schema, format_checker=FormatChecker()).validate(payload)
+    if payload["template"] != f"{payload['version_id']}.{payload['language']}.typ":
+        raise ValueError("Notice filename differs from its version or language")

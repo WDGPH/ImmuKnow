@@ -24,18 +24,56 @@ settings (`qr`, `preprocess`, `ignore_agents`, `chart_diseases_header` and
 
 ## Run options
 
+Unknown settings, repeated JSON/YAML fields and wrong value types stop the run
+before notices are generated. This also applies to settings for disabled
+features. Use YAML booleans (`true` or `false`) and numeric values directly;
+quote dates, for example `date_as_of: "2026-01-02"`. Supplied dates must be real
+`YYYY-MM-DD` dates; an empty string leaves an optional run date unset.
+YAML aliases may reuse values, but merged fields cannot overwrite other fields.
+
 | Key | Meaning |
 |---|---|
 | `date_of_delivery` | ISO date used to calculate age; absent/unusable birth dates leave age unknown |
 | `date_as_of` | ISO as-of date displayed in the letter; does not filter administrations |
 | `typst.bin` | Native compiler executable |
+| `typst.timeouts_seconds` | Per-operation native compiler deadlines; see below |
 | `encryption.enabled`, `encryption.password.template` | Optional individual PDF encryption |
 | `bundling.bundle_size`, `bundling.group_by` | Bundle size and grouping: size/null, school or board |
+| `validation.notice_length` | Optional fixed PDF page count per notice; requires `enabled: true`, a positive `count`, and `unit: pages` |
 | `school_validation.enabled` | Compare source school names with the selected reference |
 
 The [PDF validation guide](https://WDGPH.github.io/ImmuKnow/user_guide/pdf_validation/)
 describes output measurements. Run findings and output accounting are recorded
 in the authoritative `run.json`.
+
+### Native compiler deadlines
+
+Each native Typst operation has a wall-clock deadline. Defaults allow longer
+notice layout than compiler discovery and small review sheets:
+
+```yaml
+typst:
+  timeouts_seconds:
+    version: 10
+    compile: 120
+    evidence: 120
+    review: 60
+```
+
+Each value must be a number of seconds above zero and at most 86400 (one day).
+Fractional seconds are accepted. Unknown operation names, strings, booleans,
+null and nonfinite values are rejected. Omitted operations use the defaults
+defined by `CompilerTimeouts` in `immuknow/compile_notices.py`. Resolved values
+are saved in `run.json`; saved-run review uses those values as well.
+
+A version-probe timeout stops setup and preserves the source/run record. A
+notice compilation timeout fails that row, removes incomplete PDF output and
+allows independent rows to continue. An evidence timeout retains the readable
+original with failed checking, which prevents delivery. A review timeout fails
+the delivery attempt and leaves the previous committed bundle set intact.
+Inspect the recorded operation and template before increasing its limit.
+
+### School validation
 
 School validation uses `target_phu` and `reference_file` in the selected
 configuration directory. Exact, inexact and unmatched results are saved as
@@ -88,8 +126,16 @@ are `en` and `fr`. The compiler passes that trusted identity to Settings.
 The optional experiment strings are report labels. There is no automatic
 selection, translation, randomization or clinical assessment.
 
+Surrounding whitespace is trimmed from manifest client IDs and template names,
+as it is from source cells. Leading zeros remain intact. IDs that become equal
+after trimming are ambiguous. Manifest rows accept only `client_id`, `template`,
+`experiment_id` and `experiment_arm`; repeated or unknown fields are rejected.
+The notice catalog accepts `schema_version` and `versions`, with `kind` and
+optional `requires` per version. An omitted `requires` uses the kind's default;
+an explicit null or unknown rule is refused.
+
 Missing, ambiguous or unusable assignments and duplicate source client IDs
-fail their affected rows. Extra manifest rows warn. An existing custom version
+reject the complete input file before rendering. Extra manifest rows warn. An existing custom version
 without a catalog check warns with `assignment.check_unavailable`. A known
 applicability conflict or conflicting source version warns and preserves the
 explicit selection. Malformed shared JSON or configuration stops setup.
@@ -134,3 +180,10 @@ approved labels. Unknown labels remain visible. Missing selected-language
 labels produce findings when the matching component is used. See
 [template authoring](https://WDGPH.github.io/ImmuKnow/user_guide/phu_templates/)
 for Settings, components and the structural JSON contract.
+
+## Validation rules
+
+The optional `validation` section controls enabled state and warning/failure
+severity for designated layout and translation checks. See
+[rule settings](https://WDGPH.github.io/ImmuKnow/user_guide/pdf_validation/#rule-settings) for the rule list,
+row selectors and saved-run changes. Identity and required evidence stay mandatory.

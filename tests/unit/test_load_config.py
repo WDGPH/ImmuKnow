@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from immuknow.load_config import load_config, validate_config, validate_template_fields
+from immuknow.load_config import parse_config
 
 
 @pytest.mark.unit
@@ -20,6 +21,10 @@ def test_packaged_configuration_has_no_display_or_qr_options():
         }
         & config.keys()
     )
+
+
+
+
 
 
 @pytest.mark.unit
@@ -100,3 +105,58 @@ def test_enabled_school_lookup_requires_its_shared_inputs(field, value):
     school[field] = value
     with pytest.raises(ValueError, match=field):
         validate_config({"school_validation": school})
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"date_as_off": "2026-01-01"},
+        {"typst": {"timeout": 60}},
+        {"bundling": {"bundle_szie": 10}},
+        {"encryption": {"enabled": False, "pasword": {}}},
+        {"encryption": {"password": {"templat": "private-value"}}},
+        {"school_validation": {"enabled": False, "unknown": 1}},
+        {"pipeline": {"after_run": {"unknown": False}}},
+        {"pipeline": {"unknown": {}}},
+    ],
+)
+def test_unknown_settings_cannot_be_silently_ignored(config):
+    with pytest.raises(ValueError, match="Unknown"):
+        validate_config(config)
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"encryption": {"enabled": False, "password": {"template": 123}}},
+        {"school_validation": {"enabled": False, "column_prefix": False}},
+        {"school_validation": {"enabled": False, "reference_file": []}},
+        {"typst": {"font_path": []}},
+        {"typst": {"bin": " "}},
+        {"date_as_of": False},
+        {"date_as_of": None},
+        {"date_as_of": "2026-02-30"},
+        {"date_of_delivery": "20260102"},
+    ],
+)
+def test_wrong_types_and_dates_are_refused_even_when_feature_is_disabled(config):
+    with pytest.raises(ValueError):
+        validate_config(config)
+
+
+def test_parameter_errors_do_not_copy_password_values():
+    for content in (
+        "encryption:\n  password:\n    template: [PRIVATE_VALUE\n",
+        "encryption:\n  password:\n    template: PRIVATE_VALUE\n    template: OTHER_PRIVATE_VALUE\n",
+    ):
+        with pytest.raises(ValueError) as failure:
+            parse_config(content)
+        assert "PRIVATE_VALUE" not in str(failure.value)
+
+
+def test_yaml_dates_must_be_quoted_and_repeated_fields_are_rejected():
+    assert parse_config('date_as_of: "2026-01-01"')["date_as_of"] == "2026-01-01"
+    with pytest.raises(ValueError, match="quoted"):
+        parse_config("date_as_of: 2026-01-01")
+    with pytest.raises(ValueError, match="Repeated field: enabled"):
+        parse_config("encryption:\n  enabled: true\n  enabled: false")

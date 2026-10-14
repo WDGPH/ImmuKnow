@@ -14,6 +14,7 @@ from importlib.metadata import version
 from typing import Any
 
 import yaml
+import pandas as pd
 from pypdf.errors import PdfReadError
 from dataclasses import asdict
 from contextlib import contextmanager
@@ -26,7 +27,7 @@ from .assignment_manifest import (
     load_manifest,
     print_preflight_summary,
 )
-from .load_config import validate_config
+from .load_config import parse_config
 from .build_info import current_build_info
 from . import run_report
 from .version_notices import load_catalog, template_identity
@@ -75,7 +76,7 @@ must be <version_id>.<language>.typ; supported languages are en and fr.
 Extra assignments are reported and do not create clients. Warnings remain in
 the report; missing or ambiguous assignments cannot produce a selected notice.
 Known applicability conflicts warn and retain the selected notice. Malformed
-shared JSON/configuration stops setup; independent unrenderable rows fail separately.
+shared JSON/configuration stops setup; independent unclients rows fail separately.
 Each run keeps its own originals, run.json and report.html under --output.
         """,
     )
@@ -85,6 +86,7 @@ Each run keeps its own originals, run.json and report.html under --output.
         type=Path,
         help="CSV cohort path, absolute or relative to the working directory",
     )
+    parser.add_argument("--input-encoding", choices=preprocess.CSV_ENCODINGS)
     parser.add_argument(
         "--output",
         type=Path,
@@ -154,6 +156,7 @@ def run_pipeline(
     notice_template: Path | None = None,
     config_dir: Path = DEFAULT_CONFIG_DIR,
     template_dir: Path | None = None,
+    input_encoding: str | None = None,
 ) -> Path:
     """Run a cohort, retain independent results, and return its authoritative record.
 
@@ -193,7 +196,10 @@ def run_pipeline(
         "started_at": run_report.timestamp(),
         "finished_at": None,
         "status": "running",
-        "input": {"source": str(input_path)},
+        "input": {
+            "source": str(input_path),
+            "requested_encoding": input_encoding or "auto",
+        },
         "configuration": {},
         "resources": {},
         "entries": [],
@@ -213,7 +219,14 @@ def run_pipeline(
                 **record["input"],
                 **run_report.artifact_record(source_snapshot, run_dir),
             }
-            _record_source_rows(source_snapshot, record)
+            source_frame = preprocess.read_input(
+                source_snapshot, encoding=input_encoding
+            )
+            record["input"].update(
+                encoding=source_frame.attrs["encoding"],
+                delimiter=source_frame.attrs["delimiter"],
+            )
+            _record_source_rows(source_frame, record)
             run_report.write_report(run_dir, record)
             selected_notice = (
                 template_identity(notice_template) if notice_template else None
@@ -221,15 +234,7 @@ def run_pipeline(
             staged_config = run_dir / "resources" / "config"
             staged_templates = run_dir / "resources" / "templates"
             parameters = (config_dir / "parameters.yaml").read_bytes()
-            try:
-                config = yaml.safe_load(parameters)
-                if config is None:
-                    config = {}
-            except yaml.YAMLError:
-                raise ValueError(
-                    "Configuration parameters.yaml is invalid YAML"
-                ) from None
-            validate_config(config)
+            config = parse_config(parameters)
             config["creation_timestamp"] = int(
                 datetime.fromisoformat(record["started_at"]).timestamp()
             )
@@ -299,7 +304,7 @@ def run_pipeline(
 
             # Preserve every row and its explicit assignment before rendering.
             prepared_result, reconciliation = preprocess.prepare_clients(
-                source_snapshot,
+                source_frame,
                 run_dir / "work",
                 config,
                 staged_config,
@@ -321,7 +326,6 @@ def run_pipeline(
                 raise ValueError(
                     "Preparation must account for every source row exactly once"
                 )
-            renderable = []
             for client in clients:
                 entry = by_row[client.sequence]
                 entry["facts"] = {"prepared": asdict(client)}
@@ -335,19 +339,37 @@ def run_pipeline(
                         language=client.language,
                         template=f"{client.version_id}.{client.language}.typ",
                     )
-                if any(check["status"] == "fail" for check in entry["checks"]):
-                    entry["original"]["status"] = "failed"
-                else:
-                    renderable.append(client)
+            failed_rows = [
+                entry["row_key"]
+                for entry in record["entries"]
+                if any(check["status"] == "fail" for check in entry["checks"])
+            ]
+            record["input"]["accepted"] = not (
+                failed_rows
+                or any(check["status"] == "fail" for check in record["checks"])
+            )
+            if not record["input"]["accepted"]:
+                run_report.add_check(
+                    record,
+                    "input.rejected",
+                    "preparation",
+                    "fail",
+                    f"Input file rejected: {len(failed_rows)} source rows failed checks. Correct the reported problems and run again. No notices were generated.",
+                    measurements={"failed_rows": failed_rows},
+                )
+                run_report.finish_run(record)
+                result = run_report.write_report(run_dir, record)
+                print(f"Input file rejected. Report: {run_dir / 'report.html'}")
+                return result
             setup_complete = True
             run_report.write_report(run_dir, record)
 
             # Write factual inputs once. Invalid internal structures are programming
             # failures, not source warnings to turn into plausible-looking notices.
-            jobs = generate_notices.prepare_render_jobs(renderable, run_dir, config)
-            compile_notices.check_expected_notices(renderable, jobs)
+            jobs = generate_notices.prepare_render_jobs(clients, run_dir, config)
+            compile_notices.check_expected_notices(clients, jobs)
             successful_clients, successful_jobs = [], []
-            for client, job in zip(renderable, jobs):
+            for client, job in zip(clients, jobs):
                 entry = by_row[client.sequence]
                 entry["facts"].update(run_report.artifact_record(job.data, run_dir))
                 entry["assignment"]["sha256"] = sha256(
@@ -355,9 +377,7 @@ def run_pipeline(
                 ).hexdigest()
                 summary = None
                 try:
-                    diagnostics = compile_notices.compile_render_job(
-                        job, typst_bin
-                    )
+                    diagnostics = compile_notices.compile_render_job(job, typst_bin)
                     entry["checks"].extend(check.to_dict() for check in diagnostics)
                     run_report.add_check(
                         entry,
@@ -367,9 +387,7 @@ def run_pipeline(
                         "Original PDF produced",
                     )
                     try:
-                        summary = compile_notices.evaluate_render_job(
-                            job, typst_bin
-                        )
+                        summary = compile_notices.evaluate_render_job(job, typst_bin)
                         entry["render_summary"] = summary
                         entry["qr_urls"] = summary["qr_urls"]
                         for check in summary["checks"]:
@@ -474,9 +492,8 @@ def run_pipeline(
             raise
 
 
-def _record_source_rows(source: Path, record: dict[str, Any]) -> None:
+def _record_source_rows(frame: pd.DataFrame, record: dict[str, Any]) -> None:
     """Capture unvalidated values and row keys before preparation can sort them."""
-    frame = preprocess.read_input(source)
     for number, values in enumerate(frame.to_dict(orient="records"), start=1):
         record["entries"].append(
             {
@@ -532,10 +549,14 @@ def main() -> int:
             template_dir=args.template_dir,
             notice_assignments=args.notice_assignments,
             notice_template=args.notice_template,
+            input_encoding=args.input_encoding,
         )
         record = json.loads(completed.read_text(encoding="utf-8"))
         return (
-            1 if record["status"] in {"failed_setup", "completed_with_failures"} else 0
+            1
+            if record["status"]
+            in {"failed_setup", "rejected_input", "completed_with_failures"}
+            else 0
         )
     except Exception as exc:
         print(f"Error: {exc}", file=sys.stderr)

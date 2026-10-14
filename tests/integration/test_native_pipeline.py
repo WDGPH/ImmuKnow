@@ -106,5 +106,6 @@ def test_cli_invalid_filename_retains_prior_runs_and_accounts_for_failed_row(
         c["code"] == "assignment.missing_template" and c["status"] == "fail"
         for c in entry["checks"]
     )
-    assert entry["original"]["status"] == "failed"
+    assert record["status"] == "rejected_input"
+    assert entry["original"]["status"] == "not_run"
     assert not list(output.rglob("*.pdf"))

@@ -18,8 +18,7 @@
     "row_key",
     "template",
     "school",
-    "board",
-    "unparsed_history"
+    "board"
   ],
   "properties": {
     "schema_version": {
@@ -253,12 +252,6 @@
         "id": {
           "type": "string"
         }
-      }
-    },
-    "unparsed_history": {
-      "type": "array",
-      "items": {
-        "type": "string"
       }
     }
   },

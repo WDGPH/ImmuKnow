@@ -56,7 +56,6 @@ def compile_package(tmp_path: Path, body: str) -> tuple[dict, PdfReader]:
             for validity in ("valid", "invalid", "unknown")
         ],
         "validity_coverage": "mixed",
-        "unparsed_history": ["broken fragment & raw 50%"],
     }
     (tmp_path / "data.json").write_text(json.dumps(notice))
     source = tmp_path / "notice.typ"
@@ -196,7 +195,6 @@ def test_placed_history_and_qr_share_honest_evidence(
             "Valid dose",
             "Invalid dose",
             "Validity unknown",
-            "broken fragment & raw 50%",
         ):
             assert expected in text
     else:

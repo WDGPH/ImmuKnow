@@ -5,12 +5,12 @@ configuration file across all pipeline scripts.
 """
 
 from importlib.resources import files
+from datetime import date
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from .bundle_pdfs import BundleGrouping
+from .structured_input import parse_yaml
 from .client_placeholders import (
     CLIENT_PLACEHOLDERS,
     extract_template_fields,
@@ -45,10 +45,8 @@ def load_config(config_path: Path | None = None) -> dict[str, Any]:
     ------
     FileNotFoundError
         If the configuration file does not exist.
-    yaml.YAMLError
-        If the configuration file is invalid YAML.
     ValueError
-        If the configuration fails validation (see validate_config).
+        If YAML is malformed or configuration fails validation.
     """
     if config_path is None:
         config_path = DEFAULT_CONFIG_PATH
@@ -58,10 +56,13 @@ def load_config(config_path: Path | None = None) -> dict[str, Any]:
     if not config_path.exists():
         raise FileNotFoundError(f"Configuration file not found: {config_path}")
 
-    with config_path.open("r", encoding="utf-8") as f:
-        raw = yaml.safe_load(f)
-        config = {} if raw is None else raw
+    return parse_config(config_path.read_bytes())
 
+
+def parse_config(content: str | bytes) -> dict[str, Any]:
+    """Validate the same parameter bytes that are saved with the run."""
+    raw = parse_yaml(content, label="parameters.yaml")
+    config = {} if raw is None else raw
     validate_config(config)
     return config
 
@@ -137,6 +138,32 @@ def validate_template_fields(
     )
 
 
+def _fields(value: dict, allowed: set[str], label: str) -> None:
+    if any(not isinstance(key, str) for key in value):
+        raise ValueError(f"{label} field names must be strings")
+    unknown = value.keys() - allowed
+    if unknown:
+        raise ValueError(f"Unknown {label} fields: {', '.join(sorted(unknown))}")
+
+
+def validate_dates(config: dict[str, Any]) -> None:
+    """Require supplied run dates to be exact calendar-date strings."""
+    for name in ("date_as_of", "date_of_delivery"):
+        if name not in config:
+            continue
+        value = config[name]
+        if not isinstance(value, str):
+            raise ValueError(
+                f"{name} must be a quoted YYYY-MM-DD date or an empty string"
+            )
+        if value:
+            try:
+                if date.fromisoformat(value).isoformat() != value:
+                    raise ValueError
+            except ValueError:
+                raise ValueError(f"{name} must be a real YYYY-MM-DD date") from None
+
+
 def validate_config(config: dict[str, Any]) -> None:
     """Reject malformed run settings and retired display or destructive cleanup options."""
     if not isinstance(config, dict):
@@ -158,28 +185,56 @@ def validate_config(config: dict[str, Any]) -> None:
             + ". Put display and QR options in the authored Settings file."
         )
 
+    _fields(
+        config,
+        {
+            "date_as_of",
+            "date_of_delivery",
+            "typst",
+            "bundling",
+            "encryption",
+            "school_validation",
+            "pipeline",
+            "validation",
+        },
+        "configuration",
+    )
+    validate_dates(config)
+
     for section in ("typst", "bundling", "encryption", "school_validation", "pipeline"):
         if section in config and not isinstance(config[section], dict):
             raise ValueError(f"{section} must be a mapping")
+    for section, fields in {
+        "typst": {"bin", "timeouts_seconds"},
+        "bundling": {"bundle_size", "group_by"},
+        "encryption": {"enabled", "password"},
+        "school_validation": {
+            "enabled",
+            "reference_file",
+            "target_phu",
+            "column_prefix",
+        },
+        "pipeline": {"after_run"},
+    }.items():
+        _fields(config.get(section, {}), fields, section)
     encryption = config.get("encryption", {})
     if "password" in encryption and not isinstance(encryption["password"], dict):
         raise ValueError("encryption.password must be a mapping")
+    _fields(encryption.get("password", {}), {"template"}, "encryption.password")
     pipeline = config.get("pipeline", {})
-    if "before_run" in pipeline:
-        raise ValueError("pipeline.before_run is retired; previous runs are retained")
     after_run = pipeline.get("after_run", {})
     if not isinstance(after_run, dict):
         raise ValueError("pipeline.after_run must be a mapping")
-    if "remove_unencrypted_pdfs" in after_run:
-        raise ValueError(
-            "remove_unencrypted_pdfs is retired; original PDFs are retained"
-        )
+    _fields(after_run, {"remove_artifacts"}, "pipeline.after_run")
     if not isinstance(after_run.get("remove_artifacts", False), bool):
         raise ValueError("pipeline.after_run.remove_artifacts must be a boolean")
     for section in ("encryption", "school_validation"):
         if type(config.get(section, {}).get("enabled", False)) is not bool:
             raise ValueError(f"{section}.enabled must be a boolean")
     school = config.get("school_validation", {})
+    for name in ("reference_file", "target_phu", "column_prefix"):
+        if name in school and not isinstance(school[name], str):
+            raise ValueError(f"school_validation.{name} must be a string")
     if school.get("enabled", False):
         for field in ("reference_file", "target_phu"):
             value = school.get(field)
@@ -187,16 +242,12 @@ def validate_config(config: dict[str, Any]) -> None:
                 raise ValueError(
                     f"school_validation.{field} must be a nonempty string when enabled"
                 )
-    if "unmatched_behavior" in school:
-        raise ValueError(
-            "school_validation.unmatched_behavior is retired; unmatched rows warn and remain"
-        )
 
     # Validate Typst config
     typst_config = config.get("typst", {})
     typst_bin = typst_config.get("bin", "typst")
-    if not isinstance(typst_bin, str):
-        raise ValueError(f"typst.bin must be a string, got {type(typst_bin).__name__}")
+    if not isinstance(typst_bin, str) or not typst_bin.strip():
+        raise ValueError("typst.bin must be a nonempty string")
 
     # Validate Bundling config
     bundling_config = config.get("bundling", {})
@@ -215,21 +266,18 @@ def validate_config(config: dict[str, Any]) -> None:
     encryption_config = config.get("encryption", {})
     encryption_enabled = encryption_config.get("enabled", False)
 
-    if encryption_enabled:
-        password_config = encryption_config.get("password", {})
-        password_template = password_config.get("template")
-        if not password_template:
-            raise ValueError(
-                "Encryption is enabled but encryption.password.template is not specified. "
-                "Please define encryption.password.template in config/parameters.yaml "
-                "or set encryption.enabled to false."
-            )
+    password_config = encryption_config.get("password", {})
+    if encryption_enabled and "template" not in password_config:
+        raise ValueError(
+            "Encryption is enabled but encryption.password.template is not specified. "
+            "Please define encryption.password.template in config/parameters.yaml "
+            "or set encryption.enabled to false."
+        )
 
-        if not isinstance(password_template, str):
-            raise ValueError(
-                f"encryption.password.template must be a string, "
-                f"got {type(password_template).__name__}"
-            )
+    if "template" in password_config:
+        password_template = password_config["template"]
+        if not isinstance(password_template, str) or not password_template:
+            raise ValueError("encryption.password.template must be a nonempty string")
 
         # Validate template placeholders against allowed fields
         validate_template_fields(

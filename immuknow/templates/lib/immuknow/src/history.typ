@@ -56,7 +56,7 @@
   show-validity: false, omit-invalid: false, show-age: false, age-width: 64pt, min-rows: 5, font-size: 11pt,
   date-width: 75pt, disease-width: 12pt, agent-width: 1fr,
   inset: (x: 1pt, y: 2pt), stroke: 0.5pt, language: auto, labels: none,
-  heading-size: auto, indicator-font: "FreeMono", indicator-size: auto, indicator-offset: (x: 0pt, y: 0pt),
+  heading-size: auto, indicator-font: "FreeSans", indicator-size: auto, indicator-offset: (x: 0pt, y: 0pt),
 ) = {
   let lang = if language == auto { notice.language } else { language }
   let headings = table-labels(lang)
@@ -94,13 +94,12 @@
   let footer(body) = table.cell(colspan: count, stroke: none, align: left, body)
   set text(size: font-size, lang: lang, region: "CA")
   context {
-    component("history", measurements: (administrations: notice.history.len(), displayed_rows: view.rows.len(), unparsed_entries: notice.unparsed_history.len(), page: here().page()))
+    component("history", measurements: (administrations: notice.history.len(), displayed_rows: view.rows.len(), page: here().page()))
     if show-validity {
       let complete = notice.validity_coverage == "all_present" and notice.history.all(item => item.validity != "unknown")
       check("content.history_validity", if complete { "pass" } else { "warn" }, if complete { "Administration validity is known." } else { "Validity is mixed or unknown; unknown administrations have a distinct mark." }, component: "history", page: here().page())
     }
     if show-age and notice.client_data.date_of_birth_iso == "" { check("content.history_age_unknown", "warn", "Birth date is unknown; vaccination ages are unavailable.", component: "history", page: here().page()) }
-    if notice.unparsed_history.len() > 0 { check("content.history_unparsed", "warn", "Unparsed history entries are displayed below the table.", component: "history", page: here().page(), measurements: (unparsed_entries: notice.unparsed_history.len())) }
   }
   layout(size => {
     if type(date-width) == length and type(disease-width) == length {
@@ -124,10 +123,4 @@
     ..if view.show-validity { (footer(grid(columns: (disease-width, 1fr), gutter: 4pt, align: (center + horizon, left + horizon), indicator("unknown"), headings.unknown)),) } else { () },
     )
   })
-  if notice.unparsed_history.len() > 0 {
-    block[
-      #strong(if lang == "fr" { "Entrées non interprétées" } else { "Unparsed entries" })
-      #for entry in notice.unparsed_history [#linebreak()#entry]
-    ]
-  }
 }

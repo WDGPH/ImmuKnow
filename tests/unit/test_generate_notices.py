@@ -51,7 +51,9 @@ def test_staged_resources_and_facts_use_row_keys_not_client_ids(tmp_path: Path):
 
 @pytest.mark.unit
 def test_payload_is_structural_and_keeps_unknown_age():
-    prepared, _ = prepare(source_rows())
+    frame = source_rows()
+    frame.loc[1, "imms_given"] = ""
+    prepared, _ = prepare(frame)
     from dataclasses import replace
 
     client = replace(prepared.clients[1], version_id="custom", language="en")
@@ -59,10 +61,16 @@ def test_payload_is_structural_and_keeps_unknown_age():
     validate_render_payload(payload)
     assert payload["client_data"]["age"] is None
     assert payload["client_data"]["over_16"] is None
-    assert payload["unparsed_history"] == ["unparsed history", "Feb 31, 2020 - MMR"]
+    assert "unparsed_history" not in payload
     payload["history"] = [{"date_given": "not a date"}]
     with pytest.raises(ValidationError):
         validate_render_payload(payload)
+
+
+def test_bad_history_cannot_be_passed_to_rendering_directly():
+    prepared, _ = prepare(source_rows())
+    with pytest.raises(ValueError, match="History contains invalid fragments"):
+        build_notice_data(prepared.clients[1], {})
 
 
 @pytest.mark.unit

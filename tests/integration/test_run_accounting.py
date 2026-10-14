@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import shutil
+import subprocess
+import sys
 from hashlib import sha256
 from pathlib import Path
 
@@ -17,6 +19,129 @@ from tests.fixtures.sample_input import create_test_input_dataframe
 
 ROOT = Path(__file__).resolve().parents[2]
 pytestmark = pytest.mark.integration
+
+
+@pytest.mark.parametrize(
+    "filename,content,expected",
+    [
+        (
+            "parameters.yaml",
+            "encryption:\n  enabled: true\n  enabled: false\n",
+            "Repeated field",
+        ),
+        (
+            "parameters.yaml",
+            "bundling:\n  bundle_szie: 20\n",
+            "Unknown bundling fields",
+        ),
+        (
+            "notice_versions.yaml",
+            "schema_version: 1\nversions:\n  v1: {kind: overdue}\n  v1: {kind: informational}\n",
+            "Repeated field",
+        ),
+        (
+            "vaccine_reference.json",
+            '{"MMR":["Measles"],"MMR":["Mumps"]}',
+            "Repeated field",
+        ),
+        (
+            "disease_normalization.json",
+            '{"measles":"Measles","measles":"Mumps"}',
+            "Repeated field",
+        ),
+        (
+            "school_reference.json",
+            '{"phus":{"Example PHU":{"SCHOOL":"001","SCHOOL":"002"}}}',
+            "Repeated field",
+        ),
+        (
+            "assignments.json",
+            '[{"client_id":"0000000001","client_id":"0000000002","template":"overdue_agents_v1.en.typ"}]',
+            "Repeated field",
+        ),
+    ],
+)
+def test_ambiguous_shared_files_stop_before_notices_and_save_source_rows(
+    tmp_path, filename, content, expected
+):
+    source, config, templates, assignments = prepare_inputs(tmp_path)
+    target = assignments if filename == "assignments.json" else config / filename
+    if filename == "school_reference.json":
+        parameters = yaml.safe_load((config / "parameters.yaml").read_text())
+        parameters["school_validation"].update(enabled=True, target_phu="Example PHU")
+        (config / "parameters.yaml").write_text(yaml.safe_dump(parameters))
+    target.write_text(content)
+    with pytest.raises(ValueError, match=expected):
+        run_pipeline(
+            source,
+            tmp_path / "runs",
+            config_dir=config,
+            template_dir=templates,
+            notice_assignments=assignments,
+        )
+    (saved,) = (tmp_path / "runs").glob("*/run.json")
+    record = json.loads(saved.read_text())
+    assert record["status"] == "failed_setup"
+    assert len(record["entries"]) == 2
+    assert all(entry["original"]["status"] == "not_run" for entry in record["entries"])
+    assert not record["delivery_attempts"]
+    assert not list((saved.parent / "originals").glob("*.pdf"))
+    assert any(expected in check["message"] for check in record["checks"])
+
+
+def test_csv_rejection_retains_source_without_starting_notices(tmp_path):
+    source = tmp_path / "clients.csv"
+    content = b"client_id,client_id\n0000000001,0000000002\n"
+    source.write_bytes(content)
+    with pytest.raises(ValueError, match="Repeated CSV headers"):
+        run_pipeline(
+            source,
+            tmp_path / "runs",
+            notice_template=ROOT / "immuknow/templates/overdue_diseases_v1.en.typ",
+        )
+    (saved,) = (tmp_path / "runs").glob("*/run.json")
+    record = json.loads(saved.read_text())
+    assert record["status"] == "failed_setup"
+    assert (saved.parent / record["input"]["path"]).read_bytes() == content
+    assert record["entries"] == []
+    assert record["delivery_attempts"] == []
+    assert not list(saved.parent.rglob("*.pdf"))
+
+
+def test_cli_csv_encoding_is_recorded_and_windows_punctuation_reaches_pdf(tmp_path):
+    source, config, templates, _ = prepare_inputs(tmp_path)
+    source.write_bytes(source.read_text().replace("Alpha", "D’Angelo").encode("cp1252"))
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "immuknow.orchestrator",
+            str(source),
+            "--input-encoding",
+            "cp1252",
+            "--config",
+            str(config),
+            "--template",
+            str(templates / "overdue_agents_v1.en.typ"),
+            "--output",
+            str(tmp_path / "runs"),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    (saved,) = (tmp_path / "runs").glob("*/run.json")
+    record = json.loads(saved.read_text())
+    assert record["input"]["requested_encoding"] == "cp1252"
+    assert record["input"]["encoding"] == "cp1252"
+    entry = record["entries"][1]
+    assert entry["source"]["values"]["last_name"] == "D’Angelo"
+    assert entry["client_id"] == "0000000002"
+    text = " ".join(
+        page.extract_text()
+        for page in PdfReader(saved.parent / entry["original"]["path"]).pages
+    )
+    assert "D’Angelo" in text
 
 
 def prepare_inputs(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
@@ -123,9 +248,7 @@ def test_broken_notice_retains_other_original_and_reports_partial_run(
     frame.loc[0, "date_of_birth"] = "unusable date"
     frame.loc[0, "province"] = "Québec"
     frame.loc[0, "overdue_agent"] = ""
-    frame.loc[0, "imms_given"] = (
-        "May 01, 2020 - MMR - Valid; Jun 15, 2021 - IPV; unparsed fragment 50% & raw"
-    )
+    frame.loc[0, "imms_given"] = "May 01, 2020 - MMR - Valid; Jun 15, 2021 - IPV"
     without_evidence = extra.copy()
     without_evidence["client_id"] = "0000000004"
     pd.concat(
@@ -193,7 +316,6 @@ def test_broken_notice_retains_other_original_and_reports_partial_run(
     assert {
         "source.address_incomplete",
         "source.age_unknown",
-        "source.history_unparsed",
         "assignment.eligibility_conflict",
         "content.history_validity",
         "delivery.encryption_failed",
@@ -210,7 +332,6 @@ def test_broken_notice_retains_other_original_and_reports_partial_run(
             record_path.parent / warning_entry["original"]["path"]
         ).pages
     )
-    assert "unparsed fragment 50% & raw" in text
     assert "Québec" in text
     explicit = record["entries"][2]
     assert explicit["assignment"]["template"] == "affirmative_schedule_v1.en.typ"
@@ -218,6 +339,44 @@ def test_broken_notice_retains_other_original_and_reports_partial_run(
         check["code"] == "assignment.eligibility_conflict" and check["status"] == "warn"
         for check in explicit["checks"]
     )
+
+
+@pytest.mark.parametrize("history", ["omitted", "displayed", "no_evidence", "failed"])
+def test_bad_history_rejects_input_before_any_template_is_rendered(
+    tmp_path: Path, history: str
+) -> None:
+    source, config, templates, _ = prepare_inputs(tmp_path)
+    frame = pd.read_csv(source, dtype=str, keep_default_na=False).iloc[:1]
+    fragment = "unusable history fragment"
+    frame.loc[0, "imms_given"] += "; " + fragment
+    frame.to_csv(source, index=False)
+    template = templates / "suspension_order_v1.en.typ"
+    if history == "displayed":
+        template.write_text(
+            template.read_text() + "\n#pagebreak()\n#immunization-history()\n"
+        )
+    elif history == "no_evidence":
+        template.write_text(
+            '#let notice = json(sys.inputs.at("data"))\n'
+            "Suspension order. Client ID: #notice.client_id\n"
+        )
+    elif history == "failed":
+        template.write_text(template.read_text() + '\n#panic("failed preview")\n')
+
+    record_path = run_pipeline(
+        source, tmp_path / "runs", config_dir=config, notice_template=template
+    )
+    record = json.loads(record_path.read_text())
+    assert record["status"] == "rejected_input"
+    (entry,) = record["entries"]
+    (check,) = [
+        check for check in entry["checks"] if check["code"] == "source.history_invalid"
+    ]
+    assert check["status"] == "fail"
+    assert fragment in check["measurements"]["fragment"]
+    assert entry["original"]["status"] == "not_run"
+    assert not record["delivery_attempts"]
+    assert not list(record_path.parent.rglob("*.pdf"))
 
 
 def test_setup_failure_preserves_all_source_rows_in_report(tmp_path: Path) -> None:
