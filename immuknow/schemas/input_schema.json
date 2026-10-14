@@ -2,7 +2,7 @@
   "$schema": "https://datapackage.org/profiles/2.0/tableschema.json",
   "title": "input_schema",
   "description": "Required input contract for the ImmuKnow notice pipeline.",
-  "fieldsMatch": ["subset"],
+  "fieldsMatch": "subset",
   "fields": [
     {
       "name": "school_name",
