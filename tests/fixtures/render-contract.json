@@ -192,6 +192,25 @@
         }
       },
       {
+        "code": "layout.client_details_in_window",
+        "stage": "render",
+        "status": "pass",
+        "message": "Client details stay outside the envelope window.",
+        "component": "client",
+        "page": 1,
+        "measurements": {
+          "x_pt": 398.0,
+          "y_pt": 131.0,
+          "width_pt": 133.59,
+          "height_pt": 34.87,
+          "window_x_pt": 63.0,
+          "window_y_pt": 120.0,
+          "window_width_pt": 324.0,
+          "window_height_pt": 81.0,
+          "window_padding_pt": 11.0
+        }
+      },
+      {
         "code": "layout.signature_page",
         "stage": "render",
         "status": "pass",
@@ -273,6 +292,14 @@
         "status": "not_applicable",
         "message": "Component was not used.",
         "component": "overdue_agents"
+      },
+      {
+        "code": "layout.envelope_window_missing",
+        "stage": "render",
+        "status": "pass",
+        "component": "address",
+        "page": 1,
+        "message": "An envelope window was specified."
       }
     ],
     "qr_urls": [
@@ -645,7 +672,7 @@
           "target": "report",
           "path": [
             "checks",
-            3,
+            4,
             "stage"
           ],
           "value": "output"
@@ -660,7 +687,7 @@
           "target": "report",
           "path": [
             "checks",
-            3,
+            4,
             "component"
           ],
           "value": "client"
@@ -675,7 +702,7 @@
           "target": "report",
           "path": [
             "checks",
-            3,
+            4,
             "page"
           ],
           "value": 3
@@ -690,7 +717,7 @@
           "target": "report",
           "path": [
             "checks",
-            3,
+            4,
             "code"
           ],
           "value": "layout.unknown"
@@ -705,7 +732,7 @@
           "target": "report",
           "path": [
             "checks",
-            3,
+            4,
             "page"
           ],
           "remove": true
@@ -720,7 +747,7 @@
           "target": "report",
           "path": [
             "checks",
-            3,
+            4,
             "measurements",
             "first_page"
           ],
@@ -752,7 +779,7 @@
           "target": "report",
           "path": [
             "checks",
-            8,
+            9,
             "status"
           ],
           "value": "pass"
@@ -767,7 +794,7 @@
           "target": "report",
           "path": [
             "checks",
-            8
+            9
           ],
           "remove": true
         }

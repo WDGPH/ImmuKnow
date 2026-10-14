@@ -80,7 +80,12 @@
 #let client-block(notice, window: envelope-preset, font-size: 10pt, min-font-size: 10pt,
   addressee: auto, province: auto, id-label: auto, school-label: auto, show-birth-date: true,
   show-school: true, details: "right", spacing: 0pt, border: none) = {
-  check-window(window)
+  let has-window = window != none
+  if has-window { check-window(window) }
+  let area = if has-window { window } else { envelope-preset }
+  let window-bounds = if has-window {
+    (window_x_pt: area.x.pt(), window_y_pt: area.y.pt(), window_width_pt: area.width.pt(), window_height_pt: area.height.pt(), window_padding_pt: area.padding.pt())
+  } else { (:) }
   assert(font-size >= min-font-size, message: "Client font is below the declared readable minimum")
   assert(details in ("right", "below"), message: "Client details placement must be right or below")
   set text(size: font-size)
@@ -105,32 +110,43 @@
     #block(width: 0pt, height: 0pt, above: 0pt, below: 0pt)[#metadata(none) <immuknow-client-origin>]
     #context {
     let origin = query(selector(<immuknow-client-origin>).before(here())).last().location().position()
-    let dx = calc.max(0pt, window.x - origin.x)
-    let dy = calc.max(0pt, window.y - origin.y)
-    let size = measure(address.body, width: window.width - 2 * window.padding)
-    let bottom-padding = calc.max(window.padding, window.height - size.height - window.padding)
+    let dx = calc.max(0pt, area.x - origin.x)
+    let dy = calc.max(0pt, area.y - origin.y)
+    let size = measure(address.body, width: area.width - 2 * area.padding)
+    let bottom-padding = calc.max(area.padding, area.height - size.height - area.padding)
     v(dy)
     pad(left: dx)[#grid(
-      columns: if details == "right" { (window.width, 1fr) } else { (1fr,) }, gutter: spacing,
-      block(width: window.width, inset: (top: window.padding, left: window.padding, right: window.padding, bottom: bottom-padding), stroke: border)[#context {
+      columns: if details == "right" { (area.width, 1fr) } else { (1fr,) }, gutter: spacing,
+      block(width: area.width, inset: (top: area.padding, left: area.padding, right: area.padding, bottom: bottom-padding), stroke: border)[#context {
         let position = here().position()
         let bounds = (x_pt: position.x.pt(), y_pt: position.y.pt(), width_pt: size.width.pt(), height_pt: size.height.pt(), page: position.page,
-          window_x_pt: window.x.pt(), window_y_pt: window.y.pt(), window_width_pt: window.width.pt(), window_height_pt: window.height.pt(), window_padding_pt: window.padding.pt())
-        let overflow = (left_pt: calc.max(0pt, window.x + window.padding - position.x).pt(), top_pt: calc.max(0pt, window.y + window.padding - position.y).pt(),
-          right_pt: calc.max(0pt, position.x + size.width - (window.x + window.width - window.padding)).pt(),
-          bottom_pt: calc.max(0pt, position.y + size.height - (window.y + window.height - window.padding)).pt())
-        let fits = position.page == 1 and overflow.values().all(value => value <= 0.1)
+          ..window-bounds)
+        let overflow = if has-window { (left_pt: calc.max(0pt, area.x + area.padding - position.x).pt(), top_pt: calc.max(0pt, area.y + area.padding - position.y).pt(),
+          right_pt: calc.max(0pt, position.x + size.width - (area.x + area.width - area.padding)).pt(),
+          bottom_pt: calc.max(0pt, position.y + size.height - (area.y + area.height - area.padding)).pt()) } else { (:) }
+        let fits = has-window and position.page == 1 and overflow.values().all(value => value <= 0.1)
         component("address", notice: notice, measurements: (..bounds, text: address.text))
-        check("layout.address_outside_window", if fits { "pass" } else { "warn" }, if fits { "Address fits the envelope safe area." } else { "Address extends outside the envelope safe area." }, component: "address", page: position.page, measurements: (: ..bounds, ..overflow))
+        check("layout.address_outside_window",
+          if not has-window { "not_applicable" } else if fits { "pass" } else { "warn" },
+          if not has-window { "No envelope window was specified." } else if fits { "Address fits the envelope safe area." } else { "Address extends outside the envelope safe area." },
+          component: "address", page: position.page, measurements: (: ..bounds, ..overflow))
         if client.over_16 == none and addressee == auto { check("content.address_age_unknown", "warn", "Recipient age is unknown; a neutral addressee is used.", component: "address", page: position.page) }
         address.body
       }],
-      block(inset: window.padding)[#layout(available => context {
+      block(inset: area.padding)[#layout(available => context {
         let position = here().position()
         let size = measure(info, width: available.width)
         component("client", notice: notice, measurements: (
           page: position.page, x_pt: position.x.pt(), y_pt: position.y.pt(),
           width_pt: size.width.pt(), height_pt: size.height.pt(), text: info-text))
+        let overlaps = has-window and (position.x < area.x + area.width - 0.1pt and position.x + size.width > area.x + 0.1pt and
+          position.y < area.y + area.height - 0.1pt and position.y + size.height > area.y + 0.1pt)
+        check("layout.client_details_in_window",
+          if not has-window or position.page != 1 { "not_applicable" } else if overlaps { "warn" } else { "pass" },
+          if not has-window { "No envelope window was specified." } else if position.page != 1 { "The envelope window applies to the first page." } else if overlaps { "Client details extend into the envelope window." } else { "Client details stay outside the envelope window." },
+          component: "client", page: position.page,
+          measurements: (x_pt: position.x.pt(), y_pt: position.y.pt(), width_pt: size.width.pt(), height_pt: size.height.pt(),
+            ..window-bounds))
         if show-birth-date and client.date_of_birth_iso == "" { check("content.birth_date_unknown", "warn", "Birth date is unknown.", component: "client", page: here().page()) }
         info
       })],

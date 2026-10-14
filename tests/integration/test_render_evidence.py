@@ -38,8 +38,113 @@ def test_custom_labels_and_repeated_client_blocks_match_the_pdf(tmp_path, langua
     assert "Identifiant du client:" not in reader.pages[0].extract_text()
     assert len(summary["measurements"]["client"]) == 2
     assert len(summary["measurements"]["address"]) == 3
+    assert [
+        c["status"]
+        for c in summary["checks"]
+        if c["code"] == "layout.client_details_in_window"
+    ] == ["pass", "not_applicable"]
+    assert [
+        c["status"]
+        for c in summary["checks"]
+        if c["code"] == "layout.envelope_window_missing"
+    ] == ["pass"]
     _, checks = inspect_notice(job, tmp_path, summary)
     assert all(check.status == "pass" for check in checks)
+
+
+@pytest.mark.parametrize(
+    "version,language",
+    [
+        ("overdue_diseases_v1", "en"),
+        ("overdue_diseases_v1", "fr"),
+        ("overdue_agents_v1", "en"),
+        ("overdue_agents_v1", "fr"),
+        ("affirmative_schedule_v1", "en"),
+        ("suspension_order_v1", "en"),
+    ],
+)
+def test_unspecified_window_warns_without_claiming_a_fit(tmp_path, version, language):
+    job, _ = prepare_case(tmp_path, version=version, language=language)
+    settings = job.template.parent / "settings.typ"
+    settings.write_text(
+        "\n".join(
+            "#let envelope-window = none"
+            if line.startswith("#let envelope-window =")
+            else line
+            for line in settings.read_text().splitlines()
+        )
+        + "\n"
+    )
+    summary, _ = compile_case(job)
+    assert [
+        c["status"]
+        for c in summary["checks"]
+        if c["code"] == "layout.envelope_window_missing"
+    ] == ["warn"]
+    for code in ("layout.address_outside_window", "layout.client_details_in_window"):
+        assert [c["status"] for c in summary["checks"] if c["code"] == code] == [
+            "not_applicable"
+        ]
+    assert all(
+        not any(key.startswith("window_") for key in area)
+        for area in summary["measurements"]["address"]
+    )
+    original, checks = inspect_notice(job, tmp_path, summary)
+    assert original["status"] == "completed"
+    assert all(c.status in ("pass", "not_applicable") for c in checks)
+
+
+@pytest.mark.parametrize(
+    "body,warning",
+    [("#immuknow.address-block(notice)", True), ("General information.", False)],
+)
+def test_window_warning_depends_on_placed_addresses(tmp_path, body, warning):
+    job, _ = prepare_case(tmp_path)
+    job.template.write_text('#import "settings.typ": *\n#show: notice-style\n' + body)
+    summary, _ = compile_case(job)
+    assert [
+        c["status"]
+        for c in summary["checks"]
+        if c["code"] == "layout.envelope_window_missing"
+    ] == (["warn"] if warning else [])
+
+
+@pytest.mark.parametrize("language", ["en", "fr"])
+@pytest.mark.parametrize(
+    "placement,spacing", [("right", 0), ("right", -80), ("below", 0), ("below", -30)]
+)
+def test_client_details_overlap_is_reported_from_the_placed_pdf(
+    tmp_path, language, placement, spacing
+):
+    job, payload = prepare_case(tmp_path, language=language)
+    job.template.write_text(
+        '#import "settings.typ": *\n#show: notice-style\n'
+        f'#immuknow.client-block(notice, details: "{placement}", spacing: {spacing}pt, '
+        "window: (x: 63pt, y: 120pt, width: 324pt, height: 81pt, padding: 11pt))"
+    )
+    summary, _ = compile_case(job)
+    check = next(
+        c for c in summary["checks"] if c["code"] == "layout.client_details_in_window"
+    )
+    assert check["status"] == ("warn" if spacing < 0 else "pass")
+    assert (
+        next(
+            c for c in summary["checks"] if c["code"] == "layout.address_outside_window"
+        )["status"]
+        == "pass"
+    )
+    assert len(summary["measurements"]["client"]) == 1
+    with pymupdf.open(job.pdf) as pdf:
+        private_text = pdf[0].search_for(job.client_id) + pdf[0].search_for(
+            payload["client_data"]["school"]
+        )
+        assert private_text
+        assert any(
+            pymupdf.Rect(63, 120, 387, 201).intersects(rect) for rect in private_text
+        ) == (spacing < 0)
+    original, checks = inspect_notice(job, tmp_path, summary)
+    assert original["status"] == "completed"
+    assert all(c.status in ("pass", "not_applicable") for c in checks)
 
 
 @pytest.mark.parametrize("replacement", ["", "9999999999", "00000000010"])

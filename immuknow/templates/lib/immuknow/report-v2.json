@@ -772,6 +772,24 @@
               "x-components": [
                 "section"
               ]
+            },
+            {
+              "const": "layout.client_details_in_window",
+              "description": "Client details stay outside the envelope window",
+              "x-evaluator": "Typst client",
+              "x-adjustable": true,
+              "x-components": [
+                "client"
+              ]
+            },
+            {
+              "const": "layout.envelope_window_missing",
+              "description": "A placed address has a specified envelope window",
+              "x-evaluator": "Typst report",
+              "x-adjustable": true,
+              "x-components": [
+                "address"
+              ]
             }
           ]
         },

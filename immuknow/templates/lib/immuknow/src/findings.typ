@@ -36,6 +36,13 @@
       }))
     }
   }
+  if components.address {
+    let addresses = measurements.address
+    let defined = addresses.any(area => "window_width_pt" in area)
+    checks.push((code: "layout.envelope_window_missing", stage: "render",
+      status: if defined { "pass" } else { "warn" }, component: "address", page: addresses.first().page,
+      message: if defined { "An envelope window was specified." } else { "No envelope window was specified; address placement could not be checked." }))
+  }
   [#metadata((
     schema_version: report-schema.properties.schema_version.const,
     notice: notice,

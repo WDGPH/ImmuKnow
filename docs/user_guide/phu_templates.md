@@ -123,6 +123,10 @@ Pass the complete, unchanged `notice` to address, history, overdue-list and QR h
 Their placed content records the source row and client ID. Mixing helpers from
 different rows fails the report check, even when the external ID is blank.
 Use `address-block(notice)` when only the mailing address is needed.
+Use `window: none` on `client-block`, or set `envelope-window = none` in Settings,
+when no envelope window is specified. The client block uses its default layout;
+fit and overlap checks are not applicable. A notice with addresses but no
+specified window warns. This also covers notices using only `address-block`.
 Address blocks stay on one page. The `addressee` and `province` options accept
 plain text. Python checks the mailing name and address in each block against
 the PDF, allowing changes in spaces and line breaks.

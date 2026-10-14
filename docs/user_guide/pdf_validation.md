@@ -74,12 +74,20 @@ or `severity: fail`, for a run or an explicitly selected source row.
 | Check | Rule code |
 | --- | --- |
 | Address fits the envelope window | `layout.address_outside_window` |
+| An envelope window is specified for the address | `layout.envelope_window_missing` |
+| Client details stay outside the envelope window | `layout.client_details_in_window` |
 | Signature stays with preceding content | `layout.signature_page` |
 | Privacy text stays on its expected page | `layout.privacy_page` |
 | Section stays within its page boundary | `layout.section_pages` |
 | History columns have enough width | `layout.history_width` |
 | Title fits its line limit | `layout.header_title_lines` |
 | Placed content has a translation | `content.translation_missing` |
+
+The client-details check compares the supplied block's bounds with the window
+on the first page, for both right and below placement. It does not check other
+content placed elsewhere by the author.
+If addresses are placed without any specified window, a separate warning is
+recorded. Fit and overlap are not reported as passing for an unspecified window.
 
 Set rules in `parameters.yaml`. Every change needs a reason:
 

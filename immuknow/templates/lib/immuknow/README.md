@@ -27,6 +27,9 @@ display-default adapter or separate layout-settings file.
   source row, value and measured area for checking against the PDF text.
   The source province is the default. Unknown age uses a neutral addressee;
   unknown birth dates remain blank and produce a warning when displayed.
+  It warns if the client-details area enters the first-page envelope window.
+  `window: none` keeps the default block layout without claiming window fit.
+  A notice with addresses but no specified window produces a warning.
 - `address-block(notice)` places an address on its own and records the source
   row, text and measured area, just as the full client block does. Addresses
   stay on one page; `addressee` and `province` options accept plain text.

@@ -16,7 +16,7 @@
 // #let envelope-window = (x: 1.75cm, y: 165.1pt, width: 100mm, height: 45mm, padding: 11pt) // DL
 // #let envelope-window = (x: 1.75cm, y: 165.1pt, width: 90mm, height: 45mm, padding: 11pt) // C5
 
-#let suspension-window = (..envelope-window, y: 135pt) // Room for the order title and legal subtitle
+#let suspension-window = if envelope-window == none { none } else { (..envelope-window, y: 135pt) } // Room for the order title and legal subtitle
 
 #let client-details = "right" // Client details beside the address; "below" places them underneath
 

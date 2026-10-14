@@ -223,6 +223,35 @@ def test_encryption_failure_does_not_invalidate_print_original():
     )
 
 
+@pytest.mark.parametrize(
+    "change,status",
+    [({}, "warn"), ({"severity": "fail"}, "fail"), ({"enabled": False}, "not_run")],
+)
+@pytest.mark.parametrize(
+    "code",
+    [
+        "layout.client_details_in_window",
+        "layout.envelope_window_missing",
+    ],
+)
+def test_destination_and_window_warnings_can_be_configured(change, status, code):
+    record, entry = evidence()
+    entry["checks"][-1] = {
+        "code": code,
+        "stage": "output" if code.startswith("output.") else "render",
+        "status": "warn",
+        "message": "Check the placed content.",
+    }
+    policy = (
+        {"rules": {code: {**change, "reason": "Local notice requirements"}}}
+        if change
+        else {}
+    )
+    settings = validation_policy.resolve_policy(policy, record)[entry["row_key"]]
+    result = evaluate_original(record, entry, entry["checks"], settings)
+    assert result.results[-1]["status"] == status
+
+
 def test_rule_precedence_and_each_field_reason():
     record, entry = evidence()
     entry["client_id"] = "0000000001"
