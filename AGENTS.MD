@@ -55,7 +55,10 @@ only known usable PDFs with unique membership; never reuse stale outputs.
 Recoverable quality problems warn and retain the row. Invalid history, identifier
 collisions and missing or ambiguous assignments reject the whole input before
 rendering. History is parsed once with exact `Valid`/`Invalid` tokens; all source
-fragments are checked before exclusions. Render
+fragments are checked before exclusions. Use the existing vaccine lookup to
+check that forecasted agents cover the overdue diseases. Missing coverage rejects
+the cohort; additional coverage warns. Flag exact nonblank ID collisions as
+errors. Demographic duplicate matching and duplicate remediation are out of scope. Render
 checks come from placed Typst metadata. Missing evidence keeps a readable PDF
 with a failed mandatory evidence check.
 Read shared JSON/YAML through `structured_input.py`; reject repeated fields,

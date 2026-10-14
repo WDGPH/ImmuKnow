@@ -38,6 +38,7 @@ def test_saved_run_review_and_rebundle_journey(tmp_path: Path) -> None:
     (config / "parameters.yaml").write_text(yaml.safe_dump(parameters))
     frame = create_test_input_dataframe(num_clients=3)
     frame["overdue_disease"] = "Measles - 2"
+    frame["overdue_agent"] = "M"
     frame["school_id"] = ["school-a", "", "school-a"]
     frame.loc[1, "date_of_birth"] = ""
     source = tmp_path / "clients.csv"
@@ -315,6 +316,7 @@ def test_saved_rule_changes_recheck_originals_and_preserve_earlier_results(tmp_p
     source = tmp_path / "clients.csv"
     frame = create_test_input_dataframe(num_clients=1)
     frame["overdue_disease"] = "Measles - 2"
+    frame["overdue_agent"] = "M"
     frame.to_csv(source, index=False)
     saved = run_pipeline(
         source,

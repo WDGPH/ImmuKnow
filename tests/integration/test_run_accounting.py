@@ -255,7 +255,6 @@ def test_broken_notice_retains_other_original_and_reports_partial_run(
     frame.loc[0, "street_address_line_1"] = ""
     frame.loc[0, "date_of_birth"] = "unusable date"
     frame.loc[0, "province"] = "Québec"
-    frame.loc[0, "overdue_agent"] = ""
     frame.loc[0, "imms_given"] = "May 01, 2020 - MMR - Valid; Jun 15, 2021 - IPV"
     without_evidence = extra.copy()
     without_evidence["client_id"] = "0000000004"
@@ -324,7 +323,6 @@ def test_broken_notice_retains_other_original_and_reports_partial_run(
     assert {
         "source.address_incomplete",
         "source.age_unknown",
-        "assignment.eligibility_conflict",
         "content.history_validity",
     } <= codes
     facts = json.loads(
@@ -548,3 +546,108 @@ def test_setup_failure_preserves_all_source_rows_in_report(tmp_path: Path) -> No
     assert all(entry["original"]["status"] == "not_run" for entry in record["entries"])
     assert not record["delivery_attempts"]
     assert (record_path.parent / "report.html").is_file()
+
+
+@pytest.mark.parametrize(
+    "diseases,agents,status,missing,extra,unmapped",
+    [
+        ("Measles; Mumps; Rubella", "MMR", "pass", [], [], []),
+        ("Measles", "MMR", "warn", [], ["Mumps", "Rubella"], []),
+        ("Measles; Polio", "IPV", "fail", ["Measles"], [], []),
+        ("Polio", "MMR", "fail", ["Polio"], ["Measles", "Mumps", "Rubella"], []),
+        ("Measles", "Unlisted agent", "fail", ["Measles"], [], ["Unlisted agent"]),
+        (
+            "Measles; Mumps; Rubella",
+            "MMR; Unlisted agent",
+            "warn",
+            [],
+            [],
+            ["Unlisted agent"],
+        ),
+        ("Poliomyelitis - 2", "IPV", "pass", [], [], []),
+        ("", "", "not_applicable", [], [], []),
+        ("", "MMR", "warn", [], ["Measles", "Mumps", "Rubella"], []),
+    ],
+)
+def test_forecast_agents_must_cover_overdue_diseases_before_notices(
+    tmp_path, diseases, agents, status, missing, extra, unmapped
+):
+    source, config, templates, assignments = prepare_inputs(tmp_path)
+    frame = pd.read_csv(source, dtype=str, keep_default_na=False)
+    frame.loc[0, "overdue_disease"] = diseases
+    frame.loc[0, "overdue_agent"] = agents
+    frame.to_csv(source, index=False)
+    if not diseases and not agents:
+        manifest = json.loads(assignments.read_text())
+        manifest[0]["template"] = "affirmative_schedule_v1.en.typ"
+        assignments.write_text(json.dumps(manifest))
+    saved = run_pipeline(
+        source,
+        tmp_path / "runs",
+        config_dir=config,
+        template_dir=templates,
+        notice_assignments=assignments,
+    )
+    record = json.loads(saved.read_text())
+    assert len(record["entries"]) == 2
+    first, second = record["entries"]
+    check = next(c for c in first["checks"] if c["code"] == "data.forecast_coverage")
+    assert check["status"] == status
+    assert check["measurements"] == {
+        "missing_diseases": missing,
+        "extra_diseases": extra,
+        "unmapped_agents": unmapped,
+    }
+    assert first["source"]["values"]["overdue_disease"] == diseases
+    assert first["source"]["values"]["overdue_agent"] == agents
+    assert (
+        next(c for c in second["checks"] if c["code"] == "data.forecast_coverage")[
+            "status"
+        ]
+        == "pass"
+    )
+    assert record["input"]["accepted"] == (status != "fail")
+    if status == "fail":
+        assert all(
+            entry["original"]["status"] == "not_run" for entry in record["entries"]
+        )
+        assert not record["delivery_attempts"]
+        assert not list((saved.parent / "originals").glob("*.pdf"))
+        assert not list((saved.parent / "encrypted").glob("*.pdf"))
+    else:
+        assert all(
+            entry["original"]["status"] == "completed" for entry in record["entries"]
+        )
+        assert first["routing"]["destination"] == "review"
+        warnings = first["routing"]["unresolved_warnings"]
+        assert any(code.startswith("content.multiple_links:") for code in warnings)
+        assert any(code.startswith("data.forecast_coverage:") for code in warnings) == (
+            status == "warn"
+        )
+
+
+def test_forecast_coverage_uses_the_selected_lookup_string_values(tmp_path):
+    source, config, templates, assignments = prepare_inputs(tmp_path)
+    frame = pd.read_csv(source, dtype=str, keep_default_na=False)
+    frame.loc[0, "overdue_disease"] = "Measles"
+    frame.to_csv(source, index=False)
+    reference = config / "vaccine_reference.json"
+    lookup = json.loads(reference.read_text())
+    lookup["MMR"] = "Measles"
+    reference.write_text(json.dumps(lookup))
+    saved = run_pipeline(
+        source,
+        tmp_path / "runs",
+        config_dir=config,
+        template_dir=templates,
+        notice_assignments=assignments,
+    )
+    first = json.loads(saved.read_text())["entries"][0]
+    check = next(c for c in first["checks"] if c["code"] == "data.forecast_coverage")
+    assert check["status"] == "pass"
+    assert check["measurements"] == {
+        "missing_diseases": [],
+        "extra_diseases": [],
+        "unmapped_agents": [],
+    }
+    assert first["original"]["status"] == "completed"

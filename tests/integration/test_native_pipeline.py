@@ -34,6 +34,7 @@ def prepare_cohort(
     config_path.write_text(yaml.safe_dump(config))
     frame = create_test_input_dataframe(num_clients=len(languages))
     frame["overdue_disease"] = "Measles - 2"
+    frame["overdue_agent"] = "M"
     source = tmp_path / "Élèves synthétiques.csv"
     frame.to_csv(source, index=False)
     assignments = tmp_path / "Assignments.json"

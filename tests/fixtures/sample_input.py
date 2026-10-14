@@ -1,4 +1,4 @@
-"""Synthetic source rows and prepared clients for pipeline tests."""
+"""Example source rows and prepared clients for pipeline tests."""
 
 from __future__ import annotations
 
@@ -77,17 +77,17 @@ def create_test_input_dataframe(
         ],
         "overdue_disease": (
             [
-                "Measles/Mumps/Rubella",
+                "Measles; Mumps; Rubella",
                 "Haemophilus influenzae infection, invasive",
-                "Diphtheria/Tetanus/Pertussis",
+                "Diphtheria; Tetanus; Pertussis",
                 "Polio",
-                "Pneumococcal infection, invasive",
+                "Pneumococcal",
             ][:num_clients]
             if include_overdue
             else [""] * num_clients
         ),
         "overdue_agent": (
-            ["MMR", "Hib", "DTaP", "IPV", "PCV13"][:num_clients]
+            ["MMR", "Hib", "DTaP", "IPV", "Pneu-C-13"][:num_clients]
             if include_overdue
             else [""] * num_clients
         ),

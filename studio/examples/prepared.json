@@ -270,10 +270,70 @@
         }
       },
       "preparationChecks": {
-        "overdue_diseases_v1.en.typ": [],
-        "overdue_diseases_v1.fr.typ": [],
-        "overdue_agents_v1.en.typ": [],
-        "overdue_agents_v1.fr.typ": []
+        "overdue_diseases_v1.en.typ": [
+          {
+            "code": "data.forecast_coverage",
+            "stage": "preparation",
+            "status": "warn",
+            "message": "Forecasted agents cover the overdue diseases, but add other diseases or include an agent absent from the lookup.",
+            "measurements": {
+              "missing_diseases": [],
+              "extra_diseases": [
+                "Mumps",
+                "Rubella"
+              ],
+              "unmapped_agents": []
+            }
+          }
+        ],
+        "overdue_diseases_v1.fr.typ": [
+          {
+            "code": "data.forecast_coverage",
+            "stage": "preparation",
+            "status": "warn",
+            "message": "Forecasted agents cover the overdue diseases, but add other diseases or include an agent absent from the lookup.",
+            "measurements": {
+              "missing_diseases": [],
+              "extra_diseases": [
+                "Mumps",
+                "Rubella"
+              ],
+              "unmapped_agents": []
+            }
+          }
+        ],
+        "overdue_agents_v1.en.typ": [
+          {
+            "code": "data.forecast_coverage",
+            "stage": "preparation",
+            "status": "warn",
+            "message": "Forecasted agents cover the overdue diseases, but add other diseases or include an agent absent from the lookup.",
+            "measurements": {
+              "missing_diseases": [],
+              "extra_diseases": [
+                "Mumps",
+                "Rubella"
+              ],
+              "unmapped_agents": []
+            }
+          }
+        ],
+        "overdue_agents_v1.fr.typ": [
+          {
+            "code": "data.forecast_coverage",
+            "stage": "preparation",
+            "status": "warn",
+            "message": "Forecasted agents cover the overdue diseases, but add other diseases or include an agent absent from the lookup.",
+            "measurements": {
+              "missing_diseases": [],
+              "extra_diseases": [
+                "Mumps",
+                "Rubella"
+              ],
+              "unmapped_agents": []
+            }
+          }
+        ]
       },
       "inputs": {
         "overdue_diseases_v1.en.typ": {
@@ -1835,8 +1895,38 @@
         }
       },
       "preparationChecks": {
-        "overdue_diseases_v1.en.typ": [],
-        "overdue_diseases_v1.fr.typ": []
+        "overdue_diseases_v1.en.typ": [
+          {
+            "code": "data.forecast_coverage",
+            "stage": "preparation",
+            "status": "warn",
+            "message": "Forecasted agents cover the overdue diseases, but add other diseases or include an agent absent from the lookup.",
+            "measurements": {
+              "missing_diseases": [],
+              "extra_diseases": [
+                "Mumps",
+                "Rubella"
+              ],
+              "unmapped_agents": []
+            }
+          }
+        ],
+        "overdue_diseases_v1.fr.typ": [
+          {
+            "code": "data.forecast_coverage",
+            "stage": "preparation",
+            "status": "warn",
+            "message": "Forecasted agents cover the overdue diseases, but add other diseases or include an agent absent from the lookup.",
+            "measurements": {
+              "missing_diseases": [],
+              "extra_diseases": [
+                "Mumps",
+                "Rubella"
+              ],
+              "unmapped_agents": []
+            }
+          }
+        ]
       },
       "inputs": {
         "overdue_diseases_v1.en.typ": {
@@ -1890,7 +1980,9 @@
               "dose": 2
             }
           ],
-          "overdue_agents": [],
+          "overdue_agents": [
+            "MMR"
+          ],
           "history": [
             {
               "date_given": "2020-05-01",
@@ -1951,7 +2043,9 @@
               "dose": 2
             }
           ],
-          "overdue_agents": [],
+          "overdue_agents": [
+            "MMR"
+          ],
           "history": [
             {
               "date_given": "2020-05-01",
@@ -2012,7 +2106,9 @@
               "dose": 2
             }
           ],
-          "overdue_agents": [],
+          "overdue_agents": [
+            "MMR"
+          ],
           "history": [
             {
               "date_given": "2020-05-01",
@@ -2052,6 +2148,20 @@
             "stage": "preparation",
             "status": "warn",
             "message": "Age is unknown; source birth date or delivery date is absent or unusable"
+          },
+          {
+            "code": "data.forecast_coverage",
+            "stage": "preparation",
+            "status": "warn",
+            "message": "Forecasted agents cover the overdue diseases, but add other diseases or include an agent absent from the lookup.",
+            "measurements": {
+              "missing_diseases": [],
+              "extra_diseases": [
+                "Mumps",
+                "Rubella"
+              ],
+              "unmapped_agents": []
+            }
           }
         ],
         "overdue_agents_v1.fr.typ": [
@@ -2069,10 +2179,18 @@
             "message": "Age is unknown; source birth date or delivery date is absent or unusable"
           },
           {
-            "code": "assignment.eligibility_conflict",
-            "stage": "assignment",
+            "code": "data.forecast_coverage",
+            "stage": "preparation",
             "status": "warn",
-            "message": "Eligibility conflict for client 0000000003: assigned notice version 'overdue_agents_v1' (rule: 'has_overdue_agents') but client does not satisfy it. Confirm the explicit assignment or correct the supplied immunization facts."
+            "message": "Forecasted agents cover the overdue diseases, but add other diseases or include an agent absent from the lookup.",
+            "measurements": {
+              "missing_diseases": [],
+              "extra_diseases": [
+                "Mumps",
+                "Rubella"
+              ],
+              "unmapped_agents": []
+            }
           }
         ],
         "affirmative_schedule_v1.en.typ": [
@@ -2088,6 +2206,20 @@
             "stage": "preparation",
             "status": "warn",
             "message": "Age is unknown; source birth date or delivery date is absent or unusable"
+          },
+          {
+            "code": "data.forecast_coverage",
+            "stage": "preparation",
+            "status": "warn",
+            "message": "Forecasted agents cover the overdue diseases, but add other diseases or include an agent absent from the lookup.",
+            "measurements": {
+              "missing_diseases": [],
+              "extra_diseases": [
+                "Mumps",
+                "Rubella"
+              ],
+              "unmapped_agents": []
+            }
           },
           {
             "code": "assignment.eligibility_conflict",
@@ -2177,7 +2309,19 @@
         }
       },
       "preparationChecks": {
-        "affirmative_schedule_v1.en.typ": []
+        "affirmative_schedule_v1.en.typ": [
+          {
+            "code": "data.forecast_coverage",
+            "stage": "preparation",
+            "status": "not_applicable",
+            "message": "No overdue diseases or forecasted agents were supplied.",
+            "measurements": {
+              "missing_diseases": [],
+              "extra_diseases": [],
+              "unmapped_agents": []
+            }
+          }
+        ]
       },
       "inputs": {
         "affirmative_schedule_v1.en.typ": {
@@ -2256,7 +2400,22 @@
         }
       },
       "preparationChecks": {
-        "suspension_order_v1.en.typ": []
+        "suspension_order_v1.en.typ": [
+          {
+            "code": "data.forecast_coverage",
+            "stage": "preparation",
+            "status": "warn",
+            "message": "Forecasted agents cover the overdue diseases, but add other diseases or include an agent absent from the lookup.",
+            "measurements": {
+              "missing_diseases": [],
+              "extra_diseases": [
+                "Mumps",
+                "Rubella"
+              ],
+              "unmapped_agents": []
+            }
+          }
+        ]
       },
       "inputs": {
         "suspension_order_v1.en.typ": {

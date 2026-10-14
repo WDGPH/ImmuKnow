@@ -50,6 +50,12 @@ Blank cells stay blank; literal `NA`, `nan`, and `NULL` stay as text. Unknown
 birth dates produce unknown ages, not an assumed age group. Incomplete mailing
 addresses remain in the cohort with warnings. Normalized history retains all
 disease mappings.
+Forecasted agents must cover every overdue disease using the selected
+`vaccine_reference.json` and disease-name normalization. Missing coverage rejects
+the cohort before notices are generated, even when other diseases are also
+covered. Additional coverage warns. Unlisted agents do not count toward coverage;
+they warn when the known agents already cover the overdue set. Details are saved
+with each source row in `run.json`.
 The packaged input schema defines the columns and cannot be replaced through
 `--config`.
 

@@ -19,7 +19,7 @@ from .data_models import CheckResult
 from .render_contract import report_schema
 from .structured_input import read_json
 
-POLICY_VERSION = 18
+POLICY_VERSION = 19
 
 
 @dataclass(frozen=True)
@@ -159,6 +159,11 @@ RULES = {
             "assignment.extra_manifest_row",
             "Manifest rows occur in the source",
             "assignment_manifest",
+        ),
+        RuleDefinition(
+            "data.forecast_coverage",
+            "Forecasted agents cover the overdue disease set",
+            "preprocess",
         ),
         RuleDefinition(
             "data.school_match",

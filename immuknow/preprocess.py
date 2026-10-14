@@ -384,6 +384,47 @@ def build_preprocess_result(
             checks.append(
                 CheckResult("source.overdue_unusable", "preparation", "warn", warning)
             )
+        required = {str(entry["disease"]) for entry in overdue}
+        covered: set[str] = set()
+        unmapped = []
+        for agent in overdue_agents:
+            if agent not in vaccine_reference:
+                unmapped.append(agent)
+                continue
+            diseases = vaccine_reference[agent]
+            for disease in diseases if isinstance(diseases, list) else [diseases]:
+                covered.add(normalize_disease(disease, normalization))
+        missing, extra = required - covered, covered - required
+        if missing:
+            status, message = (
+                "fail",
+                "Forecasted agents do not cover every overdue disease. Correct the forecast or its lookup.",
+            )
+        elif extra or unmapped:
+            status, message = (
+                "warn",
+                "Forecasted agents cover the overdue diseases, but add other diseases or include an agent absent from the lookup.",
+            )
+        elif required or overdue_agents:
+            status, message = "pass", "Forecasted agents cover all overdue diseases."
+        else:
+            status, message = (
+                "not_applicable",
+                "No overdue diseases or forecasted agents were supplied.",
+            )
+        checks.append(
+            CheckResult(
+                "data.forecast_coverage",
+                "preparation",
+                status,
+                message,
+                measurements={
+                    "missing_diseases": sorted(missing),
+                    "extra_diseases": sorted(extra),
+                    "unmapped_agents": sorted(set(unmapped)),
+                },
+            )
+        )
         history = build_history_items(parsed.doses, excluded_agents, vaccine_reference)
         for issue in parsed.issues:
             checks.append(

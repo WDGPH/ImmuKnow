@@ -34,7 +34,9 @@ addresses and schools match the selected language. Switching examples never
 changes a client's clinical facts or invents a missing language variant.
 
 Findings combine source-preparation warnings, compiler diagnostics and placed
-Typst checks. Examples contain valid source history. Invalid history rejects a
+Typst checks. Extra diseases covered by a forecasted agent are a warning;
+they do not stop the preview. For example, MMR also covers Mumps and Rubella
+when only Measles is overdue. Examples contain valid source history. Invalid history rejects a
 native input file before rendering, even if a template omits the history table.
 Display checks, such as unknown dose validity, follow the components actually placed.
 Expand **Measurements** for layout details. Long content stays

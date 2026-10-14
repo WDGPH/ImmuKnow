@@ -30,6 +30,7 @@ def prepare_inputs(tmp_path):
     source = tmp_path / "clients.csv"
     frame = create_test_input_dataframe(num_clients=1)
     frame["overdue_disease"] = "Measles - 2"
+    frame["overdue_agent"] = "M"
     frame.to_csv(source, index=False)
     return source, config, ROOT / "immuknow/templates/overdue_diseases_v1.en.typ"
 

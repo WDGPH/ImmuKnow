@@ -46,6 +46,7 @@ def saved_run(tmp_path):
     )
     frame = create_test_input_dataframe(num_clients=3)
     frame["overdue_disease"] = "Measles - 2"
+    frame["overdue_agent"] = "M"
     source = tmp_path / "clients.csv"
     frame.to_csv(source, index=False)
     return run_pipeline(
