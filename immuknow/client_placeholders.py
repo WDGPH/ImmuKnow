@@ -1,4 +1,4 @@
-"""Validate QR/password placeholders and build values from a resolved client."""
+"""Validate password placeholders and build values from a resolved client."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from typing import Any
 
 from .data_models import ClientRecord
 
-# Names allowed inside {...} in configured QR links and PDF passwords.
+# Names allowed inside {...} in configured PDF passwords.
 # build_client_context supplies their values from one prepared client record.
 # Checking this list at configuration load catches typos before processing clients;
 # it does not define fields available to the Typst notice templates.
@@ -57,7 +57,7 @@ def extract_template_fields(template: str) -> set[str]:
     Parameters
     ----------
     template : str
-        Format string like "https://example.com?id={client_id}&dob={date_of_birth_iso}"
+        Format string like "{client_id}_{date_of_birth_iso}"
 
     Returns
     -------
@@ -80,8 +80,10 @@ def extract_template_fields(template: str) -> set[str]:
             for _, field_name, _, _ in _FORMATTER.parse(template)
             if field_name
         }
-    except ValueError as exc:
-        raise ValueError(f"Invalid template format: {exc}") from exc
+    except ValueError:
+        raise ValueError(
+            "Invalid template format; check braces and formatting"
+        ) from None
 
 
 def validate_and_format_template(
@@ -140,29 +142,29 @@ def validate_and_format_template(
     # Check for missing placeholders in context
     unknown_fields = placeholders - context.keys()
     if unknown_fields:
-        raise KeyError(
-            f"Unknown placeholder(s) {sorted(unknown_fields)} in template. "
-            f"Available: {sorted(context.keys())}"
-        )
+        raise KeyError("Unknown placeholder; check supported password fields")
 
     # Check for disallowed placeholders (if whitelist provided)
     if allowed_fields is not None:
         disallowed = placeholders - allowed_fields
         if disallowed:
-            raise ValueError(
-                f"Disallowed placeholder(s) {sorted(disallowed)} in template. "
-                f"Allowed: {sorted(allowed_fields)}"
-            )
+            raise ValueError("Disallowed placeholder; check supported password fields")
 
-    return template.format(**context)
+    try:
+        return template.format(**context)
+    except (ValueError, KeyError, IndexError):
+        # Formatter exceptions can echo a secret format specifier or source value.
+        raise ValueError(
+            "Invalid password template formatting; check fields, conversions and format specifiers"
+        ) from None
 
 
 def build_client_context(client: ClientRecord) -> dict[str, str]:
-    """Build stable QR/password values from one resolved client record."""
+    """Build stable password values from one resolved client record."""
     person = client.person
     contact = client.contact
 
-    # QR and password dates are stable ISO values, independent of PDF presentation.
+    # Password dates are stable ISO values, independent of PDF presentation.
     dob_iso = person.get("date_of_birth_iso", "")
 
     # Extract name components (from authoritative first/last fields)

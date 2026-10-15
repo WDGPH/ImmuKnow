@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 
 @dataclass(frozen=True)
@@ -24,6 +23,7 @@ class RenderJob:
     template: Path
     data: Path
     pdf: Path
+    creation_timestamp: int = 0
 
 
 @dataclass(frozen=True)
@@ -44,18 +44,21 @@ class ClientRecord:
     contact: dict[str, Any]
     overdue_diseases: list[dict[str, object]]
     overdue_agents: list[str]
-    received: Sequence[dict[str, object]] | None
     metadata: dict[str, Any]
-    qr: dict[str, Any] | None = None
     version_id: str | None = None
+    history: list[dict[str, Any]] = field(default_factory=list)
+    validity_coverage: str = "all_absent"
+    unparsed_history: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
 class PreprocessResult:
-    """Prepared client list and nonfatal source warnings."""
+    """Prepared facts and all source findings, including failures that reject input."""
 
     clients: list[ClientRecord]
     warnings: list[str]
+    row_checks: dict[str, list[CheckResult]] = field(default_factory=dict)
+    source_rows: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -67,3 +70,23 @@ class PDFRecord:
     pdf_path: Path
     page_count: int
     client: ClientRecord
+
+
+CheckStatus = Literal["pass", "warn", "fail", "not_applicable", "not_run"]
+
+
+@dataclass(frozen=True)
+class CheckResult:
+    """One source, rendering, or output check; warnings preserve useful PDFs."""
+
+    code: str
+    stage: str
+    status: CheckStatus
+    message: str
+    component: str | None = None
+    page: int | None = None
+    measurements: dict[str, Any] | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize the shared Typst/Python shape without inapplicable fields."""
+        return {key: value for key, value in asdict(self).items() if value is not None}

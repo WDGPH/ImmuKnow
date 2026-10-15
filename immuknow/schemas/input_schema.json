@@ -2,7 +2,7 @@
   "$schema": "https://datapackage.org/profiles/2.0/tableschema.json",
   "title": "input_schema",
   "description": "Required input contract for the ImmuKnow notice pipeline.",
-  "fieldsMatch": ["subset"],
+  "fieldsMatch": "subset",
   "fields": [
     {
       "name": "school_name",
@@ -20,7 +20,7 @@
       "stripWhitespace": true,
       "constraints": {
         "required": true,
-        "pattern": "^\\d{10}$"
+        "pattern": "^[0-9]{10}$"
       }
     },
     {
@@ -96,7 +96,7 @@
     },
     {
       "name": "imms_given",
-      "description": "List of immunizations given to client, separated by ';'. Each list entry is in the format 'Mon Day, YYYY - <received vaccine>'. Optionally, each entry may also include validity status of the dose appended as '- <dose validity>'",
+      "description": "Semicolon-separated entries in the exact form 'Mon D, YYYY - Agent', optionally followed by ' - Valid' or ' - Invalid'. Months use Jan–Dec; days have one or two digits. Dates must exist. Spaces, tabs and line breaks may surround entries; field separators are exactly space-hyphen-space. Blank history is allowed, but empty entries, extra fields and wrongly cased status tokens reject the whole input file.",
       "type": "string",
       "stripWhitespace": true,
       "constraints": {

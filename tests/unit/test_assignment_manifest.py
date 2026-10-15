@@ -1,6 +1,4 @@
-"""Manifest parsing and cohort reconciliation behavior."""
-
-from __future__ import annotations
+"""Explicit assignments fail only ambiguous rows and preserve warning selections."""
 
 import json
 from dataclasses import replace
@@ -8,336 +6,132 @@ from pathlib import Path
 
 import pytest
 
-from immuknow.assignment_manifest import (
-    AssignmentFinding,
-    ManifestRow,
-    ReconciliationResult,
-    has_errors,
-    load_manifest,
-    print_preflight_summary,
-    reconcile,
-)
-from immuknow.version_notices import NoticeKind, NoticeVersion, NoticeVersionCatalog
-from tests.fixtures.sample_input import create_test_client_record
+from immuknow.assignment_manifest import load_manifest, reconcile
+from immuknow.preprocess import CONFIG_DIR
+from immuknow.version_notices import load_catalog
+from tests.unit.test_preprocess import prepare, source_rows
 
 
-def write_manifest(tmp_path: Path, rows: object) -> Path:
+def load_rows(tmp_path: Path, rows):
     path = tmp_path / "assignments.json"
-    path.write_text(json.dumps(rows), encoding="utf-8")
-    return path
-
-
-@pytest.fixture
-def template_dir(tmp_path: Path) -> Path:
-    selected = tmp_path / "templates"
-    selected.mkdir()
-    for name in (
-        "overdue_agents_v1.en.typ",
-        "overdue_agents_v1.fr.typ",
-        "affirmative_schedule_v1.en.typ",
-    ):
-        (selected / name).write_text(
-            "// selected native entry point\n", encoding="utf-8"
-        )
-    return selected
-
-
-def row(
-    client_id: str, version: str = "overdue_agents_v1", language: str = "en"
-) -> dict:
-    return {"client_id": client_id, "template": f"{version}.{language}.typ"}
-
-
-def catalog() -> NoticeVersionCatalog:
-    return NoticeVersionCatalog(
-        schema_version=1,
-        versions={
-            "overdue_agents_v1": NoticeVersion(
-                "overdue_agents_v1", NoticeKind.OVERDUE, "has_overdue"
-            ),
-            "affirmative_schedule_v1": NoticeVersion(
-                "affirmative_schedule_v1", NoticeKind.AFFIRMATIVE, "no_overdue"
-            ),
-        },
-    )
-
-
-def client(client_id: str, diseases: list[str], version_id: str | None = None):
-    return replace(
-        create_test_client_record(client_id=client_id),
-        overdue_diseases=[{"disease": name, "dose": None} for name in diseases],
-        version_id=version_id,
-    )
-
-
-def assignment(
-    client_id: str, version: str = "overdue_agents_v1", language: str = "en"
-):
-    return ManifestRow(client_id, version, language, None, None)
-
-
-def findings(result: ReconciliationResult, kind: str) -> list[AssignmentFinding]:
-    return [item for item in result.findings if item.kind == kind]
+    path.write_text(json.dumps(rows))
+    return load_manifest(path, tmp_path)
 
 
 @pytest.mark.unit
-def test_manifest_loads_explicit_language_and_experiment_metadata(
+def test_missing_and_ambiguous_files_preserve_independent_assignments(tmp_path: Path):
+    (tmp_path / "overdue_diseases_v1.fr.typ").write_text("letter")
+    rows = [
+        {"client_id": "0000000001", "template": "overdue_diseases_v1.fr.typ"},
+        {"client_id": "0000000002", "template": "missing.en.typ"},
+        {"client_id": "extra", "template": "overdue_diseases_v1.fr.typ"},
+    ]
+    manifest = load_rows(tmp_path, rows)
+    assert manifest["0000000002"].template == "missing.en.typ"
+    clients, _ = prepare(source_rows())
+    result = reconcile(clients.clients, manifest, load_catalog(CONFIG_DIR))
+    assert list(result.resolved_notices) == ["row-000001"]
+    assert result.resolved_notices["row-000001"].language == "fr"
+    assert {(f.kind, f.status) for f in result.findings} == {
+        ("missing_template", "fail"),
+        ("extra_manifest_row", "warn"),
+    }
+    manifest = load_rows(tmp_path, [rows[0], rows[0]])
+    result = reconcile(clients.clients, manifest, load_catalog(CONFIG_DIR))
+    assert not result.resolved_notices
+    assert result.findings[0].kind == "ambiguous_assignment"
+
+
+@pytest.mark.unit
+def test_unknown_catalog_and_applicability_conflicts_warn_and_keep_selection(
     tmp_path: Path,
-    template_dir: Path,
-) -> None:
-    path = write_manifest(
+):
+    for name in ("custom.en.typ", "affirmative_schedule_v1.fr.typ"):
+        (tmp_path / name).write_text("letter")
+    manifest = load_rows(
         tmp_path,
         [
             {
-                **row("C001", language="fr"),
-                "experiment_id": "study",
+                "client_id": "0000000001",
+                "template": "affirmative_schedule_v1.fr.typ",
+                "experiment_id": "wording",
                 "experiment_arm": "B",
-            }
+            },
+            {"client_id": "0000000002", "template": "custom.en.typ"},
         ],
     )
-    loaded = load_manifest(path, template_dir)
-    assert loaded == {
-        "C001": ManifestRow("C001", "overdue_agents_v1", "fr", "study", "B")
-    }
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(
-    "rows,message",
-    [
-        ({"client_id": "C001"}, "JSON array"),
-        ([123], "row 1"),
-        ([{"template": "overdue_agents_v1.en.typ"}], "client_id"),
-        ([{"client_id": "C001"}], "template"),
-        (
-            [{"client_id": "C001", "notice_version": "v1", "language": "en"}],
-            "template",
-        ),
-        ([row("C001"), row("C001")], "duplicate client_id"),
-    ],
-)
-def test_manifest_rejects_malformed_or_duplicate_rows(
-    tmp_path: Path, template_dir: Path, rows: object, message: str
-) -> None:
-    with pytest.raises(ValueError, match=message):
-        load_manifest(write_manifest(tmp_path, rows), template_dir)
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize("invalid", ["", 123, [], {}])
-def test_manifest_rejects_invalid_template_value(
-    tmp_path: Path, template_dir: Path, invalid: object
-) -> None:
-    with pytest.raises(ValueError, match="template"):
-        load_manifest(
-            write_manifest(tmp_path, [{"client_id": "C001", "template": invalid}]),
-            template_dir,
-        )
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(
-    "template",
-    [
-        "overdue_agents_v1.es.typ",
-        "overdue_agents_v1..typ",
-        "overdue_agents_v1.EN.typ",
-        "overdue_agents_v1.typ",
-        "overdue_agents_v1.fr.pdf",
-    ],
-)
-def test_manifest_rejects_invalid_filename_or_language(
-    tmp_path: Path, template_dir: Path, template: str
-) -> None:
-    (template_dir / template).write_text("// malformed entry point\n", encoding="utf-8")
-    with pytest.raises(ValueError, match="filename|language"):
-        load_manifest(
-            write_manifest(tmp_path, [{"client_id": "C001", "template": template}]),
-            template_dir,
-        )
-
-
-@pytest.mark.unit
-def test_manifest_rejects_missing_template_file(
-    tmp_path: Path, template_dir: Path
-) -> None:
-    with pytest.raises(FileNotFoundError, match="template"):
-        load_manifest(
-            write_manifest(tmp_path, [row("C001", "unwritten_v1")]), template_dir
-        )
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(
-    "template", ["../outside.fr.typ", "/tmp/outside.fr.typ", "nested/notice.fr.typ"]
-)
-def test_manifest_rejects_template_outside_selected_directory(
-    tmp_path: Path, template_dir: Path, template: str
-) -> None:
-    with pytest.raises(ValueError, match="template|filename|directory"):
-        load_manifest(
-            write_manifest(tmp_path, [{"client_id": "C001", "template": template}]),
-            template_dir,
-        )
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(
-    "legacy", [{"version_id": "overdue_agents_v1"}, {"language": "fr"}]
-)
-def test_manifest_rejects_contradictory_legacy_fields(
-    tmp_path: Path, template_dir: Path, legacy: dict[str, str]
-) -> None:
-    with pytest.raises(ValueError, match="template|version_id|language"):
-        load_manifest(
-            write_manifest(tmp_path, [{**row("C001"), **legacy}]), template_dir
-        )
-
-
-@pytest.mark.unit
-def test_manifest_rejects_invalid_json(tmp_path: Path, template_dir: Path) -> None:
-    path = tmp_path / "assignments.json"
-    path.write_text("{broken", encoding="utf-8")
-    with pytest.raises(ValueError, match="valid JSON"):
-        load_manifest(path, template_dir)
-
-
-@pytest.mark.unit
-def test_reconcile_preserves_explicit_identity_and_provenance() -> None:
-    records = [
-        client("C001", ["Measles"], version_id="overdue_agents_v1"),
-        client("C002", ["Polio"]),
-    ]
-    selected = {
-        "C001": ManifestRow("C001", "overdue_agents_v1", "en", "study", "A"),
-        "C002": ManifestRow("C002", "overdue_agents_v1", "fr", None, None),
-    }
-    result = reconcile(records, selected, catalog(), "error")
-    assert result.findings == []
-    assert result.counts_by_language == {"en": 1, "fr": 1}
-    assert result.counts_by_version == {
-        "overdue_agents_v1 (en)": 1,
-        "overdue_agents_v1 (fr)": 1,
-    }
-    assert result.resolved_notices["C001"].experiment_id == "study"
-    assert result.resolved_notices["C001"].experiment_arm == "A"
-    assert result.resolved_notices["C001"].assignment_source == "manifest"
-    assert result.resolved_notices["C002"].language == "fr"
-
-
-@pytest.mark.unit
-def test_missing_client_assignment_is_always_fatal() -> None:
-    result = reconcile(
-        [client("C001", ["Measles"]), client("C002", ["Polio"])],
-        {"C001": assignment("C001")},
-        catalog(),
-        "warn",
-    )
-    missing = findings(result, "missing_assignment")
-    assert len(missing) == 1
-    assert missing[0].client_id == "C002"
-    assert "manifest" in missing[0].reason
-    assert "C002" not in result.resolved_notices
-    assert has_errors(result, "warn")
-
-
-@pytest.mark.unit
-def test_source_version_conflict_identifies_both_versions() -> None:
-    result = reconcile(
-        [client("C001", ["Measles"], version_id="affirmative_schedule_v1")],
-        {"C001": assignment("C001")},
-        catalog(),
-        "error",
-    )
-    conflict = findings(result, "version_conflict")
-    assert len(conflict) == 1
-    assert conflict[0].client_id == "C001"
-    assert "affirmative_schedule_v1" in conflict[0].reason
-    assert "overdue_agents_v1" in conflict[0].reason
-    assert has_errors(result, "error")
-
-
-@pytest.mark.unit
-def test_unknown_version_and_eligibility_conflict_are_client_linked() -> None:
-    result = reconcile(
-        [client("C001", ["Measles"]), client("C002", ["Polio"])],
-        {
-            "C001": assignment("C001", "unregistered_v1"),
-            "C002": assignment("C002", "affirmative_schedule_v1"),
-        },
-        catalog(),
-        "error",
-    )
-    unknown = findings(result, "unknown_version")
-    ineligible = findings(result, "eligibility_conflict")
-    assert [(item.client_id, item.version_id) for item in unknown] == [
-        ("C001", "unregistered_v1")
-    ]
-    assert [(item.client_id, item.version_id) for item in ineligible] == [
-        ("C002", "affirmative_schedule_v1")
-    ]
-    assert "no_overdue" in ineligible[0].reason
-    assert has_errors(result, "error")
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize("policy,should_fail", [("warn", False), ("error", True)])
-def test_extra_manifest_rows_follow_configured_policy(
-    policy: str, should_fail: bool
-) -> None:
-    result = reconcile(
-        [client("C001", ["Measles"])],
-        {"C001": assignment("C001"), "EXTRA": assignment("EXTRA")},
-        catalog(),
-        policy,
-    )
-    extra = findings(result, "extra_manifest_row")
-    assert len(extra) == 1
-    assert extra[0].client_id == "EXTRA"
-    assert extra[0].version_id == "overdue_agents_v1"
-    assert has_errors(result, policy) is should_fail
-
-
-@pytest.mark.unit
-def test_preflight_console_shows_counts_without_client_details(capsys) -> None:
-    result = reconcile(
-        [client("C001", ["Measles"])],
-        {"C001": assignment("C001", language="fr")},
-        catalog(),
-        "error",
-    )
-    print_preflight_summary(result)
-    output = capsys.readouterr().out
-    assert "overdue_agents_v1" in output
-    assert "fr" in output
-    assert "1" in output
-    assert "C001" not in output
-    assert "Measles" not in output
-
-
-@pytest.mark.unit
-def test_manifest_omitted_experiment_fields_remain_absent(
-    tmp_path: Path, template_dir: Path
-) -> None:
-    loaded = load_manifest(write_manifest(tmp_path, [row("C001")]), template_dir)
-    assert loaded["C001"].experiment_id is None
-    assert loaded["C001"].experiment_arm is None
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(
-    "kind",
-    [
-        "missing_assignment",
-        "unknown_version",
+    prepared, _ = prepare(source_rows())
+    clients = [replace(c, version_id=None) for c in prepared.clients]
+    result = reconcile(clients, manifest, load_catalog(CONFIG_DIR))
+    assert len(result.resolved_notices) == 2
+    assert {f.kind for f in result.findings} == {
         "eligibility_conflict",
-        "version_conflict",
+        "check_unavailable",
+    }
+    assert all(f.status == "warn" for f in result.findings)
+    assert result.resolved_notices["row-000001"].experiment_arm == "B"
+
+
+@pytest.mark.unit
+def test_duplicate_source_ids_never_choose_a_row(tmp_path: Path):
+    (tmp_path / "overdue_diseases_v1.en.typ").write_text("letter")
+    frame = source_rows()
+    frame.loc[1, "client_id"] = frame.loc[0, "client_id"]
+    prepared, _ = prepare(frame)
+    manifest = load_rows(
+        tmp_path,
+        [{"client_id": "0000000001", "template": "overdue_diseases_v1.en.typ"}],
+    )
+    result = reconcile(prepared.clients, manifest, load_catalog(CONFIG_DIR))
+    assert not result.resolved_notices
+    assert [f.row_key for f in result.findings] == ["row-000001", "row-000002"]
+    assert all(
+        f.kind == "duplicate_client_id" and f.status == "fail" for f in result.findings
+    )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "rows",
+    [
+        {},
+        [1],
+        [{"client_id": "x"}],
+        [{"client_id": "x", "template": "custom.en.typ", "experiment_arm": 1}],
     ],
 )
-def test_each_client_assignment_failure_is_fatal(kind: str) -> None:
-    result = ReconciliationResult(
-        counts_by_version={},
-        counts_by_language={},
-        findings=[AssignmentFinding(kind, "C001", "v1", "synthetic failure")],
+def test_malformed_shared_manifest_stops_setup(tmp_path: Path, rows):
+    with pytest.raises(ValueError):
+        load_rows(tmp_path, rows)
+
+
+def test_assignment_whitespace_matches_source_trimming_and_exposes_collisions(tmp_path):
+    (tmp_path / "custom.en.typ").write_text("letter")
+    manifest = load_rows(
+        tmp_path, [{"client_id": " 0000000001 ", "template": " custom.en.typ "}]
     )
-    assert has_errors(result, "warn")
+    assert list(manifest) == ["0000000001"]
+    assert manifest["0000000001"].template == "custom.en.typ"
+    assert manifest["0000000001"].error is None
+    manifest = load_rows(
+        tmp_path,
+        [
+            {"client_id": " 0000000001 ", "template": "custom.en.typ"},
+            {"client_id": "0000000001", "template": "custom.en.typ"},
+        ],
+    )
+    assert manifest["0000000001"].error_kind == "ambiguous_assignment"
+
+
+def test_assignment_unknown_fields_cannot_hide_a_typo(tmp_path):
+    with pytest.raises(ValueError, match="unknown fields"):
+        load_rows(
+            tmp_path,
+            [
+                {
+                    "client_id": "0000000001",
+                    "template": "custom.en.typ",
+                    "experiment_arn": "B",
+                }
+            ],
+        )

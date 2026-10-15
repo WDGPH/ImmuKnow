@@ -1,5 +1,6 @@
-"""Failures at workflow boundaries cannot be reported as completed notice runs."""
+"""Real setup failures retain prior output and save their available source evidence."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -12,72 +13,59 @@ pytestmark = pytest.mark.integration
 
 
 @pytest.mark.parametrize(
-    "section,value,diagnostic",
+    "failure",
     [
-        ("qr", {"enabled": True}, "qr.payload_template"),
-        (
-            "qr",
-            {
-                "enabled": True,
-                "payload_template": "https://example.test/{date_of_birth}",
-            },
-            "date_of_birth_iso",
-        ),
-        (
-            "encryption",
-            {"enabled": True, "password": {"template": "{date_of_birth}"}},
-            "date_of_birth_iso",
-        ),
+        "configuration",
+        "mapping_list",
+        "mapping_false",
+        "mapping_zero",
+        "missing_source",
+        "non_csv",
     ],
 )
-def test_invalid_delivery_config_fails_before_output_preparation(
-    tmp_path: Path, section: str, value: dict, diagnostic: str
-) -> None:
-    command, output_dir, config_dir = prepare_cohort(tmp_path, ("en",))
-    config_path = config_dir / "parameters.yaml"
-    config = yaml.safe_load(config_path.read_text())
-    config[section] = value
-    config_path.write_text(yaml.safe_dump(config))
-    manifest = Path(command[command.index("--notice-assignments") + 1])
-    with pytest.raises(ValueError, match=diagnostic):
-        run_pipeline(
-            Path(command[3]),
-            output_dir,
-            notice_assignments=manifest,
-            config_dir=config_dir,
-        )
-    assert not output_dir.exists()
-
-
-def test_missing_source_is_reported_before_output_preparation(tmp_path: Path) -> None:
+def test_setup_failure_is_recorded_without_purging_prior_output(
+    tmp_path: Path, failure: str
+):
     command, output, config_dir = prepare_cohort(tmp_path, ("en",))
+    source = Path(command[3])
     manifest = Path(command[command.index("--notice-assignments") + 1])
-    with pytest.raises(FileNotFoundError, match="Input file not found"):
-        run_pipeline(
-            tmp_path / "missing.csv",
-            output,
-            notice_assignments=manifest,
-            config_dir=config_dir,
-        )
-    assert not output.exists()
-
-
-def test_non_csv_source_is_rejected_before_existing_output_is_purged(
-    tmp_path: Path,
-) -> None:
-    """A prior successful delivery survives a rejected legacy Excel input."""
-    command, output, config_dir = prepare_cohort(tmp_path, ("en",))
-    manifest = Path(command[command.index("--notice-assignments") + 1])
+    if failure == "configuration":
+        config_path = config_dir / "parameters.yaml"
+        config = yaml.safe_load(config_path.read_text())
+        config["encryption"] = {
+            "enabled": True,
+            "password": {"template": "{date_of_birth}"},
+        }
+        config_path.write_text(yaml.safe_dump(config))
+        error, diagnostic = ValueError, "date_of_birth_iso"
+    elif failure.startswith("mapping_"):
+        value = {"mapping_list": "[]", "mapping_false": "false", "mapping_zero": "0"}[
+            failure
+        ]
+        (config_dir / "parameters.yaml").write_text(value)
+        error, diagnostic = ValueError, "Configuration must be a mapping"
+    elif failure == "missing_source":
+        source = tmp_path / "missing.csv"
+        error, diagnostic = FileNotFoundError, "Input file not found"
+    else:
+        source = tmp_path / "legacy.xlsx"
+        source.write_bytes(b"not a CSV")
+        error, diagnostic = ValueError, "CSV"
     output.mkdir()
-    sentinel = output / "keep.txt"
+    sentinel = output / "prior.txt"
     sentinel.write_text("prior output")
-    excel = tmp_path / "legacy.xlsx"
-    excel.write_bytes(b"not a CSV")
-    with pytest.raises(ValueError, match="CSV"):
-        run_pipeline(
-            excel,
-            output,
-            notice_assignments=manifest,
-            config_dir=config_dir,
-        )
+    with pytest.raises(error, match=diagnostic):
+        run_pipeline(source, output, notice_assignments=manifest, config_dir=config_dir)
     assert sentinel.read_text() == "prior output"
+    record_path = next(output.glob("*/run.json"))
+    record = json.loads(record_path.read_text())
+    assert record["status"] == "failed_setup"
+    assert (record_path.parent / "report.html").is_file()
+    assert not record["delivery_attempts"]
+    if failure == "configuration" or failure.startswith("mapping_"):
+        assert len(record["entries"]) == 1
+        assert record["entries"][0]["source"]["values"]["client_id"] == "0000000001"
+        assert record["entries"][0]["original"]["status"] == "not_run"
+    else:
+        assert not record["entries"]
+    assert not list(output.rglob("*.pdf"))

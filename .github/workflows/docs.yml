@@ -1,106 +1,44 @@
 name: docs
-permissions:
-  contents: write
-  pull-requests: write
-
 on:
   push:
-    branches:
-      - main
-    paths:
-      - .pre-commit-config.yaml
-      - .github/workflows/docs.yml
-      - '**.py'
-      - '**.ipynb'
-      - '**.html'
-      - '**.js'
-      - '**.md'
-      - uv.lock
-      - pyproject.toml
-      - mkdocs.yml
-      - '**.png'
-      - '**.svg'
-      - '**.jpeg'
-      - 'immuknow/schemas/input_schema.json'
+    branches: [main, studio-core]
   pull_request:
-    branches:
-      - main
-    paths:
-      - .pre-commit-config.yaml
-      - .github/workflows/docs.yml
-      - '**.py'
-      - '**.ipynb'
-      - '**.js'
-      - '**.html'
-      - uv.lock
-      - pyproject.toml
-      - '**.md'
-      - mkdocs.yml
-      - '**.png'
-      - '**.svg'
-      - '**.jpeg'
-      - 'immuknow/schemas/input_schema.json'
-
+    branches: [main]
+permissions:
+  contents: read
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
-          enable-cache: true
-
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: "3.12"
-
-      - name: Install the project with docs dependencies
-        run: uv sync --group docs
-
-      - name: Generate schema docs
-        run: uv run python docs/generate_schema_docs.py
-
-      - name: Build docs
-        run: uv run mkdocs build --strict
-
-      - name: Create .nojekyll file
-        run: touch site/.nojekyll
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v7
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v7
+      - name: Install documentation dependencies
+        run: uv sync --locked --no-default-groups --group docs
+      - name: Build Core documentation
+        run: |
+          uv run --locked --no-default-groups --group docs python docs/generate_schema_docs.py
+          uv run --locked --no-default-groups --group docs mkdocs build --strict
+      - uses: actions/upload-artifact@v7
         with:
           name: docs-site
           path: site/
-          retention-days: 1
-
   deploy:
     needs: build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-
-      - name: Configure Git Credentials
-        run: |
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-
-      - name: Download artifact
-        uses: actions/download-artifact@v8
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           name: docs-site
           path: site
-
-      - name: Ensure .nojekyll exists
-        run: touch site/.nojekyll
-
-      - name: Deploy to GitHub Pages
-        uses: JamesIves/github-pages-deploy-action@v4
+      - run: touch site/.nojekyll
+      - uses: JamesIves/github-pages-deploy-action@v4
         with:
           branch: gh-pages
           folder: site

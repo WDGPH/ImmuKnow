@@ -1,15 +1,21 @@
 # Template Customization Options
 
-Our immunization template has several components. Here, we dissect the template into dynamic components, allowing for customization for differing use cases.
+Notice wording and display options are authored in the Template and Settings.
+The images below illustrate customization choices from an earlier pilot; use the
+[current template guide](../phu_templates.md) for the maintained options and files.
 
 ## Pages
 
-The base template consists of two pages:
+The maintained disease and agent examples have two sections, usually one page each:
+
 
 1. Client Information and Messaging
 2. Immunization History Chart
 
-## Client Information and Messsaging Page
+Long content may continue onto additional pages. The PDF remains available with
+layout findings for review; content is not clipped or reduced to fit.
+
+## Client Information and Messaging Page
 
 The Client Information and Messaging page consists of 5 customizable components: 
 
@@ -26,7 +32,8 @@ The header consists of:
 
 #### Formatting 
 
-The Client Information Table can be formatted in 1 of 4 ways: 
+Settings places client details beside or below the address. The older pilot
+images illustrate alternative table arrangements an author may create in Typst: 
 
 **Equal columns (50/50 split) with vertical line:**
 
@@ -57,13 +64,15 @@ The content within the box contains the following information about the child:
 * Date of Birth
 * Childcare Centre or School
 
-When the child is over 16 years of age, the letter is addressed directly to the student rather than to their Parent/Guardian.
+The addressee follows the known age supplied in the facts. When age is unknown,
+the maintained examples use neutral wording and report the missing information.
 
 ### 3. Immunization List
 
 The immunization list is an optional component. It lists all outstanding immunizations for the client. 
 
-Should the list be longer than 5 immunizations, the template creates columns to optimize formatting and ensure that the letter length is constrained to a single page (2 pages total with the immunization history chart).
+Settings controls list columns and whether dose numbers are shown. Long lists
+remain visible, with a finding if the notice continues onto another page.
 
 The messaging prior to the immunization list can be customized according to your preference. We recommend keeping a data in the message to ensure that the client is aware of when the immunization data was pulled from the system.
 
@@ -81,7 +90,9 @@ The signature consists of 3 components:
 
 ## Immunization History Chart
 
-The immunization history chart is rendered on the second page of the report.
+The immunization history chart starts the history section when the template
+includes it. Omitting history, as the suspension example does, creates no
+history checks.
 
 ![Immunization History Chart](images/20251027_page2.jpeg)
 

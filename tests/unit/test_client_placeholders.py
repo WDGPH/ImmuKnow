@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import traceback
+
 from dataclasses import replace
 
 import pytest
@@ -265,7 +267,7 @@ class TestBuildClientContext:
 
         Real-world significance:
         - Creates dict for template rendering
-        - Used by QR code and encryption password templates
+        - Used by encryption password templates
         """
         client = sample_input.create_test_client_record(
             client_id="12345",
@@ -385,7 +387,7 @@ class TestBuildClientContext:
         """Verify all contact fields are extracted.
 
         Real-world significance:
-        - QR template might use various contact fields
+        - Password template may use contact fields
         - Should capture all available fields
         """
         client = sample_input.create_test_client_record()
@@ -404,3 +406,26 @@ class TestBuildClientContext:
         assert context["city"] == "Toronto"
         assert context["province"] == "ON"
         assert context["street_address"] == "123 Main St"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "template",
+    [
+        "{client_id:PRIVATE_SPECIFIER}",
+        "{PRIVATE_SPECIFIER}",
+        "{client_id!PRIVATE_SPECIFIER}",
+        "PRIVATE_SPECIFIER {",
+        "{client_id:{name}}",
+    ],
+)
+def test_password_format_errors_do_not_repeat_template_or_context_secrets(template):
+    context = {"client_id": "0000000001", "name": "PRIVATE_SPECIFIER"}
+    with pytest.raises((ValueError, KeyError)) as failure:
+        client_placeholders.validate_and_format_template(
+            template,
+            context,
+            allowed_fields=client_placeholders.CLIENT_PLACEHOLDERS,
+        )
+    assert "PRIVATE_SPECIFIER" not in str(failure.value)
+    assert "PRIVATE_SPECIFIER" not in "".join(traceback.format_exception(failure.value))

@@ -3,7 +3,8 @@
 Keep one current guide for each contract: [getting started](../user_guide/getting_started.md)
 for inputs and the complete workflow, [configuration](../user_guide/configuration.md)
 for user options and reference data, [template authoring](../user_guide/phu_templates.md)
-for native JSON and assertions, and [testing](testing.md) for checks.
+for native JSON and assertions, [Studio overview](../user_guide/studio.md) for the separate editor,
+and [testing](testing.md) for native checks.
 The [architecture](../reference/architecture.md) explains output evidence.
 Link to these guides instead of copying them into new step descriptions.
 
@@ -19,3 +20,14 @@ over abstract labels when those are the facts meant.
 Keep point-in-time results and implementation rationale in the pull request
 and Git history. Repository guides describe current behavior and repeatable
 checks.
+
+For a documentation-only change, generate schema reference pages and build the
+docs without rebuilding native or browser artifacts:
+
+```bash
+uv run python docs/generate_schema_docs.py
+uv run --group docs mkdocs build --strict --site-dir /tmp/immuknow-docs-check
+```
+
+Studio maintains its own build and browser checks in its separate repository.
+A Core documentation build does not establish native/browser parity.
