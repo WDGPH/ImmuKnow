@@ -22,5 +22,3 @@ phu_templates/*
 !phu_templates/README.md
 !phu_templates/.gitkeep
 .gitmodules
-
-docs-redirects/

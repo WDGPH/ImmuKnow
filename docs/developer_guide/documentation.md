@@ -27,6 +27,8 @@ fetches this repository and builds `main` at `/docs/immuknow/latest/` and record
 stable `vX.Y.Z` tags at `/docs/immuknow/vX.Y.Z/`. Its reviewed release lock chooses
 the current release. A tag notification proposes a release-lock correction;
 it does not approve or publish that correction.
+This repository checks documentation and sends notifications; it does not
+publish a separate Pages site or legacy redirects.
 
 The **Check documentation** workflow runs strict documentation builds on main
 pushes, pull requests, and manual requests, using this repository's locked dependencies. The separate **Notify documentation
@@ -39,7 +41,7 @@ content. There is no scheduled polling.
 
 The notifier is active when `DOCS_HUB_NOTIFY_ENABLED` is true. Its dispatch step
 uses `DOCS_HUB_TRIGGER_TOKEN`, targets main in `WDGPH/docs`, and identifies
-`WDGPH/ImmuKnow`. Documentation builds and redirects never receive that token.
+`WDGPH/ImmuKnow`. Documentation builds never receive that token.
 The hub controls release-lock review and deployment.
 
 ### Correct tags and recover missed notifications
@@ -66,21 +68,7 @@ an old tag to ensure the final state is observed. Guaranteed automatic notificat
 for arbitrary historical tag commits requires a separately hosted GitHub webhook
 or App relay; the Actions-only setup has this explicit maintenance step.
 
-### Legacy redirects
-
-The separate **Publish legacy documentation redirects** workflow is manual-only,
-requires main and `DOCS_HUB_REDIRECT_ENABLED=true`, and publishes only a redirect
-artifact through a protected Pages/OIDC job. The retired `gh-pages` branch is not
-modified. No source documentation workflow publishes a full manual.
-
-The redirect tool retains known old paths, including the generated schema page,
-and a fallback for other legacy paths. JavaScript preserves queries and fragments;
-known pages also have links without JavaScript. These are browser redirects.
-Generate a local artifact in a new or empty directory with:
-
-```bash
-python tools/build_docs_redirects.py docs-redirects
-```
+### Local documentation checks
 
 For a local source check or Material preview:
 
