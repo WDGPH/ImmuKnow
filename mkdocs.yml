@@ -1,54 +1,14 @@
 site_name: ImmuKnow
-site_url: https://WDGPH.github.io/ImmuKnow/
+site_url: https://wdgph.github.io/docs/immuknow/latest/
 repo_url: https://github.com/WDGPH/ImmuKnow
 repo_name: WDGPH/ImmuKnow
 docs_dir: docs
 site_dir: site
 copyright: "&copy; 2026 Wellington-Dufferin-Guelph Public Health"
 
+# The hub supplies the published theme. Material supports local checks.
 theme:
   name: material
-  custom_dir: docs/overrides
-  logo: assets/wdgph-logo.png
-  logo_footer: assets/wdgph-logo.png
-  favicon: assets/wdgph-logo.png
-  features:
-    - content.code.annotate
-    - content.code.copy
-    - navigation.footer
-    - navigation.indexes
-    - navigation.instant
-    - navigation.tabs
-    - navigation.top
-    - search.suggest
-    - search.highlight
-    - toc.follow
-  icon:
-    repo: fontawesome/brands/github
-  palette:
-    - media: "(prefers-color-scheme: light)"
-      scheme: default
-      primary: wdgph
-      accent: wdgph
-      toggle:
-        icon: material/brightness-7
-        name: Switch to dark mode
-    - media: "(prefers-color-scheme: dark)"
-      scheme: slate
-      primary: black
-      accent: wdgph
-      toggle:
-        icon: material/brightness-4
-        name: Switch to light mode
-
-extra:
-  generator: false
-  social:
-    - icon: fontawesome/brands/github
-      link: https://github.com/WDGPH/ImmuKnow
-
-extra_css:
-  - stylesheets/extra.css
 
 markdown_extensions:
   - attr_list

@@ -13,7 +13,8 @@ uv sync --all-groups
 uv run ty check
 uv run pytest
 uv run pre-commit run --all-files
-uv run --group docs mkdocs build --strict
+uv run --locked --group docs python docs/generate_schema_docs.py
+uv run --locked --group docs python -m mkdocs build --strict
 ```
 
 Set `TYPST_BIN` to the pinned compiler if it is outside `PATH`. Native tests

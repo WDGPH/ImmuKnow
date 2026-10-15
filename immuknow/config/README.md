@@ -179,7 +179,7 @@ include disease and agent overdue notices in English and French, and an
 English affirmative notice. A missing version/language pair fails; no other
 language or PHU directory is substituted. Every entry point declares
 its own version and language and rejects mismatched JSON. See
-[template authoring](https://WDGPH.github.io/ImmuKnow/user_guide/phu_templates/)
+[template authoring](https://wdgph.github.io/docs/immuknow/latest/user_guide/phu_templates/)
 for the native contract.
 
 ## Updating reference data
@@ -194,5 +194,5 @@ and the relevant real-render tests together. A new language also needs an
 authored and reviewed entry point; adding dictionaries alone does not create
 a notice.
 
-[getting-started]: https://WDGPH.github.io/ImmuKnow/user_guide/getting_started/
-[pdf-validation]: https://WDGPH.github.io/ImmuKnow/user_guide/pdf_validation/
+[getting-started]: https://wdgph.github.io/docs/immuknow/latest/user_guide/getting_started/
+[pdf-validation]: https://wdgph.github.io/docs/immuknow/latest/user_guide/pdf_validation/

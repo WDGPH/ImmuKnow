@@ -1,0 +1,48 @@
+name: Publish legacy documentation redirects
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: legacy-docs-redirects
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.repository == 'WDGPH/ImmuKnow' && github.ref == 'refs/heads/main' && vars.DOCS_HUB_REDIRECT_ENABLED == 'true'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out redirect tooling
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Build redirect files
+        run: python tools/build_docs_redirects.py docs-redirects
+      - name: Upload redirect artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: docs-redirects
+
+  deploy:
+    needs: build
+    permissions:
+      pages: write
+      id-token: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publish redirects to the existing Pages site
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
