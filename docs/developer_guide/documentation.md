@@ -22,13 +22,17 @@ checks.
 
 ## Publish through the documentation hub
 
-Documentation stays here. The public [WDGPH documentation hub](https://wdgph.github.io/docs/)
-fetches this repository and builds `main` at `/docs/immuknow/latest/` and recorded
-stable `vX.Y.Z` tags at `/docs/immuknow/vX.Y.Z/`. Its reviewed release lock chooses
+Documentation stays here. The public [WDGPH documentation hub](https://docs.phiz.ca/)
+fetches this repository and builds `main` at `/immuknow/latest/` and recorded
+stable `vX.Y.Z` tags at `/immuknow/vX.Y.Z/`. Its reviewed release lock chooses
 the current release. A tag notification proposes a release-lock correction;
 it does not approve or publish that correction.
 This repository checks documentation and sends notifications; it does not
-publish a separate Pages site or legacy redirects.
+publish a separate Pages site or legacy redirects. The old manual is retired
+without redirect compatibility. Disabling its former workflow does not remove
+an already published GitHub Pages artifact: a repository administrator must
+unpublish the old site in **Settings → Pages → Unpublish site**. Do this only for
+`WDGPH/ImmuKnow`; the hub remains published at `docs.phiz.ca`.
 
 The **Check documentation** workflow runs strict documentation builds on main
 pushes, pull requests, and manual requests, using this repository's locked dependencies. The separate **Notify documentation
