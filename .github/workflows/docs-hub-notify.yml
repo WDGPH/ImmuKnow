@@ -1,0 +1,63 @@
+name: Notify documentation hub
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+  delete:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  notify:
+    if: github.repository == 'WDGPH/ImmuKnow' && vars.DOCS_HUB_NOTIFY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Request the hub build or release reconciliation
+        env:
+          GH_TOKEN: ${{ secrets.DOCS_HUB_TRIGGER_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_REF: ${{ github.ref }}
+          DELETED_REF: ${{ github.event.ref }}
+          DELETED_REF_TYPE: ${{ github.event.ref_type }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          semver='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+          latest=false
+          releases=false
+          case "$EVENT_NAME" in
+            workflow_dispatch)
+              latest=true
+              releases=true
+              ;;
+            delete)
+              if [[ "$DELETED_REF_TYPE" == 'tag' && "$DELETED_REF" =~ $semver ]]; then
+                releases=true
+              fi
+              ;;
+            push)
+              if [[ "$EVENT_REF" == 'refs/heads/main' ]]; then
+                latest=true
+              elif [[ "${EVENT_REF#refs/tags/}" =~ $semver ]]; then
+                releases=true
+              fi
+              ;;
+          esac
+          if [[ "$latest" == false && "$releases" == false ]]; then
+            exit 0
+          fi
+          if [[ -z "$GH_TOKEN" ]]; then
+            echo '::error::DOCS_HUB_NOTIFY_ENABLED requires secret DOCS_HUB_TRIGGER_TOKEN with Actions: write on WDGPH/docs.'
+            exit 1
+          fi
+          if [[ "$latest" == true ]]; then
+            gh api --method POST repos/WDGPH/docs/actions/workflows/publish.yml/dispatches \
+              -f ref=main -f 'inputs[source_repo]=WDGPH/ImmuKnow' -F 'inputs[deploy]=true'
+          fi
+          if [[ "$releases" == true ]]; then
+            gh api --method POST repos/WDGPH/docs/actions/workflows/refresh-releases.yml/dispatches \
+              -f ref=main -f 'inputs[source_repo]=WDGPH/ImmuKnow'
+          fi
