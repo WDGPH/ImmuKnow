@@ -58,7 +58,7 @@ def test_sequential_runs_freeze_project_labels_and_keep_source_facts(tmp_path: P
     command, output, config = prepare_cohort(tmp_path, ("fr",))
     source = Path(command[3])
     frame = pd.read_csv(source, dtype=str, keep_default_na=False)
-    frame["imms_given"] = "May 1, 2020 - MMR; May 2, 2020 - Ig"
+    frame["imms_given"] = "May 1, 2020 - MMR; May 2, 2020 - Ig;"
     frame.to_csv(source, index=False)
     custom = tmp_path / "project"
     shutil.copytree(ROOT / "immuknow/templates", custom)

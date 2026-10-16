@@ -93,11 +93,11 @@ def create_test_input_dataframe(
         ),
         "imms_given": (
             [
-                "May 01, 2020 - DTaP; Jun 15, 2021 - MMR",
-                "Apr 10, 2019 - IPV",
-                "Sep 05, 2020 - Varicella",
-                "",
-                "Jan 20, 2022 - DTaP; Feb 28, 2022 - IPV",
+                "May 01, 2020 - DTaP; Jun 15, 2021 - MMR;",
+                "Apr 10, 2019 - IPV;",
+                "Sep 05, 2020 - Varicella;",
+                "-;",
+                "Jan 20, 2022 - DTaP; Feb 28, 2022 - IPV;",
             ][:num_clients]
             if include_immunization_history
             else [""] * num_clients

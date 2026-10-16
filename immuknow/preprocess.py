@@ -432,7 +432,7 @@ def build_preprocess_result(
                     "source.history_invalid",
                     "preparation",
                     "fail",
-                    f"Row {index}, imms_given fragment {issue.number}: {issue.reason}. Expected 'Mon D, YYYY - Agent', optionally followed by ' - Valid' or ' - Invalid'.",
+                    f"Row {index}, imms_given fragment {issue.number}: {issue.reason}. Expected 'Mon D, YYYY - Agent', optionally followed by ' - Valid' or ' - Invalid', with every entry ending in ';'.",
                     component="history",
                     measurements={
                         "column": "imms_given",
@@ -639,9 +639,17 @@ def parse_history(raw: str) -> ParsedHistory:
     """Parse each fragment once, before exclusions, and retain every syntax error."""
     doses: list[dict[str, str]] = []
     issues = []
-    if not raw.strip(" \t\r\n"):
+    stripped = raw.strip(" \t\r\n")
+    if not stripped:
         return ParsedHistory(doses, issues)
-    for number, fragment in enumerate(raw.split(";"), 1):
+    # Panorama ends every history with one ";" and writes "-;" (or "-  -;" when
+    # validity is exported) for no history. A missing final ";" is an error.
+    text = stripped.removesuffix(";")
+    terminated = text != stripped
+    if terminated and text.rstrip(" \t\r\n") in ("-", "-  -"):
+        return ParsedHistory(doses, issues)
+    fragments = text.split(";")
+    for number, fragment in enumerate(fragments, 1):
         parts = fragment.strip(" \t\r\n").split(" - ")
         reason = ""
         if len(parts) not in (2, 3):
@@ -667,6 +675,8 @@ def parse_history(raw: str) -> ParsedHistory:
                 ).isoformat()
             except ValueError:
                 reason = "Date must be a real calendar date in Mon D, YYYY form"
+        if not reason and not terminated and number == len(fragments):
+            reason = "History must end with ';'"
         if reason:
             issues.append(HistoryIssue(number, fragment, reason))
             continue

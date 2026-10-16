@@ -255,7 +255,7 @@ def test_broken_notice_retains_other_original_and_reports_partial_run(
     frame.loc[0, "street_address_line_1"] = ""
     frame.loc[0, "date_of_birth"] = "unusable date"
     frame.loc[0, "province"] = "Québec"
-    frame.loc[0, "imms_given"] = "May 01, 2020 - MMR - Valid; Jun 15, 2021 - IPV"
+    frame.loc[0, "imms_given"] = "May 01, 2020 - MMR - Valid; Jun 15, 2021 - IPV;"
     without_evidence = extra.copy()
     without_evidence["client_id"] = "0000000004"
     pd.concat(
@@ -353,7 +353,7 @@ def test_bad_history_rejects_input_before_any_template_is_rendered(
     source, config, templates, _ = prepare_inputs(tmp_path)
     frame = pd.read_csv(source, dtype=str, keep_default_na=False).iloc[:1]
     fragment = "unusable history fragment"
-    frame.loc[0, "imms_given"] += "; " + fragment
+    frame.loc[0, "imms_given"] += f" {fragment};"
     frame.to_csv(source, index=False)
     template = templates / "suspension_order_v1.en.typ"
     if history == "displayed":

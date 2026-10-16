@@ -26,7 +26,7 @@ def source_rows() -> pd.DataFrame:
                 province="QC",
                 postal_code="A1A 1A1",
                 street_address_line_1="1 Main",
-                imms_given="May 1, 2020 - MMR - Valid",
+                imms_given="May 1, 2020 - MMR - Valid;",
                 overdue_disease="Poliomyelitis - 2",
                 overdue_agent="IPV",
             ),
@@ -40,7 +40,7 @@ def source_rows() -> pd.DataFrame:
                 province="BC",
                 postal_code="",
                 street_address_line_1="",
-                imms_given="unparsed history; Feb 31, 2020 - MMR",
+                imms_given="unparsed history; Feb 31, 2020 - MMR;",
                 overdue_disease="",
                 overdue_agent="",
             ),
@@ -104,32 +104,68 @@ def test_every_source_row_keeps_its_key_raw_values_and_unknown_state(tmp_path: P
 @pytest.mark.parametrize(
     "fragment",
     [
-        "May 1, 2020 - MMR - valid",
-        "May 1, 2020 - MMR - invalid",
-        "May 1, 2020 - MMR - VALID",
-        "May 1, 2020 - MMR - INVALID",
-        "May 1, 2020 - MMR - VaLiD",
-        "May 1, 2020 - MMR - Invalid - Valid",
-        "Feb 30, 2020 - MMR - Valid",
-        "Feb 29, 2021 - MMR - Valid",
-        "May 0, 2020 - MMR",
-        "May 1, 2020 - ",
-        "May 1, 2020 - MMR - ",
-        "May 1, 2020 - MMR -Invalid",
-        "May 1, 2020 -  MMR",
-        "May 1, 2020 - MMR - Unknown",
-        "May 1, 2020 - MMR;",
-        ";May 1, 2020 - MMR",
-        "May 1, 2020 - MMR;;May 2, 2020 - MMR",
+        "May 1, 2020 - MMR - valid;",
+        "May 1, 2020 - MMR - invalid;",
+        "May 1, 2020 - MMR - VALID;",
+        "May 1, 2020 - MMR - INVALID;",
+        "May 1, 2020 - MMR - VaLiD;",
+        "May 1, 2020 - MMR - Invalid - Valid;",
+        "Feb 30, 2020 - MMR - Valid;",
+        "Feb 29, 2021 - MMR - Valid;",
+        "May 0, 2020 - MMR;",
+        "May 1, 2020 - ;",
+        "May 1, 2020 - MMR - ;",
+        "May 1, 2020 - MMR -Invalid;",
+        "May 1, 2020 -  MMR;",
+        "May 1, 2020 - MMR - Unknown;",
+        ";May 1, 2020 - MMR;",
+        "May 1, 2020 - MMR;;May 2, 2020 - MMR;",
+        "May 1, 2020 - MMR;;",
+        ";",
+        ";;",
+        "-;;",
+        "- -;",
+        "-  -;;",
+        "-  -; May 1, 2020 - MMR;",
+        "-",
+        "-  -",
+        " -  - ",
+        "May 1, 2020 - MMR",
+        "May 1, 2020 - MMR; May 2, 2020 - IPV",
+        "May 1, 2020 - MMR ; \r\n May 2, 2020 - IPV\r\n",
     ],
 )
 def test_history_refuses_bad_status_dates_separators_and_empty_fragments(fragment):
     assert preprocess.parse_history(fragment).issues
 
 
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "May 1, 2020 - MMR;",
+        "May 1, 2020 - MMR - Valid; May 2, 2020 - IPV - Invalid ;\r\n",
+    ],
+)
+def test_history_requires_one_terminating_semicolon(raw):
+    parsed = preprocess.parse_history(raw)
+    assert not parsed.issues
+    assert parsed.doses[0]["date_given"] == "2020-05-01"
+
+
+def test_history_reports_a_missing_final_semicolon_on_the_last_entry():
+    assert preprocess.parse_history("May 1, 2020 - MMR; May 2, 2020 - IPV").issues == [
+        preprocess.HistoryIssue(2, " May 2, 2020 - IPV", "History must end with ';'")
+    ]
+
+
+@pytest.mark.parametrize("raw", ["-;", " - ; ", "-  -;", " -  -; "])
+def test_history_dash_placeholder_means_no_history(raw):
+    assert preprocess.parse_history(raw) == preprocess.ParsedHistory([], [])
+
+
 def test_history_valid_tokens_hyphens_and_defined_whitespace_preserve_upstream_facts():
     parsed = preprocess.parse_history(
-        "\tFeb 29, 2020 - COVID-19 mRNA - Invalid ;\n May 01, 2020 - HB-unspecified\r\n"
+        "\tFeb 29, 2020 - COVID-19 mRNA - Invalid ;\n May 01, 2020 - HB-unspecified;\r\n"
     )
     assert not parsed.issues
     assert parsed.doses == [
@@ -147,9 +183,9 @@ def test_history_checks_excluded_and_duplicate_entries_before_building_rows(
 ):
     frame = source_rows()
     frame.loc[0, "imms_given"] = (
-        "May 1, 2020 - MMR - Valid; May 1, 2020 - MMR - INVALID; Feb 31, 2020 - Not Specified - Valid"
+        "May 1, 2020 - MMR - Valid; May 1, 2020 - MMR - INVALID; Feb 31, 2020 - Not Specified - Valid;"
     )
-    frame.loc[1, "imms_given"] = "May 1, 2020 - Not Specified"
+    frame.loc[1, "imms_given"] = "May 1, 2020 - Not Specified;"
     parse = preprocess.parse_history
     seen = []
 
@@ -183,8 +219,8 @@ def test_history_checks_excluded_and_duplicate_entries_before_building_rows(
     ],
 )
 def test_same_agent_same_date_validity_precedence(states: str, expected: str):
-    raw = "; ".join(
-        "May 1, 2020 - MMR" + (" - " + value if value != "absent" else "")
+    raw = "".join(
+        "May 1, 2020 - MMR" + (" - " + value if value != "absent" else "") + ";"
         for value in states.split("; ")
     )
     history = preprocess.build_history_items(
@@ -207,7 +243,7 @@ def test_same_agent_same_date_validity_precedence(states: str, expected: str):
 def test_history_keeps_complete_disease_maps_and_named_display_exclusions():
     history = preprocess.build_history_items(
         preprocess.parse_history(
-            "May 1, 2020 - HB-unspecified - Valid; May 1, 2020 - Ig; May 1, 2020 - Not Specified"
+            "May 1, 2020 - HB-unspecified - Valid; May 1, 2020 - Ig; May 1, 2020 - Not Specified;"
         ).doses,
         preprocess.UNSPECIFIED_AGENTS,
         {"HB-unspecified": ["Hepatitis B"]},
@@ -220,7 +256,7 @@ def test_history_keeps_complete_disease_maps_and_named_display_exclusions():
 @pytest.mark.unit
 def test_validity_coverage_sees_whole_cohort_before_dedup_and_display():
     frame = source_rows()
-    frame.loc[1, "imms_given"] = "May 1, 2020 - MMR"
+    frame.loc[1, "imms_given"] = "May 1, 2020 - MMR;"
     result, _ = prepare(frame)
     assert all(c.validity_coverage == "mixed" for c in result.clients)
     assert (

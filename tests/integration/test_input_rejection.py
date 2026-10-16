@@ -25,9 +25,9 @@ def test_bad_history_rejects_every_row_through_both_entry_points(
     )
     source = command[3]
     frame = pd.read_csv(source, dtype=str, keep_default_na=False)
-    frame.loc[1, "imms_given"] = "May 1, 2020 - MMR - INVALID"
+    frame.loc[1, "imms_given"] = "May 1, 2020 - MMR - INVALID;"
     frame.loc[2, "imms_given"] = (
-        "Feb 31, 2020 - Not Specified - Valid; May 1, 2020 - MMR - Valid - Invalid"
+        "Feb 31, 2020 - Not Specified - Valid; May 1, 2020 - MMR - Valid - Invalid;"
     )
     frame.to_csv(source, index=False)
     template = ROOT / "immuknow/templates/overdue_agents_v1.en.typ"
@@ -124,12 +124,12 @@ def test_corrected_history_creates_a_new_run_and_keeps_the_rejection(tmp_path):
     command, output, _ = prepare_cohort(tmp_path, ("en",))
     source = command[3]
     frame = pd.read_csv(source, dtype=str, keep_default_na=False)
-    frame.loc[0, "imms_given"] = "May 1, 2020 - MMR - invalid"
+    frame.loc[0, "imms_given"] = "May 1, 2020 - MMR - invalid;"
     frame.to_csv(source, index=False)
     assert run_cli(command, tmp_path).returncode == 1
     (rejected,) = output.glob("*/run.json")
     saved_rejection = rejected.read_bytes()
-    frame.loc[0, "imms_given"] = "May 1, 2020 - MMR - Invalid"
+    frame.loc[0, "imms_given"] = "May 1, 2020 - MMR - Invalid;"
     frame.to_csv(source, index=False)
     result = run_cli(command, tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
