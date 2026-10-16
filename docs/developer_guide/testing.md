@@ -6,8 +6,24 @@ examples and browser checks. Core builds and tests do not require Node or Rust.
 ## Prepare a clean checkout
 
 Install Git, uv, Python 3.10 or later, and native Typst 0.15.1. Put `typst` on
-`PATH`, or set `TYPST_BIN` to its absolute path. Install system FreeSans and
-FreeSerif fonts for notice tests (`fonts-freefont-ttf` on Debian/Ubuntu).
+`PATH`, or set `TYPST_BIN` to its absolute path.
+
+Notice tests use the FreeFont `20120503-10build1` release that Studio also ships.
+Newer FreeSerif releases double accented capitals in PDF text, so French notices
+fail the client details check. Use the same checksum-verified files as CI and
+exclude other system fonts:
+
+```bash
+curl -fL https://archive.ubuntu.com/ubuntu/pool/main/f/fonts-freefont/fonts-freefont-ttf_20120503-10build1_all.deb \
+  -o /tmp/notice-fonts.deb
+echo "d1424c9d47b2a6bd0d5149ca66f2bab9b4365237bfbb6063659d961bab2f8ccb  /tmp/notice-fonts.deb" | sha256sum --check
+dpkg-deb --extract /tmp/notice-fonts.deb /tmp/notice-fonts
+export TYPST_FONT_PATHS=/tmp/notice-fonts/usr/share/fonts/truetype/freefont
+export TYPST_IGNORE_SYSTEM_FONTS=true
+```
+
+If the archive no longer offers this package, update the pin here, in CI and in
+Studio's fonts together.
 
 ```bash
 uv sync --locked --all-groups

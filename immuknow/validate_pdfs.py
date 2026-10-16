@@ -173,6 +173,7 @@ def check_client_identity(
     addresses = summary["measurements"].get("address", []) if summary else []
     regions = ids + addresses
     observed: list[list[str]] = [[] for _ in regions]
+    fonts: list[set[str]] = [set() for _ in regions]
     try:
         for number, page in enumerate(reader.pages, 1):
             placed = [
@@ -196,7 +197,7 @@ def check_client_identity(
 
             unsupported = False
 
-            def collect(text, cm, tm, _font, _size):
+            def collect(text, cm, tm, font, _size):
                 nonlocal unsupported
                 if not text:
                     return
@@ -224,6 +225,10 @@ def check_client_identity(
                         ):
                             unsupported = True
                         observed[index].append(text)
+                        if text.strip() and font:
+                            # Drop the subset prefix, e.g. "ABCDEF+FreeSerif".
+                            name = str(font.get("/BaseFont", "")).lstrip("/")
+                            fonts[index].add(name.split("+", 1)[-1])
 
             page.extract_text(visitor_text=collect)
             if unsupported:
@@ -249,9 +254,57 @@ def check_client_identity(
         "pass" if matches else "fail",
         "Placed client details and mailing addresses match the notice data."
         if matches
-        else "Client details or a mailing address are missing or differ in the PDF.",
+        else "Client details or a mailing address are missing or differ in the PDF."
+        + describe_identity_difference(ids, regions, observed, fonts, client_id),
         measurements={"client_blocks": len(ids), "address_blocks": len(addresses)},
     )
+
+
+def describe_identity_difference(
+    ids: list[dict[str, Any]],
+    regions: list[dict[str, Any]],
+    observed: list[list[str]],
+    fonts: list[set[str]],
+    client_id: str,
+) -> str:
+    """Locate the first difference without repeating personal text.
+
+    Only the two characters at the first differing position are shown, with the
+    PDF fonts in that block, so font text-mapping faults can be recognised.
+    """
+    if not (client_id and ids):
+        return " No client details block was placed."
+    if any(area["client_id"] != client_id for area in ids):
+        return " A client details block belongs to a different client."
+    for index, (area, parts) in enumerate(zip(regions, observed)):
+        expected = " ".join(area["text"].split())
+        found = " ".join("".join(parts).split())
+        if expected == found:
+            continue
+        label = (
+            f"Client details block {index + 1}"
+            if index < len(ids)
+            else f"Mailing address block {index - len(ids) + 1}"
+        )
+        position = next(
+            (i for i, pair in enumerate(zip(expected, found)) if pair[0] != pair[1]),
+            min(len(expected), len(found)),
+        )
+
+        def show(text: str) -> str:
+            if position >= len(text):
+                return "end of text"
+            return f"U+{ord(text[position]):04X} '{text[position]}'"
+
+        font_note = (
+            f" PDF font: {', '.join(sorted(fonts[index]))}." if fonts[index] else ""
+        )
+        return (
+            f" {label} first differs at character {position + 1}:"
+            f" expected {show(expected)}, found {show(found)}"
+            f" ({len(expected)} expected and {len(found)} found characters).{font_note}"
+        )
+    return ""
 
 
 def inspect_notice(

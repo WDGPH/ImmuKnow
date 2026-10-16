@@ -15,6 +15,16 @@ Studio previews use FreeSans and FreeSerif as web assets; **Include fonts** adds
 those files to a project download for manual installation. Small differences in
 appearance are acceptable; check the final native PDF.
 
+Some fonts produce PDF text that differs from the printed page. For example, an
+accented capital can be read back twice (`ÉÉcole`). The page looks correct, but
+copying, searching and screen readers get the wrong text, and the client details
+check fails the notice. The failure message names the PDF font and the first
+character that differs. After changing `body-font`, run a sample notice in each
+language and confirm the run completes. The FreeSans and FreeSerif files that
+**Include fonts** provides work. FreeSerif from the `fonts-freefont-ttf` package
+released in 2021 or later (Ubuntu 24.04 and newer) has this problem; its bold and
+italic styles do not.
+
 Saved originals stay unchanged when creating new delivery batches. Review pages
 use the fonts available on the machine running ImmuKnow.
 
