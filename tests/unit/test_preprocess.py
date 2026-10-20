@@ -1,1972 +1,486 @@
-"""Tests for source normalization and prepared notice data."""
+"""Source rows, normalized administrations and explicit assignments remain inspectable."""
 
-from __future__ import annotations
-
+import csv
 from pathlib import Path
 
 import pandas as pd
 import pytest
-import yaml
 
 from immuknow import preprocess
 from immuknow.assignment_manifest import ManifestRow
-from tests.fixtures import sample_input
+from immuknow.generate_notices import build_notice_data
+from immuknow.render_payload import validate_render_payload
+from immuknow.version_notices import load_catalog
 
 
-def build_result(
-    df: pd.DataFrame,
-    vaccine_reference: dict,
-    excluded_agents: list[str],
-    *,
-    language: str = "en",
-    config: dict | None = None,
-    config_dir: Path = preprocess.CONFIG_DIR,
-    catalog=None,
-    manifest: dict[str, ManifestRow] | None = None,
-):
-    """Run source rules with explicit synthetic notice assignments."""
-    if config is None:
-        config = yaml.safe_load((preprocess.CONFIG_DIR / "parameters.yaml").read_text())
-    if catalog is None:
-        catalog = _make_catalog()
-    prepared = preprocess.clean_csv_text(df)
-    if manifest is None:
-        manifest = {
-            str(row["client_id"]): ManifestRow(
-                client_id=str(row["client_id"]),
-                version_id=(
-                    "overdue_agents_v1"
-                    if row.get("overdue_disease")
-                    else "affirmative_schedule_v1"
-                ),
-                language=language,
-                experiment_id=None,
-                experiment_arm=None,
-            )
-            for _, row in prepared.iterrows()
-        }
+def source_rows() -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            dict(
+                client_id="0000000001",
+                school_name="Z School",
+                first_name=" Alice ",
+                last_name="Smith",
+                date_of_birth="2010-10-12",
+                city="Town",
+                province="QC",
+                postal_code="A1A 1A1",
+                street_address_line_1="1 Main",
+                imms_given="May 1, 2020 - MMR - Valid;",
+                overdue_disease="Poliomyelitis - 2",
+                overdue_agent="IPV",
+            ),
+            dict(
+                client_id="0000000002",
+                school_name="A School",
+                first_name="Bob",
+                last_name="Jones",
+                date_of_birth="bad date",
+                city="",
+                province="BC",
+                postal_code="",
+                street_address_line_1="",
+                imms_given="unparsed history; Feb 31, 2020 - MMR;",
+                overdue_disease="",
+                overdue_agent="",
+            ),
+        ]
+    )
+
+
+def prepare(frame: pd.DataFrame):
     return preprocess.build_preprocess_result(
-        prepared,
-        vaccine_reference,
-        excluded_agents,
-        config=config,
-        config_dir=config_dir,
-        catalog=catalog,
-        manifest=manifest,
-    )
-
-
-@pytest.mark.unit
-class TestOverdueParsing:
-    """Source dose state remains available independently of display settings."""
-
-    def test_preserves_valid_absent_and_invalid_doses(self) -> None:
-        warnings: set[str] = set()
-        result = preprocess.parse_overdue_diseases(
-            "Poliomyelitis - 2; Measles; Mumps - ; Rubella - no dose; Tetanus - 11",
-            {"Poliomyelitis": "Polio"},
-            client_id="C001",
-            warnings=warnings,
-        )
-        assert result == [
-            {"disease": "Polio", "dose": 2},
-            {"disease": "Measles", "dose": None},
-            {"disease": "Mumps", "dose": None, "dose_raw": ""},
-            {"disease": "Rubella", "dose": None, "dose_raw": "no dose"},
-            {"disease": "Tetanus", "dose": 11},
-        ]
-        assert len(warnings) == 2
-
-    def test_display_option_does_not_change_source_doses(
-        self, default_vaccine_reference
-    ) -> None:
-        frame = sample_input.create_test_input_dataframe(num_clients=1)
-        frame.loc[0, "overdue_disease"] = "Measles; Mumps - ; Polio - 2"
-        expected = [
-            {"disease": "Measles", "dose": None},
-            {"disease": "Mumps", "dose": None, "dose_raw": ""},
-            {"disease": "Polio", "dose": 2},
-        ]
-        for include_dose in (False, True):
-            config = yaml.safe_load(
-                (preprocess.CONFIG_DIR / "parameters.yaml").read_text(encoding="utf-8")
+        frame,
+        {"MMR": ["Measles", "Mumps", "Rubella"]},
+        preprocess.UNSPECIFIED_AGENTS,
+        config={"date_of_delivery": "2026-10-12"},
+        config_dir=preprocess.CONFIG_DIR,
+        catalog=load_catalog(preprocess.CONFIG_DIR),
+        manifest={
+            "0000000001": ManifestRow(
+                "0000000001", "overdue_diseases_v1", "fr", None, None
             )
-            config["preprocess"]["include_dose"] = include_dose
-            result, _ = build_result(
-                frame,
-                language="en",
-                vaccine_reference=default_vaccine_reference,
-                excluded_agents=[],
-                config=config,
-            )
-            assert result.clients[0].overdue_diseases == expected
-
-    def test_agents_are_separate_from_disease_eligibility(self) -> None:
-        assert preprocess.parse_overdue_agents("MMR; IPV;") == ["MMR", "IPV"]
-
-
-@pytest.mark.unit
-class TestReadInput:
-    """Unit tests for read_input function."""
-
-    def test_csv_preserves_identifiers_for_assignment_matching(
-        self, tmp_path: Path
-    ) -> None:
-        """CSV identifiers retain leading zeros through input normalization."""
-        source = sample_input.create_test_input_dataframe(num_clients=1)
-        source["school_id"] = "0012"
-        source["board_id"] = "0034"
-        path = tmp_path / "students.csv"
-        source.to_csv(path, index=False, encoding="utf-8-sig")
-
-        actual = preprocess.read_input(path)
-
-        assert actual.loc[0, "client_id"] == "0000000001"
-        assert actual.loc[0, "school_id"] == "0012"
-        assert actual.loc[0, "board_id"] == "0034"
-        assert actual.loc[0, "date_of_birth"] == "2015-01-02"
-
-    def test_read_input_csv_file(self, tmp_test_dir: Path) -> None:
-        """Read a supported CSV source."""
-        df_original = sample_input.create_test_input_dataframe(num_clients=3)
-        input_path = tmp_test_dir / "test_input.csv"
-        df_original.to_csv(input_path, index=False)
-
-        df_read = preprocess.read_input(input_path)
-
-        assert len(df_read) == 3
-        assert "school_name" in df_read.columns
-
-    def test_csv_keeps_literal_na_text_and_trims_all_columns(
-        self, tmp_path: Path
-    ) -> None:
-        """NA-like names remain data while surrounding source spaces are removed."""
-        source = sample_input.create_test_input_dataframe(num_clients=3)
-        source["first_name"] = [" NA ", " nan ", " NULL "]
-        source["client_id"] = [" 0000000001 ", " 0000000002 ", " 0000000003 "]
-        source["imms_given"] = [" May 1, 2020 - DTaP "] * 3
-        path = tmp_path / "names.csv"
-        source.to_csv(path, index=False)
-
-        actual = preprocess.read_input(path)
-
-        assert actual["first_name"].tolist() == ["NA", "nan", "NULL"]
-        assert actual["client_id"].tolist() == [
-            "0000000001",
-            "0000000002",
-            "0000000003",
-        ]
-        assert actual["imms_given"].tolist() == ["May 1, 2020 - DTaP"] * 3
-        for column in ("board_name", "board_id", "school_id", "version_id"):
-            assert column in actual
-        assert actual["board_id"].tolist() == [""] * 3
-
-    def test_read_input_missing_file_raises_error(self, tmp_test_dir: Path) -> None:
-        """Verify error when input file doesn't exist.
-
-        Real-world significance:
-        - Must fail early if user provides incorrect input path
-        """
-        missing_path = tmp_test_dir / "nonexistent.csv"
-
-        with pytest.raises(FileNotFoundError):
-            preprocess.read_input(missing_path)
-
-    def test_read_input_unsupported_file_type_raises_error(
-        self, tmp_test_dir: Path
-    ) -> None:
-        """Reject formats other than CSV."""
-        unsupported_path = tmp_test_dir / "test.xlsx"
-        unsupported_path.write_text("some data")
-
-        with pytest.raises(ValueError, match="CSV"):
-            preprocess.read_input(unsupported_path)
-
-    @pytest.mark.parametrize(
-        ("column", "invalid"),
-        [("first_name", "   "), ("date_of_birth", "2015-02-29")],
-    )
-    def test_schema_rejects_cleaned_blank_or_invalid_date(
-        self, tmp_path: Path, column: str, invalid: str
-    ) -> None:
-        source = sample_input.create_test_input_dataframe(num_clients=1)
-        source.loc[0, column] = invalid
-        path = tmp_path / "invalid.csv"
-        source.to_csv(path, index=False)
-
-        with pytest.raises(ValueError, match=column):
-            preprocess.read_input(path)
-
-    def test_schema_requires_mandatory_source_columns(self, tmp_path: Path) -> None:
-        source = sample_input.create_test_input_dataframe(num_clients=1)
-        source = source.drop(columns=["imms_given"])
-        path = tmp_path / "missing-column.csv"
-        source.to_csv(path, index=False)
-
-        with pytest.raises(ValueError, match="imms_given"):
-            preprocess.read_input(path)
-
-    def test_schema_fills_absent_optional_address_column(self, tmp_path: Path) -> None:
-        """The schema supplies optional blank fields absent from a CSV export."""
-        source = sample_input.create_test_input_dataframe(num_clients=1)
-        source = source.drop(columns=["street_address_line_2"])
-        path = tmp_path / "optional-column.csv"
-        source.to_csv(path, index=False)
-
-        actual = preprocess.read_input(path)
-
-        assert actual.loc[0, "street_address_line_2"] == ""
-        assert actual.loc[0, "client_id"] == "0000000001"
-
-
-@pytest.mark.unit
-class TestCleanCsvText:
-    """Unit tests for clean_csv_text function."""
-
-    def test_clean_csv_text_passes_valid_dataframe(self) -> None:
-        """Valid source text passes through text cleanup."""
-        df = sample_input.create_test_input_dataframe(num_clients=3)
-
-        result = preprocess.clean_csv_text(df)
-
-        assert result is not None
-        assert len(result) == 3
-
-    def test_clean_csv_text_handles_missing_values(self) -> None:
-        """Verify NaN/None values in string columns are filled."""
-        df = sample_input.create_test_input_dataframe(num_clients=3)
-        df.loc[0, "street_address_line_2"] = None
-        df.loc[1, "postal_code"] = float("nan")
-
-        result = preprocess.clean_csv_text(df)
-
-        assert result["street_address_line_2"].iloc[0] == ""
-        assert result["postal_code"].iloc[1] == ""
-
-    def test_clean_csv_text_preserves_date_text(self) -> None:
-        """Calendar interpretation belongs to validation, not cleanup."""
-        df = sample_input.create_test_input_dataframe(num_clients=2)
-        df["date_of_birth"] = ["2015-01-02", "2014-05-06"]
-
-        result = preprocess.clean_csv_text(df)
-
-        assert result["date_of_birth"].tolist() == ["2015-01-02", "2014-05-06"]
-        assert result["date_of_birth"].map(type).eq(str).all()
-
-    def test_clean_csv_text_trims_whitespace(self) -> None:
-        """Verify string columns have leading/trailing whitespace stripped."""
-        df = sample_input.create_test_input_dataframe(num_clients=1)
-        df["first_name"] = ["  Alice  "]
-        df["last_name"] = ["  Zephyr  "]
-
-        result = preprocess.clean_csv_text(df)
-
-        assert result["first_name"].iloc[0] == "Alice"
-        assert result["last_name"].iloc[0] == "Zephyr"
-
-
-@pytest.mark.unit
-class TestAgeCalculation:
-    """Unit tests for age calculation functions."""
-
-    def test_over_16_check_true_for_over_16(self) -> None:
-        """Verify over_16_check returns True for age >= 16.
-
-        Real-world significance:
-        - Notices sent to student (not parent) if over 16
-        - Must correctly classify students by age
-        """
-        age = preprocess.calculate_age_at_date("2000-01-01", "2020-05-15")
-        result = age >= 16
-
-        assert result is True
-
-    def test_over_16_check_false_for_under_16(self) -> None:
-        """Verify over_16_check returns False for age < 16.
-
-        Real-world significance:
-        - Notices sent to parent for students under 16
-        """
-        age = preprocess.calculate_age_at_date("2010-01-01", "2020-05-15")
-        result = age >= 16
-
-        assert result is False
-
-    def test_over_16_check_boundary_at_16(self) -> None:
-        """Verify over_16_check boundary condition at exactly 16 years.
-
-        Real-world significance:
-        - Must correctly handle 16th birthday (inclusive)
-        """
-        age = preprocess.calculate_age_at_date("2000-05-15", "2016-05-15")
-        result = age >= 16
-
-        assert result is True
-
-
-@pytest.mark.unit
-class TestBuildPreprocessResult:
-    """Unit tests for build_preprocess_result function."""
-
-    def test_build_result_generates_clients_with_sequences(
-        self, default_vaccine_reference
-    ) -> None:
-        """Verify clients are generated with sequence numbers.
-
-        Real-world significance:
-        - Sequence numbers (00001, 00002...) appear on notices
-        - Must be deterministic: same input → same sequences
-        """
-        df = sample_input.create_test_input_dataframe(num_clients=3)
-
-        result, _ = build_result(
-            df,
-            language="en",
-            vaccine_reference=default_vaccine_reference,
-            excluded_agents=[],
-        )
-
-        assert len(result.clients) == 3
-        # Sequences should be sequential
-        sequences = [c.sequence for c in result.clients]
-        assert sequences == ["00001", "00002", "00003"]
-
-    def test_build_result_sorts_clients_deterministically(
-        self, default_vaccine_reference
-    ) -> None:
-        """Verify clients are sorted consistently.
-
-        Real-world significance:
-        - Same input must always produce same client order
-        - Required for comparing pipeline runs (reproducibility)
-        - Enables batching by school to work correctly
-        """
-        df = sample_input.create_test_input_dataframe(num_clients=3)
-
-        result1, _ = build_result(
-            df,
-            language="en",
-            vaccine_reference=default_vaccine_reference,
-            excluded_agents=[],
-        )
-
-        result2, _ = build_result(
-            df,
-            language="en",
-            vaccine_reference=default_vaccine_reference,
-            excluded_agents=[],
-        )
-
-        ids1 = [c.client_id for c in result1.clients]
-        ids2 = [c.client_id for c in result2.clients]
-        assert ids1 == ids2, "Client order must be deterministic"
-
-    def test_build_result_sorts_by_school_then_name(
-        self, default_vaccine_reference
-    ) -> None:
-        """Verify clients sorted by school → last_name → first_name → client_id.
-
-        Real-world significance:
-        - Specific sort order enables school-based batching
-        - Must be deterministic across pipeline runs
-        - Affects sequence number assignment
-        """
-        df = pd.DataFrame(
-            {
-                "school_name": [
-                    "Zebra School",
-                    "Zebra School",
-                    "Apple School",
-                    "Apple School",
-                ],
-                "client_id": ["C002", "C001", "C004", "C003"],
-                "first_name": ["Bob", "Alice", "Diana", "Chloe"],
-                "last_name": ["Smith", "Smith", "Jones", "Jones"],
-                "date_of_birth": [
-                    "2015-01-01",
-                    "2015-01-02",
-                    "2015-01-03",
-                    "2015-01-04",
-                ],
-                "street_address_line_1": [
-                    "123 Main",
-                    "123 Main",
-                    "123 Main",
-                    "123 Main",
-                ],
-                "street_address_line_2": ["", "", "", ""],
-                "city": ["Town", "Town", "Town", "Town"],
-                "province": ["ON", "ON", "ON", "ON"],
-                "postal_code": ["N1H 2T2", "N1H 2T2", "N1H 2T2", "N1H 2T2"],
-                "overdue_disease": ["Measles", "Measles", "Measles", "Measles"],
-                "overdue_agent": ["MMR", "MMR", "MMR", "MMR"],
-                "imms_given": ["", "", "", ""],
-            }
-        )
-        result, _ = build_result(
-            df,
-            language="en",
-            vaccine_reference=default_vaccine_reference,
-            excluded_agents=[],
-        )
-
-        # Expected order: Apple/Chloe/Jones, Apple/Diana/Jones, Zebra/Alice/Smith, Zebra/Bob/Smith
-        expected_ids = ["C003", "C004", "C001", "C002"]
-        actual_ids = [c.client_id for c in result.clients]
-        assert actual_ids == expected_ids
-
-    def test_build_result_maps_vaccines_correctly(
-        self, default_vaccine_reference
-    ) -> None:
-        """Verify vaccine codes expand to component diseases.
-
-        Real-world significance:
-        - DTaP → Diphtheria, Tetanus, Pertussis
-        - Vaccine mapping must preserve all components
-        - Affects disease coverage reporting in notices
-        """
-        df = sample_input.create_test_input_dataframe(num_clients=1)
-        df["imms_given"] = ["May 1, 2020 - DTaP"]
-
-        result, _ = build_result(
-            df,
-            language="en",
-            vaccine_reference=default_vaccine_reference,
-            excluded_agents=[],
-        )
-
-        # Should have DTaP expanded to component diseases in columns dict
-        assert len(result.clients) == 1
-        client = result.clients[0]
-        assert client.received is not None
-        assert len(client.received) > 0
-        columns = client.received[0].get("columns")
-        assert isinstance(columns, dict) and "Diphtheria" in columns
-
-    def test_build_result_uses_explicit_config_path(
-        self, tmp_path: Path, default_vaccine_reference
-    ) -> None:
-        """Verify an explicit config controls dose display and validity markers.
-
-        Real-world significance:
-        - A selected site configuration must override repository defaults
-        - Disabling dose display must remove supplied dose numbers from notices
-
-        Assertion: The dose is hidden and the selected marker warning is emitted
-        """
-        config_path = tmp_path / "parameters.yaml"
-        config_path.write_text(
-            "preprocess:\n  include_dose: false\n  show_validity_markers: true\n",
-            encoding="utf-8",
-        )
-        df = sample_input.create_test_input_dataframe(num_clients=1)
-        df["overdue_disease"] = ["DTaP - 2"]
-        df["imms_given"] = ["May 1, 2020 - DTaP"]
-
-        result, _ = build_result(
-            df,
-            language="en",
-            vaccine_reference=default_vaccine_reference,
-            excluded_agents=[],
-            config=yaml.safe_load(config_path.read_text()),
-        )
-
-        assert result.clients[0].overdue_diseases == [{"disease": "DTaP", "dose": 2}]
-        assert any(
-            "no validity data was detected in the dataset" in warning
-            for warning in result.warnings
-        )
-
-    def test_build_result_handles_missing_board_name_with_warning(
-        self, default_vaccine_reference
-    ) -> None:
-        """Verify missing board name generates warning.
-
-        Real-world significance:
-        - Some school districts don't have explicit board assignments
-        - Should auto-generate board ID and log warning
-        - Allows pipeline to proceed without failing
-        """
-        df = pd.DataFrame(
-            {
-                "school_name": ["Test School"],
-                "client_id": ["C001"],
-                "first_name": ["Alice"],
-                "last_name": ["Zephyr"],
-                "date_of_birth": ["2015-01-01"],
-                "street_address_line_1": ["123 Main"],
-                "street_address_line_2": [""],
-                "city": ["Guelph"],
-                "province": ["ON"],
-                "postal_code": ["N1H 2T2"],
-                "overdue_disease": ["Measles"],
-                "overdue_agent": ["MMR"],
-                "imms_given": [""],
-            }
-        )
-        result, _ = build_result(
-            df,
-            language="en",
-            vaccine_reference=default_vaccine_reference,
-            excluded_agents=[],
-        )
-
-        assert len(result.clients) == 1
-        board_warnings = [w for w in result.warnings if "Missing board name" in w]
-        assert len(board_warnings) >= 1
-
-    def test_build_result_french_language_support(
-        self, default_vaccine_reference
-    ) -> None:
-        """Verify preprocessing handles French language correctly.
-
-        Real-world significance:
-        - Notices generated in both English and French
-        - Preprocessing must handle both language variants
-        - Dates must convert to French format for display
-        """
-        df = sample_input.create_test_input_dataframe(num_clients=1)
-
-        result, _ = build_result(
-            df,
-            language="fr",
-            vaccine_reference=default_vaccine_reference,
-            excluded_agents=[],
-        )
-
-        assert len(result.clients) == 1
-        assert result.clients[0].language == "fr"
-
-    def test_build_result_handles_excluded_agents(
-        self, default_vaccine_reference
-    ) -> None:
-        """Verify excluded_agents filters out unspecified vaccines.
-
-        Real-world significance:
-        - Input may contain "Not Specified" vaccine agents
-        - Pipeline should filter these out to avoid confusing notices
-        """
-        df = sample_input.create_test_input_dataframe(num_clients=1)
-
-        result, _ = build_result(
-            df,
-            language="en",
-            vaccine_reference=default_vaccine_reference,
-            excluded_agents=["Not Specified", "unspecified"],
-        )
-
-        assert len(result.clients) == 1
-
-    def test_build_result_detects_duplicate_client_ids(
-        self, default_vaccine_reference
-    ) -> None:
-        """Verify duplicate client IDs are detected and warned.
-
-        Real-world significance:
-        - Source data may contain duplicate client IDs (data entry errors)
-        - Must warn about this data quality issue
-        - Each source row keeps a separate notice sequence and shares the assignment
-        """
-        df = sample_input.create_test_input_dataframe(num_clients=2)
-        # Force duplicate client IDs
-        df.loc[0, "client_id"] = "C123456789"
-        df.loc[1, "client_id"] = "C123456789"
-
-        result, _ = build_result(
-            df,
-            language="en",
-            vaccine_reference=default_vaccine_reference,
-            excluded_agents=[],
-        )
-
-        # Should have 2 clients (no deduplication)
-        assert len(result.clients) == 2
-
-        # Should have a warning about duplicates
-        duplicate_warnings = [w for w in result.warnings if "Duplicate client ID" in w]
-        assert len(duplicate_warnings) == 1
-        assert "C123456789" in duplicate_warnings[0]
-        assert "2 times" in duplicate_warnings[0]
-        assert "separate notice with the same assignment" in duplicate_warnings[0]
-
-    def test_build_result_detects_multiple_duplicate_client_ids(
-        self, default_vaccine_reference
-    ) -> None:
-        """Verify multiple sets of duplicate client IDs are detected.
-
-        Real-world significance:
-        - May have multiple different client IDs that are duplicated
-        - Each duplicate set should generate a separate warning
-        """
-        df = sample_input.create_test_input_dataframe(num_clients=5)
-        # Create two sets of duplicates
-        df.loc[0, "client_id"] = "C111111111"
-        df.loc[1, "client_id"] = "C111111111"
-        df.loc[2, "client_id"] = "C111111111"
-        df.loc[3, "client_id"] = "C222222222"
-        df.loc[4, "client_id"] = "C222222222"
-
-        result, _ = build_result(
-            df,
-            language="en",
-            vaccine_reference=default_vaccine_reference,
-            excluded_agents=[],
-        )
-
-        # Should have 5 clients (no deduplication)
-        assert len(result.clients) == 5
-
-        # Should have warnings for both duplicates
-        duplicate_warnings = [w for w in result.warnings if "Duplicate client ID" in w]
-        assert len(duplicate_warnings) == 2
-
-        # Check each duplicate is mentioned
-        warning_text = " ".join(duplicate_warnings)
-        assert "C111111111" in warning_text
-        assert "3 times" in warning_text
-        assert "C222222222" in warning_text
-        assert "2 times" in warning_text
-
-    def test_build_result_no_warning_for_unique_client_ids(
-        self, default_vaccine_reference
-    ) -> None:
-        """Verify no warning when all client IDs are unique.
-
-        Real-world significance:
-        - Normal case with clean data should not produce duplicate warnings
-        """
-        df = sample_input.create_test_input_dataframe(num_clients=3)
-
-        result, _ = build_result(
-            df,
-            language="en",
-            vaccine_reference=default_vaccine_reference,
-            excluded_agents=[],
-        )
-
-        # Should have 3 unique clients
-        assert len(result.clients) == 3
-
-        # Should have NO warnings about duplicates
-        duplicate_warnings = [w for w in result.warnings if "Duplicate client ID" in w]
-        assert len(duplicate_warnings) == 0
-
-
-@pytest.mark.unit
-class TestValidityStatusHandling:
-    """Unit tests for the normalize_validity_status() case-sensitivity contract.
-
-    Covers:
-    - Accepted casings ("valid", "Valid", "invalid", "Invalid") and their
-      lowercase output
-    - Fallback to "unknown" for typos, alternate casings, empty values, and
-      None/NaN inputs
-
-    Real-world significance:
-    - Validity markers on notices distinguish doses that count toward
-      immunity from those administered too early or in error
-    - The strict two-casing allowlist prevents ambiguous data from
-      silently influencing printed markers; "unknown" surfaces upstream
-      via classify_dataset_validity rather than per-record propagation
-    """
-
-    def test_known_statuses_normalize_correctly(self) -> None:
-        """Verify valid/Valid and invalid/Invalid are accepted as known statuses.
-
-        Real-world significance:
-        - Validity markers appear on notices to distinguish doses that count
-          toward immunity from those administered too early or in error
-        - Only the exact casings "valid"/"Valid" and "invalid"/"Invalid" are
-          authoritative; anything else must fall to "unknown"
-
-        Assertion: Each accepted casing maps to its lowercase form
-        """
-        assert preprocess.normalize_validity_status("valid") == "valid"
-        assert preprocess.normalize_validity_status("Valid") == "valid"
-        assert preprocess.normalize_validity_status("invalid") == "invalid"
-        assert preprocess.normalize_validity_status("Invalid") == "invalid"
-
-    def test_unrecognized_statuses_fall_back_to_unknown(self) -> None:
-        """Verify anything outside the strict allowed set normalizes to unknown.
-
-        Real-world significance:
-        - Input data may contain typos, alternate casings ("VALID", "True"),
-          or missing values; these must not be silently treated as valid or invalid
-        - Records that normalize to "unknown" are detected at the dataset level
-          by classify_dataset_validity, which drives warning/error behaviour in
-          build_preprocess_result rather than reacting per-record
-
-        Assertion: All unrecognized inputs produce "unknown"
-        """
-        assert preprocess.normalize_validity_status("VALID") == "unknown"
-        assert preprocess.normalize_validity_status("true") == "unknown"
-        assert preprocess.normalize_validity_status("") == "unknown"
-        assert preprocess.normalize_validity_status(None) == "unknown"
-
-
-@pytest.mark.unit
-class TestClassifyDatasetValidity:
-    """Unit tests for classify_dataset_validity() dataset pre-pass contract.
-
-    Covers:
-    - All doses with validity indicators → "all_present"
-    - All doses without validity indicators → "all_absent"
-    - Mix within a dataset → "mixed"
-    - Empty / NaN / blank values are skipped, not treated as absent
-    - Multiple semicolon-delimited segments in a single cell
-
-    Real-world significance:
-    - classify_dataset_validity is called once per pipeline run before the
-      client loop; an incorrect classification causes the wrong branch of
-      warning/error logic to fire, either silently hiding data quality
-      problems or raising a spurious ValueError that aborts the run
-    """
-
-    def test_all_doses_with_validity_suffix_returns_all_present(self) -> None:
-        """Verify a dataset where every dose has - Valid/- Invalid → "all_present".
-
-        Assertion: series with only suffixed segments → "all_present"
-        """
-        series = pd.Series(
-            [
-                "May 1, 2020 - DTaP - Valid",
-                "Jun 15, 2021 - MMR - Invalid",
-            ]
-        )
-        assert preprocess.classify_dataset_validity(series) == "all_present"
-
-    @pytest.mark.parametrize("suffix", ["valid", "invalid"])
-    def test_lowercase_validity_suffix_returns_all_present(self, suffix: str) -> None:
-        """Verify each supported lowercase suffix is recognized as present.
-
-        Real-world significance:
-        - Source exports may use lowercase validity markers; misclassifying
-          them as absent can incorrectly reject a consistently marked dataset
-
-        Assertion: Each lowercase suffix classifies the dataset as all_present
-        """
-        series = pd.Series([f"May 1, 2020 - DTaP - {suffix}"])
-        assert preprocess.classify_dataset_validity(series) == "all_present"
-
-    @pytest.mark.parametrize("suffix", ["VALID", "INVALID", "vAlid", "iNvalid"])
-    def test_unsupported_validity_casing_returns_all_absent(self, suffix: str) -> None:
-        """Verify unsupported casing is not recognized as a validity suffix.
-
-        Real-world significance:
-        - Unapproved casing must not silently influence validity markers on
-          notices because its meaning has not met the source-data contract
-
-        Assertion: Each unsupported suffix classifies the dataset as all_absent
-        """
-        series = pd.Series([f"May 1, 2020 - DTaP - {suffix}"])
-        assert preprocess.classify_dataset_validity(series) == "all_absent"
-
-    def test_all_doses_without_validity_suffix_returns_all_absent(self) -> None:
-        """Verify a dataset where no dose has a suffix → "all_absent".
-
-        Assertion: series with no suffixed segments → "all_absent"
-        """
-        series = pd.Series(
-            [
-                "May 1, 2020 - DTaP",
-                "Jun 15, 2021 - MMR",
-            ]
-        )
-        assert preprocess.classify_dataset_validity(series) == "all_absent"
-
-    def test_mix_of_present_and_absent_returns_mixed(self) -> None:
-        """Verify a dataset with some suffixed and some unsuffixed doses → "mixed".
-
-        Real-world significance:
-        - "mixed" with show_validity_markers=True raises ValueError to
-          prevent displaying unreliable markers; the test verifies the
-          classification step that gates that error
-
-        Assertion: series with one suffixed and one unsuffixed segment → "mixed"
-        """
-        series = pd.Series(
-            [
-                "May 1, 2020 - DTaP - Valid",
-                "Jun 15, 2021 - MMR",
-            ]
-        )
-        assert preprocess.classify_dataset_validity(series) == "mixed"
-
-    def test_empty_series_returns_all_absent(self) -> None:
-        """Verify an empty series (no dose records at all) → "all_absent".
-
-        Assertion: pd.Series([], dtype=str) → "all_absent"
-        """
-        series = pd.Series([], dtype=str)
-        assert preprocess.classify_dataset_validity(series) == "all_absent"
-
-    def test_nan_and_empty_strings_are_ignored(self) -> None:
-        """Verify NaN values and blank cells do not count as absent-suffix doses.
-
-        Real-world significance:
-        - Clients with no immunization history have empty imms_given cells;
-          these must not trigger "mixed" when the rest of the dataset is clean
-
-        Assertion: valid suffixed dose + NaN + "" → "all_present"
-        """
-        series = pd.Series(["May 1, 2020 - DTaP - Valid", None, ""])
-        assert preprocess.classify_dataset_validity(series) == "all_present"
-
-    def test_multiple_segments_per_cell_all_present(self) -> None:
-        """Verify multiple semicolon-delimited segments in one cell are each checked.
-
-        Assertion: two suffixed segments in one cell → "all_present"
-        """
-        series = pd.Series(["May 1, 2020 - DTaP - Valid; Jun 15, 2021 - MMR - Invalid"])
-        assert preprocess.classify_dataset_validity(series) == "all_present"
-
-    def test_multiple_segments_per_cell_returns_mixed_when_one_lacks_suffix(
-        self,
-    ) -> None:
-        """Verify a single un-suffixed segment inside a multi-segment cell → "mixed".
-
-        Assertion: one suffixed + one un-suffixed segment in same cell → "mixed"
-        """
-        series = pd.Series(["May 1, 2020 - DTaP - Valid; Jun 15, 2021 - MMR"])
-        assert preprocess.classify_dataset_validity(series) == "mixed"
-
-
-@pytest.mark.unit
-class TestParseDoseSegments:
-    """Unit tests for parse_dose_segments() parsing contract.
-
-    Covers:
-    - Empty / non-string inputs → empty list
-    - Doses with - Valid / - Invalid suffix → correct status
-    - Doses without suffix → "unknown" (not silently dropped)
-    - Multiple doses on the same date returned as separate flat entries
-    - Entries sorted ascending by date regardless of input order
-    - excluded_agents filtering
-
-    Real-world significance:
-    - This function is the sole parser for imms_given strings; incorrect
-      parsing silently omits or misrepresents a patient's immunization
-      history on their printed notice.
-    """
-
-    def test_empty_string_returns_empty_list(self) -> None:
-        """Assertion: "" → []"""
-        assert preprocess.parse_dose_segments("", []) == []
-
-    def test_non_string_input_returns_empty_list(self) -> None:
-        """Assertion: None → []"""
-        assert preprocess.parse_dose_segments(None, []) == []
-
-    def test_dose_with_valid_suffix_parsed_correctly(self) -> None:
-        """Verify date, vaccine name, and validity are all parsed correctly."""
-        result = preprocess.parse_dose_segments("May 1, 2020 - DTaP - Valid", [])
-        assert len(result) == 1
-        assert result[0]["date_given"] == "2020-05-01"
-        assert result[0]["vaccine"] == "DTaP"
-        assert result[0]["validity"] == "valid"
-
-    def test_dose_with_invalid_suffix_parsed_correctly(self) -> None:
-        """Assertion: - Invalid suffix → validity == "invalid"."""
-        result = preprocess.parse_dose_segments("May 1, 2020 - DTaP - Invalid", [])
-        assert result[0]["validity"] == "invalid"
-
-    @pytest.mark.parametrize(
-        ("suffix", "expected_status"),
-        [("valid", "valid"), ("invalid", "invalid")],
-    )
-    def test_lowercase_validity_suffix_parsed_correctly(
-        self, suffix: str, expected_status: str
-    ) -> None:
-        """Verify lowercase suffixes are removed and normalized when parsed.
-
-        Real-world significance:
-        - Lowercase validity markers must control the notice marker instead of
-          becoming part of the displayed vaccine name
-
-        Assertion: Vaccine is DTaP and validity matches the lowercase suffix
-        """
-        result = preprocess.parse_dose_segments(f"May 1, 2020 - DTaP - {suffix}", [])
-        assert result[0]["vaccine"] == "DTaP"
-        assert result[0]["validity"] == expected_status
-
-    @pytest.mark.parametrize("suffix", ["VALID", "INVALID", "vAlid", "iNvalid"])
-    def test_unsupported_validity_casing_remains_in_vaccine_name(
-        self, suffix: str
-    ) -> None:
-        """Verify unsupported casing remains vaccine text with unknown validity.
-
-        Real-world significance:
-        - Unapproved casing must remain untrusted so a dose is not incorrectly
-          shown as counting or not counting toward immunity
-
-        Assertion: Suffix remains vaccine text and validity is unknown
-        """
-        result = preprocess.parse_dose_segments(f"May 1, 2020 - DTaP - {suffix}", [])
-        assert result[0]["vaccine"] == f"DTaP - {suffix}"
-        assert result[0]["validity"] == "unknown"
-
-    def test_dose_without_suffix_yields_unknown_not_dropped(self) -> None:
-        """Verify a dose lacking a suffix is captured as "unknown", not dropped.
-
-        Real-world significance:
-        - Legacy datasets or incomplete exports omit validity suffixes;
-          they must appear on the notice with unknown status.
-        """
-        result = preprocess.parse_dose_segments("May 1, 2020 - DTaP", [])
-        assert len(result) == 1
-        assert result[0]["validity"] == "unknown"
-
-    def test_same_date_doses_remain_separate_flat_entries(self) -> None:
-        """Verify two doses on the same date produce two flat entries (no grouping here)."""
-        result = preprocess.parse_dose_segments(
-            "May 1, 2020 - DTaP; May 1, 2020 - MMR", []
-        )
-        assert len(result) == 2
-        vaccines = {r["vaccine"] for r in result}
-        assert vaccines == {"DTaP", "MMR"}
-
-    def test_different_dates_produce_separate_entries(self) -> None:
-        """Assertion: two segments with different dates → two entries."""
-        result = preprocess.parse_dose_segments(
-            "May 1, 2020 - DTaP; Jun 15, 2021 - MMR", []
-        )
-        assert len(result) == 2
-
-    def test_entries_sorted_ascending_by_date(self) -> None:
-        """Verify records are sorted by date regardless of input order.
-
-        Real-world significance:
-        - Immunization history is displayed chronologically on notices.
-        """
-        result = preprocess.parse_dose_segments(
-            "Jun 15, 2021 - MMR; May 1, 2020 - DTaP", []
-        )
-        assert result[0]["date_given"] == "2020-05-01"
-        assert result[1]["date_given"] == "2021-06-15"
-
-    def test_excluded_agents_filters_named_vaccines(self) -> None:
-        """Verify vaccines in excluded_agents are excluded from output."""
-        result = preprocess.parse_dose_segments(
-            "May 1, 2020 - Not Specified; Jun 15, 2021 - MMR",
-            ["Not Specified"],
-        )
-        assert len(result) == 1
-        assert result[0]["vaccine"] == "MMR"
-
-
-@pytest.mark.unit
-class TestBuildReceivedRows:
-    """Unit tests for build_received_rows() end-to-end row construction.
-
-    Covers:
-    - Basic single-date, single-vaccine case
-    - Same-vaccine deduplication: unknown > valid > invalid
-    - Column status computation (valid, invalid, unknown, mixed)
-    - Row splitting when a column is mixed
-    - date_rowspan values: N on first row, 0 on continuations
-    - Recursive splitting terminates cleanly
-    - "Other" column produced for unmapped diseases
-
-    Real-world significance:
-    - build_received_rows is the sole source of the ``received`` field
-      on ClientRecord; every immunization row and validity marker on a
-      printed notice derives from this output.
-    """
-
-    @pytest.fixture
-    def vaccine_reference(self) -> dict:
-        return {
-            "DTaP": ["Diphtheria", "Tetanus", "Pertussis"],
-            "MMR": ["Measles", "Mumps", "Rubella"],
-            "IPV": ["Polio"],
-            "HBV": ["Hepatitis B"],
-            "HPV": ["Human Papillomavirus"],
-        }
-
-    @pytest.fixture
-    def header(self) -> list:
-        return ["Diphtheria", "Tetanus", "Pertussis", "Polio", "Measles", "Other"]
-
-    def test_single_vaccine_single_date(self, vaccine_reference, header) -> None:
-        """One vaccine, one date → one row with correct column status."""
-        rows = preprocess.build_received_rows(
-            "May 1, 2020 - DTaP - Valid", [], vaccine_reference, header
-        )
-        assert len(rows) == 1
-        assert rows[0]["date_given"] == "2020-05-01"
-        assert rows[0]["date_rowspan"] == 1
-        assert rows[0]["columns"]["Diphtheria"] == "valid"
-        assert rows[0]["columns"]["Tetanus"] == "valid"
-        assert rows[0]["columns"]["Pertussis"] == "valid"
-        assert "vaccines" in rows[0]
-        assert "DTaP" in rows[0]["vaccines"]
-
-    def test_two_dates_two_rows_no_split(self, vaccine_reference, header) -> None:
-        """Two distinct dates each produce one row; date_rowspan == 1 on both."""
-        rows = preprocess.build_received_rows(
-            "May 1, 2020 - DTaP - Valid; Jun 15, 2021 - IPV - Invalid",
-            [],
-            vaccine_reference,
-            header,
-        )
-        assert len(rows) == 2
-        assert all(r["date_rowspan"] == 1 for r in rows)
-        assert rows[0]["columns"]["Diphtheria"] == "valid"
-        assert rows[1]["columns"]["Polio"] == "invalid"
-
-    def test_same_vaccine_deduplication_unknown_wins(
-        self, vaccine_reference, header
-    ) -> None:
-        """Two doses of same vaccine: unknown + valid → unknown (data quality signal)."""
-        rows = preprocess.build_received_rows(
-            "May 1, 2020 - DTaP; May 1, 2020 - DTaP - Valid",
-            [],
-            vaccine_reference,
-            header,
-        )
-        assert len(rows) == 1
-        assert rows[0]["columns"]["Diphtheria"] == "unknown"
-
-    def test_same_vaccine_deduplication_valid_over_invalid(
-        self, vaccine_reference, header
-    ) -> None:
-        """Two doses of same vaccine: valid + invalid → valid."""
-        rows = preprocess.build_received_rows(
-            "May 1, 2020 - DTaP - Valid; May 1, 2020 - DTaP - Invalid",
-            [],
-            vaccine_reference,
-            header,
-        )
-        assert len(rows) == 1
-        assert rows[0]["columns"]["Diphtheria"] == "valid"
-
-    def test_same_vaccine_deduplication_all_invalid(
-        self, vaccine_reference, header
-    ) -> None:
-        """Two doses of same vaccine: invalid + invalid → invalid."""
-        rows = preprocess.build_received_rows(
-            "May 1, 2020 - DTaP - Invalid; May 1, 2020 - DTaP - Invalid",
-            [],
-            vaccine_reference,
-            header,
-        )
-        assert len(rows) == 1
-        assert rows[0]["columns"]["Diphtheria"] == "invalid"
-
-    def test_two_vaccines_same_date_no_mixed_column(
-        self, vaccine_reference, header
-    ) -> None:
-        """Two vaccines, same date, same validity → single row, no split."""
-        rows = preprocess.build_received_rows(
-            "May 1, 2020 - DTaP - Valid; May 1, 2020 - IPV - Valid",
-            [],
-            vaccine_reference,
-            header,
-        )
-        assert len(rows) == 1
-        assert rows[0]["date_rowspan"] == 1
-        assert rows[0]["columns"]["Diphtheria"] == "valid"
-        assert rows[0]["columns"]["Polio"] == "valid"
-
-    def test_mixed_column_triggers_split_into_two_rows(
-        self, vaccine_reference, header
-    ) -> None:
-        """DTaP(valid) + IPV(invalid) on same date → Diphtheria=valid, Polio=invalid,
-        no mixed → single row (different columns, not same column)."""
-        rows = preprocess.build_received_rows(
-            "May 1, 2020 - DTaP - Valid; May 1, 2020 - IPV - Invalid",
-            [],
-            vaccine_reference,
-            header,
-        )
-        # DTaP and IPV map to different columns — no mixed, one row
-        assert len(rows) == 1
-        assert rows[0]["columns"]["Diphtheria"] == "valid"
-        assert rows[0]["columns"]["Polio"] == "invalid"
-
-    def test_two_vaccines_sharing_disease_column_produces_mixed(self) -> None:
-        """Two different vaccines both mapping to same disease with conflicting validity
-        → that column is mixed → split into two rows."""
-        ref = {
-            "VaxA": ["Diphtheria"],
-            "VaxB": ["Diphtheria"],
-        }
-        header = ["Diphtheria", "Other"]
-        rows = preprocess.build_received_rows(
-            "May 1, 2020 - VaxA - Valid; May 1, 2020 - VaxB - Invalid",
-            [],
-            ref,
-            header,
-            show_validity_markers=True,
-        )
-        assert len(rows) == 2
-        assert rows[0]["date_rowspan"] == 2
-        assert rows[1]["date_rowspan"] == 0
-        # Row 1: valid vaccine only
-        assert rows[0]["columns"]["Diphtheria"] == "valid"
-        # Row 2: invalid vaccine only
-        assert rows[1]["columns"]["Diphtheria"] == "invalid"
-
-    def test_date_rowspan_on_continuation_rows_is_zero(self) -> None:
-        """Continuation rows for a split date must have date_rowspan == 0."""
-        ref = {"VaxA": ["Diphtheria"], "VaxB": ["Diphtheria"]}
-        header = ["Diphtheria", "Other"]
-        rows = preprocess.build_received_rows(
-            "May 1, 2020 - VaxA - Valid; May 1, 2020 - VaxB - Invalid",
-            [],
-            ref,
-            header,
-            show_validity_markers=True,
-        )
-        assert rows[1]["date_rowspan"] == 0
-
-    def test_other_column_mixed_triggers_split(self, vaccine_reference, header) -> None:
-        """HBV(valid) + HPV(invalid) both map to Other → Other is mixed → split."""
-        rows = preprocess.build_received_rows(
-            "May 1, 2020 - HBV - Valid; May 1, 2020 - HPV - Invalid",
-            [],
-            vaccine_reference,
-            header,
-            show_validity_markers=True,
-        )
-        assert len(rows) == 2
-        assert rows[0]["columns"].get("Other") == "valid"
-        assert rows[1]["columns"].get("Other") == "invalid"
-
-    def test_other_column_all_valid(self, vaccine_reference, header) -> None:
-        """HBV(valid) + HPV(valid) → Other == valid, single row."""
-        rows = preprocess.build_received_rows(
-            "May 1, 2020 - HBV - Valid; May 1, 2020 - HPV - Valid",
-            [],
-            vaccine_reference,
-            header,
-        )
-        assert len(rows) == 1
-        assert rows[0]["columns"].get("Other") == "valid"
-
-    def test_unknown_and_valid_in_same_column_is_unknown(self) -> None:
-        """VaxA(valid) + VaxB(unknown) for same disease → unknown (not mixed)."""
-        ref = {"VaxA": ["Diphtheria"], "VaxB": ["Diphtheria"]}
-        header = ["Diphtheria", "Other"]
-        rows = preprocess.build_received_rows(
-            "May 1, 2020 - VaxA - Valid; May 1, 2020 - VaxB",
-            [],
-            ref,
-            header,
-        )
-        assert len(rows) == 1
-        assert rows[0]["columns"]["Diphtheria"] == "unknown"
-
-    def test_empty_input_returns_empty_list(self, vaccine_reference, header) -> None:
-        """Assertion: empty string → []"""
-        assert preprocess.build_received_rows("", [], vaccine_reference, header) == []
-
-    def test_excluded_agents_filters_vaccine(self, vaccine_reference, header) -> None:
-        """Filtered vaccine absent from output; remaining vaccine present."""
-        rows = preprocess.build_received_rows(
-            "May 1, 2020 - Not Specified; May 1, 2020 - DTaP - Valid",
-            ["Not Specified"],
-            vaccine_reference,
-            header,
-        )
-        assert len(rows) == 1
-        assert "DTaP" in rows[0]["vaccines"]
-        assert "Not Specified" not in rows[0]["vaccines"]
-
-    def test_build_result_maps_vaccines_correctly(
-        self, default_vaccine_reference
-    ) -> None:
-        """Verify vaccine codes expand to component diseases in columns dict.
-
-        Real-world significance:
-        - DTaP → Diphtheria, Tetanus, Pertussis columns populated.
-        """
-        df = sample_input.create_test_input_dataframe(num_clients=1)
-        df["imms_given"] = ["May 1, 2020 - DTaP"]
-
-        result, _ = build_result(
-            df,
-            language="en",
-            vaccine_reference=default_vaccine_reference,
-            excluded_agents=[],
-        )
-
-        client = result.clients[0]
-        assert client.received is not None
-        assert len(client.received) > 0
-        columns = client.received[0].get("columns")
-        assert isinstance(columns, dict) and "Diphtheria" in columns
-
-
-@pytest.mark.unit
-class TestCheckAddressesComplete:
-    """Unit tests for check_addresses_complete().
-
-    Covers:
-    - All addresses complete → all rows returned, no warning
-    - Some addresses incomplete → warning logged, incomplete rows dropped by default
-    - drop_incomplete=False → all rows returned regardless of completeness
-    - Incomplete rows written to CSV side-effect
-    - Blank strings and whitespace-only values treated as missing
-
-    Real-world significance:
-    - check_addresses_complete gates which clients receive a mailed notice;
-      dropping a client with a missing postal code is correct; silently keeping
-      one with no street address would produce an undeliverable envelope.
-    """
-
-    @pytest.fixture
-    def output_dir(self, tmp_path) -> Path:
-        """Keep excluded-row diagnostics inside this test's workspace."""
-        out = tmp_path / "output"
-        out.mkdir(parents=True)
-        return out
-
-    @pytest.fixture
-    def complete_df(self) -> pd.DataFrame:
-        """Three rows with fully populated address fields."""
-        frame = pd.DataFrame(
-            {
-                "street_address_line_1": ["123 Main St", "456 Side Rd", "789 Oak Ave"],
-                "street_address_line_2": ["", "Suite 5", ""],
-                "city": ["Guelph", "Guelph", "Wellington"],
-                "province": ["ON", "ON", "ON"],
-                "postal_code": ["N1H 2T2", "N1H 2T3", "N1K 1B2"],
-            }
-        )
-        return preprocess.clean_csv_text(frame)
-
-    @pytest.fixture
-    def mixed_df(self) -> pd.DataFrame:
-        """Two complete rows and one row with missing city and postal_code.
-
-        Missing values are converted to empty strings by the shared cleanup.
-        """
-        frame = pd.DataFrame(
-            {
-                "street_address_line_1": ["123 Main St", "456 Side Rd", "789 Oak Ave"],
-                "street_address_line_2": ["", "", ""],
-                "city": ["Guelph", "Guelph", float("nan")],
-                "province": ["ON", "ON", "ON"],
-                "postal_code": ["N1H 2T2", "N1H 2T3", float("nan")],
-            }
-        )
-        return preprocess.clean_csv_text(frame)
-
-    def test_all_complete_returns_all_rows(self, complete_df) -> None:
-        """Verify all rows are returned when every address is fully populated.
-
-        Real-world significance:
-        - Clean input must not accidentally drop any clients.
-
-        Assertion: Output has the same row count as input
-        """
-        result = preprocess.check_addresses_complete(complete_df)
-
-        assert len(result) == len(complete_df)
-
-    def test_all_complete_no_warning(
-        self, complete_df, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        """Verify no warning is logged when all addresses are complete.
-
-        Assertion: No warning message is emitted
-        """
-        with caplog.at_level("WARNING"):
-            preprocess.check_addresses_complete(complete_df)
-
-        assert "incomplete address" not in caplog.text.lower()
-
-    def test_incomplete_rows_dropped_by_default(self, mixed_df, output_dir) -> None:
-        """Verify incomplete rows are excluded from the return value by default.
-
-        Real-world significance:
-        - Clients without a deliverable address must be excluded so the mailer
-          does not attempt to print an undeliverable envelope.
-
-        Assertion: Only the two complete rows are returned
-        """
-        result = preprocess.check_addresses_complete(mixed_df, output_dir=output_dir)
-
-        assert len(result) == 2
-
-    def test_incomplete_rows_logged_as_warning(
-        self, mixed_df, output_dir, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        """Verify a warning is logged reporting how many records are incomplete.
-
-        Real-world significance:
-        - Operators must be alerted when clients are silently excluded so they
-          can investigate the source data and resubmit corrected records.
-
-        Assertion: Warning message contains the count of incomplete records
-        """
-        with caplog.at_level("WARNING"):
-            preprocess.check_addresses_complete(mixed_df, output_dir=output_dir)
-
-        assert "There are 1 records with incomplete address information" in caplog.text
-
-    def test_incomplete_rows_written_to_csv(self, mixed_df, output_dir) -> None:
-        """Verify incomplete records are written to incomplete_addresses.csv.
-
-        Real-world significance:
-        - The CSV gives operators a machine-readable list of excluded clients
-          so they can fix addresses and rerun without manually identifying gaps.
-
-        Assertion: CSV exists and contains exactly the incomplete rows
-        """
-        preprocess.check_addresses_complete(mixed_df, output_dir=output_dir)
-
-        csv_path = output_dir / "incomplete_addresses.csv"
-        assert csv_path.exists()
-        written = pd.read_csv(csv_path)
-        assert len(written) == 1
-
-    def test_drop_incomplete_false_returns_all_rows(self, mixed_df, output_dir) -> None:
-        """Verify drop_incomplete=False keeps all rows regardless of completeness.
-
-        Real-world significance:
-        - Some callers (e.g. inspection or dry-run modes) need to see the full
-          dataset including incomplete records to audit what would be excluded.
-
-        Assertion: All rows are returned when drop_incomplete is False
-        """
-        result = preprocess.check_addresses_complete(
-            mixed_df, drop_incomplete=False, output_dir=output_dir
-        )
-
-        assert len(result) == len(mixed_df)
-
-    def test_whitespace_only_fields_treated_as_missing(self, output_dir) -> None:
-        """Verify whitespace-only strings are normalised to NA and trigger incompleteness.
-
-        Real-world significance:
-        - Source exports sometimes contain cells filled with spaces rather than
-          a true empty value; these must not pass the completeness check.
-
-        Assertion: Row with whitespace-only city is dropped
-        """
-        df = pd.DataFrame(
-            {
-                "street_address_line_1": ["123 Main St"],
-                "street_address_line_2": [""],
-                "city": ["   "],
-                "province": ["ON"],
-                "postal_code": ["N1H 2T2"],
-            }
-        )
-
-        result = preprocess.check_addresses_complete(
-            preprocess.clean_csv_text(df), output_dir=output_dir
-        )
-
-        assert len(result) == 0
-
-    def test_address_complete_column_not_in_output(self, complete_df) -> None:
-        """Verify the temporary address_complete column is not present in output.
-
-        Real-world significance:
-        - Downstream steps depend on a stable column schema; leaking an
-          internal boolean column would break downstream consumers.
-
-        Assertion: 'address_complete' is absent from the returned DataFrame
-        """
-        result = preprocess.check_addresses_complete(complete_df)
-
-        assert "address_complete" not in result.columns
-
-
-@pytest.mark.unit
-class TestCheckClientInfoComplete:
-    """Required identity fields gate the assigned notice cohort."""
-
-    @pytest.fixture
-    def output_dir(self, tmp_path) -> Path:
-        """Keep excluded-row diagnostics inside this test's workspace."""
-        out = tmp_path / "output"
-        out.mkdir(parents=True)
-        return out
-
-    @pytest.fixture
-    def complete_df(self) -> pd.DataFrame:
-        """Two rows with complete identity fields."""
-        frame = pd.DataFrame(
-            {
-                "school_name": ["Tunnel Academy", "River School"],
-                "client_id": ["C001", "C002"],
-                "first_name": ["Alice", "Bob"],
-                "last_name": ["Zephyr", "Smith"],
-                "date_of_birth": ["2015-01-01", "2014-06-15"],
-                "imms_given": ["May 1, 2020 - DTaP", "Apr 10, 2019 - IPV"],
-                "overdue_disease": ["Measles", "Polio"],
-                "overdue_agent": ["MMR", "IPV"],
-            }
-        )
-        return preprocess.clean_csv_text(frame)
-
-    @pytest.fixture
-    def complete_manifest_df(self) -> pd.DataFrame:
-        """Two rows sufficient for manifest-mode (overdue columns may be empty).
-
-        In manifest mode overdue_disease and overdue_agent are not required,
-        so they can be absent or empty without flagging a row as incomplete.
-        imms_given must still be non-empty.
-        """
-        frame = pd.DataFrame(
-            {
-                "school_name": ["Tunnel Academy", "River School"],
-                "client_id": ["C001", "C002"],
-                "first_name": ["Alice", "Bob"],
-                "last_name": ["Zephyr", "Smith"],
-                "date_of_birth": ["2015-01-01", "2014-06-15"],
-                "imms_given": ["May 1, 2020 - DTaP", "Apr 10, 2019 - IPV"],
-                "overdue_disease": ["", ""],
-                "overdue_agent": ["", ""],
-            }
-        )
-        return preprocess.clean_csv_text(frame)
-
-    def test_all_complete_returns_all_rows(self, complete_df) -> None:
-        """Verify all rows are returned when every required field is present.
-
-        Assertion: Output has the same row count as input
-        """
-        result = preprocess.check_client_info_complete(complete_df)
-
-        assert len(result) == len(complete_df)
-
-    def test_all_complete_no_warning(
-        self, complete_df, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        """Verify no warning is logged when all client info is present.
-
-        Assertion: No warning message is emitted
-        """
-        with caplog.at_level("WARNING"):
-            preprocess.check_client_info_complete(complete_df)
-
-        assert "incomplete" not in caplog.text.lower()
-
-    def test_missing_required_field_drops_row(self, output_dir) -> None:
-        """Verify rows with a missing required field are excluded.
-
-        Real-world significance:
-        - A notice without a last name cannot be addressed and must not be
-          generated; dropping the row and reporting it is the correct response.
-
-        Assertion: Only the one complete row is returned; the incomplete row's
-        client ID does not appear in the output
-        """
-        df = pd.DataFrame(
-            {
-                "school_name": ["Tunnel Academy", "River School"],
-                "client_id": ["C001", "C002"],
-                "first_name": ["Alice", "Bob"],
-                "last_name": ["Zephyr", float("nan")],
-                "date_of_birth": ["2015-01-01", "2014-06-15"],
-                "imms_given": ["May 1, 2020 - DTaP", "Apr 10, 2019 - IPV"],
-                "overdue_disease": ["Measles", "Polio"],
-                "overdue_agent": ["MMR", "IPV"],
-            }
-        )
-
-        result = preprocess.check_client_info_complete(
-            preprocess.clean_csv_text(df), output_dir=output_dir
-        )
-
-        assert len(result) == 1
-        assert result.iloc[0]["client_id"] == "C001"
-
-    def test_missing_required_field_logs_warning(
-        self, output_dir, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        """Verify a warning is logged when incomplete client records are found.
-
-        Real-world significance:
-        - Operators must be alerted so they can correct the source data;
-          silent exclusion would cause unnoticed gaps in delivered notices.
-
-        Assertion: Warning message contains the count of incomplete records
-        """
-        df = pd.DataFrame(
-            {
-                "school_name": ["Tunnel Academy", "River School"],
-                "client_id": ["C001", "C002"],
-                "first_name": ["Alice", float("nan")],
-                "last_name": ["Zephyr", "Smith"],
-                "date_of_birth": ["2015-01-01", "2014-06-15"],
-                "imms_given": ["May 1, 2020 - DTaP", "Apr 10, 2019 - IPV"],
-                "overdue_disease": ["Measles", "Polio"],
-                "overdue_agent": ["MMR", "IPV"],
-            }
-        )
-
-        with caplog.at_level("WARNING"):
-            preprocess.check_client_info_complete(
-                preprocess.clean_csv_text(df), output_dir=output_dir
-            )
-
-        assert (
-            "There are 1 records with incomplete/invalid client information"
-            in caplog.text
-        )
-
-    def test_incomplete_rows_written_to_csv(self, output_dir) -> None:
-        """Verify incomplete client records are written to incomplete_clients.csv.
-
-        Real-world significance:
-        - The CSV gives operators a targeted list of records that need to be
-          corrected, without requiring manual inspection of the full dataset.
-
-        Assertion: CSV exists and contains exactly the incomplete rows
-        """
-        df = pd.DataFrame(
-            {
-                "school_name": ["Tunnel Academy", "River School"],
-                "client_id": ["C001", "C002"],
-                "first_name": ["Alice", "Bob"],
-                "last_name": ["Zephyr", float("nan")],
-                "date_of_birth": ["2015-01-01", "2014-06-15"],
-                "imms_given": ["May 1, 2020 - DTaP", "Apr 10, 2019 - IPV"],
-                "overdue_disease": ["Measles", "Polio"],
-                "overdue_agent": ["MMR", "IPV"],
-            }
-        )
-
-        preprocess.check_client_info_complete(
-            preprocess.clean_csv_text(df), output_dir=output_dir
-        )
-
-        csv_path = output_dir / "incomplete_clients.csv"
-        assert csv_path.exists()
-        written = pd.read_csv(csv_path)
-        assert len(written) == 1
-
-    def test_drop_incomplete_false_returns_all_rows(self, output_dir) -> None:
-        """Verify drop_incomplete=False retains all rows regardless of completeness.
-
-        Real-world significance:
-        - Inspection or dry-run modes need to see what would be excluded before
-          committing to dropping records.
-
-        Assertion: All rows returned when drop_incomplete is False
-        """
-        df = pd.DataFrame(
-            {
-                "school_name": ["Tunnel Academy", "River School"],
-                "client_id": ["C001", "C002"],
-                "first_name": ["Alice", float("nan")],
-                "last_name": ["Zephyr", "Smith"],
-                "date_of_birth": ["2015-01-01", "2014-06-15"],
-                "imms_given": ["May 1, 2020 - DTaP", "Apr 10, 2019 - IPV"],
-                "overdue_disease": ["Measles", "Polio"],
-                "overdue_agent": ["MMR", "IPV"],
-            }
-        )
-
-        result = preprocess.check_client_info_complete(
-            preprocess.clean_csv_text(df),
-            drop_incomplete=False,
-            output_dir=output_dir,
-        )
-
-        assert len(result) == 2
-
-    def test_accepts_empty_overdue_columns(self, complete_manifest_df) -> None:
-        """Assignment eligibility, not completeness, governs overdue fields.
-
-        Real-world significance:
-        - In manifest mode the notice version is assigned externally; overdue
-          columns may legitimately be empty for affirmative-schedule notices.
-
-        Assertion: All rows are returned even when overdue columns are empty
-        """
-        result = preprocess.check_client_info_complete(complete_manifest_df)
-
-        assert len(result) == len(complete_manifest_df)
-
-    def test_whitespace_only_field_treated_as_missing(self, output_dir) -> None:
-        """Verify whitespace-only strings are normalised to NA and flag a record incomplete.
-
-        Real-world significance:
-        - Source exports may contain cells filled with spaces; these must not
-          pass the completeness check as if they held real values.
-
-        Assertion: Row with whitespace-only first_name is dropped; CSV is written
-        """
-        df = pd.DataFrame(
-            {
-                "school_name": ["Tunnel Academy"],
-                "client_id": ["C001"],
-                "first_name": ["   "],
-                "last_name": ["Zephyr"],
-                "date_of_birth": ["2015-01-01"],
-                "imms_given": ["May 1, 2020 - DTaP"],
-                "overdue_disease": ["Measles"],
-                "overdue_agent": ["MMR"],
-            }
-        )
-
-        result = preprocess.check_client_info_complete(
-            preprocess.clean_csv_text(df), output_dir=output_dir
-        )
-
-        assert len(result) == 0
-
-    def test_client_info_complete_column_not_in_output(self, complete_df) -> None:
-        """Verify the temporary client_info_complete column is not present in output.
-
-        Real-world significance:
-        - Downstream steps depend on a stable column schema; leaking an
-          internal boolean column would break downstream consumers.
-
-        Assertion: 'client_info_complete' is absent from the returned DataFrame
-        """
-        result = preprocess.check_client_info_complete(complete_df)
-
-        assert "client_info_complete" not in result.columns
-
-
-@pytest.mark.unit
-class TestParseOverdueDiseases:
-    """Disease matching uses identifiers rather than translated labels."""
-
-    def test_normalizes_disease_names(self) -> None:
-        result = preprocess.parse_overdue_diseases(
-            "Poliomyelitis;Measles",
-            {"Poliomyelitis": "Polio"},
-            client_id="C001",
-            warnings=set(),
-        )
-        assert [item["disease"] for item in result] == ["Polio", "Measles"]
-
-    def test_empty_input_returns_empty_list(self) -> None:
-        assert (
-            preprocess.parse_overdue_diseases("", {}, client_id="C001", warnings=set())
-            == []
-        )
-
-    def test_non_string_input_returns_empty_list(self) -> None:
-        assert (
-            preprocess.parse_overdue_diseases(
-                None, {}, client_id="C001", warnings=set()
-            )
-            == []
-        )
-
-
-# ---------------------------------------------------------------------------
-# Manifest-mode tests for build_preprocess_result
-# ---------------------------------------------------------------------------
-
-
-def _make_catalog():
-    from immuknow.version_notices import (
-        NoticeKind,
-        NoticeVersion,
-        NoticeVersionCatalog,
-    )
-
-    return NoticeVersionCatalog(
-        schema_version=1,
-        versions={
-            "overdue_diseases_v1": NoticeVersion(
-                version_id="overdue_diseases_v1",
-                kind=NoticeKind.OVERDUE,
-                requires="has_overdue",
-            ),
-            "overdue_agents_v1": NoticeVersion(
-                version_id="overdue_agents_v1",
-                kind=NoticeKind.OVERDUE,
-                requires="has_overdue",
-            ),
-            "affirmative_schedule_v1": NoticeVersion(
-                version_id="affirmative_schedule_v1",
-                kind=NoticeKind.AFFIRMATIVE,
-                requires="no_overdue",
-            ),
         },
     )
 
 
-def _make_manifest(*rows):
-    from immuknow.assignment_manifest import ManifestRow
+@pytest.mark.unit
+def test_every_source_row_keeps_its_key_raw_values_and_unknown_state(tmp_path: Path):
+    frame = source_rows()
+    path = tmp_path / "source.csv"
+    frame.to_csv(path, index=False)
+    raw = preprocess.read_input(path)
+    assert raw.loc[0, "first_name"] == " Alice "
+    result, assignment = prepare(raw)
+    assert [c.sequence for c in result.clients] == ["row-000001", "row-000002"]
+    assert result.source_rows["row-000001"]["first_name"] == " Alice "
+    assert result.clients[0].person["first_name"] == "Alice"
+    assert result.clients[0].person["age"] == 16
+    assert result.clients[0].person["over_16"] is True
+    assert result.clients[0].contact["province"] == "QC"
+    assert result.clients[0].overdue_diseases == [{"disease": "Polio", "dose": 2}]
+    assert result.clients[1].person["age"] is None
+    assert result.clients[1].person["over_16"] is None
+    assert result.clients[1].person["date_of_birth_iso"] == ""
+    assert result.clients[1].version_id is None
+    assert result.clients[1].unparsed_history == [
+        "unparsed history",
+        " Feb 31, 2020 - MMR",
+    ]
+    assert any(
+        c.code == "source.address_incomplete" for c in result.row_checks["row-000002"]
+    )
+    assert assignment.findings[0].kind == "missing_assignment"
+    assert assignment.findings[0].row_key == "row-000002"
+    errors = [
+        check
+        for check in result.row_checks["row-000002"]
+        if check.code == "source.history_invalid"
+    ]
+    assert len(errors) == 2
+    assert all(check.status == "fail" for check in errors)
 
-    return {r["client_id"]: ManifestRow(**r) for r in rows}
+
+@pytest.mark.parametrize(
+    "fragment",
+    [
+        "May 1, 2020 - MMR - valid;",
+        "May 1, 2020 - MMR - invalid;",
+        "May 1, 2020 - MMR - VALID;",
+        "May 1, 2020 - MMR - INVALID;",
+        "May 1, 2020 - MMR - VaLiD;",
+        "May 1, 2020 - MMR - Invalid - Valid;",
+        "Feb 30, 2020 - MMR - Valid;",
+        "Feb 29, 2021 - MMR - Valid;",
+        "May 0, 2020 - MMR;",
+        "May 1, 2020 - ;",
+        "May 1, 2020 - MMR - ;",
+        "May 1, 2020 - MMR -Invalid;",
+        "May 1, 2020 -  MMR;",
+        "May 1, 2020 - MMR - Unknown;",
+        ";May 1, 2020 - MMR;",
+        "May 1, 2020 - MMR;;May 2, 2020 - MMR;",
+        "May 1, 2020 - MMR;;",
+        ";",
+        ";;",
+        "-;;",
+        "- -;",
+        "-  -;;",
+        "-  -; May 1, 2020 - MMR;",
+        "-",
+        "-  -",
+        " -  - ",
+        "May 1, 2020 - MMR",
+        "May 1, 2020 - MMR; May 2, 2020 - IPV",
+        "May 1, 2020 - MMR ; \r\n May 2, 2020 - IPV\r\n",
+        "2020-05-01 - MMR;",
+    ],
+)
+def test_history_refuses_bad_status_dates_separators_and_empty_fragments(fragment):
+    assert preprocess.parse_history(fragment).issues
 
 
-def _simple_df(num=2, with_overdue=True):
-    """Minimal DataFrame for build_preprocess_result tests."""
-    data = {
-        "school_name": ["School A"] * num,
-        "client_id": [f"C{i:03d}" for i in range(1, num + 1)],
-        "first_name": ["Alice"] * num,
-        "last_name": ["Smith"] * num,
-        "date_of_birth": ["2015-01-01"] * num,
-        "city": ["Guelph"] * num,
-        "postal_code": ["N1H 2T2"] * num,
-        "province": ["ON"] * num,
-        "overdue_disease": (["Measles;Polio"] * num if with_overdue else [""] * num),
-        "overdue_agent": (["MMR;IPV"] * num if with_overdue else [""] * num),
-        "imms_given": [""] * num,
-        "street_address_line_1": ["123 Main St"] * num,
-        "street_address_line_2": [""] * num,
-    }
-    import pandas as pd
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "May 1, 2020 - MMR;",
+        "May 1, 2020 - MMR - Valid; May 2, 2020 - IPV - Invalid ;\r\n",
+    ],
+)
+def test_history_requires_one_terminating_semicolon(raw):
+    parsed = preprocess.parse_history(raw)
+    assert not parsed.issues
+    assert parsed.doses[0]["date_given"] == "2020-05-01"
 
-    return pd.DataFrame(data)
+
+def test_history_reports_a_missing_final_semicolon_on_the_last_entry():
+    assert preprocess.parse_history("May 1, 2020 - MMR; May 2, 2020 - IPV").issues == [
+        preprocess.HistoryIssue(2, " May 2, 2020 - IPV", "History must end with ';'")
+    ]
+
+
+@pytest.mark.parametrize("raw", ["-;", " - ; ", "-  -;", " -  -; "])
+def test_history_dash_placeholder_means_no_history(raw):
+    assert preprocess.parse_history(raw) == preprocess.ParsedHistory([], [])
+
+
+def test_history_valid_tokens_hyphens_and_defined_whitespace_preserve_upstream_facts():
+    parsed = preprocess.parse_history(
+        "\tFeb 29, 2020 - COVID-19 mRNA - Invalid ;\n May 01, 2020 - HB-unspecified;\r\n"
+    )
+    assert not parsed.issues
+    assert parsed.doses == [
+        {"date_given": "2020-02-29", "vaccine": "COVID-19 mRNA", "validity": "invalid"},
+        {
+            "date_given": "2020-05-01",
+            "vaccine": "HB-unspecified",
+            "validity": "unknown",
+        },
+    ]
+
+
+def test_history_checks_excluded_and_duplicate_entries_before_building_rows(
+    monkeypatch,
+):
+    frame = source_rows()
+    frame.loc[0, "imms_given"] = (
+        "May 1, 2020 - MMR - Valid; May 1, 2020 - MMR - INVALID; Feb 31, 2020 - Not Specified - Valid;"
+    )
+    frame.loc[1, "imms_given"] = "May 1, 2020 - Not Specified;"
+    parse = preprocess.parse_history
+    seen = []
+
+    def counted(raw):
+        seen.append(raw)
+        return parse(raw)
+
+    monkeypatch.setattr(preprocess, "parse_history", counted)
+    result, _ = prepare(frame)
+    assert len(seen) == len(frame)
+    errors = [
+        check
+        for check in result.row_checks["row-000001"]
+        if check.code == "source.history_invalid"
+    ]
+    assert [check.measurements["fragment_number"] for check in errors] == [2, 3]
+    assert result.clients[0].history[0]["validity"] == "valid"
+    assert result.clients[0].validity_coverage == "mixed"
+    assert not result.clients[1].history
 
 
 @pytest.mark.unit
-class TestBuildPreprocessResultManifestMode:
-    """Manifest mode retains one resolved version and language per client."""
-
-    def test_disease_notice_can_be_assigned(self) -> None:
-        manifest = _make_manifest(
-            {
-                "client_id": "C001",
-                "version_id": "overdue_diseases_v1",
-                "language": "fr",
-                "experiment_id": None,
-                "experiment_arm": None,
-            }
-        )
-        result, reconciliation = build_result(
-            _simple_df(1),
-            {},
-            preprocess.UNSPECIFIED_AGENTS,
-            catalog=_make_catalog(),
-            manifest=manifest,
-        )
-        assert (
-            reconciliation.resolved_notices["C001"].version_id == "overdue_diseases_v1"
-        )
-        assert (result.clients[0].version_id, result.clients[0].language) == (
-            "overdue_diseases_v1",
-            "fr",
-        )
-
-    def test_manifest_mode_returns_reconciliation_result(self, tmp_path) -> None:
-        catalog = _make_catalog()
-        manifest = _make_manifest(
-            {
-                "client_id": "C001",
-                "version_id": "overdue_agents_v1",
-                "language": "en",
-                "experiment_id": None,
-                "experiment_arm": None,
-            },
-            {
-                "client_id": "C002",
-                "version_id": "overdue_agents_v1",
-                "language": "fr",
-                "experiment_id": None,
-                "experiment_arm": None,
-            },
-        )
-        _, reconciliation_result = build_result(
-            _simple_df(2),
-            {},
-            preprocess.UNSPECIFIED_AGENTS,
-            catalog=catalog,
-            manifest=manifest,
-        )
-        assert reconciliation_result.counts_by_language == {"en": 1, "fr": 1}
-        assert reconciliation_result.counts_by_version == {
-            "overdue_agents_v1 (en)": 1,
-            "overdue_agents_v1 (fr)": 1,
+@pytest.mark.parametrize(
+    ("states", "expected"),
+    [
+        ("Valid; Invalid", "valid"),
+        ("Invalid; Valid", "valid"),
+        ("Invalid; Invalid", "invalid"),
+        ("Valid; absent", "unknown"),
+        ("absent; Invalid", "unknown"),
+    ],
+)
+def test_same_agent_same_date_validity_precedence(states: str, expected: str):
+    raw = "".join(
+        "May 1, 2020 - MMR" + (" - " + value if value != "absent" else "") + ";"
+        for value in states.split("; ")
+    )
+    history = preprocess.build_history_items(
+        preprocess.parse_history(raw).doses,
+        [],
+        {"MMR": ["Measles", "Mumps", "Rubella"]},
+    )
+    assert history == [
+        {
+            "date_given": "2020-05-01",
+            "agent": "MMR",
+            "display_name": "MMR",
+            "diseases": ["Measles", "Mumps", "Rubella"],
+            "validity": expected,
         }
+    ]
 
-    def test_manifest_mode_resolved_version_on_client(self, tmp_path) -> None:
-        catalog = _make_catalog()
-        manifest = _make_manifest(
-            {
-                "client_id": "C001",
-                "version_id": "overdue_agents_v1",
-                "language": "en",
-                "experiment_id": None,
-                "experiment_arm": None,
-            },
-            {
-                "client_id": "C002",
-                "version_id": "overdue_agents_v1",
-                "language": "en",
-                "experiment_id": None,
-                "experiment_arm": None,
-            },
-        )
-        result, _ = build_result(
-            _simple_df(2),
-            {},
-            preprocess.UNSPECIFIED_AGENTS,
-            catalog=catalog,
-            manifest=manifest,
-        )
-        for client in result.clients:
-            assert client.version_id == "overdue_agents_v1"
-            assert "resolved_notice" not in client.metadata
 
-    def test_resolved_languages_follow_manifest(self, tmp_path) -> None:
-        catalog = _make_catalog()
-        manifest = _make_manifest(
-            {
-                "client_id": "C001",
-                "version_id": "overdue_agents_v1",
-                "language": "en",
-                "experiment_id": None,
-                "experiment_arm": None,
-            },
-            {
-                "client_id": "C002",
-                "version_id": "overdue_agents_v1",
-                "language": "fr",
-                "experiment_id": None,
-                "experiment_arm": None,
-            },
-        )
-        result, _ = build_result(
-            _simple_df(2),
-            {},
-            preprocess.UNSPECIFIED_AGENTS,
-            catalog=catalog,
-            manifest=manifest,
-        )
-        langs = {c.client_id: c.language for c in result.clients}
-        assert langs["C001"] == "en"
-        assert langs["C002"] == "fr"
+@pytest.mark.unit
+def test_history_keeps_complete_disease_maps_and_named_display_exclusions():
+    history = preprocess.build_history_items(
+        preprocess.parse_history(
+            "May 1, 2020 - HB-unspecified - Valid; May 1, 2020 - Ig; May 1, 2020 - Not Specified;"
+        ).doses,
+        preprocess.UNSPECIFIED_AGENTS,
+        {"HB-unspecified": ["Hepatitis B"]},
+    )
+    assert [row["agent"] for row in history] == ["HB-unspecified", "Ig"]
+    assert history[0]["display_name"] == "HB*"
+    assert history[0]["diseases"] == ["Hepatitis B"]
 
-    def test_manifest_mode_eligibility_conflict_halts(self, tmp_path) -> None:
-        """Affirmative assigned to client with vaccines_due → raises before artifact write."""
-        catalog = _make_catalog()
-        # Assign affirmative to a client that has vaccines due
-        manifest = _make_manifest(
-            {
-                "client_id": "C001",
-                "version_id": "affirmative_schedule_v1",
-                "language": "en",
-                "experiment_id": None,
-                "experiment_arm": None,
-            },
-            {
-                "client_id": "C002",
-                "version_id": "affirmative_schedule_v1",
-                "language": "en",
-                "experiment_id": None,
-                "experiment_arm": None,
-            },
-        )
-        with pytest.raises(ValueError, match="[Pp]reflight"):
-            build_result(
-                _simple_df(2, with_overdue=True),
-                {},
-                preprocess.UNSPECIFIED_AGENTS,
-                catalog=catalog,
-                manifest=manifest,
-            )
 
-    def test_missing_assignment_raises(self, tmp_path) -> None:
-        """Every accepted client requires a selected notice."""
-        catalog = _make_catalog()
-        manifest = _make_manifest(
-            {
-                "client_id": "C001",
-                "version_id": "overdue_agents_v1",
-                "language": "en",
-                "experiment_id": None,
-                "experiment_arm": None,
-            },
-        )
-        with pytest.raises(ValueError, match="[Pp]reflight"):
-            build_result(
-                _simple_df(2),
-                {},
-                preprocess.UNSPECIFIED_AGENTS,
-                catalog=catalog,
-                manifest=manifest,
-            )
+@pytest.mark.unit
+def test_validity_coverage_sees_whole_cohort_before_dedup_and_display():
+    frame = source_rows()
+    frame.loc[1, "imms_given"] = "May 1, 2020 - MMR;"
+    result, _ = prepare(frame)
+    assert all(c.validity_coverage == "mixed" for c in result.clients)
+    assert (
+        preprocess.classify_dataset_validity([preprocess.parse_history("")])
+        == "all_absent"
+    )
 
-    def test_manifest_mode_extra_rows_error_raises(self, tmp_path) -> None:
-        catalog = _make_catalog()
-        # EXTRA_CLIENT is in manifest but not in cohort
-        manifest = _make_manifest(
-            {
-                "client_id": "C001",
-                "version_id": "overdue_agents_v1",
-                "language": "en",
-                "experiment_id": None,
-                "experiment_arm": None,
-            },
-            {
-                "client_id": "C002",
-                "version_id": "overdue_agents_v1",
-                "language": "en",
-                "experiment_id": None,
-                "experiment_arm": None,
-            },
-            {
-                "client_id": "EXTRA_CLIENT",
-                "version_id": "overdue_agents_v1",
-                "language": "en",
-                "experiment_id": None,
-                "experiment_arm": None,
-            },
-        )
-        config_path = tmp_path / "parameters.yaml"
-        config_path.write_text(
-            "notice_versioning:\n  extra_manifest_rows: error\n",
-            encoding="utf-8",
-        )
-        with pytest.raises(ValueError, match="[Pp]reflight"):
-            build_result(
-                _simple_df(2),
-                {},
-                preprocess.UNSPECIFIED_AGENTS,
-                config=yaml.safe_load(config_path.read_text()),
-                catalog=catalog,
-                manifest=manifest,
-            )
 
-    def test_manifest_mode_extra_rows_warn_continues(self, tmp_path) -> None:
-        catalog = _make_catalog()
-        manifest = _make_manifest(
-            {
-                "client_id": "C001",
-                "version_id": "overdue_agents_v1",
-                "language": "en",
-                "experiment_id": None,
-                "experiment_arm": None,
-            },
-            {
-                "client_id": "C002",
-                "version_id": "overdue_agents_v1",
-                "language": "en",
-                "experiment_id": None,
-                "experiment_arm": None,
-            },
-            {
-                "client_id": "EXTRA_CLIENT",
-                "version_id": "overdue_agents_v1",
-                "language": "en",
-                "experiment_id": None,
-                "experiment_arm": None,
-            },
+@pytest.mark.unit
+def test_invalid_overdue_doses_remain_source_facts():
+    warnings = set()
+    result = preprocess.parse_overdue_diseases(
+        "Poliomyelitis - 2; Mumps - ; Rubella - no dose",
+        {"Poliomyelitis": "Polio"},
+        client_id="C001",
+        warnings=warnings,
+    )
+    assert result == [
+        {"disease": "Polio", "dose": 2},
+        {"disease": "Mumps", "dose": None, "dose_raw": ""},
+        {"disease": "Rubella", "dose": None, "dose_raw": "no dose"},
+    ]
+    assert len(warnings) == 2
+
+
+@pytest.mark.unit
+def test_required_columns_fail_setup_but_blank_cells_do_not():
+    frame = source_rows()
+    with pytest.raises(ValueError, match="imms_given"):
+        preprocess.validate_input(frame.drop(columns="imms_given"))
+    frame.loc[0, "first_name"] = ""
+    assert len(preprocess.validate_input(frame)) == 2
+
+
+@pytest.mark.unit
+def test_disabled_school_lookup_ignores_source_match_columns_and_absent_history():
+    frame = source_rows()
+    frame["school_match_type"] = ["exact", "no_match"]
+    frame.loc[1, "imms_given"] = ""
+    result, _ = prepare(frame)
+    assert not any(
+        c.code == "data.school_match" for c in result.row_checks["row-000002"]
+    )
+    assert not any(c.component == "history" for c in result.row_checks["row-000002"])
+    assert result.clients[1].school["id"] == ""
+    assert result.clients[1].board["id"] == ""
+
+
+@pytest.mark.unit
+def test_one_file_selector_can_render_missing_ids_without_changing_language(
+    tmp_path: Path,
+):
+    frame = source_rows()
+    frame["client_id"] = ""
+    frame.loc[1, "imms_given"] = ""
+    path = tmp_path / "source.csv"
+    frame.to_csv(path, index=False)
+    result, assignment = preprocess.prepare_clients(
+        preprocess.read_input(path),
+        tmp_path,
+        {"date_of_delivery": "2026-10-12"},
+        preprocess.CONFIG_DIR,
+        load_catalog(preprocess.CONFIG_DIR),
+        {},
+        ("overdue_diseases_v1", "fr"),
+    )
+    assert len(result.clients) == 2
+    assert all(
+        c.language == "fr" and c.version_id == "overdue_diseases_v1"
+        for c in result.clients
+    )
+    assert not any(f.status == "fail" for f in assignment.findings)
+    assert any(
+        c.code == "source.client_id_missing" for c in result.row_checks["row-000001"]
+    )
+    assert result.source_rows["row-000001"]["first_name"] == " Alice "
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("delimiter", [",", ";"])
+def test_extra_csv_fields_fail_without_shifting_identifiers(tmp_path: Path, delimiter):
+    source = tmp_path / "extra.csv"
+    with source.open("w", newline="") as handle:
+        writer = csv.writer(handle, delimiter=delimiter)
+        writer.writerow(
+            [
+                "school_name",
+                "client_id",
+                "first_name",
+                "last_name",
+                "date_of_birth",
+                "city",
+                "imms_given",
+            ]
         )
-        config_path = tmp_path / "parameters.yaml"
-        config_path.write_text(
-            "notice_versioning:\n  extra_manifest_rows: warn\n",
-            encoding="utf-8",
+        writer.writerow(
+            [
+                "Example School",
+                "0000000001",
+                "Alice",
+                "Example",
+                "2015-01-02",
+                "Demo City",
+                "May 1, 2020 - MMR",
+                "EXTRA",
+            ]
         )
-        # Should NOT raise because extra_manifest_rows=warn
-        _, reconciliation_result = build_result(
-            _simple_df(2),
-            {},
-            preprocess.UNSPECIFIED_AGENTS,
-            config=yaml.safe_load(config_path.read_text()),
-            catalog=catalog,
-            manifest=manifest,
+    original = source.read_bytes()
+    with pytest.raises(ValueError, match="more fields than the header"):
+        preprocess.read_input(source)
+    assert source.read_bytes() == original
+
+
+@pytest.mark.parametrize("encoding", ["utf-8-sig", "cp1252"])
+@pytest.mark.parametrize("delimiter", [",", ";", "\t", "|"])
+def test_csv_preserves_quoted_text_windows_punctuation_and_leading_zeros(
+    tmp_path, encoding, delimiter
+):
+    path = tmp_path / "clients.csv"
+    with path.open("w", encoding=encoding, newline="") as handle:
+        writer = csv.writer(handle, delimiter=delimiter)
+        writer.writerow(
+            ["client_id", "first_name", "last_name", "street_address_line_1"]
         )
-        assert reconciliation_result is not None
-        assert any(
-            finding.kind == "extra_manifest_row" and finding.client_id == "EXTRA_CLIENT"
-            for finding in reconciliation_result.findings
+        writer.writerow(
+            ["0000000001", " Zoë ", "O’Neil", "12 Main St., Unit 4\nSecond line"]
         )
+        writer.writerow(["0000000002", "NA", "NULL", ""])
+    frame = preprocess.read_input(path)
+    assert frame.attrs == {"encoding": encoding, "delimiter": delimiter}
+    assert frame.iloc[0].tolist() == [
+        "0000000001",
+        " Zoë ",
+        "O’Neil",
+        "12 Main St., Unit 4\nSecond line",
+    ]
+    assert frame.iloc[1].tolist() == ["0000000002", "NA", "NULL", ""]
+
+
+@pytest.mark.parametrize(
+    ("text", "message"),
+    [
+        ("client_id,client_id\n0000000001,0000000002\n", "Repeated CSV headers"),
+        ("client_id, first_name\n0000000001,Alice\n", "surrounding whitespace"),
+        ("client_id,\n0000000001,Alice\n", "nonempty names"),
+        ("client_id,first_name\n0000000001\n", "fewer fields"),
+        ('client_id,first_name\n0000000001,"unfinished\n', "structure is invalid"),
+        ("client_id,first_name\n0000000001,A\x00lice\n", "control characters"),
+        ("\n \n", "CSV is empty"),
+    ],
+)
+def test_invalid_csv_cannot_silently_change_source_fields(tmp_path, text, message):
+    path = tmp_path / "clients.csv"
+    path.write_text(text)
+    with pytest.raises(ValueError, match=message):
+        preprocess.read_input(path)
+
+
+def test_explicit_encoding_is_respected_and_control_bytes_are_refused(tmp_path):
+    path = tmp_path / "clients.csv"
+    path.write_bytes("client_id,first_name\n0000000001,Zoë\n".encode("latin-1"))
+    frame = preprocess.read_input(path, encoding="latin-1")
+    assert frame.attrs["encoding"] == "latin-1"
+    assert frame.iloc[0]["first_name"] == "Zoë"
+    with pytest.raises(ValueError, match="cannot be read"):
+        preprocess.read_input(path, encoding="utf-8-sig")
+    path.write_bytes(b"client_id,first_name\n0000000001,A\x81lice\n")
+    with pytest.raises(ValueError, match="control characters"):
+        preprocess.read_input(path)
+    with pytest.raises(ValueError, match="CSV encoding must be"):
+        preprocess.read_input(path, encoding="ascii")
+
+
+def test_blank_csv_lines_are_not_source_rows(tmp_path):
+    path = tmp_path / "clients.csv"
+    path.write_text("client_id,first_name\n\n0000000001,Alice\n")
+    assert preprocess.read_input(path)["client_id"].tolist() == ["0000000001"]
+
+
+@pytest.mark.unit
+def test_empty_overdue_fragments_are_skipped():
+    warnings = set()
+    assert preprocess.parse_overdue_diseases(
+        "Mumps - 1;;", {}, client_id="C001", warnings=warnings
+    ) == [{"disease": "Mumps", "dose": 1}]
+    assert preprocess.parse_overdue_agents("MMR;;IPV", warnings=warnings) == [
+        "MMR",
+        "IPV",
+    ]
+    assert warnings == set()
+
+
+@pytest.mark.unit
+def test_empty_agent_fragments_keep_source_warning_and_valid_independent_facts(
+    tmp_path: Path,
+):
+    frame = source_rows()
+    frame.loc[0, "overdue_agent"] = "\"\"; MMR; ''"
+    frame.loc[1, "imms_given"] = ""
+    frame.loc[0, "overdue_disease"] = '"  "; Measles - 2'
+    source = tmp_path / "clients.csv"
+    frame.to_csv(source, index=False)
+    result, assignment = preprocess.prepare_clients(
+        preprocess.read_input(source),
+        tmp_path,
+        {},
+        preprocess.CONFIG_DIR,
+        load_catalog(preprocess.CONFIG_DIR),
+        {},
+        ("overdue_agents_v1", "en"),
+    )
+    assert len(result.clients) == 2
+    assert result.clients[0].overdue_agents == ["MMR"]
+    assert result.clients[0].overdue_diseases == [{"disease": "Measles", "dose": 2}]
+    assert result.source_rows["row-000001"]["overdue_disease"] == '"  "; Measles - 2'
+
+    assert result.source_rows["row-000001"]["overdue_agent"] == "\"\"; MMR; ''"
+    findings = [
+        c
+        for c in result.row_checks["row-000001"]
+        if c.code == "source.overdue_unusable"
+    ]
+    assert any('""' in c.message and c.status == "warn" for c in findings)
+    assert not any(f.status == "fail" for f in assignment.findings)
+    for client in result.clients:
+        validate_render_payload(build_notice_data(client, {}))

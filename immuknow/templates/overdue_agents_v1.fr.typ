@@ -1,127 +1,62 @@
-#let notice = json(sys.inputs.at("data"))
-#let template-version = "overdue_agents_v1"
-#let template-language = "fr"
-#assert(notice.version_id == template-version, message: "Notice version does not match this template")
-#assert(notice.language == template-language, message: "Notice language does not match this template")
-#assert(notice.overdue_agents.len() > 0, message: "This overdue template requires vaccine agent data")
+// @immuknow-settings: settings.typ
+#import "settings.typ": *
+#show: notice-style // Apply the layout and theme from Settings
 
-// --- CCEYA NOTICE TEMPLATE (TEST VERSION) --- //
-// Description: A typst template that dynamically generates CCEYA templates.
-// NOTE: All contact details are placeholders for testing purposes only.
-// ----------------------------------------- //
+// Page 1: the letter. Each if/else below chooses wording for the client or their parent
+// over_16 is true for clients aged 16 or older.
+#notice-page("Demande de dossier d'immunisation")[
+#immuknow.client-block(
+  notice,
+  window: envelope-window,
+  font-size: client-font-size,
+  details: client-details,
+  addressee: address-addressee,
+) // Mailing address and client details
+#v(0.3cm) // Space before the message
 
-#import "/templates/conf.typ"
-#import "/templates/presentation.typ" as presentation
+En date du *#date_as_of*, nos dossiers indiquent que #if notice.client_data.over_16 == true [vous n'avez] else if notice.client_data.over_16 == false [votre enfant n'a] else [la personne nommée n'a] pas reçu les immunisations suivantes :
 
-// General document formatting 
-#set text(fill: black)
-#set par(justify: false)
-#set page("us-letter")
+#set list(indent: 0.8cm)
+#strong(immuknow.overdue-agents(notice, columns: list-columns))
 
-// Formatting links - prevent URLs from splitting across lines
-#show link: it => box(underline(it))
+Veuillez examiner le dossier d'immunisation à la page 2 et mettre à jour #if notice.client_data.over_16 == true [votre dossier] else if notice.client_data.over_16 == false [le dossier de votre enfant] else [le dossier de la personne nommée] en utilisant l'une des options suivantes :
 
-// Font formatting
-#set text(
-  font: "FreeSans",
-  size: 10pt
-)
-#set text(lang: "fr", region: "CA")
+1. En visitant #immuknow.notice-link(records-url)
+2. En envoyant un courriel à #immuknow.notice-link("mailto:" + records-email)[#records-email]
+3. En envoyant par la poste une photocopie #if notice.client_data.over_16 == true [de votre dossier d'immunisation] else if notice.client_data.over_16 == false [du dossier d'immunisation de votre enfant] else [du dossier d'immunisation de la personne nommée] à #health-unit-name, #health-unit-address
+4. Par téléphone : #health-unit-phone
 
-// Immunization Notice Section
-#let immunization_notice(client, client_id, immunizations_due, date, font_size) = block[
-
-#v(0.2cm)
-
-#conf.header_info_cim(notice.logo_path, 6cm, black, 16pt, "Demande de dossier d'immunisation")
-
-#v(0.2cm)
-
-#conf.client_info_tbl_fr(equal_split: false, vline: false, client, client_id, font_size, "Centre de garde d'enfants", 81pt, border: false)
-
-#v(0.3cm)
-
-// Notice for immunizations
-En date du *#date*, nos dossiers indiquent que votre enfant n'a pas reçu les immunisations suivantes :  
-
-#conf.client_immunization_list(immunizations_due)
-
-Veuillez examiner le dossier d'immunisation à la page 2 et mettre à jour le dossier de votre enfant en utilisant l'une des options suivantes :
-
-1. En visitant #text(fill:conf.linkcolor)[#link("https://www.test-immunization.ca")]
-2. En envoyant un courriel à #text(fill:conf.linkcolor)[#link("records@test-immunization.ca")]
-3. En envoyant par la poste une photocopie du dossier d'immunisation de votre enfant à Test Health, 123 Placeholder Street, Sample City, ON A1A 1A1
-4. Par téléphone : 555-555-5555 poste 1234
-
-Veuillez informer la Santé publique et votre centre de garde d'enfants chaque fois que votre enfant reçoit un vaccin.
+Veuillez informer la Santé publique#if notice.client_data.over_16 == false [ et votre centre de garde d'enfants] chaque fois que #if notice.client_data.over_16 == true [vous recevez] else if notice.client_data.over_16 == false [votre enfant reçoit] else [la personne nommée reçoit] un vaccin.
 
 #grid(
   columns: (1fr, auto),
   gutter: 10pt,
-  [*Si vous choisissez de ne pas immuniser votre enfant*, une exemption médicale valide ou une déclaration de conscience ou de croyance religieuse doit être remplie et soumise à la Santé publique. Les liens vers ces formulaires se trouvent à #text(fill:conf.wdgteal)[#link("https://www.test-immunization.ca/exemptions")]. Veuillez noter que cette exemption est uniquement pour la garde d'enfants et qu'une nouvelle exemption sera requise lors de l'inscription à l'école primaire.],
-  [#if "qr_img" in client [
-    #if "qr_url" in client [
-      #link(client.qr_url)[#image(client.qr_img, width: 3cm)]
-    ] else [
-      #image(client.qr_img, width: 3cm)
-    ]
-  ]]
+  [*Si vous choisissez de ne pas #if notice.client_data.over_16 == true [vous faire vacciner] else if notice.client_data.over_16 == false [immuniser votre enfant] else [immuniser la personne nommée]*, une exemption médicale valide ou une déclaration de conscience ou de croyance religieuse doit être remplie et soumise à la Santé publique. Les liens vers ces formulaires se trouvent à #immuknow.notice-link(exemptions-url). Veuillez noter que cette exemption est uniquement pour la garde d'enfants et qu'une nouvelle exemption sera requise lors de l'inscription à l'école primaire.],
+  [#immuknow.qr-code(notice, ..qr)]
 )
 
 En cas d'éclosion, les enfants qui ne sont pas adéquatement immunisés peuvent être exclus du centre de garde d'enfants.
 
-Si vous avez des questions sur les vaccins de votre enfant, veuillez appeler le 555-555-5555 poste 1234 pour parler à une infirmière de la Santé publique.
+Si vous avez des questions sur #if notice.client_data.over_16 == true [vos vaccins] else if notice.client_data.over_16 == false [les vaccins de votre enfant] else [les vaccins de la personne nommée], veuillez appeler le #health-unit-phone pour parler à une infirmière de la Santé publique.
 
-  Sincères salutations, 
+  Sincères salutations,
 
-#conf.signature(notice.signature_path, "Dr. Jane Smith, MPH", "Médecin hygiéniste adjoint")
-
-// Invisible marker for layout validation
-#box(width: 0pt, height: 0pt)[
-  #text(size: 0.1pt, fill: white)[MARK_END_SIGNATURE_BLOCK]
-]
-  
-]
-
-#let vaccine_table_page(client_id) = block[
-  
-  #v(0.5cm)
-
-  #grid(
-  
-  columns: (50%,50%), 
-  gutter: 5%, 
-  [#image(notice.logo_path, width: 6cm)],
-  [#set align(center + bottom)
-    #text(size: 20.5pt, fill: black)[*Dossier d'immunisation*]]
-  
+#immuknow.signature-block(
+  signature: signature,
+  name: signature-name,
+  title: "Médecin hygiéniste adjoint",
 )
 
-  #v(0.5cm)
-
-  Pour votre référence, les immunisations enregistrées auprès de la Santé publique sont les suivantes :  
-  
 ]
 
-#let end_of_immunization_notice() = [
-  #set align(center)
-  Fin du dossier d'immunisation ]
+#notice-page("Dossier d’immunisation")[
+  Pour votre référence, les immunisations enregistrées auprès de la Santé publique sont les suivantes :
 
-#let client_row = notice.client_id
-#let data = notice.client_data
-#let vaccines_due_array = notice.overdue_agents
-#let received = notice.received
-#let diseases = notice.chart_diseases
-#let show_validity_markers = notice.show_validity_markers
-#let date = presentation.long-date(notice.date_as_of, "fr", required: false)
+  #immunization-history()
+  #align(center)[Fin du dossier d'immunisation]
+]
 
-#set page(
-  margin: (top: 1cm, bottom: 2cm, left: 1.75cm, right: 2cm),
-  footer: align(center, context numbering("1 / " + str(counter(page).final().first()), counter(page).get().first()))
-)
-
-#immunization_notice(data, client_row, vaccines_due_array, date, 11pt)
-#pagebreak()
-#vaccine_table_page(client_row)
-#conf.immunization-table(5, received, diseases, 10.6pt, "fr", show_validity_markers)
-#end_of_immunization_notice()
+// Privacy notice: edit wording and contact details here
+#immuknow.privacy-notice[
+  Les renseignements figurant dans cet avis ont été recueillis en vertu de la _Loi sur la protection et la promotion de la santé_, conformément à la _Loi sur l’accès à l’information municipale et la protection de la vie privée_ et à la _Loi sur la protection des renseignements personnels sur la santé_. Ces renseignements servent à la prestation de programmes et de services de santé publique, à l’administration de l’organisme ainsi qu’à la tenue de bases de données et de registres de santé et aux recherches connexes, dans le respect des exigences légales et réglementaires. Toute question concernant la gestion de ces renseignements doit être adressée au responsable de la protection de la vie privée au 1-800-555-0100, poste 1234, ou à privacy\@example.org.
+]

@@ -1,87 +1,98 @@
-"""Encrypt the compiled notice cohort with passwords from prepared client data.
-
-Render jobs identify every expected PDF. Encryption failures halt this optional
-stage, leaving its unencrypted input available for diagnosis or rerun.
-"""
+"""Make optional individual encrypted copies without changing original notices."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 from pypdf import PdfReader, PdfWriter
+from pypdf.errors import DependencyError
+from pypdf.generic import DictionaryObject
 
-from .compile_notices import check_expected_notices
-from .data_models import ClientRecord, RenderJob
 from .client_placeholders import (
     CLIENT_PLACEHOLDERS,
     build_client_context,
+    extract_template_fields,
     validate_and_format_template,
 )
+from .data_models import ClientRecord
 
 
-def encrypt_pdf(file_path: str, context: dict, *, config: dict) -> str:
-    """Encrypt a PDF with a password derived from client context.
+def encrypt_notice(
+    client: ClientRecord, source: Path, destination: Path, settings: dict
+) -> dict[str, str | int]:
+    """Publish a verified AES-256 revision 6 copy and return its encryption settings.
 
-    Parameters
-    ----------
-    file_path : str
-        Path to the PDF file to encrypt.
-    context : dict
-        Template context dict with client metadata (from build_client_context).
-        Must contain fields referenced in the password template.
-
-    Returns
-    -------
-    str
-        Path to the encrypted PDF file with _encrypted suffix.
-
-    Raises
-    ------
-    ValueError
-        If password template references missing fields or is invalid.
+    Unavailable referenced facts cannot become an empty or partially guessed
+    password. No exception includes the expanded password. The orchestrator
+    records the actual outcome and continues independent clients.
     """
-    password_config = config.get("password", {})
-    template = password_config.get("template", "{date_of_birth_iso_compact}")
-
+    if source.resolve() == destination.resolve():
+        raise ValueError("Encrypted output must be separate from the original")
+    context = build_client_context(client)
+    template = settings.get("password", {}).get(
+        "template", "{date_of_birth_iso_compact}"
+    )
     try:
+        fields = extract_template_fields(template)
         password = validate_and_format_template(
             template, context, allowed_fields=CLIENT_PLACEHOLDERS
         )
-    except (KeyError, ValueError) as e:
-        raise ValueError(f"Invalid password template: {e}") from e
+    except (KeyError, ValueError):
+        raise ValueError(
+            "Invalid password template; check allowed fields and formatting"
+        ) from None
+    missing = sorted(field for field in fields if not context.get(field, "").strip())
+    if missing:
+        raise ValueError("Password facts are unavailable: " + ", ".join(missing))
+    if not password.strip():
+        raise ValueError("Password must not be empty")
 
-    reader = PdfReader(file_path, strict=False)
+    reader = PdfReader(source)
     writer = PdfWriter()
-
-    # Use pypdf's standard append method
     writer.append(reader)
-
     if reader.metadata:
         writer.add_metadata(reader.metadata)
-
-    writer.encrypt(user_password=password, owner_password=password)
-
-    src = Path(file_path)
-    encrypted_path = src.with_name(f"{src.stem}_encrypted{src.suffix}")
-    with open(encrypted_path, "wb") as f:
-        writer.write(f)
-
-    return str(encrypted_path)
-
-
-def encrypt_expected_notices(
-    clients: list[ClientRecord], jobs: list[RenderJob], config: dict
-) -> list[Path]:
-    """Encrypt the complete validated notice cohort in client order."""
-    check_expected_notices(clients, jobs, require_files=True)
-    clients_by_key = {(client.sequence, client.client_id): client for client in clients}
-    outputs = []
-    for job in jobs:
-        client = clients_by_key[(job.sequence, job.client_id)]
-        context = build_client_context(client)
-        outputs.append(
-            Path(
-                encrypt_pdf(str(job.pdf), context, config=config.get("encryption", {}))
-            )
+    try:
+        writer.encrypt(
+            user_password=password, owner_password=password, algorithm="AES-256"
         )
-    return outputs
+    except DependencyError:
+        raise ValueError(
+            "PDF encryption is unavailable. Reinstall ImmuKnow with its required dependencies."
+        ) from None
+    except ValueError:
+        raise ValueError(
+            "The password cannot be used for PDF encryption. Check the password settings."
+        ) from None
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    partial = destination.with_suffix(".partial.pdf")
+    try:
+        with partial.open("wb") as stream:
+            writer.write(stream)
+        encrypted = PdfReader(partial)
+        if (
+            not encrypted.is_encrypted
+            or encrypted.decrypt("")
+            or not encrypted.decrypt(password)
+        ):
+            raise ValueError("Encrypted output could not be verified")
+        details = encrypted.trailer["/Encrypt"]
+        if (
+            not isinstance(details, DictionaryObject)
+            or details.get("/Filter") != "/Standard"
+            or details.get("/V") != 5
+            or details.get("/R") != 6
+            or details.get("/Length") != 256
+            or details.get("/StmF") != "/StdCF"
+            or details.get("/StrF") != "/StdCF"
+            or details.get("/CF", {}).get("/StdCF", {}).get("/CFM") != "/AESV3"
+        ):
+            raise ValueError(
+                "Encrypted output does not use the required AES-256 settings"
+            )
+        if len(encrypted.pages) != len(reader.pages):
+            raise ValueError("Encrypted output page count differs from the original")
+        partial.replace(destination)
+        return {"algorithm": "AES-256", "revision": 6, "key_bits": 256}
+    finally:
+        partial.unlink(missing_ok=True)

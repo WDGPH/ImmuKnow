@@ -4,20 +4,21 @@ The JSON reference groups school names and facility IDs by public health unit.
 An exact match agrees on name and ID. An inexact match agrees on only the
 name or ID, or has a conflicting ID. No match means neither was found.
 
-The returned table carries match details. CSV reports support review, while
-configuration decides whether unmatched schools warn, stop the run, or are
-excluded. This module reads the prepared reference, not its source workbook.
+The returned table carries match details and retains every source row. CSV
+reports support review of unmatched schools. This module reads the prepared
+reference, not its source workbook.
 """
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 from dataclasses import dataclass
+from hashlib import sha256
 from pathlib import Path
 
 import pandas as pd
+from .structured_input import parse_json
 
 LOG = logging.getLogger(__name__)
 
@@ -83,7 +84,7 @@ class SchoolMatchResult:
 def load_mapping(
     reference_path: Path,
     target_phu: str,
-) -> tuple[dict[str, str], dict[str, str]]:
+) -> tuple[dict[str, str], dict[str, str], str]:
     """Load ``school_reference.json`` and return lookup dicts for *target_phu*.
 
     The ``by_id`` reverse lookup is built here from the flat name→id mapping.
@@ -102,6 +103,8 @@ def load_mapping(
         ``{normalized_school_name: facility_id}``
     id_to_name : dict
         ``{facility_id: normalized_school_name}``
+    reference_sha256 : str
+        Hash of the reference bytes used for these lookups.
 
     Raises
     ------
@@ -114,8 +117,11 @@ def load_mapping(
     if not reference_path.exists():
         raise FileNotFoundError(f"school reference file not found: {reference_path}")
 
-    data = json.loads(reference_path.read_text(encoding="utf-8"))
-    phus: dict = data.get("phus", {})
+    content = reference_path.read_bytes()
+    data = parse_json(content, label=reference_path.name)
+    if not isinstance(data, dict) or not isinstance(data.get("phus"), dict):
+        raise ValueError("School reference must contain a phus mapping")
+    phus: dict = data["phus"]
 
     if target_phu not in phus:
         available = ", ".join(f'"{p}"' for p in sorted(phus))
@@ -125,8 +131,15 @@ def load_mapping(
         )
 
     name_to_id: dict[str, str] = phus[target_phu]
+    if not isinstance(name_to_id, dict) or any(
+        not isinstance(name, str) or not name or not isinstance(fid, str)
+        for name, fid in name_to_id.items()
+    ):
+        raise ValueError(
+            f"School reference for {target_phu!r} must map names to string IDs"
+        )
     id_to_name: dict[str, str] = {fid: name for name, fid in name_to_id.items() if fid}
-    return name_to_id, id_to_name
+    return name_to_id, id_to_name, sha256(content).hexdigest()
 
 
 # ---------------------------------------------------------------------------
@@ -163,7 +176,7 @@ def classify_match(
                 input_name=input_name,
                 input_id=input_id,
                 match_type="inexact",
-                matched_name=input_name,
+                matched_name=normalized,
                 matched_id=mapping_id,
                 mismatch_reason="name_only",
             )
@@ -172,14 +185,14 @@ def classify_match(
                 input_name=input_name,
                 input_id=input_id,
                 match_type="exact",
-                matched_name=input_name,
+                matched_name=normalized,
                 matched_id=mapping_id,
             )
         return SchoolMatchResult(
             input_name=input_name,
             input_id=input_id,
             match_type="inexact",
-            matched_name=input_name,
+            matched_name=normalized,
             matched_id=mapping_id,
             mismatch_reason="id_mismatch",
         )
@@ -239,19 +252,19 @@ def validate_schools(
     target_phu: str,
     output_dir: Path,
     school_column: str = "school_name",
-    unmatched_behavior: str = "warn",
     column_prefix: str = "school_",
 ) -> tuple[pd.DataFrame, list[str]]:
     """Validate school names in *df* against the school reference for *target_phu*.
 
-    Adds four columns to the DataFrame (with *column_prefix*):
+    Adds match columns to the DataFrame (with *column_prefix*):
 
     - ``{prefix}facility_id`` :   Matched facility ID, or ``""``
     - ``{prefix}match_type`` :    ``"exact"`` | ``"inexact"`` | ``"no_match"``
     - ``{prefix}matched_name`` :  Name from the school mapping, or ``""``
     - ``{prefix}matched_phu`` :   *target_phu* for matched rows, ``""`` otherwise
+    - ``{prefix}mismatch_reason`` : reason for an inexact match, or ``""``
 
-
+    The frame's ``school_reference`` attribute identifies the file and bytes used.
 
     Writes three CSV files to *output_dir*:
 
@@ -271,14 +284,6 @@ def validate_schools(
         Directory for CSV output files.
     school_column:
         Column in *df* containing school/daycare names.
-    unmatched_behavior:
-
-        ``"warn"``  — log warning, return all rows.
-
-        ``"error"`` — raise ``ValueError`` if any ``no_match`` results.
-
-        ``"skip"``  — filter out rows whose school has no match.
-
     column_prefix:
         Prefix applied to all output column names.
 
@@ -296,7 +301,7 @@ def validate_schools(
         )
         return df, warnings
 
-    name_to_id, id_to_name = load_mapping(reference_path, target_phu)
+    name_to_id, id_to_name, reference_hash = load_mapping(reference_path, target_phu)
     LOG.info("Loaded %d schools for PHU '%s'.", len(name_to_id), target_phu)
 
     # Classify each unique input value (deduplicated for efficiency)
@@ -307,10 +312,15 @@ def validate_schools(
 
     # Enrich DataFrame
     df = df.copy()
+    df.attrs["school_reference"] = {
+        "reference_file": reference_path.name,
+        "reference_sha256": reference_hash,
+        "target_phu": target_phu,
+    }
 
     def _attr(raw_val: object, attr: str, default: str = "") -> str:
         r = results.get(str(raw_val))
-        return getattr(r, attr, default) if r else default
+        return (getattr(r, attr, None) or default) if r else default
 
     def col(suffix: str) -> str:
         return f"{column_prefix}{suffix}"
@@ -323,6 +333,9 @@ def validate_schools(
     )
     df[col("matched_name")] = df[school_column].apply(
         lambda x: _attr(x, "matched_name") if pd.notna(x) else ""
+    )
+    df[col("mismatch_reason")] = df[school_column].apply(
+        lambda x: _attr(x, "mismatch_reason") if pd.notna(x) else ""
     )
     df[col("matched_phu")] = df[school_column].apply(
         lambda x: target_phu
@@ -355,23 +368,5 @@ def validate_schools(
         )
         warnings.append(msg)
         LOG.warning("%s First unmatched: %s", msg, no_match_names[:5])
-
-        if unmatched_behavior == "error":
-            raise ValueError(msg)
-        elif unmatched_behavior == "skip":
-            matched_inputs = {
-                raw for raw, r in results.items() if r.match_type != "no_match"
-            }
-            before = len(df)
-            df = df[df[school_column].isin(matched_inputs)]
-            skipped = before - len(df)
-            warnings.append(
-                f"Skipped {skipped} record(s) with no school reference match."
-            )
-            LOG.info(
-                "Skipped %d records with no school reference match, %d remaining.",
-                skipped,
-                len(df),
-            )
 
     return df, warnings

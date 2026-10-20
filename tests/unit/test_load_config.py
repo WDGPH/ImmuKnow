@@ -1,283 +1,234 @@
-"""Configuration checks for the supported notice workflow."""
-
-from __future__ import annotations
+"""Python configuration contains factual, execution and delivery choices only."""
 
 from pathlib import Path
 
 import pytest
-import yaml
 
-from immuknow.load_config import load_config, validate_config
+from immuknow.load_config import load_config, validate_config, validate_template_fields
+from immuknow.load_config import parse_config
 
 
 @pytest.mark.unit
-def test_packaged_configuration_loads_for_a_complete_run() -> None:
+def test_packaged_configuration_has_no_display_or_qr_options():
     config = load_config()
-    assert "chart_diseases_header" in config
-    assert "pdf_validation" in config
-    assert "notice_versioning" in config
-
-
-@pytest.mark.unit
-def test_custom_configuration_loads_from_selected_path(tmp_path: Path) -> None:
-    path = tmp_path / "parameters.yaml"
-    path.write_text(
-        "qr:\n  enabled: false\nnotice_versioning:\n  extra_manifest_rows: error\n",
-        encoding="utf-8",
-    )
-    loaded = load_config(path)
-    assert loaded["qr"]["enabled"] is False
-    assert loaded["notice_versioning"]["extra_manifest_rows"] == "error"
-
-
-@pytest.mark.unit
-def test_missing_configuration_file_fails_with_its_path(tmp_path: Path) -> None:
-    path = tmp_path / "missing.yaml"
-    with pytest.raises(FileNotFoundError, match="missing.yaml"):
-        load_config(path)
-
-
-@pytest.mark.unit
-def test_invalid_yaml_fails_before_a_run(tmp_path: Path) -> None:
-    path = tmp_path / "parameters.yaml"
-    path.write_text("qr: [unclosed", encoding="utf-8")
-    with pytest.raises(yaml.YAMLError):
-        load_config(path)
-
-
-@pytest.mark.unit
-def test_valid_qr_encryption_and_bundling_configuration() -> None:
-    validate_config(
-        {
-            "qr": {
-                "enabled": True,
-                "payload_template": (
-                    "https://example.ca/?id={client_id}"
-                    "&dob={date_of_birth_iso}&lang={language_code}"
-                ),
-            },
-            "encryption": {
-                "enabled": True,
-                "password": {"template": "{date_of_birth_iso_compact}"},
-            },
-            "bundling": {"bundle_size": 100, "group_by": "school"},
-            "notice_versioning": {"extra_manifest_rows": "warn"},
+    assert (
+        not {
+            "qr",
+            "preprocess",
+            "ignore_agents",
+            "chart_diseases_header",
+            "notice_versioning",
         }
+        & config.keys()
     )
+
+
+@pytest.mark.parametrize(
+    "value", [0, -1, True, "30", None, float("inf"), float("nan"), 86401]
+)
+def test_native_deadlines_require_finite_positive_seconds(value):
+    with pytest.raises(ValueError, match="typst.timeouts_seconds.compile"):
+        validate_config({"typst": {"timeouts_seconds": {"compile": value}}})
+
+
+@pytest.mark.parametrize("settings", [None, [], {"compille": 10}])
+def test_native_deadlines_reject_malformed_or_unknown_settings(settings):
+    with pytest.raises(ValueError, match="typst.timeouts_seconds"):
+        validate_config({"typst": {"timeouts_seconds": settings}})
 
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    "section,setting,message",
-    [
-        ("qr", {"enabled": True}, "qr.payload_template"),
-        (
-            "qr",
-            {"enabled": True, "payload_template": ["not", "text"]},
-            "qr.payload_template",
-        ),
-        (
-            "qr",
-            {"enabled": True, "payload_template": "https://e.ca/{unknown}"},
-            "unknown",
-        ),
-        (
-            "qr",
-            {"enabled": True, "payload_template": "{client_id"},
-            "qr.payload_template",
-        ),
-        ("encryption", {"enabled": True}, "encryption.password.template"),
-        (
-            "encryption",
-            {"enabled": True, "password": {"template": ["bad"]}},
-            "encryption.password.template",
-        ),
-        (
-            "encryption",
-            {"enabled": True, "password": {"template": "{secret}"}},
-            "secret",
-        ),
-        (
-            "encryption",
-            {"enabled": True, "password": {"template": "{client_id"}},
-            "encryption.password.template",
-        ),
-        ("typst", {"bin": []}, "typst.bin"),
-        ("bundling", {"bundle_size": -1}, "bundling.bundle_size"),
-        ("bundling", {"bundle_size": "10"}, "bundling.bundle_size"),
-        ("bundling", {"bundle_size": 1, "group_by": "language"}, "bundling.group_by"),
-        ("bundling", {"bundle_size": 1, "group_by": 123}, "bundling.group_by"),
-        (
-            "cleanup",
-            {"delete_unencrypted_pdfs": "yes"},
-            "cleanup.delete_unencrypted_pdfs",
-        ),
-    ],
+    "key",
+    ["qr", "preprocess", "ignore_agents", "chart_diseases_header", "notice_versioning"],
 )
-def test_invalid_delivery_settings_fail_with_actionable_key(
-    section: str, setting: dict, message: str
-) -> None:
-    with pytest.raises(ValueError, match=message):
-        validate_config({"qr": {"enabled": False}, section: setting})
+def test_retired_display_options_direct_authors_to_settings(key):
+    with pytest.raises(ValueError, match="Settings"):
+        validate_config({key: {}})
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("template", ["{unknown}", "{date_of_birth}", "{"])
+def test_password_placeholders_reject_unsupported_or_ambiguous_fields(template):
+    with pytest.raises(ValueError):
+        validate_template_fields(
+            template, "encryption password", "encryption.password.template"
+        )
+
+
+@pytest.mark.unit
+def test_malformed_configuration_stops_setup(tmp_path: Path):
+    path = tmp_path / "parameters.yaml"
+    path.write_text("[list, is, not, config]")
+    with pytest.raises(ValueError, match="mapping"):
+        load_config(path)
 
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    "section,setting",
+    "section", ["encryption", "typst", "bundling", "school_validation", "pipeline"]
+)
+def test_malformed_nested_sections_fail_clearly(section):
+    with pytest.raises(ValueError, match="mapping"):
+        validate_config({section: []})
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "template",
+    ["{client_id:PRIVATE_SPECIFIER}", "{PRIVATE_SPECIFIER}", "PRIVATE_SPECIFIER {"],
+)
+def test_shared_password_format_errors_are_sanitized(template):
+    with pytest.raises(ValueError) as failure:
+        validate_config(
+            {"encryption": {"enabled": True, "password": {"template": template}}}
+        )
+    assert "PRIVATE_SPECIFIER" not in str(failure.value)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("section", ["school_validation", "encryption"])
+def test_enabled_flags_require_boolean_values(section):
+    with pytest.raises(ValueError, match="enabled must be a boolean"):
+        validate_config({section: {"enabled": "false"}})
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("value", [False, True, 0.0, -1])
+def test_bundle_size_requires_exact_nonnegative_integer(value):
+    with pytest.raises(ValueError, match="nonnegative integer"):
+        validate_config({"bundling": {"bundle_size": value}})
+    validate_config({"bundling": {"bundle_size": 0}})
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "field,value",
+    [("reference_file", None), ("reference_file", " "), ("target_phu", "")],
+)
+def test_enabled_school_lookup_requires_its_shared_inputs(field, value):
+    school = {
+        "enabled": True,
+        "reference_file": "school_reference.json",
+        "target_phu": "Example PHU",
+    }
+    school[field] = value
+    with pytest.raises(ValueError, match=field):
+        validate_config({"school_validation": school})
+
+
+@pytest.mark.parametrize(
+    "config",
     [
-        ("qr", {"enabled": True, "payload_template": "https://e.ca/{date_of_birth}"}),
-        (
-            "encryption",
-            {"enabled": True, "password": {"template": "{date_of_birth}"}},
-        ),
+        {"date_as_off": "2026-01-01"},
+        {"typst": {"timeout": 60}},
+        {"bundling": {"bundle_szie": 10}},
+        {"encryption": {"enabled": False, "pasword": {}}},
+        {"encryption": {"password": {"templat": "private-value"}}},
+        {"school_validation": {"enabled": False, "unknown": 1}},
+        {"pipeline": {"after_run": {"unknown": False}}},
+        {"pipeline": {"unknown": {}}},
     ],
 )
-def test_ambiguous_birth_date_placeholder_names_iso_alternatives(
-    section: str, setting: dict
-) -> None:
-    with pytest.raises(ValueError) as error:
-        validate_config({"qr": {"enabled": False}, section: setting})
-    message = str(error.value)
-    assert "{date_of_birth}" in message
-    assert "{date_of_birth_iso}" in message
-    assert "{date_of_birth_iso_compact}" in message
+def test_unknown_settings_cannot_be_silently_ignored(config):
+    with pytest.raises(ValueError, match="Unknown"):
+        validate_config(config)
 
 
-@pytest.mark.unit
-@pytest.mark.parametrize("retired_value", [True, False, None])
-def test_retired_allow_unassigned_setting_is_rejected(retired_value: object) -> None:
-    with pytest.raises(ValueError, match="notice_versioning.allow_unassigned"):
-        validate_config(
-            {
-                "qr": {"enabled": False},
-                "notice_versioning": {"allow_unassigned": retired_value},
-            }
-        )
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"encryption": {"enabled": False, "password": {"template": 123}}},
+        {"school_validation": {"enabled": False, "column_prefix": False}},
+        {"school_validation": {"enabled": False, "reference_file": []}},
+        {"typst": {"font_path": []}},
+        {"typst": {"bin": " "}},
+        {"date_as_of": False},
+        {"date_as_of": None},
+        {"date_as_of": "2026-02-30"},
+        {"date_of_delivery": "20260102"},
+        {"bundling": {1: 10}},
+        {"bundling": {"group_by": "district"}},
+        {"encryption": {"enabled": False, "password": "private-value"}},
+        {"encryption": {"enabled": True, "password": {}}},
+        {"pipeline": {"after_run": []}},
+        {"pipeline": {"after_run": {"remove_artifacts": "yes"}}},
+    ],
+)
+def test_wrong_types_and_dates_are_refused_even_when_feature_is_disabled(config):
+    with pytest.raises(ValueError):
+        validate_config(config)
 
 
-@pytest.mark.unit
-@pytest.mark.parametrize("policy", ["warn", "error"])
-def test_extra_manifest_row_policy_remains_configurable(policy: str) -> None:
+def test_empty_dates_and_named_grouping_are_accepted():
     validate_config(
-        {
-            "qr": {"enabled": False},
-            "notice_versioning": {"extra_manifest_rows": policy},
-        }
+        {"date_as_of": "", "date_of_delivery": "", "bundling": {"group_by": "school"}}
     )
 
 
-@pytest.mark.unit
-def test_extra_manifest_row_policy_rejects_unknown_value() -> None:
-    with pytest.raises(ValueError, match="notice_versioning.extra_manifest_rows"):
+def test_parameter_errors_do_not_copy_password_values():
+    for content in (
+        "encryption:\n  password:\n    template: [PRIVATE_VALUE\n",
+        "encryption:\n  password:\n    template: PRIVATE_VALUE\n    template: OTHER_PRIVATE_VALUE\n",
+    ):
+        with pytest.raises(ValueError) as failure:
+            parse_config(content)
+        assert "PRIVATE_VALUE" not in str(failure.value)
+
+
+def test_yaml_dates_must_be_quoted_and_repeated_fields_are_rejected():
+    assert parse_config('date_as_of: "2026-01-01"')["date_as_of"] == "2026-01-01"
+    with pytest.raises(ValueError, match="quoted"):
+        parse_config("date_as_of: 2026-01-01")
+    with pytest.raises(ValueError, match="Repeated field: enabled"):
+        parse_config("encryption:\n  enabled: true\n  enabled: false")
+
+
+@pytest.mark.parametrize(
+    "settings",
+    [
+        None,
+        {"enabled": "true"},
+        {"enabled": True},
+        {"enabled": True, "count": 2},
+        {"enabled": True, "count": 2, "unit": "sheets"},
+        {"enabled": True, "count": True, "unit": "pages"},
+        {"enabled": True, "count": 0, "unit": "pages"},
+        {"enabled": True, "count": 1.5, "unit": "pages"},
+        {"enabled": False, "count": "2"},
+        {"enabled": False, "severity": "warn"},
+        {"enabled": True, "count": 2, "unit": "pages", "pad": True},
+    ],
+)
+def test_fixed_notice_length_rejects_missing_or_ambiguous_settings(settings):
+    with pytest.raises(ValueError, match="validation.notice_length"):
         validate_config(
-            {
-                "qr": {"enabled": False},
-                "notice_versioning": {"extra_manifest_rows": "ignore"},
-            }
+            {"bundling": {"bundle_size": 10}, "validation": {"notice_length": settings}}
         )
 
 
-@pytest.mark.unit
-def test_disabled_optional_features_ignore_unused_settings() -> None:
-    """Disabled QR, encryption, and bundling do not validate unused templates."""
+def test_fixed_notice_length_requires_bundling_and_rejects_client_exceptions():
+    length = {"enabled": True, "count": 2, "unit": "pages"}
+    with pytest.raises(ValueError, match="requires bundling"):
+        validate_config({"validation": {"notice_length": length}})
     validate_config(
-        {
-            "qr": {"enabled": False, "payload_template": "{unknown}"},
-            "encryption": {"enabled": False, "password": {"template": "{unknown}"}},
-            "bundling": {"bundle_size": 0, "group_by": "unknown"},
-        }
+        {"bundling": {"bundle_size": 10}, "validation": {"notice_length": length}}
     )
-
-
-@pytest.mark.unit
-def test_qr_is_enabled_by_default_and_requires_a_payload() -> None:
-    """An omitted QR section must not silently disable QR generation."""
-    with pytest.raises(ValueError, match="qr.payload_template"):
-        validate_config({})
-
-
-@pytest.mark.unit
-def test_supported_qr_fields_and_repeated_placeholders() -> None:
-    """The full documented QR field set stays accepted without changing values."""
-    fields = [
-        "client_id",
-        "first_name",
-        "last_name",
-        "name",
-        "date_of_birth_iso",
-        "date_of_birth_iso_compact",
-        "school",
-        "board",
-        "street_address",
-        "city",
-        "province",
-        "postal_code",
-        "language_code",
-        "client_id",
-    ]
-    validate_config(
-        {
-            "qr": {
-                "enabled": True,
-                "payload_template": "https://example.ca/?"
-                + "&".join(f"f{i}={{{field}}}" for i, field in enumerate(fields)),
-            }
-        }
-    )
-
-
-@pytest.mark.unit
-def test_unsupported_qr_field_error_lists_supported_options() -> None:
-    with pytest.raises(ValueError) as error:
-        validate_config({"qr": {"enabled": True, "payload_template": "{unknown}"}})
-    message = str(error.value)
-    assert "qr.payload_template" in message
-    assert "unknown" in message
-    assert "date_of_birth_iso" in message
-
-
-@pytest.mark.unit
-def test_bundling_error_names_available_strategies() -> None:
-    with pytest.raises(ValueError) as error:
+    with pytest.raises(ValueError, match="Rule cannot be adjusted"):
         validate_config(
             {
-                "qr": {"enabled": False},
-                "bundling": {"bundle_size": 1, "group_by": "language"},
+                "validation": {
+                    "clients": [
+                        {
+                            "selector": {"scheme": "panorama", "value": "0000000001"},
+                            "rules": {
+                                "delivery.notice_length": {
+                                    "enabled": False,
+                                    "reason": "Exception",
+                                }
+                            },
+                        }
+                    ]
+                }
             }
         )
-    message = str(error.value)
-    assert "bundling.group_by" in message
-    assert "school" in message
-    assert "board" in message
-
-
-@pytest.mark.unit
-def test_encryption_is_checked_after_valid_qr_configuration() -> None:
-    with pytest.raises(ValueError, match="encryption.password.template"):
-        validate_config(
-            {
-                "qr": {
-                    "enabled": True,
-                    "payload_template": "https://example.ca/{client_id}",
-                },
-                "encryption": {"enabled": True, "password": {"template": "{unknown}"}},
-            }
-        )
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize("group_by", [None, "size", "school", "board"])
-def test_supported_bundle_groupings_are_accepted(group_by: str | None) -> None:
-    validate_config(
-        {
-            "qr": {"enabled": False},
-            "bundling": {"bundle_size": 25, "group_by": group_by},
-        }
-    )
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize("ignored_agents", ["Ig", None, [1], [""]])
-def test_invalid_history_exclusions_fail_before_a_run(ignored_agents) -> None:
-    with pytest.raises(ValueError, match="ignore_agents must be a list"):
-        validate_config({"qr": {"enabled": False}, "ignore_agents": ignored_agents})

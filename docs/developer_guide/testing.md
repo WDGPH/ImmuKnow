@@ -1,74 +1,95 @@
 # Testing
 
-Use tests to prove the complete notice workflow at its real boundaries:
-prepared client records, selected notices, structured render inputs, compiled
-PDFs, and complete downstream accounting.
+Run commands from the Core repository root. Studio has its own repository,
+examples and browser checks. Core builds and tests do not require Node or Rust.
+
+## Prepare a clean checkout
+
+Install Git, uv, Python 3.10 or later, and native Typst 0.15.1. Put `typst` on
+`PATH`, or set `TYPST_BIN` to its absolute path.
+
+Notice tests use the FreeFont `20120503-10build1` release that Studio also ships.
+Newer FreeSerif releases double accented capitals in PDF text, so French notices
+fail the client details check. Use the same checksum-verified files as CI and
+exclude other system fonts:
+
+```bash
+curl -fL https://archive.ubuntu.com/ubuntu/pool/main/f/fonts-freefont/fonts-freefont-ttf_20120503-10build1_all.deb \
+  -o /tmp/notice-fonts.deb
+echo "d1424c9d47b2a6bd0d5149ca66f2bab9b4365237bfbb6063659d961bab2f8ccb  /tmp/notice-fonts.deb" | sha256sum --check
+dpkg-deb --extract /tmp/notice-fonts.deb /tmp/notice-fonts
+export TYPST_FONT_PATHS=/tmp/notice-fonts/usr/share/fonts/truetype/freefont
+export TYPST_IGNORE_SYSTEM_FONTS=true
+```
+
+If the archive no longer offers this package, update the pin here, in CI and in
+Studio's fonts together.
+
+```bash
+uv sync --locked --all-groups
+```
+
+Native CI covers Linux with Python 3.10, 3.12 and 3.14. Other operating systems
+are not covered by that suite.
 
 ## Run the checks
 
-Install locked dependencies and Typst 0.15.1:
-
 ```bash
-uv sync --all-groups
-uv run ty check
-uv run pytest
-uv run pre-commit run --all-files
-uv run --locked --group docs python docs/generate_schema_docs.py
-uv run --locked --group docs python -m mkdocs build --strict
+uv run --locked ty check
+uv run --locked ruff check --no-fix .
+uv run --locked ruff format --check .
+uv run --locked pytest
+uv run --locked pre-commit run --all-files
+uv run --locked python docs/generate_schema_docs.py
+uv run --locked --group docs mkdocs build --strict --site-dir /tmp/immuknow-docs-check
 ```
 
-Set `TYPST_BIN` to the pinned compiler if it is outside `PATH`. Native tests
-require the real compiler. The CI job installs a checksum-verified FreeFont TTF
-`20120503-10build1` package; font metrics affect notice wrapping and page
-geometry. Use the same files for local layout checks and exclude unrelated
-system fonts:
+For focused feedback, select affected files or use `-m unit`, `-m integration`
+or `-m e2e`. Run the full Python suite before handoff. Coverage helps find
+untested decisions; it does not establish complete workflow behavior:
 
 ```bash
-TYPST_FONT_PATHS=/usr/share/fonts/truetype/freefont \
-TYPST_IGNORE_SYSTEM_FONTS=true uv run pytest
+uv run --locked pytest --cov --cov-branch --cov-report=term-missing --cov-report=xml
 ```
 
-For focused feedback:
+For local documentation editing:
 
 ```bash
-uv run pytest -m unit
-uv run pytest -m integration
-uv run pytest -m e2e
-uv run pytest --cov=immuknow --cov-branch --cov-report=html
+uv run --locked --group docs mkdocs serve --dev-addr 0.0.0.0:8000
 ```
 
-Coverage gaps guide test choices; coverage percentage is not a reason to keep
-obsolete interface tests. Unit tests should protect normalization,
-eligibility, assignment conflicts, malformed configuration, and precise
-diagnostics. Integration tests should compile maintained Typst entry points
-and verify mixed cohorts, manifest filenames confined to the selected tree,
-one-file cohort selection,
-disease and agent notice assignments, QR links, encryption, bundles,
-installed-wheel resources, path isolation, and failure propagation. Mock a
-compiler only for discovery or version diagnostics; mock success cannot prove
-PDF behavior.
+## What the tests protect
 
-## Review rendered notices
+| Boundary | Coverage | Tests |
+| --- | --- | --- |
+| Input preparation | Original row identity, complete histories, disease mappings, source warnings, ambiguous assignments and malformed configuration | `tests/unit/`, `test_pipeline_contracts.py`, `test_input_rejection.py` |
+| Typst presentation | Placed findings, English/French wording, client details, QR destinations, continuation and suspension layout | `test_typst_package.py`, `test_native_templates.py`, `test_render_evidence.py` |
+| Native runs | Both selectors, independent failures, setup failures, retained facts and authoritative run records | `test_run_accounting.py`, `test_native_deadlines.py`, `tests/e2e/` |
+| Delivery | Encryption, warning review, page identity, fixed page counts, saved-run recovery and process locks | `test_delivery_checks.py`, `test_encrypted_pdfs.py`, `test_saved_run_delivery.py`, `test_run_lock.py` |
+| Installed distribution | Relocated wheel, public resource access, provenance and operation without checkout imports or browser tooling | `test_installed_package.py`, `test_native_build.py` |
 
-Keep semantic text checks separate from layout checks. PDF extraction may vary
-in inconsequential whitespace, so semantic comparisons normalize that
-whitespace while asserting the complete wording. Separately check page
-boundaries/counts, chart contents, signature placement, and envelope-window
-measurements. Native assertions must reject wrong language, wrong version,
-and missing agents for the agent-based notice. Typst syntax inside client
-strings must remain literal data.
+Payload and report schemas define the rendering contract. Core's validation
+cases live in `tests/fixtures/render-contract.json`; Studio maintains its own
+copy of useful contract cases and its own fictional scenarios.
 
-Compile and inspect English, French, affirmative, long-record, and
-long-address cases. Check branding, QR images, validity symbols, page
-numbering, history continuation, and visible date and dose wording.
-Changing a compiler or font requires layout review before fixture changes.
-Use synthetic records only. PHU-specific templates need the same review with
-their own assets and wording.
+Native build tests compare source bytes before and after packaging, rebuild a
+source archive without Git or Studio, and verify native file hashes. The
+installed-wheel journey reads the resource API from an unrelated directory
+before generating and reviewing notices with packaged and external resources.
 
-Tests that fail on an error-level validation finding or incomplete output set
-must remain meaningful; do not update a snapshot or weaken an assertion merely
-to obtain a pass.
+Native compilation uses system fonts and refuses ambient Typst packages before
+network access. Component tests reject changed, missing, extra, renamed and
+linked library files even if project-declared hashes have been rewritten.
 
-Check that one run log covers preparation and later stages, and that both
-success and failure remove the run handler without changing caller logging.
-Failure tests should also verify that incomplete output is not delivered.
+Failed applicable checks retain useful originals for diagnosis and prevent
+release. Individual warning acceptance is tied to the run, row, original PDF,
+evidence and effective rules. An accepted warning cannot release a failed batch.
+Saved-run tests cover concurrent attempts, interrupted replacement, retained
+bundles and earlier decisions. Encryption tests verify AES-256 revision 6 with
+independent PDF readers and preserve originals. Studio's separate browser suite
+also checks representative encrypted notices in Chromium's ordinary PDF viewer.
+
+Inspect representative English/French PDFs after presentation or compiler/font
+changes: include long names, addresses and histories, QR links, signatures,
+envelope windows and the one-page suspension order. This repository split does
+not change notice presentation or validation policy.

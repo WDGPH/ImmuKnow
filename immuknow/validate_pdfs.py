@@ -1,538 +1,354 @@
-"""Validate every expected compiled notice for structure and layout.
-
-The render-job manifest supplies the complete PDF list. Validation writes an
-audit summary and raises when an error-severity rule fails; layout warnings
-remain available for review.
-"""
+"""Inspect saved PDF bytes and identity; Typst owns all layout calculations."""
 
 from __future__ import annotations
 
-import json
-from collections import Counter
-from dataclasses import asdict, dataclass
+import hashlib
+import re
+from io import BytesIO
 from pathlib import Path
-from typing import List
+from typing import Any
+from urllib.parse import urlsplit
 
 from pypdf import PdfReader
+from pypdf.errors import PdfReadError
+from pypdf.generic import DictionaryObject, TextStringObject
+
+from .data_models import CheckResult, RenderJob
 
 
-@dataclass
-class ValidationResult:
-    """Result of validating a single PDF file.
-
-    Attributes
-    ----------
-    filename : str
-        Name of the PDF file
-    warnings : List[str]
-        List of validation warnings (layout issues, unexpected page counts, etc.)
-    passed : bool
-        True if no warnings, False otherwise
-    measurements : dict[str, int | float | str]
-        Actual measurements extracted from PDF with proper types:
-
-        - page_count (int): Number of pages
-        - signature_page (int): Page where signature block ends
-        - contact_height_inches (float): Contact table height in inches
-        - client_id_found_page (int): Page where client ID was found
-        - client_id_found_value (str): The actual client ID found
-    """
-
-    filename: str
-    warnings: List[str]
-    passed: bool
-    measurements: dict[str, int | float | str]
-
-
-@dataclass
-class RuleResult:
-    """Result of a single validation rule across all PDFs.
-
-    Attributes
-    ----------
-    rule_name : str
-        Name of the validation rule
-    severity : str
-        Rule severity: "disabled", "warn", or "error"
-    passed_count : int
-        Number of PDFs that passed this rule
-    failed_count : int
-        Number of PDFs that failed this rule
-    """
-
-    rule_name: str
-    severity: str
-    passed_count: int
-    failed_count: int
-
-
-@dataclass
-class ValidationSummary:
-    """Aggregate validation results for all PDFs.
-
-    Attributes
-    ----------
-    total_pdfs : int
-        Total number of PDFs validated
-    passed_count : int
-        Number of PDFs with no warnings
-    warning_count : int
-        Number of PDFs with warnings
-    page_count_distribution : dict[int, int]
-        Distribution of page counts (pages -> count)
-    warning_types : dict[str, int]
-        Count of warnings by type/category
-    rule_results : List[RuleResult]
-        Per-rule validation statistics
-    results : List[ValidationResult]
-        Per-file validation results
-    """
-
-    total_pdfs: int
-    passed_count: int
-    warning_count: int
-    page_count_distribution: dict[int, int]
-    warning_types: dict[str, int]
-    rule_results: List[RuleResult]
-    results: List[ValidationResult]
-
-
-def find_client_id_in_text(page_text: str) -> str | None:
-    """Find a 10-digit client ID in extracted PDF page text.
-
-    Searches for any 10-digit number; assumes the first match is the client ID.
-    May be preceded by "Client ID: " or "Identifiant du client: " (optional).
-
-    Parameters
-    ----------
-    page_text : str
-        Extracted text from a PDF page.
-
-    Returns
-    -------
-    str | None
-        10-digit client ID if found, None otherwise.
-    """
-    import re
-
-    # Search for any 10-digit number (word boundary on both sides to avoid false matches)
-    match = re.search(r"\b(\d{10})\b", page_text)
-    if match:
-        return match.group(1)
-    return None
-
-
-def extract_measurements_from_markers(page_text: str) -> dict[str, float]:
-    """Extract dimension measurements from invisible text markers.
-
-    Typst templates embed invisible markers with measurements like:
-    MEASURE_CONTACT_HEIGHT:123.45
-
-    Parameters
-    ----------
-    page_text : str
-        Extracted text from a PDF page.
-
-    Returns
-    -------
-    dict[str, float]
-        Dictionary mapping dimension names to values in points.
-        Example: {"measure_contact_height": 123.45}
-    """
-    import re
-
-    measurements = {}
-
-    # Pattern to match our invisible marker format: MEASURE_NAME:123.45
-    pattern = r"MEASURE_(\w+):([\d.]+)"
-
-    for match in re.finditer(pattern, page_text):
-        key = "measure_" + match.group(1).lower()  # normalize to lowercase
-        value = float(match.group(2))
-        measurements[key] = value
-
-    return measurements
-
-
-def validate_pdf_layout(
-    pdf_path: Path,
-    reader: PdfReader,
-    enabled_rules: dict[str, str],
-    client_id_map: dict[str, str] | None = None,
-) -> tuple[List[str], dict[str, float | str]]:
-    """Check PDF for layout issues using invisible markers and metadata.
-
-    Parameters
-    ----------
-    pdf_path : Path
-        Path to the PDF file being validated.
-    reader : PdfReader
-        Opened PDF reader instance.
-    enabled_rules : dict[str, str]
-        Validation rules configuration (rule_name -> "disabled"/"warn"/"error").
-    client_id_map : dict[str, str], optional
-        Mapping of PDF filename (without path) to expected client ID.
-        If provided, client_id_presence validation uses this as source of truth.
-
-    Returns
-    -------
-    tuple[List[str], dict[str, float]]
-        Tuple of (warning messages, actual measurements).
-        Measurements include signature_page, contact_height_inches, etc.
-    """
-    warnings = []
-    measurements = {}
-
-    # Check signature block marker placement
-    rule_setting = enabled_rules.get("signature_overflow", "warn")
-    if rule_setting != "disabled":
-        for page_num, page in enumerate(reader.pages, start=1):
-            try:
-                page_text = page.extract_text()
-                if "MARK_END_SIGNATURE_BLOCK" in page_text:
-                    measurements["signature_page"] = page_num
-                    if page_num != 1:
-                        warnings.append(
-                            f"signature_overflow: Signature block ends on page {page_num} "
-                            f"(expected page 1)"
-                        )
-                    break
-            except Exception:
-                # If text extraction fails, skip this check
-                pass
-
-    # Check contact table dimensions (envelope window validation)
-    envelope_rule = enabled_rules.get("envelope_window_1_125", "disabled")
-    if envelope_rule != "disabled":
-        # Envelope window constraint: 1.125 inches max height
-        max_height_inches = 1.125
-
-        # Look for contact table measurements in page 1
+def check_qr_destinations(summary: dict[str, Any] | None) -> CheckResult:
+    """Check recorded QR web addresses without contacting their destinations."""
+    urls = summary["qr_urls"] if summary else []
+    invalid = 0
+    for url in urls:
         try:
-            page_text = reader.pages[0].extract_text()
-            extracted_measurements = extract_measurements_from_markers(page_text)
-
-            contact_height_pt = extracted_measurements.get("measure_contact_height")
-            if contact_height_pt:
-                # Convert from points to inches (72 points = 1 inch)
-                height_inches = contact_height_pt / 72.0
-                measurements["contact_height_inches"] = height_inches
-
-                if height_inches > max_height_inches:
-                    warnings.append(
-                        f"envelope_window_1_125: Contact table height {height_inches:.2f}in "
-                        f"exceeds envelope window (max {max_height_inches}in)"
-                    )
-        except Exception:
-            # If measurement extraction fails, skip this check
-            pass
-
-    # Check client ID presence (markerless: search for 10-digit number in text)
-    client_id_rule = enabled_rules.get("client_id_presence", "disabled")
-    if client_id_rule != "disabled" and client_id_map:
-        try:
-            # Get expected client ID from the mapping (source of truth: preprocessed_clients.json)
-            expected_client_id = client_id_map.get(pdf_path.name)
-            if expected_client_id:
-                # Search all pages for the client ID
-                found_client_id = None
-                for page_num, page in enumerate(reader.pages, start=1):
-                    page_text = page.extract_text()
-                    found_id = find_client_id_in_text(page_text)
-                    if found_id:
-                        found_client_id = found_id
-                        measurements["client_id_found_page"] = page_num
-                        break
-
-                # Warn if ID not found or doesn't match
-                if found_client_id is None:
-                    warnings.append(
-                        f"client_id_presence: Client ID {expected_client_id} not found in PDF"
-                    )
-                elif found_client_id != expected_client_id:
-                    warnings.append(
-                        f"client_id_presence: Found ID {found_client_id}, expected {expected_client_id}"
-                    )
-                else:
-                    # Store the found ID for debugging
-                    measurements["client_id_found_value"] = found_client_id
-        except Exception:
-            # If client ID check fails, skip silently (parsing error)
-            pass
-
-    return warnings, measurements
-
-
-def validate_pdf_structure(
-    pdf_path: Path,
-    enabled_rules: dict[str, str] | None = None,
-    client_id_map: dict[str, str] | None = None,
-) -> ValidationResult:
-    """Validate a single PDF file for structure and layout.
-
-    Parameters
-    ----------
-    pdf_path : Path
-        Path to the PDF file to validate.
-    enabled_rules : dict[str, str], optional
-        Validation rules configuration (rule_name -> "disabled"/"warn"/"error").
-    client_id_map : dict[str, str], optional
-        Mapping of PDF filename to expected client ID (from preprocessed_clients.json).
-
-    Returns
-    -------
-    ValidationResult
-        Validation result with measurements, warnings, and pass/fail status.
-
-    Raises
-    ------
-    Exception
-        If PDF cannot be read (structural corruption).
-    """
-    warnings = []
-    measurements = {}
-    if enabled_rules is None:
-        enabled_rules = {}
-
-    # Read PDF and count pages
-    reader = PdfReader(str(pdf_path))
-    page_count = len(reader.pages)
-    measurements["page_count"] = page_count
-
-    # Check for exactly 2 pages (standard notice format)
-    rule_setting = enabled_rules.get("exactly_two_pages", "warn")
-    if rule_setting != "disabled":
-        if page_count != 2:
-            warnings.append(f"exactly_two_pages: has {page_count} pages (expected 2)")
-
-    # Validate layout using markers
-    layout_warnings, layout_measurements = validate_pdf_layout(
-        pdf_path, reader, enabled_rules, client_id_map=client_id_map
-    )
-    warnings.extend(layout_warnings)
-    measurements.update(layout_measurements)
-
-    return ValidationResult(
-        filename=pdf_path.name,
-        warnings=warnings,
-        passed=len(warnings) == 0,
-        measurements=measurements,
-    )
-
-
-def compute_rule_results(
-    results: List[ValidationResult], enabled_rules: dict[str, str]
-) -> List[RuleResult]:
-    """Compute per-rule pass/fail statistics.
-
-    Parameters
-    ----------
-    results : List[ValidationResult]
-        Validation results for all PDFs.
-    enabled_rules : dict[str, str]
-        Validation rules configuration (rule_name -> "disabled"/"warn"/"error").
-
-    Returns
-    -------
-    List[RuleResult]
-        Per-rule statistics with pass/fail counts.
-    """
-    # Count failures per rule
-    rule_failures: Counter = Counter()
-    for result in results:
-        for warning in result.warnings:
-            rule_name = warning.split(":")[0] if ":" in warning else "other"
-            rule_failures[rule_name] += 1
-
-    # Build rule results for all configured rules
-    rule_results = []
-    for rule_name, severity in enabled_rules.items():
-        failed_count = rule_failures.get(rule_name, 0)
-        passed_count = len(results) - failed_count
-
-        rule_results.append(
-            RuleResult(
-                rule_name=rule_name,
-                severity=severity,
-                passed_count=passed_count,
-                failed_count=failed_count,
+            parts = urlsplit(url)
+            host = (parts.hostname or "").encode("idna").decode("ascii")
+            host_valid = ":" in host or all(
+                re.fullmatch(r"[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?", label)
+                for label in host.rstrip(".").split(".")
             )
+            valid = (
+                parts.scheme in ("http", "https")
+                and host_valid
+                and (parts.port is None or 0 < parts.port <= 65535)
+                and not any(
+                    char.isspace() or ord(char) < 32 or char in '\\<>"^`{|}\x7f'
+                    for char in url
+                )
+                and not re.search(r"%(?![0-9a-fA-F]{2})", url)
+            )
+        except (ValueError, UnicodeError):
+            valid = False
+        invalid += not valid
+    if summary is None:
+        status, message = "not_run", "QR destinations could not be checked."
+    elif not urls:
+        status, message = "not_applicable", "No QR code was placed."
+    elif invalid:
+        status, message = (
+            "warn",
+            "Use complete HTTP or HTTPS web addresses for QR destinations; check hosts, ports, spaces and percent escapes.",
         )
-
-    return rule_results
-
-
-def validate_pdfs(
-    files: List[Path],
-    enabled_rules: dict[str, str] | None = None,
-    client_id_map: dict[str, str] | None = None,
-) -> ValidationSummary:
-    """Validate all PDF files and generate summary.
-
-    Parameters
-    ----------
-    files : List[Path]
-        PDF file paths to validate.
-    enabled_rules : dict[str, str], optional
-        Validation rules configuration (rule_name -> "disabled"/"warn"/"error").
-    client_id_map : dict[str, str], optional
-        Mapping of PDF filename to expected client ID (from preprocessed_clients.json).
-
-    Returns
-    -------
-    ValidationSummary
-        Aggregate validation results with statistics and per-file details.
-    """
-    if enabled_rules is None:
-        enabled_rules = {}
-    if client_id_map is None:
-        client_id_map = {}
-
-    results: List[ValidationResult] = []
-    page_buckets: Counter = Counter()
-    warning_type_counts: Counter = Counter()
-
-    for pdf_path in files:
-        result = validate_pdf_structure(
-            pdf_path, enabled_rules=enabled_rules, client_id_map=client_id_map
-        )
-        results.append(result)
-        page_count = int(result.measurements.get("page_count", 0))
-        page_buckets[page_count] += 1
-
-        # Count warning types
-        for warning in result.warnings:
-            warning_type = warning.split(":")[0] if ":" in warning else "other"
-            warning_type_counts[warning_type] += 1
-
-    passed_count = sum(1 for r in results if r.passed)
-    warning_count = len(results) - passed_count
-
-    # Compute per-rule statistics
-    rule_results = compute_rule_results(results, enabled_rules)
-
-    return ValidationSummary(
-        total_pdfs=len(results),
-        passed_count=passed_count,
-        warning_count=warning_count,
-        page_count_distribution=dict(sorted(page_buckets.items())),
-        warning_types=dict(warning_type_counts),
-        rule_results=rule_results,
-        results=results,
+    else:
+        status, message = "pass", "QR destinations have HTTP or HTTPS web addresses."
+    return CheckResult(
+        "output.qr_destination",
+        "output",
+        status,
+        message,
+        measurements={"checked": len(urls), "invalid": invalid},
     )
 
 
-def print_validation_summary(
-    summary: ValidationSummary,
-    *,
-    validation_json_path: Path | None = None,
-) -> None:
-    """Print human-readable validation summary to console.
+def check_pdf_evidence(
+    reader: PdfReader, summary: dict[str, Any] | None, identity: dict[str, str]
+) -> list[CheckResult]:
+    """Compare PDF evidence and find destinations outside the supplied helpers."""
+    unchecked_links = CheckResult(
+        "output.unrecorded_link",
+        "output",
+        "not_run",
+        "PDF link destinations could not be compared with the supplied helpers.",
+    )
+    if summary is None:
+        return [
+            CheckResult(
+                "output.evidence_matches",
+                "output",
+                "fail",
+                "Render checks could not be completed; inspect this original PDF.",
+            ),
+            unchecked_links,
+        ]
+    destinations = set()
+    links = summary["measurements"].get("link", [])
+    expected = {url.encode("utf-8") for url in summary["qr_urls"]} | {
+        link["url"].encode("utf-8") for link in links
+    }
+    checked = unrecorded = 0
+    try:
+        for number, page in enumerate(reader.pages, 1):
+            for reference in page.annotations or []:
+                annotation = reference.get_object()
+                if not isinstance(annotation, DictionaryObject):
+                    raise ValueError("Invalid PDF annotation")
+                if annotation.get("/Subtype") != "/Link" or "/A" not in annotation:
+                    continue
+                action = annotation["/A"]
+                if not isinstance(action, DictionaryObject):
+                    raise ValueError("Invalid PDF link action")
+                if action.get("/S") != "/URI":
+                    continue
+                destination = action.get("/URI")
+                if isinstance(destination, bytes):
+                    values = {destination}
+                elif isinstance(destination, str):
+                    values = {destination.encode("utf-8")}
+                    if isinstance(destination, TextStringObject):
+                        # Typst writes URI text as UTF-8 bytes; PDF text decoding
+                        # can interpret those bytes as a different character set.
+                        values.add(destination.original_bytes)
+                else:
+                    raise ValueError("Invalid PDF link destination")
+                destinations.update((number, value) for value in values)
+                checked += 1
+                unrecorded += not bool(values & expected)
+    except (PdfReadError, ValueError, KeyError):
+        return [
+            CheckResult(
+                "output.evidence_matches",
+                "output",
+                "fail",
+                "PDF links could not be checked against the recorded destinations.",
+            ),
+            unchecked_links,
+        ]
+    missing = {url.encode("utf-8") for url in summary["qr_urls"]} - {
+        url for _, url in destinations
+    }
+    missing_links = {
+        (link["page"], link["url"].encode("utf-8")) for link in links
+    } - destinations
+    matches = (
+        summary["page_count"] == len(reader.pages)
+        and summary["identity"] == identity
+        and not missing
+        and not missing_links
+    )
+    return [
+        CheckResult(
+            "output.evidence_matches",
+            "output",
+            "pass" if matches else "fail",
+            "PDF page count, document identity and link destinations agree with render evidence."
+            if matches
+            else "PDF page count, selected identity or link destinations disagree with render evidence.",
+            measurements={
+                "pdf_page_count": len(reader.pages),
+                "evidence_page_count": summary["page_count"],
+                "missing_qr_links": len(missing),
+                "missing_links": len(missing_links),
+            },
+        ),
+        CheckResult(
+            "output.unrecorded_link",
+            "output",
+            "warn" if unrecorded else "pass" if checked else "not_applicable",
+            "A PDF link destination was not recorded by a supplied helper; use notice-link for external links."
+            if unrecorded
+            else "PDF link destinations are recorded by supplied helpers."
+            if checked
+            else "No external PDF links were placed.",
+            measurements={"checked_links": checked, "unrecorded_links": unrecorded},
+        ),
+    ]
 
-    Parameters
-    ----------
-    summary : ValidationSummary
-        Validation summary to print.
-    validation_json_path : Path, optional
-        Path to validation JSON for reference in output.
-    """
-    # Per-rule summary (all rules, including disabled)
-    print("Validation rules:")
-    for rule in summary.rule_results:
-        status_str = f"- {rule.rule_name} [{rule.severity}]"
-        count_str = f"✓ {rule.passed_count} passed"
 
-        if rule.failed_count > 0:
-            fail_label = "PDF" if rule.failed_count == 1 else "PDFs"
-            count_str += f", ✗ {rule.failed_count} {fail_label} failed"
+def check_client_identity(
+    reader: PdfReader, summary: dict[str, Any] | None, client_id: str
+) -> CheckResult:
+    """Check personal text inside the supplied client and address PDF areas."""
+    ids = summary["measurements"].get("client", []) if summary else []
+    addresses = summary["measurements"].get("address", []) if summary else []
+    regions = ids + addresses
+    observed: list[list[str]] = [[] for _ in regions]
+    fonts: list[set[str]] = [set() for _ in regions]
+    try:
+        for number, page in enumerate(reader.pages, 1):
+            placed = [
+                (index, area)
+                for index, area in enumerate(regions)
+                if area["page"] == number
+            ]
+            if placed and (page.rotation or page.user_unit != 1):
+                raise ValueError(
+                    "Personal content positions cannot be checked on transformed PDF pages"
+                )
+            width, height = float(page.mediabox.width), float(page.mediabox.height)
+            for _, area in placed:
+                if not (
+                    0 <= area["x_pt"] < area["x_pt"] + area["width_pt"] <= width
+                    and 0 <= area["y_pt"] < area["y_pt"] + area["height_pt"] <= height
+                ):
+                    raise ValueError(
+                        "Personal content area is empty or outside the PDF page"
+                    )
 
-        print(f"  {status_str}: {count_str}")
+            unsupported = False
 
-    # Reference to detailed log
-    if validation_json_path:
-        try:
-            relative_path = validation_json_path.relative_to(Path.cwd())
-            print(f"\nDetailed validation results: {relative_path}")
-        except ValueError:
-            # If path is not relative to cwd (e.g., in temp dir), use absolute
-            print(f"\nDetailed validation results: {validation_json_path}")
+            def collect(text, cm, tm, font, _size):
+                nonlocal unsupported
+                if not text:
+                    return
+                x = tm[4] * cm[0] + tm[5] * cm[2] + cm[4] - float(page.mediabox.left)
+                y = float(page.mediabox.top) - (tm[4] * cm[1] + tm[5] * cm[3] + cm[5])
+                for index, area in placed:
+                    # Typst and PDF numbers round independently; allow a quarter point.
+                    if (
+                        area["x_pt"] - 0.25
+                        <= x
+                        <= area["x_pt"] + area["width_pt"] + 0.25
+                        and area["y_pt"] - 0.25
+                        <= y
+                        <= area["y_pt"] + area["height_pt"] + 0.25
+                    ):
+                        matrix = (
+                            tm[0] * cm[0] + tm[1] * cm[2],
+                            tm[0] * cm[1] + tm[1] * cm[3],
+                            tm[2] * cm[0] + tm[3] * cm[2],
+                            tm[2] * cm[1] + tm[3] * cm[3],
+                        )
+                        if text.strip() and any(
+                            abs(value - expected) > 0.000001
+                            for value, expected in zip(matrix, (1, 0, 0, 1))
+                        ):
+                            unsupported = True
+                        observed[index].append(text)
+                        if text.strip() and font:
+                            # Drop the subset prefix, e.g. "ABCDEF+FreeSerif".
+                            name = str(font.get("/BaseFont", "")).lstrip("/")
+                            fonts[index].add(name.split("+", 1)[-1])
 
-
-def write_validation_json(summary: ValidationSummary, output_path: Path) -> None:
-    """Write validation summary to JSON file.
-
-    Parameters
-    ----------
-    summary : ValidationSummary
-        Validation summary to serialize.
-    output_path : Path
-        Path to output JSON file.
-    """
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    # Convert to dict and serialize
-    payload = asdict(summary)
-    output_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-
-
-def check_for_errors(
-    summary: ValidationSummary, enabled_rules: dict[str, str]
-) -> List[str]:
-    """Check if any validation rules are set to 'error' and have failures.
-
-    Parameters
-    ----------
-    summary : ValidationSummary
-        Validation summary with warning counts by type.
-    enabled_rules : dict[str, str]
-        Validation rules configuration (rule_name -> "disabled"/"warn"/"error").
-
-    Returns
-    -------
-    List[str]
-        List of error messages for rules that failed with severity 'error'.
-    """
-    errors = []
-    for rule_name, severity in enabled_rules.items():
-        if severity == "error" and rule_name in summary.warning_types:
-            count = summary.warning_types[rule_name]
-            label = "PDF" if count == 1 else "PDFs"
-            errors.append(f"{rule_name}: {count} {label} failed validation")
-    return errors
-
-
-def validate_notices(
-    expected_pdfs: List[Path],
-    enabled_rules: dict[str, str] | None = None,
-    json_output: Path | None = None,
-    client_id_map: dict[str, str] | None = None,
-) -> ValidationSummary:
-    """Validate every expected PDF and fail on any configured error.
-
-    Writes a run-local diagnostic summary before raising a validation error.
-    """
-    enabled_rules = enabled_rules or {}
-
-    if client_id_map is None:
-        client_id_map = {}
-
-    for pdf in expected_pdfs:
-        if not pdf.is_file():
-            raise FileNotFoundError(f"Expected notice PDF is missing: {pdf}")
-    summary = validate_pdfs(
-        expected_pdfs, enabled_rules=enabled_rules, client_id_map=client_id_map
+            page.extract_text(visitor_text=collect)
+            if unsupported:
+                raise ValueError("Personal content text is rotated or scaled")
+    except (PdfReadError, ValueError, KeyError) as exc:
+        return CheckResult(
+            "output.client_identity",
+            "output",
+            "fail",
+            f"PDF text could not be checked: {exc}",
+        )
+    matches = (
+        bool(client_id and ids)
+        and all(area["client_id"] == client_id for area in ids)
+        and all(
+            " ".join("".join(parts).split()) == " ".join(area["text"].split())
+            for area, parts in zip(regions, observed)
+        )
+    )
+    return CheckResult(
+        "output.client_identity",
+        "output",
+        "pass" if matches else "fail",
+        "Placed client details and mailing addresses match the notice data."
+        if matches
+        else "Client details or a mailing address are missing or differ in the PDF."
+        + describe_identity_difference(ids, regions, observed, fonts, client_id),
+        measurements={"client_blocks": len(ids), "address_blocks": len(addresses)},
     )
 
-    if json_output:
-        write_validation_json(summary, json_output)
 
-    # Always print summary
-    print_validation_summary(summary, validation_json_path=json_output)
+def describe_identity_difference(
+    ids: list[dict[str, Any]],
+    regions: list[dict[str, Any]],
+    observed: list[list[str]],
+    fonts: list[set[str]],
+    client_id: str,
+) -> str:
+    """Locate the first difference without repeating personal text.
 
-    # Check for error-level failures
-    errors = check_for_errors(summary, enabled_rules)
-    if errors:
-        error_msg = "PDF validation failed with errors:\n  " + "\n  ".join(errors)
-        raise RuntimeError(error_msg)
+    Only the two characters at the first differing position are shown, with the
+    PDF fonts in that block, so font text-mapping faults can be recognised.
+    """
+    if not (client_id and ids):
+        return " No client details block was placed."
+    if any(area["client_id"] != client_id for area in ids):
+        return " A client details block belongs to a different client."
+    for index, (area, parts) in enumerate(zip(regions, observed)):
+        expected = " ".join(area["text"].split())
+        found = " ".join("".join(parts).split())
+        if expected == found:
+            continue
+        label = (
+            f"Client details block {index + 1}"
+            if index < len(ids)
+            else f"Mailing address block {index - len(ids) + 1}"
+        )
+        position = next(
+            (i for i, pair in enumerate(zip(expected, found)) if pair[0] != pair[1]),
+            min(len(expected), len(found)),
+        )
 
-    return summary
+        def show(text: str) -> str:
+            if position >= len(text):
+                return "end of text"
+            return f"U+{ord(text[position]):04X} '{text[position]}'"
+
+        font_note = (
+            f" PDF font: {', '.join(sorted(fonts[index]))}." if fonts[index] else ""
+        )
+        return (
+            f" {label} first differs at character {position + 1}:"
+            f" expected {show(expected)}, found {show(found)}"
+            f" ({len(expected)} expected and {len(found)} found characters).{font_note}"
+        )
+    return ""
+
+
+def inspect_notice(
+    job: RenderJob, run_dir: Path, summary: dict[str, Any] | None
+) -> tuple[dict[str, Any], list[CheckResult]]:
+    """Inspect actual original bytes; Typst alone owns layout measurements.
+
+    A readable PDF remains an output even if its text or render evidence cannot
+    be checked. Identity requires the exact expected value inside each supplied client
+    block; an incidental phone number cannot satisfy it.
+    """
+    content = job.pdf.read_bytes()
+    reader = PdfReader(BytesIO(content))
+    pages = len(reader.pages)
+    if not pages:
+        raise PdfReadError("Compiled notice PDF contains no pages")
+    original = {
+        "status": "completed",
+        "path": job.pdf.relative_to(run_dir).as_posix(),
+        "sha256": hashlib.sha256(content).hexdigest(),
+        "pages": pages,
+    }
+    checks = [
+        CheckResult(
+            "output.readable",
+            "output",
+            "pass",
+            "Original PDF is readable.",
+            measurements={"page_count": pages},
+        )
+    ]
+    checks.extend(
+        check_pdf_evidence(
+            reader,
+            summary,
+            {
+                "row_key": job.sequence,
+                "template": job.template.name,
+                "client_id": job.client_id,
+                "version_id": job.version_id,
+                "language": job.language,
+            },
+        )
+    )
+    checks.append(check_client_identity(reader, summary, job.client_id))
+    checks.append(check_qr_destinations(summary))
+    return original, checks

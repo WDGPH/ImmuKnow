@@ -4,14 +4,20 @@ Provides a centralized way to load and validate the parameters.yaml
 configuration file across all pipeline scripts.
 """
 
-from pathlib import Path
 from importlib.resources import files
-from typing import Any, Dict, Optional
-
-import yaml
+from datetime import date
+from pathlib import Path
+from typing import Any
 
 from .bundle_pdfs import BundleGrouping
-from .client_placeholders import CLIENT_PLACEHOLDERS, extract_template_fields
+from .compile_notices import CompilerTimeouts
+from .validation_policy import notice_length_settings, validate_policy
+from .structured_input import parse_yaml
+from .client_placeholders import (
+    CLIENT_PLACEHOLDERS,
+    extract_template_fields,
+    validate_and_format_template,
+)
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG_PATH = (
@@ -19,7 +25,7 @@ DEFAULT_CONFIG_PATH = (
 )
 
 
-def load_config(config_path: Optional[Path] = None) -> Dict[str, Any]:
+def load_config(config_path: Path | None = None) -> dict[str, Any]:
     """Load and parse the parameters.yaml configuration file.
 
     Automatically validates the configuration after loading. Raises
@@ -41,10 +47,8 @@ def load_config(config_path: Optional[Path] = None) -> Dict[str, Any]:
     ------
     FileNotFoundError
         If the configuration file does not exist.
-    yaml.YAMLError
-        If the configuration file is invalid YAML.
     ValueError
-        If the configuration fails validation (see validate_config).
+        If YAML is malformed or configuration fails validation.
     """
     if config_path is None:
         config_path = DEFAULT_CONFIG_PATH
@@ -54,9 +58,13 @@ def load_config(config_path: Optional[Path] = None) -> Dict[str, Any]:
     if not config_path.exists():
         raise FileNotFoundError(f"Configuration file not found: {config_path}")
 
-    with config_path.open("r", encoding="utf-8") as f:
-        config = yaml.safe_load(f) or {}
+    return parse_config(config_path.read_bytes())
 
+
+def parse_config(content: str | bytes) -> dict[str, Any]:
+    """Validate the same parameter bytes that are saved with the run."""
+    raw = parse_yaml(content, label="parameters.yaml")
+    config = {} if raw is None else raw
     validate_config(config)
     return config
 
@@ -69,47 +77,46 @@ def validate_template_fields(
     """Validate that all placeholders in a template are supported fields.
 
     Checks template string placeholders against the centralized whitelist of
-    allowed QR and password placeholders. Raises ValueError if any
+    allowed password placeholders. Raises ValueError if any
     unsupported placeholders are found.
 
     This validation catches configuration errors early (at config load time)
-    instead of failing silently during QR generation or PDF encryption.
+    instead of failing silently during PDF encryption.
 
     Parameters
     ----------
     template : str
         Template string with placeholders (e.g., "{client_id}_{invalid_field}")
     context_name : str
-        Human-readable name for error messages (e.g., "QR code payload", "encryption password")
+        Human-readable name for error messages (e.g., "encryption password")
     config_key : str
-        Configuration key path for error messages (e.g., "qr.payload_template")
+        Configuration key path for error messages (e.g., "encryption.password.template")
 
     Raises
     ------
     ValueError
-        If template contains unsupported placeholder fields with detailed
-        error message listing invalid fields and available options.
+        If fields or formatting are invalid. Diagnostics name supported fields
+        without repeating secret template text.
 
     Examples
     --------
     >>> validate_template_fields(
     ...     "{client_id}_{invalid_field}",
-    ...     "QR code payload",
-    ...     "qr.payload_template"
+    ...     "encryption password",
+    ...     "encryption.password.template"
     ... )
-    ValueError: QR code payload template contains unsupported placeholder(s): ['invalid_field']
-    Config key: qr.payload_template
+    ValueError: Encryption password template contains unsupported placeholders.
+    Config key: encryption.password.template
     Supported fields: client_id, first_name, last_name, ...
     """
     allowed_fields = CLIENT_PLACEHOLDERS
 
     try:
         placeholders = extract_template_fields(template)
-    except ValueError as exc:
+    except ValueError:
         raise ValueError(
-            f"{context_name} template has invalid format syntax: {exc}\n"
-            f"Config key: {config_key}"
-        ) from exc
+            f"{config_key}: invalid password template syntax; check braces and formatting"
+        ) from None
 
     unsupported = placeholders - allowed_fields
 
@@ -122,124 +129,164 @@ def validate_template_fields(
 
     if unsupported:
         raise ValueError(
-            f"{context_name} template contains unsupported placeholder(s): {sorted(unsupported)}\n"
+            f"{context_name} template contains unsupported placeholders.\n"
             f"Config key: {config_key}\n"
             f"Supported fields: {', '.join(sorted(allowed_fields))}"
         )
+    # Configured passwords contain strings only. Validate formatting before any
+    # source row is encrypted, without including secret text in error details.
+    validate_and_format_template(
+        template, {field: "" for field in allowed_fields}, allowed_fields
+    )
 
 
-def validate_config(config: Dict[str, Any]) -> None:
-    """Validate the entire configuration for consistency and required values.
+def _fields(value: dict, allowed: set[str], label: str) -> None:
+    if any(not isinstance(key, str) for key in value):
+        raise ValueError(f"{label} field names must be strings")
+    unknown = value.keys() - allowed
+    if unknown:
+        raise ValueError(f"Unknown {label} fields: {', '.join(sorted(unknown))}")
 
-    Validates all conditional and required configuration keys across the
-    entire config. Raises clear exceptions if validation fails, allowing
-    the pipeline to fail-fast with actionable error messages.
 
-    Parameters
-    ----------
-    config : Dict[str, Any]
-        Configuration dictionary (result of load_config).
-
-    Raises
-    ------
-    ValueError
-        If required configuration is missing or invalid.
-
-    Notes
-    -----
-    **Validation checks:**
-
-    - **QR Generation:** If qr.enabled=true, requires qr.payload_template (non-empty string)
-    - **Typst Compilation:** If typst.bin is set, must be a string
-    - **PDF Bundling:** If bundle_size > 0, must be positive integer; group_by must be valid enum
-    - **Encryption:** If encryption.enabled=true, requires password.template
-    - **Cleanup:** If delete_unencrypted_pdfs is set, must be boolean
-
-    **Validation philosophy:**
-    - Infrastructure errors (missing config) raise immediately (fail-fast)
-    - All error messages are clear and actionable
-    - Config is validated once at load time, not per-step
-    """
-    ignored_agents = config.get("ignore_agents", [])
-    if not isinstance(ignored_agents, list) or any(
-        not isinstance(agent, str) or not agent.strip() for agent in ignored_agents
-    ):
-        raise ValueError("ignore_agents must be a list of non-empty agent names")
-
-    # Validate QR config
-    qr_config = config.get("qr", {})
-    qr_enabled = qr_config.get("enabled", True)
-
-    if qr_enabled:
-        payload_template = qr_config.get("payload_template")
-        if not payload_template:
+def validate_dates(config: dict[str, Any]) -> None:
+    """Require supplied run dates to be exact calendar-date strings."""
+    for name in ("date_as_of", "date_of_delivery"):
+        if name not in config:
+            continue
+        value = config[name]
+        if not isinstance(value, str):
             raise ValueError(
-                "QR code generation is enabled but qr.payload_template is not specified. "
-                "Please define qr.payload_template in config/parameters.yaml "
-                "or set qr.enabled to false."
+                f"{name} must be a quoted YYYY-MM-DD date or an empty string"
             )
+        if value:
+            try:
+                if date.fromisoformat(value).isoformat() != value:
+                    raise ValueError
+            except ValueError:
+                raise ValueError(f"{name} must be a real YYYY-MM-DD date") from None
 
-        if not isinstance(payload_template, str):
-            raise ValueError(
-                f"qr.payload_template must be a string, got {type(payload_template).__name__}"
-            )
 
-        # Validate template placeholders against allowed fields
-        validate_template_fields(
-            payload_template,
-            "QR code payload",
-            "qr.payload_template",
+def validate_config(config: dict[str, Any]) -> None:
+    """Reject malformed run settings and retired display or destructive cleanup options."""
+    if not isinstance(config, dict):
+        raise ValueError("Configuration must be a mapping")
+    validate_policy(config.get("validation", {}))
+
+    retired = {
+        "qr",
+        "preprocess",
+        "chart_diseases_header",
+        "ignore_agents",
+        "notice_versioning",
+        "pdf_validation",
+        "cleanup",
+    } & config.keys()
+    if retired:
+        raise ValueError(
+            "Retired Python configuration: "
+            + ", ".join(sorted(retired))
+            + ". Put display and QR options in the authored Settings file."
         )
+
+    _fields(
+        config,
+        {
+            "date_as_of",
+            "date_of_delivery",
+            "typst",
+            "bundling",
+            "encryption",
+            "school_validation",
+            "pipeline",
+            "validation",
+        },
+        "configuration",
+    )
+    validate_dates(config)
+
+    for section in ("typst", "bundling", "encryption", "school_validation", "pipeline"):
+        if section in config and not isinstance(config[section], dict):
+            raise ValueError(f"{section} must be a mapping")
+    for section, fields in {
+        "typst": {"bin", "timeouts_seconds"},
+        "bundling": {"bundle_size", "group_by"},
+        "encryption": {"enabled", "password"},
+        "school_validation": {
+            "enabled",
+            "reference_file",
+            "target_phu",
+            "column_prefix",
+        },
+        "pipeline": {"after_run"},
+    }.items():
+        _fields(config.get(section, {}), fields, section)
+    encryption = config.get("encryption", {})
+    if "password" in encryption and not isinstance(encryption["password"], dict):
+        raise ValueError("encryption.password must be a mapping")
+    _fields(encryption.get("password", {}), {"template"}, "encryption.password")
+    pipeline = config.get("pipeline", {})
+    after_run = pipeline.get("after_run", {})
+    if not isinstance(after_run, dict):
+        raise ValueError("pipeline.after_run must be a mapping")
+    _fields(after_run, {"remove_artifacts"}, "pipeline.after_run")
+    if not isinstance(after_run.get("remove_artifacts", False), bool):
+        raise ValueError("pipeline.after_run.remove_artifacts must be a boolean")
+    for section in ("encryption", "school_validation"):
+        if type(config.get(section, {}).get("enabled", False)) is not bool:
+            raise ValueError(f"{section}.enabled must be a boolean")
+    school = config.get("school_validation", {})
+    for name in ("reference_file", "target_phu", "column_prefix"):
+        if name in school and not isinstance(school[name], str):
+            raise ValueError(f"school_validation.{name} must be a string")
+    if school.get("enabled", False):
+        for field in ("reference_file", "target_phu"):
+            value = school.get(field)
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(
+                    f"school_validation.{field} must be a nonempty string when enabled"
+                )
 
     # Validate Typst config
     typst_config = config.get("typst", {})
+    CompilerTimeouts.from_config(typst_config.get("timeouts_seconds", {}))
     typst_bin = typst_config.get("bin", "typst")
-    if not isinstance(typst_bin, str):
-        raise ValueError(f"typst.bin must be a string, got {type(typst_bin).__name__}")
+    if not isinstance(typst_bin, str) or not typst_bin.strip():
+        raise ValueError("typst.bin must be a nonempty string")
 
     # Validate Bundling config
     bundling_config = config.get("bundling", {})
     bundle_size = bundling_config.get("bundle_size", 0)
 
-    # First validate type before comparing values
-    if bundle_size != 0:  # Only validate if bundle_size is explicitly set
-        if not isinstance(bundle_size, int):
-            raise ValueError(
-                f"bundling.bundle_size must be an integer, got {type(bundle_size).__name__}"
-            )
-        if bundle_size <= 0:
-            raise ValueError(
-                f"bundling.bundle_size must be positive, got {bundle_size}"
-            )
-
-        # Validate group_by strategy
-        group_by = bundling_config.get("group_by")
-
-        try:
-            if group_by is not None:
-                BundleGrouping.from_string(group_by)
-        except ValueError as exc:
-            raise ValueError(f"Invalid bundling.group_by strategy: {exc}") from exc
+    if type(bundle_size) is not int or bundle_size < 0:
+        raise ValueError("bundling.bundle_size must be a nonnegative integer")
+    if (
+        bundle_size == 0
+        and notice_length_settings(config.get("validation", {}))["enabled"]
+    ):
+        raise ValueError("Fixed notice length requires bundling.bundle_size above zero")
+    group_by = bundling_config.get("group_by")
+    try:
+        if group_by is not None:
+            BundleGrouping.from_string(group_by)
+    except ValueError as exc:
+        raise ValueError(f"Invalid bundling.group_by strategy: {exc}") from exc
 
     # Validate Encryption config
     encryption_config = config.get("encryption", {})
     encryption_enabled = encryption_config.get("enabled", False)
 
-    if encryption_enabled:
-        password_config = encryption_config.get("password", {})
-        password_template = password_config.get("template")
-        if not password_template:
-            raise ValueError(
-                "Encryption is enabled but encryption.password.template is not specified. "
-                "Please define encryption.password.template in config/parameters.yaml "
-                "or set encryption.enabled to false."
-            )
+    password_config = encryption_config.get("password", {})
+    if encryption_enabled and "template" not in password_config:
+        raise ValueError(
+            "Encryption is enabled but encryption.password.template is not specified. "
+            "Please define encryption.password.template in config/parameters.yaml "
+            "or set encryption.enabled to false."
+        )
 
-        if not isinstance(password_template, str):
-            raise ValueError(
-                f"encryption.password.template must be a string, "
-                f"got {type(password_template).__name__}"
-            )
+    if "template" in password_config:
+        password_template = password_config["template"]
+        if not isinstance(password_template, str) or not password_template:
+            raise ValueError("encryption.password.template must be a nonempty string")
 
         # Validate template placeholders against allowed fields
         validate_template_fields(
@@ -247,31 +294,3 @@ def validate_config(config: Dict[str, Any]) -> None:
             "Encryption password",
             "encryption.password.template",
         )
-
-    # Validate Cleanup config
-    cleanup_config = config.get("cleanup", {})
-    delete_unencrypted = cleanup_config.get("delete_unencrypted_pdfs", False)
-    if not isinstance(delete_unencrypted, bool):
-        raise ValueError(
-            f"cleanup.delete_unencrypted_pdfs must be a boolean, "
-            f"got {type(delete_unencrypted).__name__}"
-        )
-
-    # Validate optional notice_versioning config
-    notice_versioning_config = config.get("notice_versioning", {})
-    if notice_versioning_config:
-        if "allow_unassigned" in notice_versioning_config:
-            raise ValueError(
-                "notice_versioning.allow_unassigned is no longer supported; "
-                "assign every client or select one notice template for the cohort"
-            )
-
-        extra_manifest_rows = notice_versioning_config.get("extra_manifest_rows")
-        if extra_manifest_rows is not None and extra_manifest_rows not in (
-            "error",
-            "warn",
-        ):
-            raise ValueError(
-                f"notice_versioning.extra_manifest_rows must be 'error' or 'warn', "
-                f"got {extra_manifest_rows!r}"
-            )

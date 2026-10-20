@@ -28,8 +28,8 @@ jobs:
         with:
           enable-cache: false
       - name: Install documentation dependencies
-        run: uv sync --locked --group docs
+        run: uv sync --locked --no-default-groups --group docs
       - name: Generate schema documentation
-        run: uv run --locked --group docs python docs/generate_schema_docs.py
+        run: uv run --locked --no-default-groups --group docs python docs/generate_schema_docs.py
       - name: Build documentation
-        run: uv run --locked --group docs python -m mkdocs build --strict
+        run: uv run --locked --no-default-groups --group docs python -m mkdocs build --strict

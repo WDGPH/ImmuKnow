@@ -3,7 +3,8 @@
 Keep one current guide for each contract: [getting started](../user_guide/getting_started.md)
 for inputs and the complete workflow, [configuration](../user_guide/configuration.md)
 for user options and reference data, [template authoring](../user_guide/phu_templates.md)
-for native JSON and assertions, and [testing](testing.md) for checks.
+for native JSON and assertions, [Studio overview](../user_guide/studio.md) for the separate editor,
+and [testing](testing.md) for native checks.
 The [architecture](../reference/architecture.md) explains output evidence.
 Link to these guides instead of copying them into new step descriptions.
 
@@ -77,11 +78,15 @@ or App relay; the Actions-only setup has this explicit maintenance step.
 For a local source check or Material preview:
 
 ```bash
-uv sync --locked --group docs
-uv run --locked --group docs python docs/generate_schema_docs.py
-uv run --locked --group docs python -m mkdocs build --strict
-uv run --locked --group docs python -m mkdocs serve
+uv sync --locked --no-default-groups --group docs
+uv run --locked --no-default-groups --group docs python docs/generate_schema_docs.py
+uv run --locked --no-default-groups --group docs python -m mkdocs build --strict
+uv run --locked --no-default-groups --group docs python -m mkdocs serve
 ```
 
 The hub supplies published branding. Keep local Material configuration plain;
 retain Markdown extensions and navigation needed by the source content.
+
+A documentation-only change does not require rebuilding native or browser
+artifacts. Studio maintains its own build and browser checks in its separate
+repository; a Core documentation build does not establish native/browser parity.

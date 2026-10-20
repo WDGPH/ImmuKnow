@@ -28,7 +28,7 @@ def catalog() -> NoticeVersionCatalog:
                 "overdue_diseases_v1", NoticeKind.OVERDUE, "has_overdue"
             ),
             "overdue_agents_v1": NoticeVersion(
-                "overdue_agents_v1", NoticeKind.OVERDUE, "has_overdue"
+                "overdue_agents_v1", NoticeKind.OVERDUE, "has_overdue_agents"
             ),
             "affirmative_schedule_v1": NoticeVersion(
                 "affirmative_schedule_v1", NoticeKind.AFFIRMATIVE, "no_overdue"
@@ -139,6 +139,8 @@ def test_catalog_rejects_malformed_versions(tmp_path: Path, versions: object) ->
         ({"kind": "unknown"}, "kind"),
         ({"kind": "overdue", "requires": "unknown"}, "requires"),
         ({"kind": "overdue", "requires": ["any"]}, "requires"),
+        ({"kind": "overdue", "requires": None}, "requires"),
+        ({"kind": "overdue", "require": "any"}, "unknown fields"),
     ],
 )
 def test_catalog_rejects_invalid_rule_with_version_context(
@@ -228,3 +230,25 @@ def test_eligibility_error_identifies_client_without_person_name() -> None:
     assert "C001" in str(error.value)
     assert "Sensitive" not in str(error.value)
     assert "Name" not in str(error.value)
+
+
+@pytest.mark.unit
+def test_agent_applicability_uses_supplied_agents_independently_of_diseases():
+    resolved = assigned("overdue_agents_v1", NoticeKind.OVERDUE)
+    validate_eligibility(
+        replace(client([]), overdue_agents=["MMR"]), resolved, catalog()
+    )
+    with pytest.raises(ValueError, match="has_overdue_agents"):
+        validate_eligibility(
+            replace(client(["Measles"]), overdue_agents=[]), resolved, catalog()
+        )
+
+
+@pytest.mark.unit
+def test_catalog_rejects_unknown_top_level_fields(tmp_path: Path) -> None:
+    write_catalog(
+        tmp_path,
+        {"schema_version": 1, "versions": {"v1": {"kind": "overdue"}}, "extra": 1},
+    )
+    with pytest.raises(ValueError, match="unknown fields"):
+        load_catalog(tmp_path)
