@@ -148,3 +148,16 @@ def test_pdf_and_required_evidence_are_separate_outputs(tmp_path: Path) -> None:
         compile_notices.compile_render_job(job, "typst")
     assert "real compile failure" in failure.value.stderr
     assert not job.pdf.exists()
+
+
+def test_compiler_warnings_are_classified():
+    stderr = (
+        "warning: unknown font family: missing\n"
+        "warning: layout did not converge within 5 attempts\n"
+        "warning: something else\n"
+    )
+    assert [check.code for check in compile_notices.compiler_warnings(stderr)] == [
+        "compiler.font_substitution",
+        "compiler.layout_nonconvergent",
+        "compiler.warning",
+    ]

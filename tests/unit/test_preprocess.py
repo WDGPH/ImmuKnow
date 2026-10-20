@@ -133,6 +133,7 @@ def test_every_source_row_keeps_its_key_raw_values_and_unknown_state(tmp_path: P
         "May 1, 2020 - MMR",
         "May 1, 2020 - MMR; May 2, 2020 - IPV",
         "May 1, 2020 - MMR ; \r\n May 2, 2020 - IPV\r\n",
+        "2020-05-01 - MMR;",
     ],
 )
 def test_history_refuses_bad_status_dates_separators_and_empty_fragments(fragment):
@@ -405,6 +406,7 @@ def test_csv_preserves_quoted_text_windows_punctuation_and_leading_zeros(
         ("client_id,first_name\n0000000001\n", "fewer fields"),
         ('client_id,first_name\n0000000001,"unfinished\n', "structure is invalid"),
         ("client_id,first_name\n0000000001,A\x00lice\n", "control characters"),
+        ("\n \n", "CSV is empty"),
     ],
 )
 def test_invalid_csv_cannot_silently_change_source_fields(tmp_path, text, message):
@@ -425,6 +427,27 @@ def test_explicit_encoding_is_respected_and_control_bytes_are_refused(tmp_path):
     path.write_bytes(b"client_id,first_name\n0000000001,A\x81lice\n")
     with pytest.raises(ValueError, match="control characters"):
         preprocess.read_input(path)
+    with pytest.raises(ValueError, match="CSV encoding must be"):
+        preprocess.read_input(path, encoding="ascii")
+
+
+def test_blank_csv_lines_are_not_source_rows(tmp_path):
+    path = tmp_path / "clients.csv"
+    path.write_text("client_id,first_name\n\n0000000001,Alice\n")
+    assert preprocess.read_input(path)["client_id"].tolist() == ["0000000001"]
+
+
+@pytest.mark.unit
+def test_empty_overdue_fragments_are_skipped():
+    warnings = set()
+    assert preprocess.parse_overdue_diseases(
+        "Mumps - 1;;", {}, client_id="C001", warnings=warnings
+    ) == [{"disease": "Mumps", "dose": 1}]
+    assert preprocess.parse_overdue_agents("MMR;;IPV", warnings=warnings) == [
+        "MMR",
+        "IPV",
+    ]
+    assert warnings == set()
 
 
 @pytest.mark.unit

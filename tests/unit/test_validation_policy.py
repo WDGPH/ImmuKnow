@@ -384,3 +384,92 @@ def test_policy_file_refuses_repeated_fields(tmp_path):
     path.write_text('{"rules": {}, "rules": {}}')
     with pytest.raises(ValueError, match="Repeated field"):
         validation_policy.read_policy(path)
+
+
+ROW_SELECTOR = {"input_sha256": "c" * 64, "row_key": "row-000001"}
+
+
+@pytest.mark.parametrize(
+    "policy",
+    [
+        [],
+        {"unknown": {}},
+        {"rules": []},
+        {"clients": {}},
+        {"clients": [{"selector": ROW_SELECTOR}]},
+        {"clients": [{"selector": [], "rules": {}}]},
+        {"clients": [{"selector": {"scheme": "panorama", "value": "1"}, "rules": {}}]},
+        {"clients": [{"selector": {**ROW_SELECTOR, "row_key": "1"}, "rules": {}}]},
+        {"clients": [{"selector": {"client_id": "0000000001"}, "rules": {}}]},
+    ],
+)
+def test_malformed_policy_structure_is_refused(policy):
+    with pytest.raises(ValueError):
+        validation_policy.validate_policy(policy)
+
+
+def test_both_selector_forms_are_accepted():
+    validation_policy.validate_policy(
+        {
+            "clients": [
+                {
+                    "selector": {"scheme": "panorama", "value": "0000000001"},
+                    "rules": {},
+                },
+                {"selector": ROW_SELECTOR, "rules": {}},
+            ]
+        }
+    )
+
+
+@pytest.mark.parametrize(
+    "observation, match",
+    [
+        ("pass", "must be an object"),
+        (
+            {"code": "layout.signature_page", "stage": "render", "status": "pass"},
+            "Malformed check evidence",
+        ),
+        (
+            {
+                "code": "delivery.notice_length",
+                "stage": "delivery",
+                "status": "pass",
+                "message": "Verified",
+            },
+            "Batch checks",
+        ),
+    ],
+)
+def test_malformed_or_batch_evidence_is_refused(observation, match):
+    record, entry = evidence()
+    with pytest.raises(ValueError, match=match):
+        evaluate_original(record, entry, [observation])
+
+
+def test_resolved_settings_must_cover_exactly_the_adjustable_rules():
+    record, entry = evidence()
+    with pytest.raises(ValueError, match="exactly the adjustable rules"):
+        evaluate_original(record, entry, entry["checks"], settings={})
+
+
+def test_disabled_rule_without_evidence_is_reported_as_not_run():
+    record, entry = evidence()
+    settings = validation_policy.default_settings()
+    settings["layout.signature_page"]["enabled"] = False
+    settings["layout.signature_page"]["reasons"]["enabled"] = "Reviewed"
+    evaluation = evaluate_original(record, entry, entry["checks"][:-1], settings)
+    assert [
+        (result["status"], result["message"])
+        for result in evaluation.results
+        if result["code"] == "layout.signature_page"
+    ] == [("not_run", "Check disabled: Reviewed")]
+
+
+def test_repeated_warning_token_is_refused():
+    record, entry = evidence()
+    evaluation = evaluate_original(record, entry, entry["checks"])
+    tokens = list(evaluation.warning_tokens.values())
+    with pytest.raises(ValueError, match="only once"):
+        accept_warnings(record, {entry["row_key"]: evaluation}, tokens * 2, "Reviewed")
+    assert record["warning_acceptances"] == []

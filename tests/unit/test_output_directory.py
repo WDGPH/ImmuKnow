@@ -30,3 +30,8 @@ def test_runs_do_not_clear_previous_results(tmp_path: Path) -> None:
     assert original.read_bytes() == b"original bytes"
     assert not (first / "work").exists()
     assert (first / "facts").is_dir()
+
+
+def test_cleanup_refuses_a_missing_run(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="not a valid directory"):
+        cleanup_output(tmp_path / "missing", {})

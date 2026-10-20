@@ -147,11 +147,23 @@ def test_unknown_settings_cannot_be_silently_ignored(config):
         {"date_as_of": None},
         {"date_as_of": "2026-02-30"},
         {"date_of_delivery": "20260102"},
+        {"bundling": {1: 10}},
+        {"bundling": {"group_by": "district"}},
+        {"encryption": {"enabled": False, "password": "private-value"}},
+        {"encryption": {"enabled": True, "password": {}}},
+        {"pipeline": {"after_run": []}},
+        {"pipeline": {"after_run": {"remove_artifacts": "yes"}}},
     ],
 )
 def test_wrong_types_and_dates_are_refused_even_when_feature_is_disabled(config):
     with pytest.raises(ValueError):
         validate_config(config)
+
+
+def test_empty_dates_and_named_grouping_are_accepted():
+    validate_config(
+        {"date_as_of": "", "date_of_delivery": "", "bundling": {"group_by": "school"}}
+    )
 
 
 def test_parameter_errors_do_not_copy_password_values():

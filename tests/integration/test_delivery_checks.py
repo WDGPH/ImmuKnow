@@ -290,3 +290,103 @@ def test_interrupted_review_keeps_the_tools_record_before_compilation(
     earlier = record(saved_run)["delivery_attempts"][-2]
     assert earlier["status"] == "failed"
     assert earlier["review_tools"] == interrupted["review_tools"]
+
+
+def rehash_payload(run_dir, entry, **changes):
+    path = run_dir / entry["facts"]["path"]
+    payload = json.loads(path.read_text())
+    payload.update(changes)
+    path.write_text(json.dumps(payload))
+    entry["facts"]["sha256"] = sha256(path.read_bytes()).hexdigest()
+
+
+def replace_original_with_empty_pdf(run_dir, entry):
+    path = run_dir / entry["original"]["path"]
+    with path.open("wb") as stream:
+        PdfWriter().write(stream)
+    entry["original"]["sha256"] = sha256(path.read_bytes()).hexdigest()
+
+
+def tamper(run_dir, saved, damage):
+    entry = saved["entries"][0]
+    bundling = saved["configuration"]["effective"]["bundling"]
+    if damage == "payload outside facts":
+        entry["facts"]["path"] = entry["original"]["path"]
+    elif damage == "original outside originals":
+        entry["original"]["path"] = entry["facts"]["path"]
+    elif damage == "payload for another client":
+        rehash_payload(run_dir, entry, client_id="0000000099")
+    elif damage == "original without pages":
+        replace_original_with_empty_pdf(run_dir, entry)
+    elif damage == "original page count":
+        entry["original"]["pages"] += 1
+    elif damage == "negative bundle size":
+        bundling["bundle_size"] = -1
+    elif damage == "fixed length without bundling":
+        bundling["bundle_size"] = 0
+    else:
+        saved["entries"][1]["row_key"] = entry["row_key"]
+
+
+@pytest.mark.parametrize(
+    ("damage", "message"),
+    [
+        ("payload outside facts", "outside facts/"),
+        ("original outside originals", "outside originals/"),
+        ("payload for another client", "does not belong to this source row"),
+        ("original without pages", "readable and unencrypted"),
+        ("original page count", "page count changed"),
+        ("negative bundle size", "nonnegative integer"),
+        ("fixed length without bundling", "bundle_size above zero"),
+        ("repeated row key", "unique source row keys"),
+    ],
+)
+def test_saved_run_refuses_tampered_entries_and_settings(saved_run, damage, message):
+    saved = record(saved_run)
+    tamper(saved_run, saved, damage)
+    run_report.write_report(saved_run, saved)
+    active = active_bundles(saved_run)
+    result = bundle_pdfs.bundle_run(saved_run)
+    assert result["status"] == "failed"
+    assert result["review_tools"] is None
+    assert active_bundles(saved_run) == active
+    assert result["checks"][-1]["code"] == "delivery.failed"
+    assert message in result["checks"][-1]["message"]
+
+
+def test_withheld_rows_must_belong_to_the_run(saved_run):
+    result = bundle_pdfs.bundle_run(saved_run, withhold=["row-999999"])
+    assert result["status"] == "failed"
+    assert "Withheld rows" in result["checks"][-1]["message"]
+
+
+@pytest.mark.parametrize(
+    ("damage", "message"),
+    [("timestamp", "frozen creation timestamp"), ("compiler", "executable not found")],
+)
+def test_review_setup_failure_preserves_committed_bundles(
+    saved_run, monkeypatch, damage, message
+):
+    saved = record(saved_run)
+    if damage == "timestamp":
+        del saved["configuration"]["effective"]["creation_timestamp"]
+    else:
+        monkeypatch.setenv("TYPST_BIN", str(saved_run / "missing-typst"))
+    run_report.write_report(saved_run, saved)
+    active = active_bundles(saved_run)
+    result = bundle_pdfs.bundle_run(saved_run)
+    assert result["status"] == "failed"
+    assert message in result["checks"][-1]["message"]
+    assert active_bundles(saved_run) == active
+
+
+@pytest.mark.parametrize("content", ["[]", '{"format_version": 1}'])
+def test_unsupported_run_formats_are_refused(saved_run, content):
+    (saved_run / "run.json").write_text(content)
+    with pytest.raises(ValueError, match="Unsupported run format"):
+        bundle_pdfs.bundle_run(saved_run)
+
+
+def test_missing_run_directory_is_refused(tmp_path):
+    with pytest.raises(ValueError, match="does not exist"):
+        bundle_pdfs.bundle_run(tmp_path / "missing")

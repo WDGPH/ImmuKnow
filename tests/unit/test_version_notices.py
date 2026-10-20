@@ -242,3 +242,13 @@ def test_agent_applicability_uses_supplied_agents_independently_of_diseases():
         validate_eligibility(
             replace(client(["Measles"]), overdue_agents=[]), resolved, catalog()
         )
+
+
+@pytest.mark.unit
+def test_catalog_rejects_unknown_top_level_fields(tmp_path: Path) -> None:
+    write_catalog(
+        tmp_path,
+        {"schema_version": 1, "versions": {"v1": {"kind": "overdue"}}, "extra": 1},
+    )
+    with pytest.raises(ValueError, match="unknown fields"):
+        load_catalog(tmp_path)
