@@ -19,6 +19,9 @@ from tests.integration.test_run_accounting import prepare_inputs
 
 pytestmark = pytest.mark.integration
 
+# Long enough for the stub interpreter to start under coverage and parallel load.
+VERSION_DEADLINE = 3
+
 
 def sleeping_compiler(tmp_path: Path, operation: str) -> Path:
     """Delegate to real Typst except for one deliberately stalled operation."""
@@ -53,7 +56,7 @@ def set_deadline(config: Path, operation: str) -> None:
     parameters = config / "parameters.yaml"
     settings = yaml.safe_load(parameters.read_text())
     settings["typst"]["timeouts_seconds"] = {
-        operation: 0.2 if operation == "version" else 5
+        operation: VERSION_DEADLINE if operation == "version" else 5
     }
     parameters.write_text(yaml.safe_dump(settings))
 
@@ -63,7 +66,9 @@ def test_version_timeout_preserves_failed_setup(tmp_path, monkeypatch):
     set_deadline(config, "version")
     monkeypatch.setenv("TYPST_BIN", str(sleeping_compiler(tmp_path, "version")))
     output = tmp_path / "runs"
-    with pytest.raises(CompilerTimeoutError, match="version probe.*0.2-second"):
+    with pytest.raises(
+        CompilerTimeoutError, match=f"version probe.*{VERSION_DEADLINE}-second"
+    ):
         run_pipeline(
             source,
             output,
@@ -145,7 +150,7 @@ def test_review_timeout_preserves_committed_bundles(tmp_path, monkeypatch, opera
     )
     record["configuration"]["effective"]["typst"]["timeouts_seconds"][
         "version" if operation == "version" else "review"
-    ] = 0.2 if operation == "version" else 5
+    ] = VERSION_DEADLINE if operation == "version" else 5
     monkeypatch.setenv("TYPST_BIN", str(sleeping_compiler(tmp_path, operation)))
     run_report.write_report(run_dir, record)
     attempt = bundle_pdfs.bundle_run(
