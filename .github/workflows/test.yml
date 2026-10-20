@@ -86,7 +86,7 @@ jobs:
           uv run --locked ruff format --check .
 
       - name: Run tests
-        run: uv run --locked pytest --cov --cov-branch --cov-report=xml
+        run: uv run --locked pytest -n auto --cov --cov-branch --cov-report=xml
 
       - name: Verify source files were not changed
         run: test -z "$(git status --porcelain)"
