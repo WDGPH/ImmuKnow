@@ -42,7 +42,7 @@ YAML aliases may reuse values, but merged fields cannot overwrite other fields.
 | `validation.notice_length` | Optional fixed PDF page count per notice; requires `enabled: true`, a positive `count`, and `unit: pages` |
 | `school_validation.enabled` | Compare source school names with the selected reference |
 
-The [PDF validation guide](https://WDGPH.github.io/ImmuKnow/user_guide/pdf_validation/)
+The [PDF validation guide](https://docs.phiz.ca/immuknow/latest/user_guide/pdf_validation/)
 describes output measurements. Run findings and output accounting are recorded
 in the authoritative `run.json`.
 
@@ -187,12 +187,12 @@ presentation and deduplication.
 Edit both language/domain files in `templates/translations/` when adding
 approved labels. Unknown labels remain visible. Missing selected-language
 labels produce findings when the matching component is used. See
-[template authoring](https://WDGPH.github.io/ImmuKnow/user_guide/phu_templates/)
+[template authoring](https://docs.phiz.ca/immuknow/latest/user_guide/phu_templates/)
 for Settings, components and the structural JSON contract.
 
 ## Validation rules
 
 The optional `validation` section controls enabled state and warning/failure
 severity for designated layout and translation checks. See
-[rule settings](https://WDGPH.github.io/ImmuKnow/user_guide/pdf_validation/#rule-settings) for the rule list,
+[rule settings](https://docs.phiz.ca/immuknow/latest/user_guide/pdf_validation/#rule-settings) for the rule list,
 row selectors and saved-run changes. Identity and required evidence stay mandatory.
