@@ -19,6 +19,9 @@ from tests.fixtures.sample_input import create_test_input_dataframe
 ROOT = Path(__file__).resolve().parents[2]
 pytestmark = pytest.mark.integration
 
+# Long enough for a child interpreter to finish under coverage and parallel load.
+PROCESS_DEADLINE = 120
+
 
 def prepare_inputs(tmp_path):
     config = tmp_path / "config"
@@ -57,7 +60,7 @@ def paused_process(tmp_path, script, *args):
             text=True,
         )
         try:
-            deadline = time.monotonic() + 30
+            deadline = time.monotonic() + PROCESS_DEADLINE
             while not marker.exists():
                 assert process.poll() is None, log.read_text()
                 assert time.monotonic() < deadline, log.read_text()
@@ -76,7 +79,7 @@ def rebundle(run_dir, *args):
         [sys.executable, "-m", "immuknow.rebundle", str(run_dir), *args],
         capture_output=True,
         text=True,
-        timeout=30,
+        timeout=PROCESS_DEADLINE,
     )
 
 
@@ -129,7 +132,7 @@ def test_competing_delivery_refuses_busy_run_and_releases_after_completion(
         independent = rebundle(other)
         assert independent.returncode == 0, independent.stderr
         assert process.poll() is None
-        process.communicate("continue\n", timeout=30)
+        process.communicate("continue\n", timeout=PROCESS_DEADLINE)
         assert process.returncode == 0, (tmp_path / "child.log").read_text()
 
     current = read_record(saved_run)
@@ -258,7 +261,7 @@ def test_new_run_is_locked_through_its_final_report(tmp_path, checkpoint):
         assert result.returncode == 1
         assert "This run is in use" in result.stderr
         assert (run_dir / "run.json").read_bytes() == before
-        process.communicate("continue\n", timeout=30)
+        process.communicate("continue\n", timeout=PROCESS_DEADLINE)
         assert process.returncode == 0, (tmp_path / "child.log").read_text()
     result = rebundle(run_dir)
     assert result.returncode == 0, result.stderr
