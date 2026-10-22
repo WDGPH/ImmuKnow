@@ -1,0 +1,38 @@
+[
+  {
+    "client_id": "1009876543",
+    "template": "overdue_diseases_v1.en.typ"
+  },
+  {
+    "client_id": "1009876544",
+    "template": "overdue_diseases_v1.fr.typ"
+  },
+  {
+    "client_id": "1009876545",
+    "template": "overdue_diseases_v1.en.typ",
+    "experiment_id": "EXP-2026-01",
+    "experiment_arm": "control"
+  },
+  {
+    "client_id": "1009876546",
+    "template": "overdue_agents_v1.fr.typ"
+  },
+  {
+    "client_id": "1009876547",
+    "template": "overdue_agents_v1.en.typ",
+    "experiment_id": "EXP-2026-01",
+    "experiment_arm": "treatment"
+  },
+  {
+    "client_id": "1009876548",
+    "template": "overdue_agents_v1.en.typ"
+  },
+  {
+    "client_id": "1009876549",
+    "template": "affirmative_schedule_v1.en.typ"
+  },
+  {
+    "client_id": "1009876550",
+    "template": "overdue_diseases_v1.fr.typ"
+  }
+]

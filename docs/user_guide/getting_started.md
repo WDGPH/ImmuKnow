@@ -7,9 +7,12 @@ on `PATH`, set `TYPST_BIN`, or configure `typst.bin` in
 
 ```bash
 uv sync
-uv run immuknow ./input/students.csv --notice-assignments ./assignments.json \
-  --output ./runs
+uv run immuknow ./input/sample_students.csv \
+  --notice-assignments ./input/sample_assignments.json --output ./runs
 ```
+
+`input/sample_students.csv` and `input/sample_assignments.json` contain
+synthetic data for trying the pipeline; they describe no real clients.
 
 An installed package provides `immuknow` and its resources without a checkout.
 
