@@ -175,6 +175,42 @@ or `any`. The catalog supplies no language or default notice. Suspension
 wording uses the upstream assessment; authors configure its dates and service
 information. Python does not assess exemptions or calculate school calendars.
 
+### Validity and next-dose display
+
+Python always reads validity and next-dose information from the input and
+keeps it in the notice data. Settings decides whether notices show it.
+Nothing is switched on automatically when the input contains this information.
+
+- `show-validity` in `immunization-history(...)`: mark each dose in the
+  history chart as valid (⬤), invalid (○) or unknown (?), and add a legend.
+  When `false`, every recorded dose shows ⬤ and validity is ignored.
+- `omit-invalid` in `immunization-history(...)`: leave doses marked
+  ` - Invalid` out of the history chart. This applies even when
+  `show-validity` is `false`.
+- `include-dose`: add the dose number to overdue diseases, for example
+  "Measles (2nd dose)" or "Rougeole (2e dose)". Overdue agent lists never show
+  dose numbers.
+
+Validity comes from ` - Valid` or ` - Invalid` after each `imms_given` entry.
+Dose numbers come from ` - N` after each `overdue_disease` entry. See the
+[input schema](https://docs.phiz.ca/immuknow/latest/user_guide/input_schema/).
+
+| Input | Setting | Notice shows |
+|---|---|---|
+| Has validity | `show-validity: false` | Plain ⬤ marks; looks the same as input without validity |
+| Has validity | `show-validity: true` | ⬤ / ○ / ? marks with legend |
+| No validity | `show-validity: false` | Plain ⬤ marks |
+| No validity | `show-validity: true` | Every mark is ?; each notice gets a `content.history_validity` warning |
+| Some rows with validity | `show-validity: true` | Doses without validity show ?; each affected notice gets a `content.history_validity` warning |
+| Has dose numbers | `include-dose = false` | Disease names only |
+| Has dose numbers | `include-dose = true` | Disease names with dose numbers |
+| No dose numbers | `include-dose = true` | Disease names only; no warning |
+| Dose suffix is not a positive whole number | either | Disease name only; `source.overdue_unusable` warning |
+
+When `show-validity` is `true`, input that mixes rows with and without
+validity still produces notices, with warnings. Check the run report for
+`content.history_validity` before mailing.
+
 ## Reference and label updates
 
 Keep normalization output names consistent with vaccine mappings and authored

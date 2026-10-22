@@ -84,7 +84,7 @@
     },
     {
       "name": "overdue_disease",
-      "description": "Semicolon-separated list of overdue diseases for client",
+      "description": "Semicolon-separated overdue diseases. Each disease may be followed by ' - N', where N is the next dose number as a positive whole number, for example 'Measles - 2; Polio;'. A dose suffix that is not a positive whole number produces a warning, and the disease is shown without a number. Whether dose numbers appear on notices is set by include-dose in Settings.",
       "type": "string",
       "stripWhitespace": true
     },
