@@ -47,7 +47,7 @@ from . import (
 )
 # isort: on
 
-DEFAULT_OUTPUT_DIR = Path.cwd() / "output"
+DEFAULT_OUTPUT_DIR = Path.cwd() / "runs"
 DEFAULT_TEMPLATES_DIR = Path(str(files("immuknow").joinpath("templates")))
 DEFAULT_CONFIG_DIR = Path(str(files("immuknow").joinpath("config")))
 

@@ -482,7 +482,7 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
                 original.extract_text().split()
             )
         assert not custom.exists()
-        assert not (unrelated / "output").exists()
+        assert not (unrelated / "runs").exists()
     finally:
         for path, mode in modes.items():
             path.chmod(mode)
