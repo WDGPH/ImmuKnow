@@ -40,7 +40,7 @@ YAML aliases may reuse values, but merged fields cannot overwrite other fields.
 | `encryption.enabled`, `encryption.password.template` | Optional individual PDF encryption |
 | `bundling.bundle_size`, `bundling.group_by` | Bundle size and grouping: size/null, school or board |
 | `validation.notice_length` | Optional fixed PDF page count per notice; requires `enabled: true`, a positive `count`, and `unit: pages` |
-| `school_validation.enabled` | Compare source school names with the selected reference |
+| `school_validation.enabled` | Compare source school names with the selected reference (packaged `school_reference.json` when `reference_file` is unset) |
 
 The [PDF validation guide](https://docs.phiz.ca/immuknow/latest/user_guide/pdf_validation/)
 describes output measurements. Run findings and output accounting are recorded
@@ -75,12 +75,16 @@ Inspect the recorded operation and template before increasing its limit.
 
 ### School validation
 
-School validation uses `target_phu` and `reference_file` in the selected
-configuration directory. Exact, inexact and unmatched results are saved as
-run artifacts. Each row's check in `run.json` records the reference file hash,
-PHU, matched name/ID and mismatch reason. An unknown school or conflicting
-name/ID rejects the whole cohort before any PDFs are generated. A matching
-name with no facility ID warns; an exact name/ID match passes.
+School validation requires `target_phu` and reads `reference_file` from the
+selected configuration directory. When `reference_file` is omitted, null or
+blank, the packaged `school_reference.json` is used. A named file that does not
+exist stops the run; it is never replaced by the packaged file.
+
+Exact, inexact and unmatched results are saved as run artifacts. Each row's
+check in `run.json` records the reference file hash, PHU, matched name/ID and
+mismatch reason. An unknown school or conflicting name/ID rejects the whole
+cohort before any PDFs are generated. A matching name with no facility ID
+warns; an exact name/ID match passes.
 
 The lookup reads `school_name`, which may include ` - FACILITY ID`. It does not
 replace the source name or the separate `school_id` and `board_id` fields.

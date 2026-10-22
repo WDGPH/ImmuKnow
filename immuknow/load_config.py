@@ -235,16 +235,18 @@ def validate_config(config: dict[str, Any]) -> None:
         if type(config.get(section, {}).get("enabled", False)) is not bool:
             raise ValueError(f"{section}.enabled must be a boolean")
     school = config.get("school_validation", {})
-    for name in ("reference_file", "target_phu", "column_prefix"):
+    for name in ("target_phu", "column_prefix"):
         if name in school and not isinstance(school[name], str):
             raise ValueError(f"school_validation.{name} must be a string")
+    # An unset reference_file selects the packaged school reference.
+    if not isinstance(school.get("reference_file"), (str, type(None))):
+        raise ValueError("school_validation.reference_file must be a string or null")
     if school.get("enabled", False):
-        for field in ("reference_file", "target_phu"):
-            value = school.get(field)
-            if not isinstance(value, str) or not value.strip():
-                raise ValueError(
-                    f"school_validation.{field} must be a nonempty string when enabled"
-                )
+        value = school.get("target_phu")
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(
+                "school_validation.target_phu must be a nonempty string when enabled"
+            )
 
     # Validate Typst config
     typst_config = config.get("typst", {})

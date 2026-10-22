@@ -102,19 +102,31 @@ def test_bundle_size_requires_exact_nonnegative_integer(value):
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize(
-    "field,value",
-    [("reference_file", None), ("reference_file", " "), ("target_phu", "")],
-)
-def test_enabled_school_lookup_requires_its_shared_inputs(field, value):
+@pytest.mark.parametrize("value", [None, "", " "])
+def test_enabled_school_lookup_requires_a_target_phu(value):
     school = {
         "enabled": True,
         "reference_file": "school_reference.json",
-        "target_phu": "Example PHU",
+        "target_phu": value,
     }
-    school[field] = value
-    with pytest.raises(ValueError, match=field):
+    with pytest.raises(ValueError, match="target_phu"):
         validate_config({"school_validation": school})
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "reference", [{}, {"reference_file": None}, {"reference_file": " "}]
+)
+def test_enabled_school_lookup_accepts_an_unset_reference_file(reference):
+    validate_config(
+        {
+            "school_validation": {
+                "enabled": True,
+                "target_phu": "Example PHU",
+                **reference,
+            }
+        }
+    )
 
 
 @pytest.mark.parametrize(

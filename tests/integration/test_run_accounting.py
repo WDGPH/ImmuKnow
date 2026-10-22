@@ -458,6 +458,39 @@ def test_school_lookup_uses_saved_reference_after_source_changes(
         assert entry["original"]["status"] == "completed"
 
 
+def test_school_lookup_without_reference_file_saves_packaged_reference(tmp_path):
+    source, config, templates, _ = prepare_inputs(tmp_path)
+    (config / "school_reference.json").unlink()
+    frame = pd.read_csv(source, dtype=str, keep_default_na=False)
+    frame["school_name"] = "Aberfoyle Public School - 461059"
+    frame.to_csv(source, index=False)
+    parameters = config / "parameters.yaml"
+    settings = yaml.safe_load(parameters.read_text())
+    settings["school_validation"] = {
+        "enabled": True,
+        "target_phu": "Wellington-Dufferin-Guelph Public Health",
+    }
+    parameters.write_text(yaml.safe_dump(settings))
+    saved = run_pipeline(
+        source,
+        tmp_path / "runs",
+        config_dir=config,
+        notice_template=templates / "overdue_agents_v1.en.typ",
+    )
+    record = json.loads(saved.read_text())
+    packaged = (ROOT / "immuknow/config/school_reference.json").resolve()
+    assert record["configuration"]["school_reference_source"] == str(packaged)
+    effective = record["configuration"]["effective"]["school_validation"][
+        "reference_file"
+    ]
+    retained = (saved.parent / "resources/config" / effective).resolve()
+    assert retained.read_bytes() == packaged.read_bytes()
+    for entry in record["entries"]:
+        check = next(c for c in entry["checks"] if c["code"] == "data.school_match")
+        assert check["status"] == "pass"
+        assert entry["original"]["status"] == "completed"
+
+
 def test_school_conflicts_reject_the_cohort_with_reference_details(tmp_path):
     source, config, templates, _ = prepare_inputs(tmp_path)
     frame = pd.concat(
