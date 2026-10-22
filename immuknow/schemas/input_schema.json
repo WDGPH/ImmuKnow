@@ -96,7 +96,7 @@
     },
     {
       "name": "imms_given",
-      "description": "Semicolon-separated entries in the exact form 'Mon D, YYYY - Agent', optionally followed by ' - Valid' or ' - Invalid'. Months use Jan–Dec; days have one or two digits. Dates must exist. Every entry ends with ';', including the last. Spaces, tabs and line breaks may surround entries; field separators are exactly space-hyphen-space. Blank history and the placeholders '-;' and '-  -;' (when validity is exported) mean no history. A missing final ';', a leading ';', ';;' and other empty entries, extra fields and wrongly cased status tokens reject the whole input file.",
+      "description": "Semicolon-separated entries in the exact form 'YYYY-MM-DD - Agent', optionally followed by ' - Valid' or ' - Invalid', for example '2020-05-01 - MMR - Valid;'. Month and day always have two digits. Dates must exist. Every entry ends with ';', including the last. Spaces, tabs and line breaks may surround entries; field separators are exactly space-hyphen-space. Blank history and the placeholders '-;' and '-  -;' (when validity is exported) mean no history. A missing final ';', a leading ';', ';;' and other empty entries, extra fields and wrongly cased status tokens reject the whole input file.",
       "type": "string",
       "stripWhitespace": true,
       "constraints": {

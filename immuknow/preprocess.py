@@ -432,7 +432,7 @@ def build_preprocess_result(
                     "source.history_invalid",
                     "preparation",
                     "fail",
-                    f"Row {index}, imms_given fragment {issue.number}: {issue.reason}. Expected 'Mon D, YYYY - Agent', optionally followed by ' - Valid' or ' - Invalid', with every entry ending in ';'.",
+                    f"Row {index}, imms_given fragment {issue.number}: {issue.reason}. Expected 'YYYY-MM-DD - Agent', optionally followed by ' - Valid' or ' - Invalid', with every entry ending in ';'.",
                     component="history",
                     measurements={
                         "column": "imms_given",
@@ -610,29 +610,7 @@ class ParsedHistory:
     issues: list[HistoryIssue]
 
 
-_HISTORY_DATE = re.compile(
-    r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) ([0-9]{1,2}), ([0-9]{4})"
-)
-_MONTHS = {
-    name: number
-    for number, name in enumerate(
-        (
-            "Jan",
-            "Feb",
-            "Mar",
-            "Apr",
-            "May",
-            "Jun",
-            "Jul",
-            "Aug",
-            "Sep",
-            "Oct",
-            "Nov",
-            "Dec",
-        ),
-        1,
-    )
-}
+_HISTORY_DATE = re.compile(r"([0-9]{4})-([0-9]{2})-([0-9]{2})")
 
 
 def parse_history(raw: str) -> ParsedHistory:
@@ -670,11 +648,9 @@ def parse_history(raw: str) -> ParsedHistory:
             try:
                 if match is None:
                     raise ValueError
-                given = date(
-                    int(match[3]), _MONTHS[match[1]], int(match[2])
-                ).isoformat()
+                given = date(int(match[1]), int(match[2]), int(match[3])).isoformat()
             except ValueError:
-                reason = "Date must be a real calendar date in Mon D, YYYY form"
+                reason = "Date must be a real calendar date in YYYY-MM-DD form"
         if not reason and not terminated and number == len(fragments):
             reason = "History must end with ';'"
         if reason:

@@ -255,7 +255,7 @@ def test_broken_notice_retains_other_original_and_reports_partial_run(
     frame.loc[0, "street_address_line_1"] = ""
     frame.loc[0, "date_of_birth"] = "unusable date"
     frame.loc[0, "province"] = "Québec"
-    frame.loc[0, "imms_given"] = "May 01, 2020 - MMR - Valid; Jun 15, 2021 - IPV;"
+    frame.loc[0, "imms_given"] = "2020-05-01 - MMR - Valid; 2021-06-15 - IPV;"
     without_evidence = extra.copy()
     without_evidence["client_id"] = "0000000004"
     pd.concat(
