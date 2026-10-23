@@ -191,9 +191,9 @@ Nothing is switched on automatically when the input contains this information.
 - `omit-invalid` in `immunization-history(...)`: leave doses marked
   ` - Invalid` out of the history chart. This applies even when
   `show-validity` is `false`.
-- `include-dose`: add the dose number to overdue diseases, for example
-  "Measles (2nd dose)" or "Rougeole (2e dose)". Overdue agent lists never show
-  dose numbers.
+- top-level `include-dose` in `settings.typ`: add the dose number to overdue
+  diseases, for example "Measles (2nd dose)" or "Rougeole (2e dose)". Overdue
+  agent lists never show dose numbers.
 
 Validity comes from ` - Valid` or ` - Invalid` after each `imms_given` entry.
 Dose numbers come from ` - N` after each `overdue_disease` entry. See the
@@ -205,14 +205,15 @@ Dose numbers come from ` - N` after each `overdue_disease` entry. See the
 | Has validity | `show-validity: true` | ⬤ / ○ / ? marks with legend |
 | No validity | `show-validity: false` | Plain ⬤ marks |
 | No validity | `show-validity: true` | Every mark is ?; each notice gets a `content.history_validity` warning |
-| Some rows with validity | `show-validity: true` | Doses without validity show ?; each affected notice gets a `content.history_validity` warning |
+| Some rows with validity | `show-validity: true` | Doses without validity show ?; every notice in the cohort gets a `content.history_validity` warning, including notices whose own doses all have validity |
 | Has dose numbers | `include-dose = false` | Disease names only |
 | Has dose numbers | `include-dose = true` | Disease names with dose numbers |
 | No dose numbers | `include-dose = true` | Disease names only; no warning |
 | Dose suffix is not a positive whole number | either | Disease name only; `source.overdue_unusable` warning |
 
-When `show-validity` is `true`, input that mixes rows with and without
-validity still produces notices, with warnings. Check the run report for
+When `show-validity` is `true`, validity coverage is judged across the whole
+input file, not per notice. Input that mixes rows with and without validity
+still produces notices, but every notice warns. Check the run report for
 `content.history_validity` before mailing.
 
 ## Reference and label updates

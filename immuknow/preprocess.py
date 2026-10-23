@@ -227,7 +227,7 @@ def run_school_validation(
     config: dict[str, Any],
     config_dir: Path,
 ) -> tuple[pd.DataFrame, list[str]]:
-    """Retain all rows while checking schools against a fully configured reference.
+    """Retain all rows while checking schools against the selected reference.
 
     A disabled lookup returns the frame unchanged. Enabled lookup requires a
     target PHU and uses the packaged reference when no reference file is named.
