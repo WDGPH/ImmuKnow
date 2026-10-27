@@ -19,9 +19,8 @@ coverage.json
 input/*
 !input/sample_students.csv
 !input/sample_assignments.json
-phu_templates/*
-!phu_templates/README.md
-!phu_templates/.gitkeep
+# Local PHU templates; never committed
+phu_templates/
 .gitmodules
 
 .venv/
