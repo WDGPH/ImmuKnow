@@ -34,5 +34,9 @@
   {
     "client_id": "1009876550",
     "template": "overdue_diseases_v1.fr.typ"
+  },
+  {
+    "client_id": "1009876551",
+    "template": "overdue_diseases_v1.en.typ"
   }
 ]
