@@ -192,12 +192,17 @@ Nothing is switched on automatically when the input contains this information.
   ` - Invalid` out of the history chart. This applies even when
   `show-validity` is `false`.
 - top-level `include-dose` in `settings.typ`: add the dose number to overdue
-  diseases, for example "Measles (2nd dose)" or "Rougeole (2e dose)". Overdue
-  agent lists never show dose numbers.
+  diseases, for example "Measles (2nd dose)" or "Rougeole (2e dose)". A
+  template uses the setting only where it passes
+  `include-dose: include-dose`; a template that passes
+  its own value, or leaves the argument out (default `false`), ignores it. The
+  maintained overdue disease notices pass the setting, and the suspension
+  order passes `false`. Overdue agent lists never show dose numbers.
 
 Validity comes from ` - Valid` or ` - Invalid` after each `imms_given` entry.
 Dose numbers come from ` - N` after each `overdue_disease` entry. See the
 [input schema](https://docs.phiz.ca/immuknow/latest/user_guide/input_schema/).
+Rows that do not name `omit-invalid` use its default, `false`.
 
 | Input | Setting | Notice shows |
 |---|---|---|
@@ -206,6 +211,9 @@ Dose numbers come from ` - N` after each `overdue_disease` entry. See the
 | No validity | `show-validity: false` | Plain ⬤ marks |
 | No validity | `show-validity: true` | Every mark is ?; each notice gets a `content.history_validity` warning |
 | Some rows with validity | `show-validity: true` | Doses without validity show ?; every notice in the cohort gets a `content.history_validity` warning, including notices whose own doses all have validity |
+| Has validity | `show-validity: false`, `omit-invalid: true` | Plain ⬤ marks; invalid doses are left out |
+| Has validity | `show-validity: true`, `omit-invalid: true` | ⬤ / ? marks; invalid doses are left out, and the legend has no ○ line |
+| No validity | `omit-invalid: true` | No effect; doses without validity are never treated as invalid |
 | Has dose numbers | `include-dose = false` | Disease names only |
 | Has dose numbers | `include-dose = true` | Disease names with dose numbers |
 | No dose numbers | `include-dose = true` | Disease names only; no warning |
