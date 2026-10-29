@@ -13,16 +13,19 @@ From a checkout:
 
 ```bash
 uv sync
-uv run immuknow ./input/students.csv --notice-assignments ./assignments.json \
-  --output ./runs
+uv run immuknow ./input/sample_students.csv \
+  --notice-assignments ./input/sample_assignments.json --output ./runs
 ```
+
+`input/sample_students.csv` and `input/sample_assignments.json` contain
+synthetic data for trying the pipeline; they describe no real clients.
 
 A run selects notices in one of two ways: pass `--notice-assignments` with
 one `template` filename per client, or pass one
 `--template PATH` for the whole cohort:
 
 ```bash
-uv run immuknow students.csv \
+uv run immuknow ./input/sample_students.csv \
   --template immuknow/templates/overdue_diseases_v1.en.typ \
   --output ./runs
 ```

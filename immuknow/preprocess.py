@@ -205,6 +205,21 @@ def validate_input(frame: pd.DataFrame) -> pd.DataFrame:
     return frame.reindex(columns=[*frame.columns, *missing], fill_value="")
 
 
+def school_reference_path(school_config: dict[str, Any], config_dir: Path) -> Path:
+    """Resolve the configured reference, or the packaged one when none is named.
+
+    Relative paths are read from the selected configuration directory. A named
+    file that does not exist is not replaced by the packaged reference.
+    """
+    reference_file = school_config.get("reference_file")
+    if reference_file is None or not reference_file.strip():
+        return (CONFIG_DIR / "school_reference.json").resolve()
+    reference_path = Path(reference_file)
+    if not reference_path.is_absolute():
+        reference_path = config_dir / reference_path
+    return reference_path.resolve()
+
+
 def run_school_validation(
     df: pd.DataFrame,
     output_dir: Path,
@@ -212,34 +227,25 @@ def run_school_validation(
     config: dict[str, Any],
     config_dir: Path,
 ) -> tuple[pd.DataFrame, list[str]]:
-    """Retain all rows while checking schools against a fully configured reference.
+    """Retain all rows while checking schools against the selected reference.
 
-    A disabled lookup returns the frame unchanged. Enabled lookup requires its
-    source file and target PHU; incomplete shared settings fail setup.
+    A disabled lookup returns the frame unchanged. Enabled lookup requires a
+    target PHU and uses the packaged reference when no reference file is named.
     """
     school_config = config.get("school_validation", {})
 
     if not school_config.get("enabled", False):
         return df, []
 
-    reference_file = school_config.get("reference_file")
     target_phu = school_config.get("target_phu")
-    for field, value in (
-        ("reference_file", reference_file),
-        ("target_phu", target_phu),
-    ):
-        if not isinstance(value, str) or not value.strip():
-            raise ValueError(
-                f"school_validation.{field} must be a nonempty string when enabled"
-            )
-
-    reference_path = Path(reference_file)
-    if not reference_path.is_absolute():
-        reference_path = (config_dir / reference_path).resolve()
+    if not isinstance(target_phu, str) or not target_phu.strip():
+        raise ValueError(
+            "school_validation.target_phu must be a nonempty string when enabled"
+        )
 
     return validate_schools.validate_schools(
         df=df,
-        reference_path=reference_path,
+        reference_path=school_reference_path(school_config, config_dir),
         target_phu=target_phu,
         output_dir=output_dir,
         column_prefix=school_config.get("column_prefix", "school_"),
@@ -432,7 +438,7 @@ def build_preprocess_result(
                     "source.history_invalid",
                     "preparation",
                     "fail",
-                    f"Row {index}, imms_given fragment {issue.number}: {issue.reason}. Expected 'Mon D, YYYY - Agent', optionally followed by ' - Valid' or ' - Invalid', with every entry ending in ';'.",
+                    f"Row {index}, imms_given fragment {issue.number}: {issue.reason}. Expected 'YYYY-MM-DD - Agent', optionally followed by ' - Valid' or ' - Invalid', with every entry ending in ';'.",
                     component="history",
                     measurements={
                         "column": "imms_given",
@@ -610,29 +616,7 @@ class ParsedHistory:
     issues: list[HistoryIssue]
 
 
-_HISTORY_DATE = re.compile(
-    r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) ([0-9]{1,2}), ([0-9]{4})"
-)
-_MONTHS = {
-    name: number
-    for number, name in enumerate(
-        (
-            "Jan",
-            "Feb",
-            "Mar",
-            "Apr",
-            "May",
-            "Jun",
-            "Jul",
-            "Aug",
-            "Sep",
-            "Oct",
-            "Nov",
-            "Dec",
-        ),
-        1,
-    )
-}
+_HISTORY_DATE = re.compile(r"([0-9]{4})-([0-9]{2})-([0-9]{2})")
 
 
 def parse_history(raw: str) -> ParsedHistory:
@@ -670,11 +654,9 @@ def parse_history(raw: str) -> ParsedHistory:
             try:
                 if match is None:
                     raise ValueError
-                given = date(
-                    int(match[3]), _MONTHS[match[1]], int(match[2])
-                ).isoformat()
+                given = date(int(match[1]), int(match[2]), int(match[3])).isoformat()
             except ValueError:
-                reason = "Date must be a real calendar date in Mon D, YYYY form"
+                reason = "Date must be a real calendar date in YYYY-MM-DD form"
         if not reason and not terminated and number == len(fragments):
             reason = "History must end with ';'"
         if reason:

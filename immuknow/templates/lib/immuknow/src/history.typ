@@ -7,8 +7,8 @@
   strings(diseases, "diseases", unique: true)
   assert("Other" not in diseases, message: "Use include-other instead of adding Other to diseases")
   strings(ignore-agents, "ignore-agents")
-  assert(type(include-other) == bool, message: "include-other must be a boolean or auto")
-  assert(type(show-validity) == bool, message: "show-validity must be a boolean or auto")
+  assert(type(include-other) == bool, message: "include-other must be a boolean")
+  assert(type(show-validity) == bool, message: "show-validity must be a boolean")
   assert(type(omit-invalid) == bool, message: "omit-invalid must be a boolean")
   let columns = diseases + if include-other { ("Other",) } else { () }
   let items = notice.history.filter(item => item.agent not in ignore-agents and (not omit-invalid or item.validity != "invalid"))

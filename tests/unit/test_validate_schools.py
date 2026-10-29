@@ -576,9 +576,44 @@ class TestRunSchoolValidation:
         pd.testing.assert_frame_equal(result_df, base_df)
         assert warnings == []
 
-    def test_enabled_lookup_missing_reference_fails_setup(self, tmp_path, base_df):
-        config = {"school_validation": {"enabled": True, "target_phu": "Test PHU"}}
-        with pytest.raises(ValueError, match="school_validation.reference_file"):
+    @pytest.mark.parametrize(
+        "reference", [{}, {"reference_file": None}, {"reference_file": " "}]
+    )
+    def test_enabled_lookup_without_reference_uses_packaged_file(
+        self, tmp_path, reference
+    ):
+        config = {
+            "school_validation": {
+                "enabled": True,
+                "target_phu": "Wellington-Dufferin-Guelph Public Health",
+                **reference,
+            }
+        }
+        df = pd.DataFrame(
+            {"school_name": ["Aberfoyle Public School - 461059"], "client_id": ["C1"]}
+        )
+        result, _ = preprocess.run_school_validation(
+            df, tmp_path, config=config, config_dir=tmp_path
+        )
+        assert result.loc[0, "school_match_type"] == "exact"
+        assert (
+            result.attrs["school_reference"]["reference_file"]
+            == "school_reference.json"
+        )
+        assert (
+            preprocess.school_reference_path(config["school_validation"], tmp_path)
+            == (preprocess.CONFIG_DIR / "school_reference.json").resolve()
+        )
+
+    def test_enabled_lookup_with_missing_named_reference_fails(self, tmp_path, base_df):
+        config = {
+            "school_validation": {
+                "enabled": True,
+                "reference_file": "missing.json",
+                "target_phu": "Test PHU",
+            }
+        }
+        with pytest.raises(FileNotFoundError):
             preprocess.run_school_validation(
                 base_df, tmp_path, config=config, config_dir=tmp_path
             )

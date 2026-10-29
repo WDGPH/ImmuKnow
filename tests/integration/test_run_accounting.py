@@ -255,7 +255,7 @@ def test_broken_notice_retains_other_original_and_reports_partial_run(
     frame.loc[0, "street_address_line_1"] = ""
     frame.loc[0, "date_of_birth"] = "unusable date"
     frame.loc[0, "province"] = "Québec"
-    frame.loc[0, "imms_given"] = "May 01, 2020 - MMR - Valid; Jun 15, 2021 - IPV;"
+    frame.loc[0, "imms_given"] = "2020-05-01 - MMR - Valid; 2021-06-15 - IPV;"
     without_evidence = extra.copy()
     without_evidence["client_id"] = "0000000004"
     pd.concat(
@@ -455,6 +455,39 @@ def test_school_lookup_uses_saved_reference_after_source_changes(
         check = next(c for c in entry["checks"] if c["code"] == "data.school_match")
         assert check["status"] == "pass"
         assert check["measurements"]["reference_sha256"] == sha256(content).hexdigest()
+        assert entry["original"]["status"] == "completed"
+
+
+def test_school_lookup_without_reference_file_saves_packaged_reference(tmp_path):
+    source, config, templates, _ = prepare_inputs(tmp_path)
+    (config / "school_reference.json").unlink()
+    frame = pd.read_csv(source, dtype=str, keep_default_na=False)
+    frame["school_name"] = "Aberfoyle Public School - 461059"
+    frame.to_csv(source, index=False)
+    parameters = config / "parameters.yaml"
+    settings = yaml.safe_load(parameters.read_text())
+    settings["school_validation"] = {
+        "enabled": True,
+        "target_phu": "Wellington-Dufferin-Guelph Public Health",
+    }
+    parameters.write_text(yaml.safe_dump(settings))
+    saved = run_pipeline(
+        source,
+        tmp_path / "runs",
+        config_dir=config,
+        notice_template=templates / "overdue_agents_v1.en.typ",
+    )
+    record = json.loads(saved.read_text())
+    packaged = (ROOT / "immuknow/config/school_reference.json").resolve()
+    assert record["configuration"]["school_reference_source"] == str(packaged)
+    effective = record["configuration"]["effective"]["school_validation"][
+        "reference_file"
+    ]
+    retained = (saved.parent / "resources/config" / effective).resolve()
+    assert retained.read_bytes() == packaged.read_bytes()
+    for entry in record["entries"]:
+        check = next(c for c in entry["checks"] if c["code"] == "data.school_match")
+        assert check["status"] == "pass"
         assert entry["original"]["status"] == "completed"
 
 

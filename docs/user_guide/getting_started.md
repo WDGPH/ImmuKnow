@@ -7,9 +7,12 @@ on `PATH`, set `TYPST_BIN`, or configure `typst.bin` in
 
 ```bash
 uv sync
-uv run immuknow ./input/students.csv --notice-assignments ./assignments.json \
-  --output ./runs
+uv run immuknow ./input/sample_students.csv \
+  --notice-assignments ./input/sample_assignments.json --output ./runs
 ```
+
+`input/sample_students.csv` and `input/sample_assignments.json` contain
+synthetic data for trying the pipeline; they describe no real clients.
 
 An installed package provides `immuknow` and its resources without a checkout.
 
@@ -62,18 +65,20 @@ The packaged input schema defines the columns and cannot be replaced through
 ### History format
 
 End every administration with a semicolon, including the last, as in Panorama
-exports. Each entry is exactly `Mon D, YYYY - Agent;`, optionally with
-` - Valid` or ` - Invalid` before the semicolon. Months use `Jan` through
-`Dec`; days have one or two digits, and the date must exist. Use one space on
+exports. Each entry is exactly `YYYY-MM-DD - Agent;`, optionally with
+` - Valid` or ` - Invalid` before the semicolon, for example
+`2020-05-01 - MMR - Valid;`. Month and day always have two digits
+(`2020-05-01`, not `2020-5-1`), and the date must exist. Use one space on
 each side of the separating hyphens. Spaces, tabs and line breaks may surround
 complete entries. Hyphenated names such as `COVID-19 mRNA` remain intact; an
 extra field separator inside an agent name is ambiguous and is rejected.
 
 Blank history and the Panorama placeholders `-;` and `-  -;` (the latter when
 validity is exported) mean no history. A missing final semicolon, a leading
-semicolon, `;;` and other empty entries, extra fields, impossible dates and
-wrongly cased status tokens reject the entire input file before any notices are
-generated, even when a notice omits history. `Invalid` is accepted as an
+semicolon, `;;` and other empty entries, extra fields, impossible dates, dates
+in any other form (such as `May 1, 2020`) and wrongly cased status tokens
+reject the entire input file before any notices are generated, even when a
+notice omits history. `Invalid` is accepted as an
 upstream assessment. An omitted status remains unknown. Every bad fragment is
 recorded with its source row, column and fragment number; correct the source
 and start a new run. Warning acceptance cannot release rejected input.

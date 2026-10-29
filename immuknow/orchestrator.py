@@ -47,7 +47,7 @@ from . import (
 )
 # isort: on
 
-DEFAULT_OUTPUT_DIR = Path.cwd() / "output"
+DEFAULT_OUTPUT_DIR = Path.cwd() / "runs"
 DEFAULT_TEMPLATES_DIR = Path(str(files("immuknow").joinpath("templates")))
 DEFAULT_CONFIG_DIR = Path(str(files("immuknow").joinpath("config")))
 
@@ -270,10 +270,7 @@ def run_pipeline(
                 )
                 school = config.get("school_validation", {})
                 if school.get("enabled"):
-                    reference = Path(school["reference_file"])
-                    if not reference.is_absolute():
-                        reference = config_dir / reference
-                    reference = reference.resolve()
+                    reference = preprocess.school_reference_path(school, config_dir)
                     record["configuration"]["school_reference_source"] = str(reference)
                     if reference.is_relative_to(config_dir):
                         saved_reference = reference.relative_to(config_dir).as_posix()

@@ -21,6 +21,10 @@ immuknow clients.csv --template ./my-phu/overdue_diseases_v1.en.typ --output ./r
 immuknow clients.csv --notice-assignments ./assignments.json --templates ./my-phu --output ./runs
 ```
 
+Keep PHU templates outside the ImmuKnow checkout, or beneath its
+`phu_templates/` directory, which Git ignores. The directory name has no
+meaning to the CLI; always pass the path explicitly.
+
 For an installed wheel, use `importlib.resources.files("immuknow")` to locate
 and copy its `templates` directory. The selected tree supplies all authored
 helpers and assets. It is staged once in the run; installed files remain read-only.

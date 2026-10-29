@@ -40,7 +40,7 @@ YAML aliases may reuse values, but merged fields cannot overwrite other fields.
 | `encryption.enabled`, `encryption.password.template` | Optional individual PDF encryption |
 | `bundling.bundle_size`, `bundling.group_by` | Bundle size and grouping: size/null, school or board |
 | `validation.notice_length` | Optional fixed PDF page count per notice; requires `enabled: true`, a positive `count`, and `unit: pages` |
-| `school_validation.enabled` | Compare source school names with the selected reference |
+| `school_validation.enabled` | Compare source school names with the selected reference (packaged `school_reference.json` when `reference_file` is unset) |
 
 The [PDF validation guide](https://docs.phiz.ca/immuknow/latest/user_guide/pdf_validation/)
 describes output measurements. Run findings and output accounting are recorded
@@ -75,12 +75,16 @@ Inspect the recorded operation and template before increasing its limit.
 
 ### School validation
 
-School validation uses `target_phu` and `reference_file` in the selected
-configuration directory. Exact, inexact and unmatched results are saved as
-run artifacts. Each row's check in `run.json` records the reference file hash,
-PHU, matched name/ID and mismatch reason. An unknown school or conflicting
-name/ID rejects the whole cohort before any PDFs are generated. A matching
-name with no facility ID warns; an exact name/ID match passes.
+School validation requires `target_phu` and reads `reference_file` from the
+selected configuration directory. When `reference_file` is omitted, null or
+blank, the packaged `school_reference.json` is used. A named file that does not
+exist stops the run; it is never replaced by the packaged file.
+
+Exact, inexact and unmatched results are saved as run artifacts. Each row's
+check in `run.json` records the reference file hash, PHU, matched name/ID and
+mismatch reason. An unknown school or conflicting name/ID rejects the whole
+cohort before any PDFs are generated. A matching name with no facility ID
+warns; an exact name/ID match passes.
 
 The lookup reads `school_name`, which may include ` - FACILITY ID`. It does not
 replace the source name or the separate `school_id` and `board_id` fields.
@@ -174,6 +178,51 @@ Rules check supplied facts: `has_overdue`, `has_overdue_agents`, `no_overdue`
 or `any`. The catalog supplies no language or default notice. Suspension
 wording uses the upstream assessment; authors configure its dates and service
 information. Python does not assess exemptions or calculate school calendars.
+
+### Validity and next-dose display
+
+Python always reads validity and next-dose information from the input and
+keeps it in the notice data. Settings decides whether notices show it.
+Nothing is switched on automatically when the input contains this information.
+
+- `show-validity` in `immunization-history(...)`: mark each dose in the
+  history chart as valid (⬤), invalid (○) or unknown (?), and add a legend.
+  When `false`, every recorded dose shows ⬤ and validity is ignored.
+- `omit-invalid` in `immunization-history(...)`: leave doses marked
+  ` - Invalid` out of the history chart. This applies even when
+  `show-validity` is `false`.
+- top-level `include-dose` in `settings.typ`: add the dose number to overdue
+  diseases, for example "Measles (2nd dose)" or "Rougeole (2e dose)". A
+  template uses the setting only where it passes
+  `include-dose: include-dose`; a template that passes
+  its own value, or leaves the argument out (default `false`), ignores it. The
+  maintained overdue disease notices pass the setting, and the suspension
+  order passes `false`. Overdue agent lists never show dose numbers.
+
+Validity comes from ` - Valid` or ` - Invalid` after each `imms_given` entry.
+Dose numbers come from ` - N` after each `overdue_disease` entry. See the
+[input schema](https://docs.phiz.ca/immuknow/latest/user_guide/input_schema/).
+Rows that do not name `omit-invalid` use its default, `false`.
+
+| Input | Setting | Notice shows |
+|---|---|---|
+| Has validity | `show-validity: false` | Plain ⬤ marks; looks the same as input without validity |
+| Has validity | `show-validity: true` | ⬤ / ○ / ? marks with legend |
+| No validity | `show-validity: false` | Plain ⬤ marks |
+| No validity | `show-validity: true` | Every mark is ?; each notice gets a `content.history_validity` warning |
+| Some rows with validity | `show-validity: true` | Doses without validity show ?; every notice in the cohort gets a `content.history_validity` warning, including notices whose own doses all have validity |
+| Has validity | `show-validity: false`, `omit-invalid: true` | Plain ⬤ marks; invalid doses are left out |
+| Has validity | `show-validity: true`, `omit-invalid: true` | ⬤ / ? marks; invalid doses are left out, and the legend has no ○ line |
+| No validity | `omit-invalid: true` | No effect; doses without validity are never treated as invalid |
+| Has dose numbers | `include-dose = false` | Disease names only |
+| Has dose numbers | `include-dose = true` | Disease names with dose numbers |
+| No dose numbers | `include-dose = true` | Disease names only; no warning |
+| Dose suffix is not a positive whole number | either | Disease name only; `source.overdue_unusable` warning |
+
+When `show-validity` is `true`, validity coverage is judged across the whole
+input file, not per notice. Input that mixes rows with and without validity
+still produces notices, but every notice warns. Check the run report for
+`content.history_validity` before mailing.
 
 ## Reference and label updates
 

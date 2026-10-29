@@ -1,4 +1,4 @@
-output/*
+/runs/
 __pycache__/
 **/__pycache__/
 *.pyc
@@ -16,11 +16,11 @@ docs/user_guide/input_schema.md
 htmlcov/
 coverage.xml
 coverage.json
-!input/rodent_dataset.csv
 input/*
-phu_templates/*
-!phu_templates/README.md
-!phu_templates/.gitkeep
+!input/sample_students.csv
+!input/sample_assignments.json
+# Local PHU templates; never committed
+phu_templates/
 .gitmodules
 
 .venv/
