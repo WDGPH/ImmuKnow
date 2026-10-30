@@ -7,7 +7,7 @@
 
 ## Run a cohort
 
-Install Python 3.10 or later, [uv](https://docs.astral.sh/uv/),
+Install Python 3.11 or later, [uv](https://docs.astral.sh/uv/),
 and Typst 0.15.1.
 From a checkout:
 

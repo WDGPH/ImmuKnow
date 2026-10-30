@@ -1,11 +1,12 @@
 # Testing
 
 Run commands from the Core repository root. Studio has its own repository,
-examples and browser checks. Core builds and tests do not require Node or Rust.
+examples and browser checks. Core builds and tests do not require Node, Rust
+or Pillow. Native QR checks decode grayscale page buffers directly with ZXing.
 
 ## Prepare a clean checkout
 
-Install Git, uv, Python 3.10 or later, and native Typst 0.15.1. Put `typst` on
+Install Git, uv, Python 3.11 or later, and native Typst 0.15.1. Put `typst` on
 `PATH`, or set `TYPST_BIN` to its absolute path.
 
 Notice tests use the FreeFont `20120503-10build1` release that Studio also ships.
@@ -29,7 +30,7 @@ Studio's fonts together.
 uv sync --locked --all-groups
 ```
 
-Native CI covers Linux with Python 3.10, 3.12 and 3.14. Other operating systems
+Native CI covers Linux with Python 3.11, 3.12 and 3.14. Other operating systems
 are not covered by that suite.
 
 ## Run the checks

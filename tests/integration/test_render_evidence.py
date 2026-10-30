@@ -457,7 +457,9 @@ def test_qr_destination_quality_is_checked_without_discarding_the_pdf(
     )
     assert next(c for c in checks if c.code == "output.qr_destination").status == status
     with pymupdf.open(job.pdf) as pdf:
-        decoded = zxingcpp.read_barcodes(pdf[0].get_pixmap(dpi=200).pil_image())
+        pixmap = pdf[0].get_pixmap(dpi=200, colorspace=pymupdf.csGRAY)
+        pixels = memoryview(pixmap.samples).cast("B", [pixmap.height, pixmap.width])
+        decoded = zxingcpp.read_barcodes(pixels)
     assert [code.bytes for code in decoded] == [url.encode("utf-8")]
     assert [code.text for code in decoded] == [url]
 
@@ -478,7 +480,9 @@ def test_unicode_qr_chooses_a_size_that_fits_its_encoding(
     )
     compile_case(job)
     with pymupdf.open(job.pdf) as pdf:
-        decoded = zxingcpp.read_barcodes(pdf[0].get_pixmap(dpi=300).pil_image())
+        pixmap = pdf[0].get_pixmap(dpi=300, colorspace=pymupdf.csGRAY)
+        pixels = memoryview(pixmap.samples).cast("B", [pixmap.height, pixmap.width])
+        decoded = zxingcpp.read_barcodes(pixels)
     assert len(decoded) == 1
     assert decoded[0].bytes == value.encode("utf-8")
     assert decoded[0].text == value
