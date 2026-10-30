@@ -33,6 +33,11 @@ uv sync --locked --all-groups
 Native CI covers Linux with Python 3.10, 3.12 and 3.14. Other operating systems
 are not covered by that suite.
 
+Prefer Python 3.11 or later for patched locking dependencies. Python 3.10
+remains supported with filelock 3.x because its security-fixed 4.2 releases
+require Python 3.11. Dependency audits on the legacy environment still report
+filelock advisories; check that environment separately when maintaining it.
+
 ## Run the checks
 
 ```bash

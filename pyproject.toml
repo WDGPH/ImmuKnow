@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools==84.0.0", "wheel==0.48.0"]
+requires = ["setuptools==84.1.0", "wheel==0.48.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
@@ -26,17 +26,18 @@ name = "ImmuKnow"
 version = "2.0.0"
 requires-python = ">=3.10"
 dependencies = [
-    "filelock>=3.20.3",
+    "filelock>=3.20.3,<4; python_version < '3.11'",
+    "filelock>=4.2.1; python_version >= '3.11'",
     "pandas",
     "PyYAML",
-    "pypdf[crypto]",
+    "pypdf[crypto]>=6.21.2",
     "frictionless",
     "jsonschema>=4.26.0",
 ]
 
 [dependency-groups]
 dev = [
-    "setuptools==84.0.0",
+    "setuptools==84.1.0",
     "wheel==0.48.0",
     "ruff==0.13.0",
     "pymupdf==1.28.2",

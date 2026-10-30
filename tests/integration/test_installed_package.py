@@ -113,7 +113,7 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
             }
             & build.keys()
         )
-        assert build["build_tools"]["setuptools"] == "84.0.0"
+        assert build["build_tools"]["setuptools"] == "84.1.0"
         assert build["build_tools"]["wheel"] == "0.48.0"
         assert {
             item["path"]: item["sha256"] for item in build["package_files"]["files"]
