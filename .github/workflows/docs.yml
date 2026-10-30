@@ -29,6 +29,8 @@ jobs:
           enable-cache: false
       - name: Install documentation dependencies
         run: uv sync --locked --no-default-groups --group docs
+      - name: Check schema documentation generation
+        run: uv run --locked --no-default-groups --group docs python -m unittest discover -s docs -p 'test_*.py'
       - name: Generate schema documentation
         run: uv run --locked --no-default-groups --group docs python docs/generate_schema_docs.py
       - name: Build documentation

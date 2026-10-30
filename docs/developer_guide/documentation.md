@@ -117,6 +117,7 @@ For a local source check or Material preview:
 
 ```bash
 uv sync --locked --no-default-groups --group docs
+uv run --locked --no-default-groups --group docs python -m unittest discover -s docs -p 'test_*.py'
 uv run --locked --no-default-groups --group docs python docs/generate_schema_docs.py
 uv run --locked --no-default-groups --group docs python -m mkdocs build --strict
 uv run --locked --no-default-groups --group docs python -m mkdocs serve
