@@ -21,13 +21,8 @@ An installed package provides `immuknow` and its resources without a checkout.
 Pass the path to one CSV extracted from Panorama/PEAR for the complete cohort.
 Relative paths start from your working directory: `students.csv` reads a file
 in that directory, while `./input/students.csv` reads it from the `input`
-subdirectory. Absolute paths are also accepted. The packaged
-[input schema](input_schema.md) defines the CSV fields:
-
-| Schema rule | Fields |
-|---|---|
-| Required columns | `school_name`, `client_id`, `first_name`, `last_name`, `date_of_birth`, `city`, `imms_given` |
-| Optional | `street_address_line_1`, `street_address_line_2`, `province`, `postal_code`, `overdue_disease`, `overdue_agent`, `board_name`, `board_id`, `school_id`, `version_id` |
+subdirectory. Absolute paths are also accepted. Use the column names and required
+fields listed in [CSV input fields](input_schema.md).
 
 Absent optional columns are filled with empty strings. Missing required columns
 stop shared setup. Row findings preserve the known facts and identify problems.

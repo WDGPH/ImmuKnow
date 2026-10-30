@@ -5,6 +5,12 @@ delivery output it affects. Update the maintained implementation, meaningful
 tests, and the guide that owns the changed user-facing contract. The complete
 run matters more than an unused internal function signature.
 
+Before keeping a helper, check its production callers and uses in Studio and
+Template. Remove duplicate paths and obsolete internal contracts when they no
+longer protect current behavior. Packaged resources and public APIs may have
+callers outside this repository; an empty local search alone does not make them
+unused.
+
 Python supplies validated client data and notice assignments; Typst formats and localizes
 the document. Use [template authoring](../user_guide/phu_templates.md) when
 changing notices. Run the [testing checks](testing.md) and inspect representative
