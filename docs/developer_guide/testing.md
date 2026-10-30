@@ -1,7 +1,8 @@
 # Testing
 
 Run commands from the Core repository root. Studio has its own repository,
-examples and browser checks. Core builds and tests do not require Node or Rust.
+examples and browser checks. Core builds and tests do not require Node, Rust
+or Pillow. Native QR checks decode grayscale page buffers directly with ZXing.
 
 ## Prepare a clean checkout
 

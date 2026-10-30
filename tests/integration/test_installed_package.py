@@ -375,7 +375,10 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
                 with pymupdf.open(pdf) as rendered:
                     decoded = set()
                     for page in rendered:
-                        pixels = page.get_pixmap(dpi=150).pil_image()
+                        pixmap = page.get_pixmap(dpi=150, colorspace=pymupdf.csGRAY)
+                        pixels = memoryview(pixmap.samples).cast(
+                            "B", [pixmap.height, pixmap.width]
+                        )
                         decoded.update(
                             code.text for code in zxingcpp.read_barcodes(pixels)
                         )
