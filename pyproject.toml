@@ -46,8 +46,6 @@ dev = [
     "pytest-cov",
     "pre-commit",
     "ty>=0.0.78",
-    "git-changelog>=2.9.7",
-    "pypandoc>=1.15",
     "pytest-xdist>=3.8.0",
 ]
 docs = [
