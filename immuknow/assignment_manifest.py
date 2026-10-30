@@ -95,7 +95,7 @@ def load_manifest(path: Path, template_dir: Path) -> dict[str, ManifestRow]:
         try:
             if Path(template).name != template or "\\" in template:
                 raise ValueError(
-                    "Template must be a basename inside the selected template tree"
+                    f"Template must be a filename, not a path: {template!r}"
                 )
             version, language = template_identity(template_dir / template)
         except (ValueError, FileNotFoundError) as exc:

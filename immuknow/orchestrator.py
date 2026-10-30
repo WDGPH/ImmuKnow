@@ -72,14 +72,14 @@ assignments.json is a UTF-8 JSON array:
 
 Use nonempty string client_id and template values, one unambiguous assignment
 per input client. Optional experiment_id and experiment_arm are string labels.
-Template names are basenames inside --templates, not paths. Their filename
+Template names are filenames inside --templates, not paths. Each filename
 must be <version_id>.<language>.typ; supported languages are en and fr.
 --template selects that file for every client; it never switches automatically.
 Extra assignments are reported and do not create clients. Warnings remain in
 the report; any input failure rejects the complete file before rendering.
 This includes invalid history, identifier collisions and missing or ambiguous assignments.
 Known applicability conflicts warn and retain the selected notice. Malformed
-shared JSON/configuration stops setup. After input is accepted, notice rendering failures remain independent.
+shared JSON/configuration stops setup. After input is accepted, a failed notice does not stop the others.
 Each run keeps its own originals, run.json and report.html under --output.
         """,
     )
@@ -125,7 +125,7 @@ Each run keeps its own originals, run.json and report.html under --output.
         "--template",
         type=Path,
         dest="notice_template",
-        help="One <version_id>.<language>.typ entry point for every client.",
+        help="One <version_id>.<language>.typ template file for every client.",
     )
 
     return parser.parse_args()

@@ -34,18 +34,7 @@ _FORMATTER = Formatter()
 
 
 def string_or_empty(value: Any) -> str:
-    """Safely convert value to string, returning empty string for None/NaN.
-
-    Parameters
-    ----------
-    value : Any
-        Value to convert (may be None, empty string, or any type)
-
-    Returns
-    -------
-    str
-        Stringified value or empty string for None/NaN values
-    """
+    """Return an empty string for None; otherwise convert to text and trim whitespace."""
     if value is None:
         return ""
     return str(value).strip()

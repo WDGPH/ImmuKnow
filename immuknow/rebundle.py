@@ -11,7 +11,7 @@ from . import bundle_pdfs, validation_policy
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Rebundle unchanged originals after reviewing individual warnings",
+        description="Rebuild delivery and review bundles from a saved run",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         allow_abbrev=False,
         epilog="""
@@ -56,7 +56,7 @@ supported. Exit status describes this attempt; earlier failures remain recorded.
         "--withhold",
         action="append",
         metavar="ROW_KEY",
-        help="Replace the withheld-row set (repeat for each row)",
+        help="Replace the list of withheld rows (repeat for each row to keep withheld)",
     )
     withholding.add_argument(
         "--clear-withheld",
