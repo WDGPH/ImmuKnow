@@ -1,6 +1,6 @@
 # Getting started
 
-Install Python 3.10 or later, [uv](https://docs.astral.sh/uv/), and
+Install Python 3.11 or later, [uv](https://docs.astral.sh/uv/), and
 [Typst 0.15.1](https://typst.app/docs/changelog/0.15.1/). Put `typst`
 on `PATH`, set `TYPST_BIN`, or configure `typst.bin` in
 `parameters.yaml`. From a checkout:
