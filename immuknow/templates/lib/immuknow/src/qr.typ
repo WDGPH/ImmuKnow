@@ -1,6 +1,6 @@
 #import "../vendor/codetastic/codetastic.typ" as codes
 #import "qr-style.typ": draw-qr
-#import "findings.typ": component
+#import "findings.typ": check, component
 
 // Use the supplied link, a fixed URL, or a function that builds a URL for this notice.
 #let qr-code(notice, enabled: true, url: none, width: 3cm, error-correction: auto,
@@ -61,10 +61,32 @@
 }
 
 // Record a placed external link for comparison with the PDF destination.
-#let notice-link(destination, ..body) = {
+#let notice-link(destination, keep-together: false, ..body) = {
   assert(type(destination) == str and destination != "", message: "Link destination must be nonempty text")
-  context {
+  assert(type(keep-together) == bool, message: "Link keep-together must be boolean")
+  if keep-together { context {
+    let owner = here()
+    // Measure the enclosing line without putting the eventual fallback in a box.
+    box(layout(size => box(width: 0pt, height: 0pt)[
+      #metadata((owner: owner, size: size)) <immuknow-link-space>
+    ]))
+    let spaces = query(<immuknow-link-space>).filter(it => it.value.owner == owner)
+    let available = if spaces.len() > 0 { spaces.first().value.size } else { (width: 0pt, height: 0pt) }
+    let linked = link(destination, ..body)
+    let natural = measure(linked)
+    let fits = natural.width <= available.width + 0.1pt
+    let placed = context {
+      component("link", measurements: (page: here().page(), url: destination))
+      check("layout.link_width", if fits { "pass" } else { "warn" },
+        if fits { "Link text fits within the available line width." }
+        else { "Link text exceeds the available line width and was allowed to wrap." },
+        component: "link", page: here().page())
+      linked
+    }
+    // Explicit multiline labels must also be able to continue onto another page.
+    if fits and natural.height <= available.height { box(placed) } else { placed }
+  } } else { context {
     component("link", measurements: (page: here().page(), url: destination))
     link(destination, ..body)
-  }
+  } }
 }

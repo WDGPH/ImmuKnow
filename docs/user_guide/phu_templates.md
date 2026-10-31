@@ -93,6 +93,16 @@ Use explicit `true`, `false` and unknown branches for `notice.client_data.over_1
 Unknown birth/age never means under 16. The maintained examples use neutral
 client wording in that case. Address components use the source province.
 
+To keep a link label together, use:
+
+```typst
+#immuknow.notice-link("https://example.org/records", keep-together: true)[Update your record]
+```
+
+The label moves intact to the next line when needed. A label wider than a whole
+line wraps normally and produces a `layout.link_width` warning for review.
+The default remains normal link wrapping.
+
 ## Facts contract
 
 `immuknow/schemas/rendering-v1.json` is the structural contract. Python validates

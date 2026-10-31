@@ -19,7 +19,7 @@ from .data_models import CheckResult
 from .render_contract import report_schema
 from .structured_input import read_json
 
-POLICY_VERSION = 19
+POLICY_VERSION = 20
 
 
 @dataclass(frozen=True)
