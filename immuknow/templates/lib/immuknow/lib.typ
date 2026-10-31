@@ -5,4 +5,5 @@
 #import "src/overdue.typ": overdue-diseases, overdue-agents
 #import "src/localization.typ" as localization
 #import "src/layout.typ": notice-page, notice-style, notice-section, notice-header, address-block, client-block, signature-block, privacy-notice, envelope-preset
-#import "src/qr.typ": qr-code, url-encode, query-url, notice-link
+#import "src/qr.typ": qr-code
+#import "src/links.typ": url-encode, query-url, notice-link

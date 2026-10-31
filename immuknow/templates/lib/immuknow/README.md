@@ -4,6 +4,9 @@ Import `lib.typ` from the authored project. Importing the package does not read
 client data, inspect compiler inputs, or render components. Python supplies the
 prepared facts described by `immuknow/schemas/rendering-v1.json`.
 
+Text links and URL helpers live in `src/links.typ`; QR rendering lives in
+`src/qr.typ`. Use the public helpers exported by `lib.typ` in your templates.
+
 Wrap the whole document with `#show: immuknow.notice-style.with(notice: notice)`.
 The wrapper requires the prepared notice and emits one `<immuknow-report>`
 metadata element. `notice-page` applies page styling; `notice-section(title)[body]`
