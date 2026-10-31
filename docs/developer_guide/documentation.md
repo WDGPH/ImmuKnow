@@ -59,6 +59,12 @@ Update the owning explanation when behavior changes. Keep review history,
 completed test runs and temporary migration notes in pull requests and Git
 history. Repository guides describe current behavior and repeatable checks.
 
+Keep pull request titles and descriptions short and plain. Explain the problem,
+why the change helps and what readers will experience. A before/after example
+can help a review; repository guides do not need that development history.
+Omit agent attribution and detailed verification logs. Include validation details
+only when they help a reviewer understand a material risk or limitation.
+
 ## Publish through the documentation hub
 
 Documentation stays here. The public [WDGPH documentation hub](https://docs.phiz.ca/)
