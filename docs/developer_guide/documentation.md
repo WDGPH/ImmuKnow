@@ -13,13 +13,51 @@ failures. Use types and examples when they clarify behavior. Test names and
 docstrings should identify the user-visible behavior protected, especially
 for compilation, mixed cohorts, and missing outputs.
 
-Use plain words that tell readers what a field or step actually does.
-Prefer "prepared client records", "disease names", or "selected version"
-over abstract labels when those are the facts meant.
+## Shared language and project responsibilities
 
-Keep point-in-time results and implementation rationale in the pull request
-and Git history. Repository guides describe current behavior and repeatable
-checks.
+Use this standard in Core, Studio and Template, including documentation,
+application messages, code, comments and docstrings.
+
+Write for the person completing the task. Start with what they can do and what
+happens next. Use concrete words, short sentences and the exact labels shown in
+the application. Explain a technical term when readers first need it. Prefer
+"prepared client records" or "disease names" when those are the facts meant.
+
+Give each shared contract one maintained owner:
+
+| Project | Owns the explanation of |
+| --- | --- |
+| ImmuKnow Core | Native inputs, notice selection, rendering resources, validation, saved runs and delivery |
+| ImmuKnow Studio | Browser editing, previews, fictional examples, and project import and download |
+| ImmuKnow Template | Local project setup, helper commands, readiness checks and project tests |
+
+Link to the owning guide for details. Include enough context and commands for a
+reader to complete the current task without reconstructing it across
+repositories. A short handoff summary is useful; competing specifications of
+validation or delivery are not.
+
+Keep names readers must recognize exact: commands, flags, paths, API names,
+schema fields, check codes and status values. Explain what they mean rather
+than replacing them with approximate synonyms. A template is a source file; a
+notice is the document it produces. Studio's fictional examples supply the
+sample inputs in a downloaded project. Distinguish warnings, failed checks,
+failed output steps and runs that stop before producing notices.
+
+An error should explain what failed and, when known, what the person can do
+next. Retain filenames, offending values, error codes and other details needed
+to investigate. Do not promise that a suggested action will fix a problem
+unless the program can establish that.
+
+Keep user guidance focused on the task. Put implementation and maintenance
+details in contributor documentation. Comments should explain constraints or
+decisions that the code does not make clear. Docstrings should describe purpose
+and significant inputs, results and failures. Prefer clear internal names;
+rename existing ones only to resolve a concrete misunderstanding. Wording
+changes must preserve validation, state changes and delivery decisions.
+
+Update the owning explanation when behavior changes. Keep review history,
+completed test runs and temporary migration notes in pull requests and Git
+history. Repository guides describe current behavior and repeatable checks.
 
 ## Publish through the documentation hub
 
@@ -79,6 +117,7 @@ For a local source check or Material preview:
 
 ```bash
 uv sync --locked --no-default-groups --group docs
+uv run --locked --no-default-groups --group docs python -m unittest discover -s docs -p 'test_*.py'
 uv run --locked --no-default-groups --group docs python docs/generate_schema_docs.py
 uv run --locked --no-default-groups --group docs python -m mkdocs build --strict
 uv run --locked --no-default-groups --group docs python -m mkdocs serve

@@ -4,6 +4,38 @@ Run commands from the Core repository root. Studio has its own repository,
 examples and browser checks. Core builds and tests do not require Node, Rust
 or Pillow. Native QR checks decode grayscale page buffers directly with ZXing.
 
+## Testing across the projects
+
+Each project tests the behavior it owns and the handoffs it relies on. Repeated
+checks should protect a distinct boundary, not meet a test-count or coverage quota.
+
+| Project | What its tests protect |
+| --- | --- |
+| Core | Native input and validation rules, notice output, delivery and recovery, installed distribution, and supported Python versions. |
+| [Studio](https://github.com/WDGPH/ImmuKnow-Studio/blob/main/docs/development.md) | Browser editing, UI, drafts, archives, and the browser-to-native project handoff. |
+| [Template](https://github.com/WDGPH/ImmuKnow-Template/blob/main/README.md) | Local helper commands and paths, the client-data guard, shared-library integration, and one sample run through Core. It does not reimplement Core's input or output validation. |
+
+Core and Studio deliberately run shared rendering contract cases against both
+native and browser validators. Each implementation must accept and reject the
+same evidence. Core owns comprehensive tests for the maintained notice families;
+Studio's native handoff cases cover a customized English notice using both
+selectors, a long French history spanning pages, and French source warnings
+followed by saved-run rebundling.
+
+Core's native Python matrix runs automatically. Studio's pull request and main
+checks build the site and run unit tests, type checks and lint. Its full browser
+and native suite is an intentional manual workflow with `full_tests=true` to
+conserve GitHub Actions minutes; deployment does not depend on that manual suite.
+Maintainers choose the higher-cost checks for riskier changes and releases, and
+run relevant browser checks locally when UI, drafts, archives or resources change.
+See Studio's development guide for the commands.
+
+Template CI runs setup-only readiness checks and a single shared native sample
+fixture through pytest on each of its three supported Python versions. It does
+not also run `check.py --sample` in the same CI job. Studio's downloadable
+project includes the helpers and `check.py --sample` for workstation readiness;
+it does not include Template's maintainer pytest tests.
+
 ## Prepare a clean checkout
 
 Install Git, uv, Python 3.11 or later, and native Typst 0.15.1. Put `typst` on

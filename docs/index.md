@@ -1,10 +1,9 @@
 # ImmuKnow
 
-ImmuKnow validates Panorama/PEAR vaccination records and creates personalized
-immunization notices and history charts. Python prepares supplied facts,
-reconciles explicit client assignments, and records complete output checks.
-Upstream systems assess immunization status. Maintained Typst templates own
-English and French document presentation.
+ImmuKnow checks Panorama/PEAR vaccination records and creates personalized
+immunization notices and history charts. It prepares the supplied records and
+uses your notice assignments. The upstream system assesses immunization status;
+Typst templates control the presentation of English and French notices.
 
 The included wording, branding, and contact details are samples. Public Health
 Units should review their selected templates and PDFs before use.
@@ -21,6 +20,6 @@ and supporting resources. A run keeps original PDFs, frozen resources,
 and one authoritative `run.json` with a readable `report.html`. Warnings retain
 reviewable PDFs, and independent clients continue when another notice fails.
 
-Use [ImmuKnow Studio](user_guide/studio.md) to edit notices with prepared
-examples. Its complete project download preserves source, Settings, translations,
-images for use with a separately installed native engine. Font files are optional.
+Use [ImmuKnow Studio](user_guide/studio.md) to edit and preview notices in a
+browser with fictional examples. Its project download includes local setup and
+helper scripts for running notices with Core on your workstation.

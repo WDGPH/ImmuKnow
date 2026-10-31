@@ -31,30 +31,11 @@ uv run immuknow ./input/sample_students.csv \
 ```
 
 Every selected file must be named `<version_id>.<language>.typ`, with
-`en` or `fr`. The notice catalog checks supplied facts for known versions;
-it never chooses a notice or language. An installed package supplies the same command,
-catalog, and resources. Use
-`--config /path/to/config` to select your own configuration and catalog.
-
-Each manifest `template` is a filename within the selected complete tree;
-paths in manifest rows are rejected. The filename supplies the selected version
-and language, and Typst independently asserts both. Use
-`--templates /path/to/my-phu` to select a complete PHU template directory
-for manifest rows. The single-file option uses its file's containing tree
-and cannot be combined with `--templates`. Missing entry points, helpers,
-and assets do not fall back to built-ins.
-
-The maintained examples are `overdue_diseases_v1` (English/French),
-which displays overdue diseases; `overdue_agents_v1` (English/French),
-which displays vaccine agents; and `affirmative_schedule_v1` (English),
-which reports that the child's immunizations are up to date. An English
-`suspension_order_v1` example contains only the order. These examples are selected
-explicitly in the manifest or with `--template`; they are never chosen
-automatically when no diseases are due. Known applicability conflicts warn
-while retaining the explicitly selected notice. No French affirmative or
-suspension example ships. Settings checks the compiler-supplied filename
-identity against the prepared facts. A conflicting source `version_id` warns;
-the explicit selection remains authoritative.
+`en` or `fr`. In an assignments file, `template` is a filename, not a path.
+Use `--templates` to select a complete custom template directory for assignments;
+`--template` uses the selected file's directory. An installed package supplies
+the same command and resources. See [selecting notices](docs/user_guide/getting_started.md#select-notices)
+for the catalog, custom directories and selection rules.
 
 Each run has its own directory beneath `--output`, with original PDFs,
 optional individual encryption, bundles, saved facts/resources, `run.json`, and
@@ -69,12 +50,12 @@ for the JSON contract.
 
 ## Author notices in Studio
 
-ImmuKnow Studio provides Template, Settings and Theme editing with matching
-prepared examples and retained findings. Download the complete Typst project
-to preserve source, Settings, translations and images. Font files are optional. Use a separately
-installed native engine for cohort processing. The
-[Studio overview](docs/user_guide/studio.md) explains the separate application
-and its connection to Core. Native usage does not require Studio.
+ImmuKnow Studio lets you edit and preview notices in your browser using
+fictional examples. Its project download includes your selected notice,
+configuration, fonts and licences, plus local setup and helper scripts from
+[ImmuKnow-Template](https://github.com/WDGPH/ImmuKnow-Template). Install the
+fonts for native use and run the project with Core on your workstation. The
+[Studio overview](docs/user_guide/studio.md) explains the handoff.
 
 ## Call from Python
 

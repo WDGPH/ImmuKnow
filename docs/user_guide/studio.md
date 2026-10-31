@@ -1,16 +1,20 @@
 # ImmuKnow Studio
 
-ImmuKnow Studio is developed in a separate repository. It edits the default
-Typst notices with its own fictional examples and exports complete authored
-projects for the native engine.
+[ImmuKnow Studio](https://immuknow.phiz.ca/) lets you edit and preview notices
+in your browser using fictional examples. It owns the browser editor, examples,
+drafts, and project import and download.
 
-Core supplies the default templates, shared Typst components, configuration
-and rendering schemas. Its [resource API](../reference/api.md#resources-for-authoring-tools)
-lets Studio build against an installed, pinned Core package.
+Download a project to keep the selected notice, configuration, supporting files,
+fonts and licences together. The download includes local setup and helper scripts
+from [ImmuKnow-Template](https://github.com/WDGPH/ImmuKnow-Template). Install its
+dependencies and fonts, then use those scripts to check the project and run
+notices with Core on your workstation. Follow Studio's
+[workstation guide](https://github.com/WDGPH/ImmuKnow-Studio/blob/main/docs/local-production.md)
+for the steps.
 
-Keep an exported project together and pass its `templates/` and `config/`
-directories to Core. See [getting started](getting_started.md) for native runs
-and [template authoring](phu_templates.md) for the rendering contract.
-
-Studio's own repository contains its editor, draft, import/export and build
-instructions. Core installation and documentation builds do not require Studio.
+Core owns the native pipeline, input and rendering schemas, validation, default
+templates and shared Typst components. Its
+[resource API](../reference/api.md#resources-for-authoring-tools) lets Studio
+build against a pinned Core package. The native package does not include fonts;
+Typst uses fonts installed on the workstation. See [getting started](getting_started.md)
+for native runs and [template authoring](phu_templates.md) for the rendering contract.

@@ -26,10 +26,11 @@ history display, QR destinations and drawing, and layout findings. The authored 
 lives under `immuknow/config/`. PHU template and configuration directories are isolated.
 Use a bounded run workspace and never write into installed package files.
 Native compilation uses system fonts; ship no font files in the native package
-and do not stage or verify a supplied font set. Studio's FreeSans/FreeSerif files
-are web assets only. Include them in downloads only when the user selects the
-option. Approximate appearance between Studio and native output
-is sufficient; keep client details and destinations correct.
+and do not stage or verify a supplied font set. Studio owns its FreeSans/FreeSerif
+web assets and includes them with licences in project downloads for manual
+installation. Downloading fonts does not install them for native Typst.
+Keep client details and destinations correct, and check representative English
+and French PDFs after font or presentation changes.
 Keep dependencies inside the project. `run_typst` isolates native package paths
 and blocks downloads before connecting, including for computed imports.
 Keep the complete `lib/immuknow/` tree unchanged. Native staging, every delivery
@@ -113,8 +114,9 @@ separate repository. Core exposes read-only resources through
 `immuknow.resources`; its internal preparation APIs remain internal. Studio
 locks an exact Core commit when using those APIs for its examples.
 
-Use plain language in the app, documentation and follow-up questions. Keep app
-instructions short and only add text that helps the person complete their task.
+Follow the [shared language and project responsibilities](docs/developer_guide/documentation.md#shared-language-and-project-responsibilities)
+standard in documentation, code, comments and application messages. Maintain
+Core's native contracts here and link to Studio and Template for their workflows.
 
 Do not commit private PHU assets or real client data. Client-linked diagnostics
 are sensitive run output. The [template guide](docs/user_guide/phu_templates.md)

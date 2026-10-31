@@ -56,7 +56,7 @@ def test_help_has_parseable_assignment_example(capsys: pytest.CaptureFixture) ->
     assert json.loads(example)[1]["experiment_arm"] == "B"
     assert "one unambiguous assignment" in help_text
     assert "--templates ./templates --output ./runs" in help_text
-    assert "basenames" in help_text
+    assert "filenames inside --templates, not paths" in help_text
 
 
 def test_run_logging_preserves_host_handlers(tmp_path: Path) -> None:

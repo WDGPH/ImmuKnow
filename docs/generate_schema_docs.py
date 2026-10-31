@@ -1,35 +1,39 @@
-from pathlib import Path
+"""Generate the CSV field reference from Core's packaged input schema."""
+
+from html import escape
 import json
+from pathlib import Path
 
-SCHEMA_FILE = Path("immuknow/schemas/input_schema.json")
-OUTPUT_FILE = Path("docs/user_guide/input_schema.md")
+ROOT = Path(__file__).resolve().parents[1]
+SCHEMA_FILE = ROOT / "immuknow/schemas/input_schema.json"
+OUTPUT_FILE = ROOT / "docs/user_guide/input_schema.md"
 
-schema = json.loads(SCHEMA_FILE.read_text())
 
-lines = []
+def main() -> None:
+    schema = json.loads(SCHEMA_FILE.read_text(encoding="utf-8"))
+    lines = [
+        "# CSV input fields\n\n",
+        "Use these column names in your input CSV. Required columns must be present; "
+        "optional columns may be omitted. Extra columns are accepted, and columns "
+        "can appear in any order.\n\n",
+        "See [Prepare input](getting_started.md#prepare-input) for file formats, "
+        "blank values and input checks.\n\n",
+        "| Column | Required | Type | Description |\n",
+        "| --- | --- | --- | --- |\n",
+    ]
+    for field in schema["fields"]:
+        required = "Yes" if field.get("constraints", {}).get("required") else "No"
+        description = (
+            field.get("description", "").replace("|", "\\|").replace("\n", " ")
+        )
+        name = escape(field["name"])
+        lines.append(
+            f'| <code style="white-space: nowrap">{name}</code> | '
+            f"{required} | {field['type']} | {description} |\n"
+        )
+    OUTPUT_FILE.write_text("".join(lines), encoding="utf-8")
+    print(f"Generated {OUTPUT_FILE}")
 
-lines.append(f"# {schema.get('title', 'Schema')}\n\n")
 
-if schema.get("description"):
-    lines.append(f"{schema['description']}\n\n")
-
-lines.append("## Schema Information\n\n")
-lines.append("| Property | Value |\n")
-lines.append("|----------|-------|\n")
-lines.append(f"| Fields | {len(schema['fields'])} |\n")
-lines.append(f"| Field Matching | {', '.join(schema.get('fieldsMatch', []))} |\n")
-
-missing_values = ", ".join(f"`{v}`" for v in schema.get("missingValues", []))
-lines.append(f"| Missing Values | {missing_values} |\n\n")
-
-lines.append("## Field Summary\n\n")
-lines.append("| Field | Type | Description |\n")
-lines.append("|-------|------|-------------|\n")
-
-for field in schema["fields"]:
-    description = field.get("description", "")
-    lines.append(f"| {field['name']} | {field['type']} | {description} |\n")
-
-OUTPUT_FILE.write_text("".join(lines), encoding="utf-8")
-
-print(f"Generated {OUTPUT_FILE}")
+if __name__ == "__main__":
+    main()

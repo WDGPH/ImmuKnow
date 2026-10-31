@@ -44,7 +44,7 @@ nav:
     - Configuration Reference: user_guide/configuration.md
     - ImmuKnow Studio: user_guide/studio.md
     - PHU Templates: user_guide/phu_templates.md
-    - Input Schema: user_guide/input_schema.md
+    - CSV input fields: user_guide/input_schema.md
     - PDF Validation: user_guide/pdf_validation.md
   - Reference:
     - Architecture: reference/architecture.md
@@ -53,4 +53,3 @@ nav:
     - Contributing: developer_guide/contributing.md
     - Testing Standards: developer_guide/testing.md
     - Documentation Standards: developer_guide/documentation.md
-    - Code Analysis: developer_guide/code_analysis.md
