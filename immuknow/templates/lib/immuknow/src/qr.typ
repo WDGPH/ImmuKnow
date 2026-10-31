@@ -40,31 +40,3 @@
     draw: if styled { draw-qr.with(module-shape: module-shape, corner-style: corner-style, logo: picture, logo-size: logo-size, logo-padding: logo-padding, logo-mask: mask) } else { none },
   ))
 }
-
-// Percent-encode UTF-8 bytes once, preserving only RFC 3986 unreserved characters.
-#let url-encode(value) = {
-  assert(type(value) == str, message: "URL component must be a string")
-  let digits = "0123456789ABCDEF"
-  array(bytes(value)).map(byte => {
-    if (byte >= 65 and byte <= 90) or (byte >= 97 and byte <= 122) or (byte >= 48 and byte <= 57) or byte in (45, 46, 95, 126) { str.from-unicode(byte) }
-    else { "%" + digits.at(calc.floor(byte / 16)) + digits.at(calc.rem(byte, 16)) }
-  }).join()
-}
-#let query-url(base, values) = {
-  assert(type(base) == str and type(values) == dictionary, message: "query-url needs a URL and a dictionary of strings")
-  if values.len() == 0 { return base }
-  let parts = base.split("#")
-  let address = parts.first()
-  let fragment = if parts.len() > 1 { "#" + parts.slice(1).join("#") } else { "" }
-  let query = values.pairs().map(pair => url-encode(pair.at(0)) + "=" + url-encode(pair.at(1))).join("&")
-  address + (if address.contains("?") { "&" } else { "?" }) + query + fragment
-}
-
-// Record a placed external link for comparison with the PDF destination.
-#let notice-link(destination, ..body) = {
-  assert(type(destination) == str and destination != "", message: "Link destination must be nonempty text")
-  context {
-    component("link", measurements: (page: here().page(), url: destination))
-    link(destination, ..body)
-  }
-}

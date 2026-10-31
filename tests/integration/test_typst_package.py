@@ -10,6 +10,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 import pytest
+import pymupdf
 from pypdf import PdfReader
 from pypdf.generic import DictionaryObject
 
@@ -169,6 +170,111 @@ def test_placed_links_get_basic_https_and_multiple_destination_findings(
         assert (
             "different link destinations" in checks["content.multiple_links"]["message"]
         )
+
+
+@pytest.mark.parametrize("label", ["Read the record", "Consultez votre dossier"])
+@pytest.mark.parametrize(
+    "option", ["", ", keep-together: true", ", keep-together: false"]
+)
+def test_link_labels_stay_together_by_default_with_a_wrapping_opt_out(
+    tmp_path, label, option
+):
+    report, reader = compile_package(
+        tmp_path,
+        "#set page(width: 200pt, height: 150pt, margin: 20pt, footer: none)\n"
+        '#set text(font: "FreeSans", size: 10pt)\n'
+        "#box(width: 110pt)[Before] "
+        f'#immuknow.notice-link("https://example.org/records"{option})[{label}] After',
+    )
+    checks = [
+        check for check in report["checks"] if check["code"] == "layout.link_width"
+    ]
+    keep_together = "false" not in option
+    assert [check["status"] for check in checks] == (["pass"] if keep_together else [])
+    with pymupdf.open(tmp_path / "notice.pdf") as pdf:
+        words = pdf[0].get_text("words")
+    before = next(word for word in words if word[4] == "Before")
+    linked = [word for word in words if word[4] in label.split()]
+    after = next(word for word in words if word[4] == "After")
+    assert len(linked) == len(label.split())
+    if keep_together:
+        assert len({(word[5], word[6]) for word in linked}) == 1
+        assert linked[0][1] > before[1]
+        assert after[1] == pytest.approx(linked[0][1])
+    else:
+        assert len({(word[5], word[6]) for word in linked}) > 1
+        assert linked[0][1] == pytest.approx(before[1])
+    assert reader.pages[0].annotations
+    assert (
+        reader.pages[0].annotations[0].get_object()["/A"]["/URI"]
+        == "https://example.org/records"
+    )
+
+
+@pytest.mark.parametrize(
+    "option", ["", ", keep-together: false", ", keep-together: true"]
+)
+def test_oversized_link_wraps_with_its_complete_text_and_destination(tmp_path, option):
+    label = "Read the record information"
+    report, reader = compile_package(
+        tmp_path,
+        "#set page(width: 200pt, height: 150pt, margin: 20pt, footer: none)\n"
+        '#set text(font: "FreeSans", size: 10pt)\n'
+        f'#block(width: 65pt)[#immuknow.notice-link("https://example.org/records"{option})[{label}]]',
+    )
+    checks = [
+        check for check in report["checks"] if check["code"] == "layout.link_width"
+    ]
+    assert [check["status"] for check in checks] == (
+        [] if "false" in option else ["warn"]
+    )
+    with pymupdf.open(tmp_path / "notice.pdf") as pdf:
+        words = pdf[0].get_text("words")
+    assert [word[4] for word in words] == label.split()
+    assert len({(word[5], word[6]) for word in words}) > 1
+    assert all(word[2] <= 85.1 for word in words)
+    assert reader.pages[0].annotations
+    assert all(
+        annotation.get_object()["/A"]["/URI"] == "https://example.org/records"
+        for annotation in reader.pages[0].annotations
+    )
+
+
+@pytest.mark.parametrize("explicit_breaks", [False, True])
+def test_long_kept_labels_can_continue_across_pages_without_losing_text(
+    tmp_path, explicit_breaks
+):
+    phrase = (
+        "Read record" if explicit_breaks else "Read the vaccination record information"
+    )
+    label = (phrase + ("#linebreak()" if explicit_breaks else " ")) * 20
+    report, reader = compile_package(
+        tmp_path,
+        "#set page(width: 200pt, height: 150pt, margin: 20pt, footer: none)\n"
+        '#set text(font: "FreeSans", size: 10pt)\n'
+        f'#immuknow.notice-link("https://example.org/records", keep-together: true)[{label}]',
+    )
+    assert len(reader.pages) > 1
+    words = " ".join(" ".join(page.extract_text().split()) for page in reader.pages)
+    assert words == " ".join([phrase] * 20)
+    assert any(
+        check["code"] == "layout.link_width"
+        and check["status"] == ("pass" if explicit_breaks else "warn")
+        for check in report["checks"]
+    )
+
+
+def test_reused_kept_link_checks_each_enclosing_width_independently(tmp_path):
+    report, _ = compile_package(
+        tmp_path,
+        '#let kept = immuknow.notice-link("https://example.org/records", keep-together: true)[Read the record information]\n'
+        "#block(width: 160pt)[#kept]\n#block(width: 65pt)[#kept]",
+    )
+    checks = [
+        check for check in report["checks"] if check["code"] == "layout.link_width"
+    ]
+    assert [check["status"] for check in checks] == ["pass", "warn"]
+    assert len(report["measurements"]["link"]) == 2
 
 
 def test_package_import_and_unused_history_require_no_facts(tmp_path: Path) -> None:

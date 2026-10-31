@@ -4,6 +4,9 @@ Import `lib.typ` from the authored project. Importing the package does not read
 client data, inspect compiler inputs, or render components. Python supplies the
 prepared facts described by `immuknow/schemas/rendering-v1.json`.
 
+Text links and URL helpers live in `src/links.typ`; QR rendering lives in
+`src/qr.typ`. Use the public helpers exported by `lib.typ` in your templates.
+
 Wrap the whole document with `#show: immuknow.notice-style.with(notice: notice)`.
 The wrapper requires the prepared notice and emits one `<immuknow-report>`
 metadata element. `notice-page` applies page styling; `notice-section(title)[body]`
@@ -51,6 +54,12 @@ display-default adapter or separate layout-settings file.
 
 `notice-link(destination)[label]` records an external link's destination and
 starting page for PDF checks. The label is optional, as with Typst's `link`.
+Link text stays together by default and moves to the next line when needed. If it
+is wider than a whole line in its enclosing paragraph, column or box, it wraps
+normally and reports `layout.link_width` as a warning. Text is not shrunk or
+clipped by the helper. Explicit line breaks in an authored label remain. Use
+`notice-link(destination, keep-together: false)[label]` to allow normal wrapping
+without this width warning.
 
 For client-specific links, encode raw query values once:
 

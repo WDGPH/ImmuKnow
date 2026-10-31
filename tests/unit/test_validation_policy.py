@@ -236,6 +236,7 @@ def test_encryption_failure_does_not_invalidate_print_original():
         "content.multiple_links",
         "layout.client_details_in_window",
         "layout.envelope_window_missing",
+        "layout.link_width",
     ],
 )
 def test_destination_and_window_warnings_can_be_configured(change, status, code):

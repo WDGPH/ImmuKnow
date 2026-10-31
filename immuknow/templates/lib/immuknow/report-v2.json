@@ -819,6 +819,15 @@
               ]
             },
             {
+              "const": "layout.link_width",
+              "description": "Kept link text fits the available line width",
+              "x-evaluator": "Typst link",
+              "x-adjustable": true,
+              "x-components": [
+                "link"
+              ]
+            },
+            {
               "const": "content.link_https",
               "description": "Web links use HTTPS and include a host",
               "x-evaluator": "Typst report",
