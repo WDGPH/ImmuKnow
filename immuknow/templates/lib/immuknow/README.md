@@ -51,11 +51,12 @@ display-default adapter or separate layout-settings file.
 
 `notice-link(destination)[label]` records an external link's destination and
 starting page for PDF checks. The label is optional, as with Typst's `link`.
-Use `notice-link(destination, keep-together: true)[label]` to prevent automatic
-line breaks inside the link text. It moves to the next line when needed. If it
+Link text stays together by default and moves to the next line when needed. If it
 is wider than a whole line in its enclosing paragraph, column or box, it wraps
 normally and reports `layout.link_width` as a warning. Text is not shrunk or
-clipped by the helper. Explicit line breaks in an authored label remain.
+clipped by the helper. Explicit line breaks in an authored label remain. Use
+`notice-link(destination, keep-together: false)[label]` to allow normal wrapping
+without this width warning.
 
 For client-specific links, encode raw query values once:
 

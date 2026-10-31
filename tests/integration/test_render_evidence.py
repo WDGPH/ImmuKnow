@@ -516,15 +516,20 @@ def test_placed_links_match_pdf_destinations_without_a_qr_code(tmp_path, url):
     assert all(c.status in ("pass", "not_applicable") for c in checks)
 
 
-@pytest.mark.parametrize("keep_together", [False, True])
+@pytest.mark.parametrize("keep_together", [None, False, True])
 def test_link_evidence_follows_an_automatic_page_break(tmp_path, keep_together):
     job, _ = prepare_case(tmp_path)
+    option = (
+        ""
+        if keep_together is None
+        else f", keep-together: {str(keep_together).lower()}"
+    )
     job.template.write_text(
         '#import "settings.typ": *\n#show: notice-style\n'
         '#let unused = immuknow.notice-link("https://example.org/unused")\n'
         "#immuknow.client-block(notice)\n#v(500pt)\n"
-        '#text(size: 40pt)[#immuknow.notice-link("https://example.org/record", '
-        f"keep-together: {str(keep_together).lower()})[Read the record]]"
+        '#text(size: 40pt)[#immuknow.notice-link("https://example.org/record"'
+        f"{option})[Read the record]]"
     )
     summary, _ = compile_case(job)
     assert summary["measurements"]["link"] == [
@@ -539,8 +544,7 @@ def test_oversized_kept_link_records_a_reviewable_warning_in_native_evidence(tmp
     job.template.write_text(
         '#import "settings.typ": *\n#show: notice-style\n'
         "#immuknow.client-block(notice)\n"
-        '#block(width: 65pt)[#immuknow.notice-link("https://example.org/record", '
-        "keep-together: true)[Read the record information]]"
+        '#block(width: 65pt)[#immuknow.notice-link("https://example.org/record")[Read the record information]]'
     )
     summary, reader = compile_case(job)
     checks = {check["code"]: check for check in summary["checks"]}

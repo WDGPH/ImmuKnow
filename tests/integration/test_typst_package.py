@@ -173,28 +173,37 @@ def test_placed_links_get_basic_https_and_multiple_destination_findings(
 
 
 @pytest.mark.parametrize("label", ["Read the record", "Consultez votre dossier"])
-def test_kept_link_moves_intact_to_the_next_line(tmp_path, label):
+@pytest.mark.parametrize(
+    "option", ["", ", keep-together: true", ", keep-together: false"]
+)
+def test_link_labels_stay_together_by_default_with_a_wrapping_opt_out(
+    tmp_path, label, option
+):
     report, reader = compile_package(
         tmp_path,
         "#set page(width: 200pt, height: 150pt, margin: 20pt, footer: none)\n"
         '#set text(font: "FreeSans", size: 10pt)\n'
         "#box(width: 110pt)[Before] "
-        f'#immuknow.notice-link("https://example.org/records", keep-together: true)[{label}] After',
+        f'#immuknow.notice-link("https://example.org/records"{option})[{label}] After',
     )
     checks = [
         check for check in report["checks"] if check["code"] == "layout.link_width"
     ]
-    assert len(checks) == 1
-    assert checks[0]["status"] == "pass"
+    keep_together = "false" not in option
+    assert [check["status"] for check in checks] == (["pass"] if keep_together else [])
     with pymupdf.open(tmp_path / "notice.pdf") as pdf:
         words = pdf[0].get_text("words")
     before = next(word for word in words if word[4] == "Before")
     linked = [word for word in words if word[4] in label.split()]
     after = next(word for word in words if word[4] == "After")
     assert len(linked) == len(label.split())
-    assert len({(word[5], word[6]) for word in linked}) == 1
-    assert linked[0][1] > before[1]
-    assert after[1] == pytest.approx(linked[0][1])
+    if keep_together:
+        assert len({(word[5], word[6]) for word in linked}) == 1
+        assert linked[0][1] > before[1]
+        assert after[1] == pytest.approx(linked[0][1])
+    else:
+        assert len({(word[5], word[6]) for word in linked}) > 1
+        assert linked[0][1] == pytest.approx(before[1])
     assert reader.pages[0].annotations
     assert (
         reader.pages[0].annotations[0].get_object()["/A"]["/URI"]
@@ -217,7 +226,7 @@ def test_oversized_link_wraps_with_its_complete_text_and_destination(tmp_path, o
         check for check in report["checks"] if check["code"] == "layout.link_width"
     ]
     assert [check["status"] for check in checks] == (
-        ["warn"] if "true" in option else []
+        [] if "false" in option else ["warn"]
     )
     with pymupdf.open(tmp_path / "notice.pdf") as pdf:
         words = pdf[0].get_text("words")

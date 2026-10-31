@@ -61,7 +61,7 @@
 }
 
 // Record a placed external link for comparison with the PDF destination.
-#let notice-link(destination, keep-together: false, ..body) = {
+#let notice-link(destination, keep-together: true, ..body) = {
   assert(type(destination) == str and destination != "", message: "Link destination must be nonempty text")
   assert(type(keep-together) == bool, message: "Link keep-together must be boolean")
   if keep-together { context {
