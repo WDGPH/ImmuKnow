@@ -30,6 +30,11 @@ display-default adapter or separate layout-settings file.
 - `check-notice(notice, version: ..., language: ...)` checks the authored filename
   identity against prepared facts. The caller obtains the trusted identity from
   `notice-version` and `notice-language` compiler inputs.
+- `reader(notice)` returns `"student"`, `"guardian"` or `none`. An explicit
+  `notice.reader` takes priority over the age default. Address helpers use this
+  same selection. Template setup exposes boolean `to_student` and `to_guardian`
+  flags, with both false when the reader is unknown. Reader choice never changes
+  age facts or supplies another person's contact details.
 - `notice-dates(notice)` returns localized delivery, as-of, and birth dates.
   `long-date(iso, language, required: false)` leaves unknown dates blank.
 - `notice-header(title: ..., logo: ...)` centers the title beside the logo and
@@ -38,7 +43,7 @@ display-default adapter or separate layout-settings file.
   client ID, with details beside the address or below it (`details: "below"`).
   `id-label: "Record number"` changes the label. Each placed ID records its
   source row, value and measured area for checking against the PDF text.
-  The source province is the default. Unknown age uses a neutral addressee;
+  The source province is the default. An unknown reader uses a neutral addressee;
   unknown birth dates remain blank and produce a warning when displayed.
   It warns if the client-details area enters the first-page envelope window.
   `window: none` keeps the default block layout without claiming window fit.

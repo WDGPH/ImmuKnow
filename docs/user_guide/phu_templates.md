@@ -116,10 +116,22 @@ contacts, for example:
 Link destinations are checked for HTTPS, email or telephone address format;
 the checks do not establish that a destination exists or responds.
 
-Shared setup exposes `notice.client_data.over_16` directly as `over_16`.
-Use explicit `true`, `false` and unknown branches for `over_16`.
-Unknown birth/age never means under 16. The maintained examples use neutral
-client wording in that case. Address components use the source province.
+Shared setup supplies boolean `to_student` and `to_guardian` flags:
+
+```typst
+#if to_student [you have] else if to_guardian [your child has] else [the named client has]
+```
+
+Only one flag can be true. Core's `reader(notice)` helper uses the source
+`reader` choice first, then the age default: student at 16 or older, guardian
+under 16. Without a choice or known age, both flags are false and the neutral
+branch applies. Address components use the same selection and source province.
+Use a helper's explicit `addressee:` option when authored wording requires a
+particular label. The suspension starter uses the same reader flags for its service wording,
+reader heading and default addressee. Age facts remain available independently
+of the intended reader.
+See [intended reader](getting_started.md#intended-reader) for CSV overrides and
+mailing destinations.
 
 Link labels stay together by default:
 
@@ -141,6 +153,7 @@ it before compilation; strings remain literal data rather than executable source
 | `schema_version` | Integer `1` |
 | `row_key`, `client_id` | Stable original CSV row key and string source identifier |
 | `template`, `version_id`, `language` | Explicit selected filename and its resolved identity |
+| `reader` | Optional `student` or `guardian` override; null or absent uses the age default in Typst |
 | `client_data` | Name parts, full name, address/city/province/postal code, school, ISO birth date, age and `over_16` |
 | `school`, `board` | Source name and identifier |
 | `date_of_delivery`, `date_as_of` | ISO dates or blank |

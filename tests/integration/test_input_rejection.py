@@ -151,3 +151,54 @@ def test_corrected_history_creates_a_new_run_and_keeps_the_rejection(tmp_path):
     )
     assert "MMR" in text
     assert rejected.read_bytes() == saved_rejection
+
+
+def test_invalid_reader_rejects_the_cohort_before_rendering(tmp_path):
+    command, output, _ = prepare_cohort(tmp_path, ("en", "en"))
+    source = command[3]
+    frame = pd.read_csv(source, dtype=str, keep_default_na=False)
+    frame["reader"] = ["guardian", "guardain"]
+    frame.to_csv(source, index=False)
+    result = run_cli(command, tmp_path)
+    assert result.returncode == 1, result.stdout + result.stderr
+    (saved,) = output.glob("*/run.json")
+    record = json.loads(saved.read_text())
+    assert record["status"] == "rejected_input"
+    assert record["entries"][1]["source"]["values"]["reader"] == "guardain"
+    assert any(
+        check["code"] == "source.reader_invalid" and check["status"] == "fail"
+        for check in record["entries"][1]["checks"]
+    )
+    assert not list(saved.parent.rglob("*.pdf"))
+
+
+def test_reader_overrides_reach_notices_and_saved_facts_without_changing_age(tmp_path):
+    command, output, _ = prepare_cohort(tmp_path, ("en", "en"))
+    source = command[3]
+    frame = pd.read_csv(source, dtype=str, keep_default_na=False)
+    frame["date_of_birth"] = ["2008-01-02", "2018-01-02"]
+    frame["reader"] = ["guardian", "student"]
+    frame.to_csv(source, index=False)
+    result = run_cli(command, tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    (saved,) = output.glob("*/run.json")
+    record = json.loads(saved.read_text())
+    for entry, reader, over_16, addressee in zip(
+        record["entries"],
+        ["guardian", "student"],
+        [True, False],
+        ["To Parent/Guardian of:", "To:"],
+    ):
+        assert entry["source"]["values"]["reader"] == reader
+        facts = entry["facts"]["prepared"]
+        assert facts["reader"] == reader
+        assert facts["person"]["over_16"] is over_16
+        text = " ".join(
+            PdfReader(saved.parent / entry["original"]["path"])
+            .pages[0]
+            .extract_text()
+            .split()
+        )
+        assert addressee in text
+        if reader == "student":
+            assert "To Parent/Guardian of:" not in text

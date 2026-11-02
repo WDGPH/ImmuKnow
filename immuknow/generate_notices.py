@@ -112,6 +112,7 @@ def build_notice_data(client: ClientRecord, config: dict[str, Any]) -> dict[str,
         "template": f"{client.version_id}.{client.language}.typ",
         "version_id": client.version_id,
         "language": client.language,
+        "reader": client.reader,
         "client_data": {
             "name": " ".join(
                 filter(None, [client.person["first_name"], client.person["last_name"]])

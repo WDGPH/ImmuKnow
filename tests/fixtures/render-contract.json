@@ -1443,6 +1443,67 @@
           "value": 3
         }
       ]
+    },
+    {
+      "name": "explicit student reader override",
+      "valid": true,
+      "changes": [
+        {
+          "target": "payload",
+          "path": [
+            "reader"
+          ],
+          "value": "student"
+        },
+        {
+          "target": "report",
+          "path": [
+            "notice",
+            "reader"
+          ],
+          "value": "student"
+        }
+      ]
+    },
+    {
+      "name": "invalid reader value",
+      "valid": false,
+      "changes": [
+        {
+          "target": "payload",
+          "path": [
+            "reader"
+          ],
+          "value": "parent"
+        }
+      ]
+    },
+    {
+      "name": "reader must not be boolean",
+      "valid": false,
+      "changes": [
+        {
+          "target": "payload",
+          "path": [
+            "reader"
+          ],
+          "value": true
+        }
+      ]
+    },
+    {
+      "name": "report reader differs from prepared facts",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "notice",
+            "reader"
+          ],
+          "value": "guardian"
+        }
+      ]
     }
   ]
 }

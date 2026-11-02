@@ -729,8 +729,8 @@
               ]
             },
             {
-              "const": "content.address_age_unknown",
-              "description": "Addressee age is known",
+              "const": "content.address_reader_unknown",
+              "description": "Intended reader is known",
               "x-evaluator": "Typst address",
               "x-adjustable": false,
               "x-components": [

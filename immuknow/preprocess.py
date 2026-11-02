@@ -376,6 +376,16 @@ def build_preprocess_result(
                     "Age is unknown; source birth date or delivery date is absent or unusable",
                 )
             )
+        if row["reader"] not in ("", "student", "guardian"):
+            checks.append(
+                CheckResult(
+                    "source.reader_invalid",
+                    "preparation",
+                    "fail",
+                    "Reader must be student, guardian or blank. Correct the source before rendering.",
+                    measurements={"column": "reader", "value": row["reader"]},
+                )
+            )
         overdue_warnings: set[str] = set()
         overdue = parse_overdue_diseases(
             row["overdue_disease"],
@@ -471,6 +481,9 @@ def build_preprocess_result(
                 overdue_agents=overdue_agents,
                 metadata={"row_key": key},
                 version_id=row["version_id"] or None,
+                reader=row["reader"]
+                if row["reader"] in ("student", "guardian")
+                else None,
                 history=history,
                 validity_coverage=coverage,
                 unparsed_history=[issue.fragment for issue in parsed.issues],

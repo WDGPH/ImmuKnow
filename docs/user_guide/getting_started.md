@@ -61,6 +61,19 @@ with each source row in `run.json`.
 The packaged input schema defines the columns and cannot be replaced through
 `--config`.
 
+### Intended reader
+
+The optional `reader` column accepts `student` or `guardian`. An explicit choice
+controls both ordinary letter wording and the default address addressee,
+regardless of age. Leave it blank to use the default: students aged 16 or older
+receive student wording, younger clients receive guardian wording, and unknown
+age uses neutral wording. Reader selection does not change the birth date or age.
+
+Supply the mailing destination in the existing street, city, province and postal
+code columns. A reader choice does not create guardian contact details. Invalid
+values reject the cohort before any notices are rendered; correct the source
+and run it again. Saved source rows retain the supplied choice.
+
 ### History format
 
 End every administration with a semicolon, including the last, as in Panorama

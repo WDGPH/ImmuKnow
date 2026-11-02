@@ -914,3 +914,49 @@ def test_saved_report_is_rechecked_before_replacing_bundles(tmp_path):
             path: path.read_bytes()
             for path in (saved.parent / "bundles").rglob("*.pdf")
         } == active
+
+
+@pytest.mark.parametrize("language", ["en", "fr"])
+@pytest.mark.parametrize(
+    "over_16,override,selected",
+    [
+        (True, None, "student"),
+        (False, None, "guardian"),
+        (None, None, None),
+        (True, "guardian", "guardian"),
+        (False, "student", "student"),
+        (None, "guardian", "guardian"),
+        (None, "student", "student"),
+    ],
+)
+def test_reader_selection_matches_both_address_components(
+    tmp_path, language, over_16, override, selected
+):
+    job, payload = prepare_case(tmp_path, language=language)
+    payload["client_data"]["over_16"] = over_16
+    payload["reader"] = override
+    job.data.write_text(json.dumps(payload))
+    expected = "none" if selected is None else json.dumps(selected)
+    job.template.write_text(
+        '#import "settings.typ": *\n#show: letter\n'
+        f"#assert(immuknow.reader(notice) == {expected})\n"
+        "#immuknow.client-block(notice, window: none)\n"
+        "#immuknow.address-block(notice)\n"
+    )
+    report, _ = compile_case(job)
+    label = (
+        ("To Parent/Guardian of:" if language == "en" else "Au parent ou tuteur de:")
+        if selected == "guardian"
+        else ("To:" if language == "en" else "À:")
+    )
+    assert len(report["measurements"]["address"]) == 2
+    assert all(
+        item["text"].startswith(label) and item["source_matches"]
+        for item in report["measurements"]["address"]
+    )
+    unknown = [
+        check
+        for check in report["checks"]
+        if check["code"] == "content.address_reader_unknown"
+    ]
+    assert len(unknown) == (2 if selected is None else 0)

@@ -492,3 +492,21 @@ def test_empty_agent_fragments_keep_source_warning_and_valid_independent_facts(
     assert not any(f.status == "fail" for f in assignment.findings)
     for client in result.clients:
         validate_render_payload(build_notice_data(client, {}))
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "source,expected", [("guardian", "guardian"), (" student ", "student"), ("", None)]
+)
+def test_reader_override_is_preserved_without_changing_age(source, expected):
+    frame = source_rows().iloc[:1].copy()
+    frame["reader"] = source
+    result, _ = prepare(frame)
+    (client,) = result.clients
+    assert client.reader == expected
+    assert client.person["age"] == 16
+    assert client.person["over_16"] is True
+    assert result.source_rows[client.sequence]["reader"] == source
+    payload = build_notice_data(client, {"date_of_delivery": "2026-10-12"})
+    assert payload["reader"] == expected
+    validate_render_payload(payload)
