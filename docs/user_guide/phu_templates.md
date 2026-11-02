@@ -193,6 +193,8 @@ helper used the same data. Native and browser checks compare it with the prepare
 `immunization-history` accepts disease columns, ignored agents, validity markers,
 Other-column inclusion, invalid-dose omission and chart styling. Settings
 supplies the shared defaults; named options on a call change that table only.
+The unspecified-agent footnote appears only when a displayed vaccine name
+contains the `*` marker. Ignored agents and omitted invalid doses do not trigger it.
 Whole-cohort mixed validity produces a warning when
 validity display is requested. Invalid source history rejects input before
 rendering; its fragments remain in the run report. Omitted components produce

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from immuknow.preprocess import build_history_items, parse_history
 from immuknow.resources import typst_library_root
 
 import json
@@ -317,6 +318,51 @@ def test_package_import_and_unused_history_require_no_facts(tmp_path: Path) -> N
     )
     assert result.returncode == 0, result.stderr
     assert result.stderr == ""
+
+
+@pytest.mark.parametrize("language", ["en", "fr"])
+@pytest.mark.parametrize(
+    "raw,options,expected",
+    [
+        ("", "", False),
+        ("2020-01-01 - MMR;", "", False),
+        ("2020-01-01 - HB-unspecified;", "", True),
+        ("2020-01-01 - HB unspecified;", "", True),
+        (
+            "2020-01-01 - HB-unspecified; 2020-01-01 - MMR;",
+            'ignore-agents: ("HB-unspecified",),',
+            False,
+        ),
+        (
+            "2020-01-01 - HB-unspecified - Invalid; 2020-01-01 - MMR - Valid;",
+            "show-validity: true, omit-invalid: true,",
+            False,
+        ),
+        (
+            "2020-01-01 - HB-unspecified - Invalid; 2020-01-01 - MMR - Valid;",
+            "show-validity: true,",
+            True,
+        ),
+    ],
+    ids=["empty", "specified", "hyphen", "space", "ignored", "omitted", "mixed"],
+)
+def test_history_unspecified_footnote_follows_displayed_agents(
+    tmp_path: Path, language: str, raw: str, options: str, expected: bool
+) -> None:
+    history = build_history_items(parse_history(raw).doses, [], {})
+    _, reader = compile_package(
+        tmp_path,
+        f"#let notice = (..notice, history: json(bytes({json.dumps(json.dumps(history))})))\n"
+        f'#immuknow.immunization-history(notice, language: "{language}", {options})',
+    )
+    text = " ".join(page.extract_text() for page in reader.pages)
+    footnote = (
+        "*indicates unspecified vaccine agent"
+        if language == "en"
+        else "*indique un agent vaccinal non spécifié"
+    )
+    assert (footnote in text) == expected
+    assert ("HB*" in text) == expected
 
 
 @pytest.mark.parametrize("show_history", [False, True])

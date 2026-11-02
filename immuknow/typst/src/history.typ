@@ -116,7 +116,7 @@
       table.cell(align: center + horizon, text(size: heading-size, headings.vaccine)),
     ),
     ..cells,
-    footer(headings.unspecified),
+    ..if view.rows.any(row => row.agents.any(agent => agent.contains("*"))) { (footer(headings.unspecified),) } else { () },
     ..if view.show-validity {
       (footer(grid(columns: (disease-width, 1fr), gutter: 4pt, align: (center + horizon, left + horizon), indicator("valid"), headings.valid)),) + if omit-invalid { () } else { (footer(grid(columns: (disease-width, 1fr), gutter: 4pt, align: (center + horizon, left + horizon), indicator("invalid"), headings.invalid)),) }
     } else { () },
