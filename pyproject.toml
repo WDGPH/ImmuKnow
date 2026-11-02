@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools==84.1.0", "wheel==0.48.0"]
+requires = ["setuptools==84.2.1", "wheel==0.48.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
@@ -36,23 +36,23 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "setuptools==84.1.0",
+    "setuptools==84.2.1",
     "wheel==0.48.0",
-    "ruff==0.13.0",
-    "pymupdf==1.28.2",
+    "ruff==0.17.2",
+    "pymupdf==2.0",
     "zxing-cpp==3.1.1",
     "pytest",
     "pytest-cov",
     "pre-commit",
-    "ty>=0.0.78",
+    "ty>=0.0.91",
     "pytest-xdist>=3.8.0",
 ]
 docs = [
     "jinja2>=3.1.6",
     "pygments>=2.21.0",
     "mkdocs>=1.6.0",
-    "mkdocs-material>=9.5.15",
-    "pymdown-extensions>=11.0.2",
+    "mkdocs-material>=9.8.0",
+    "pymdown-extensions>=12.3",
 ]
 
 [project.scripts]
