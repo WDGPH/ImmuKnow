@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from immuknow.resources import typst_library_root
+
 import json
 import os
 import shutil
@@ -19,7 +21,7 @@ pytestmark = pytest.mark.integration
 
 
 def compile_package(tmp_path: Path, body: str) -> tuple[dict, PdfReader]:
-    shutil.copytree(ROOT / "immuknow/templates/lib", tmp_path / "lib")
+    shutil.copytree(typst_library_root(), tmp_path / "lib/immuknow")
     notice = {
         "schema_version": 1,
         "version_id": "test",
@@ -297,7 +299,7 @@ def test_reused_kept_link_checks_each_enclosing_width_independently(tmp_path):
 
 
 def test_package_import_and_unused_history_require_no_facts(tmp_path: Path) -> None:
-    shutil.copytree(ROOT / "immuknow/templates/lib", tmp_path / "lib")
+    shutil.copytree(typst_library_root(), tmp_path / "lib/immuknow")
     source = tmp_path / "import.typ"
     source.write_text('#import "lib/immuknow/lib.typ" as immuknow\nImported.')
     result = subprocess.run(

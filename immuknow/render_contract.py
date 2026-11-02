@@ -1,20 +1,18 @@
 """Validate placed report structure and its association with one notice."""
 
 import json
-from importlib.resources import files
 from typing import Any
 
 from jsonschema import Draft202012Validator, ValidationError
 
+from .resources import typst_library_root
 from .structured_input import parse_json
 from .render_payload import validate_render_payload
 
 
 def report_schema() -> dict:
     return parse_json(
-        files("immuknow")
-        .joinpath("templates/lib/immuknow/report-v2.json")
-        .read_text(encoding="utf-8")
+        typst_library_root().joinpath("report-v2.json").read_text(encoding="utf-8")
     )
 
 

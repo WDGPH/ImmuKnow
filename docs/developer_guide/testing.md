@@ -13,12 +13,12 @@ checks should protect a distinct boundary, not meet a test-count or coverage quo
 | --- | --- |
 | Core | Native input and validation rules, notice output, delivery and recovery, installed distribution, and supported Python versions. |
 | [Studio](https://github.com/WDGPH/ImmuKnow-Studio/blob/main/docs/development.md) | Browser editing, UI, drafts, archives, and the browser-to-native project handoff. |
-| [Template](https://github.com/WDGPH/ImmuKnow-Template/blob/main/README.md) | Local helper commands and paths, the client-data guard, shared-library integration, and one sample run through Core. It does not reimplement Core's input or output validation. |
+| [Template](https://github.com/WDGPH/ImmuKnow-Template/blob/main/README.md) | Local helper commands and paths, the client-data guard, shared-library integration, starter wording and layout, and one sample run through Core. It does not reimplement Core's input or output validation. |
 
 Core and Studio deliberately run shared rendering contract cases against both
 native and browser validators. Each implementation must accept and reject the
-same evidence. Core owns comprehensive tests for the maintained notice families;
-Studio's native handoff cases cover a customized English notice using both
+same evidence. Template owns wording and page-count tests for the maintained starters;
+Core tests rendering contracts with small unbranded projects. Studio's native handoff cases cover a customized English notice using both
 selectors, a long French history spanning pages, and French source warnings
 followed by saved-run rebundling.
 
@@ -30,8 +30,8 @@ Maintainers choose the higher-cost checks for riskier changes and releases, and
 run relevant browser checks locally when UI, drafts, archives or resources change.
 See Studio's development guide for the commands.
 
-Template CI runs setup-only readiness checks and a single shared native sample
-fixture through pytest on each of its three supported Python versions. It does
+Template CI runs setup-only readiness checks, starter presentation checks and a
+single shared native sample fixture through pytest on each of its three supported Python versions. It does
 not also run `check.py --sample` in the same CI job. Studio's downloadable
 project includes the helpers and `check.py --sample` for workstation readiness;
 it does not include Template's maintainer pytest tests.
@@ -100,7 +100,7 @@ uv run --locked --group docs mkdocs serve --dev-addr 0.0.0.0:8000
 | Boundary | Coverage | Tests |
 | --- | --- | --- |
 | Input preparation | Original row identity, complete histories, disease mappings, source warnings, ambiguous assignments and malformed configuration | `tests/unit/`, `test_pipeline_contracts.py`, `test_input_rejection.py` |
-| Typst presentation | Placed findings, English/French wording, client details, QR destinations, continuation and suspension layout | `test_typst_package.py`, `test_native_templates.py`, `test_render_evidence.py` |
+| Typst presentation | Placed findings, English/French wording, client details, QR destinations, continuation and suspension layout | `test_typst_package.py`, `test_native_project.py`, `test_render_evidence.py` |
 | Native runs | Both selectors, independent failures, setup failures, retained facts and authoritative run records | `test_run_accounting.py`, `test_native_deadlines.py`, `tests/e2e/` |
 | Delivery | Encryption, warning review, page identity, fixed page counts, saved-run recovery and process locks | `test_delivery_checks.py`, `test_encrypted_pdfs.py`, `test_saved_run_delivery.py`, `test_run_lock.py` |
 | Installed distribution | Relocated wheel, public resource access, provenance and operation without checkout imports or browser tooling | `test_installed_package.py`, `test_native_build.py` |

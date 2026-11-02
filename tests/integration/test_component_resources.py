@@ -1,13 +1,14 @@
 """Authored notices keep the complete engine-supplied component library."""
 
+from tests.fixtures.project import copy_project
+
 import json
-import shutil
 from hashlib import sha256
 from pathlib import Path
 
 import pytest
 
-from tests.integration.test_native_pipeline import ROOT, prepare_cohort, run_cli
+from tests.integration.test_native_pipeline import prepare_cohort, run_cli
 
 pytestmark = pytest.mark.integration
 
@@ -19,7 +20,7 @@ pytestmark = pytest.mark.integration
 def test_changed_library_stops_cohort_before_rendering(tmp_path: Path, change: str):
     command, output, _ = prepare_cohort(tmp_path)
     templates = tmp_path / "templates"
-    shutil.copytree(ROOT / "immuknow/templates", templates)
+    copy_project(templates)
     library = templates / "lib/immuknow"
     component = library / "src/findings.typ"
     if change == "changed":

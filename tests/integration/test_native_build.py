@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+
 import json
 import os
 import shutil
@@ -146,7 +147,7 @@ def test_readonly_source_build_and_rebuild_without_git_studio_or_typst(tmp_path)
     assert rebuilt_info["package_files"] == info["package_files"]
 
     # Editing unpacked source keeps its known starting revision and reports the change.
-    changed = rebuild_source / "immuknow/templates/settings.typ"
+    changed = rebuild_source / "immuknow/typst/lib.typ"
     changed.chmod(0o644)
     changed.write_bytes(changed.read_bytes() + b"\n// Changed after unpacking\n")
     modified = tmp_path / "modified"

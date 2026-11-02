@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from tests.fixtures.project import copy_project
+
 import json
 import shutil
 import subprocess
@@ -35,7 +37,11 @@ def prepare_inputs(tmp_path):
     frame["overdue_disease"] = "Measles - 2"
     frame["overdue_agent"] = "M"
     frame.to_csv(source, index=False)
-    return source, config, ROOT / "immuknow/templates/overdue_diseases_v1.en.typ"
+    return (
+        source,
+        config,
+        copy_project(tmp_path / "templates") / "overdue_diseases_v1.en.typ",
+    )
 
 
 @pytest.fixture

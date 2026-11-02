@@ -11,13 +11,10 @@ immuknow = [
     "schemas/*.json",
     "config/*.json",
     "config/*.yaml",
-    "templates/*.typ",
-    "templates/assets/*",
-    "templates/translations/*.json",
-    "templates/lib/immuknow/*",
-    "templates/lib/immuknow/src/*.typ",
-    "templates/lib/immuknow/locales/*.json",
-    "templates/lib/immuknow/vendor/codetastic/*",
+    "typst/*",
+    "typst/src/*.typ",
+    "typst/locales/*.json",
+    "typst/vendor/codetastic/*",
     "review_templates/*.typ",
 ]
 

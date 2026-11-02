@@ -3,12 +3,16 @@
 Install Python 3.11 or later, [uv](https://docs.astral.sh/uv/), and
 [Typst 0.15.1](https://typst.app/docs/changelog/0.15.1/). Put `typst`
 on `PATH`, set `TYPST_BIN`, or configure `typst.bin` in
-`parameters.yaml`. From a checkout:
+`parameters.yaml`. Obtain a starter project from
+[ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template) or download a
+project from Studio. Core contains no starter letters. With the project in
+`./my-project`, run from a Core checkout:
 
 ```bash
 uv sync
 uv run immuknow ./input/sample_students.csv \
-  --notice-assignments ./input/sample_assignments.json --output ./runs
+  --notice-assignments ./input/sample_assignments.json \
+  --templates ./my-project/templates --config ./my-project/config --output ./runs
 ```
 
 `input/sample_students.csv` and `input/sample_assignments.json` contain
@@ -85,7 +89,8 @@ Select exactly one route for the whole CSV:
 - `--notice-assignments PATH` reads a JSON manifest. Each client
   needs a `client_id` and a `template` filename such as
   `overdue_agents_v1.fr.typ`. The filename selects version and language
-  within the packaged or selected complete template tree.
+  within the complete template tree supplied with the required
+  `--templates DIRECTORY` option.
 - `--template PATH` selects one such `.typ` file for all
   clients. Its filename supplies the version and language. Known applicability
   conflicts warn without changing this explicit choice.

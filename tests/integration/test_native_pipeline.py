@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from tests.fixtures.project import copy_project
 from tests.fixtures.sample_input import create_test_input_dataframe
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -46,6 +47,7 @@ def prepare_cohort(
             ]
         )
     )
+    templates = copy_project(tmp_path / "Cohort templates")
     output = tmp_path / "Notices été"
     command = [
         sys.executable,
@@ -56,6 +58,8 @@ def prepare_cohort(
         str(output),
         "--config",
         str(config_dir),
+        "--templates",
+        str(templates),
         "--notice-assignments",
         str(assignments),
     ]

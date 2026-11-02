@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
+from tests.fixtures.project import copy_project
+
 import json
 import os
-import shutil
 import subprocess
 
 import pymupdf
 import pytest
 
 from immuknow.bundle_pdfs import bundle_run
-from tests.integration.test_native_pipeline import ROOT, prepare_cohort, run_cli
+from tests.integration.test_native_pipeline import prepare_cohort, run_cli
 
 pytestmark = pytest.mark.integration
 
@@ -28,7 +29,7 @@ def test_native_notice_uses_fonts_available_locally(tmp_path, family, pdf_font):
         pytest.skip(f"{family} is not installed on this machine")
     command, output, _ = prepare_cohort(tmp_path, ("en", "fr"))
     templates = tmp_path / "templates"
-    shutil.copytree(ROOT / "immuknow/templates", templates)
+    copy_project(templates)
     settings = templates / "settings.typ"
     settings.write_text(
         settings.read_text().replace(

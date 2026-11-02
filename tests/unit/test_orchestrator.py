@@ -24,7 +24,16 @@ def test_import_does_not_configure_host_logging(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("selector", ["--template", "--notice-assignments"])
 def test_cli_selection(selector: str) -> None:
-    with patch("sys.argv", ["immuknow", "students.csv", selector, "selection"]):
+    with patch(
+        "sys.argv",
+        [
+            "immuknow",
+            "students.csv",
+            selector,
+            "selection",
+            *(["--templates", "project"] if selector == "--notice-assignments" else []),
+        ],
+    ):
         args = orchestrator.parse_args()
     assert args.input_file == Path("students.csv")
     assert (args.notice_template is None) != (args.notice_assignments is None)
@@ -66,3 +75,25 @@ def test_run_logging_preserves_host_handlers(tmp_path: Path) -> None:
         raise ValueError("deliberate failure")
     assert (logger.level, tuple(logger.handlers)) == before
     assert "Run failed" in (tmp_path / "run.log").read_text()
+
+
+def test_assignments_require_an_explicit_template_project():
+    with (
+        patch(
+            "sys.argv",
+            ["immuknow", "students.csv", "--notice-assignments", "assignments.json"],
+        ),
+        pytest.raises(SystemExit) as failure,
+    ):
+        orchestrator.parse_args()
+    assert failure.value.code == 2
+
+
+def test_python_assignments_require_an_explicit_template_project(tmp_path):
+    with pytest.raises(ValueError, match="requires template_dir"):
+        orchestrator.run_pipeline(
+            tmp_path / "input.csv",
+            tmp_path / "runs",
+            notice_assignments=tmp_path / "assignments.json",
+        )
+    assert not (tmp_path / "runs").exists()

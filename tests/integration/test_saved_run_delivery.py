@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from tests.fixtures.project import copy_project
+
 import json
 import shutil
 import subprocess
@@ -29,7 +31,7 @@ def test_saved_run_review_and_rebundle_journey(tmp_path: Path) -> None:
     config = tmp_path / "config"
     templates = tmp_path / "templates"
     shutil.copytree(ROOT / "immuknow/config", config)
-    shutil.copytree(ROOT / "immuknow/templates", templates)
+    copy_project(templates)
     parameters = yaml.safe_load((config / "parameters.yaml").read_text())
     # Generate the native originals first; this scenario then exercises the
     # separate delivery API, while orchestration integration is checked centrally.
@@ -302,7 +304,7 @@ def test_saved_rule_changes_recheck_originals_and_preserve_earlier_results(tmp_p
     config = tmp_path / "config"
     templates = tmp_path / "templates"
     shutil.copytree(ROOT / "immuknow/config", config)
-    shutil.copytree(ROOT / "immuknow/templates", templates)
+    copy_project(templates)
     parameters = yaml.safe_load((config / "parameters.yaml").read_text())
     parameters["bundling"] = {"bundle_size": 10}
     parameters["encryption"]["enabled"] = False

@@ -20,6 +20,7 @@ import zxingcpp
 from pypdf import PdfReader
 from pypdf.generic import DictionaryObject
 
+from tests.fixtures.project import copy_project
 from tests.fixtures.sample_input import create_test_input_dataframe
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -76,23 +77,15 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
             "build.json",
             "schemas/input_schema.json",
             "schemas/rendering-v1.json",
-            "templates/settings.typ",
-            "templates/presentation.typ",
-            "templates/lib/immuknow/lib.typ",
-            "templates/lib/immuknow/src/findings.typ",
-            "templates/lib/immuknow/vendor/codetastic/LICENSE",
-            "templates/assets/logo.png",
-            "templates/assets/signature.png",
-            "templates/suspension_order_v1.en.typ",
+            "typst/lib.typ",
+            "typst/src/findings.typ",
+            "typst/vendor/codetastic/LICENSE",
             "review_templates/review_sheet.typ",
             "review_templates/review_stamp.typ",
         ):
             assert f"immuknow/{resource}" in names
-        for language in ("en", "fr"):
-            for domain in ("diseases_chart", "diseases_overdue"):
-                assert (
-                    f"immuknow/templates/translations/{language}_{domain}.json" in names
-                )
+        assert not any(name.startswith("immuknow/templates/") for name in names)
+        assert not any(name.startswith("tests/") for name in names)
         assert not any(
             name.endswith((".ttf", ".otf", ".woff", ".woff2")) for name in names
         )
@@ -193,7 +186,7 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
             "from hashlib import sha256; "
             "from immuknow.resources import resource_root, rendering_build_info; "
             "p = resource_root(); b = rendering_build_info(); "
-            "assert (p / 'templates/settings.typ').is_file(); "
+            "assert not (p / 'templates').exists(); assert (p / 'typst/lib.typ').is_file(); "
             "assert (p / 'config/parameters.yaml').is_file(); "
             "assert b['rendering_schema_version'] == 1; "
             "assert b['core_source_revision']; "
@@ -251,6 +244,7 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
         "TYPST_BIN": str(native_bin / "typst"),
     }
     native_env.pop("PYTHONPATH", None)
+    project = copy_project(tmp_path / "External project")
     run_checked(
         [
             str(python),
@@ -272,13 +266,13 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
                 "-c",
                 "from pathlib import Path; from immuknow.orchestrator import run_pipeline; "
                 f"p=run_pipeline(Path({str(source)!r}),Path({str(manifest_output)!r}),"
-                f"config_dir=Path({str(config_dir)!r}),notice_assignments=Path({str(assignments)!r})); assert p.name=='run.json'",
+                f"config_dir=Path({str(config_dir)!r}),template_dir=Path({str(project)!r}),notice_assignments=Path({str(assignments)!r})); assert p.name=='run.json'",
             ],
             unrelated,
             native_env,
         )
         custom = tmp_path / "Private PHU modèles"
-        shutil.copytree(installed / "templates", custom)
+        shutil.copytree(project, custom)
         for path in [custom, *custom.rglob("*")]:
             path.chmod(0o755 if path.is_dir() else 0o644)
         labels_path = custom / "translations/fr_diseases_overdue.json"

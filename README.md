@@ -9,12 +9,16 @@
 
 Install Python 3.11 or later, [uv](https://docs.astral.sh/uv/),
 and Typst 0.15.1.
-From a checkout:
+Start with a project from [ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template)
+or a Studio project download. Core supplies the engine and shared library;
+it includes no starter letters, Settings, example branding or project translations.
+The commands below assume that project is in `./my-project`. From a Core checkout:
 
 ```bash
 uv sync
 uv run immuknow ./input/sample_students.csv \
-  --notice-assignments ./input/sample_assignments.json --output ./runs
+  --notice-assignments ./input/sample_assignments.json \
+  --templates ./my-project/templates --config ./my-project/config --output ./runs
 ```
 
 `input/sample_students.csv` and `input/sample_assignments.json` contain
@@ -26,13 +30,13 @@ one `template` filename per client, or pass one
 
 ```bash
 uv run immuknow ./input/sample_students.csv \
-  --template immuknow/templates/overdue_diseases_v1.en.typ \
-  --output ./runs
+  --template ./my-project/templates/overdue_diseases_v1.en.typ \
+  --config ./my-project/config --output ./runs
 ```
 
 Every selected file must be named `<version_id>.<language>.typ`, with
 `en` or `fr`. In an assignments file, `template` is a filename, not a path.
-Use `--templates` to select a complete custom template directory for assignments;
+`--notice-assignments` requires `--templates` to select a complete template project;
 `--template` uses the selected file's directory. An installed package supplies
 the same command and resources. See [selecting notices](docs/user_guide/getting_started.md#select-notices)
 for the catalog, custom directories and selection rules.
@@ -67,6 +71,8 @@ record_path = run_pipeline(
     Path("students.csv"),
     Path("runs"),
     notice_assignments=Path("assignments.json"),
+    template_dir=Path("my-project/templates"),
+    config_dir=Path("my-project/config"),
 )
 ```
 
@@ -77,10 +83,12 @@ its evidence.
 
 ## Development
 
-The wheel contains the complete Typst project without font files. Native
+The wheel contains the shared Typst library under `typst/`, schemas, reference
+configuration and internal review layouts. Starter projects live in Template.
+Core tests use small unbranded fixtures outside the distribution. Native
 compilation uses system fonts and saves the project resources it uses. A relocated custom project keeps its own Settings, translations,
 assets and library. Python supplies normalized facts; display choices and
-QR destinations belong in Typst Settings. Native use needs no Node, Rust, or browser.
+QR destinations belong in the supplied project’s Typst files. Native use needs no Node, Rust, or browser.
 
 ```bash
 uv sync --all-groups

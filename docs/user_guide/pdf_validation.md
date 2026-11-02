@@ -151,7 +151,7 @@ required evidence and PDF readability cannot be disabled or downgraded.
 Other rules retain their recorded severity. `immuknow/validation_policy.py` owns
 policy resolution
 and mandatory protections. Render check definitions come from the shared
-`templates/lib/immuknow/report-v2.json` schema in the package.
+`typst/report-v2.json` schema in the package.
 
 To change settings for a saved run, put the contents of the `validation` section
 in a JSON file and run:

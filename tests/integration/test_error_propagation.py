@@ -55,7 +55,13 @@ def test_setup_failure_is_recorded_without_purging_prior_output(
     sentinel = output / "prior.txt"
     sentinel.write_text("prior output")
     with pytest.raises(error, match=diagnostic):
-        run_pipeline(source, output, notice_assignments=manifest, config_dir=config_dir)
+        run_pipeline(
+            source,
+            output,
+            notice_assignments=manifest,
+            config_dir=config_dir,
+            template_dir=Path(command[command.index("--templates") + 1]),
+        )
     assert sentinel.read_text() == "prior output"
     record_path = next(output.glob("*/run.json"))
     record = json.loads(record_path.read_text())

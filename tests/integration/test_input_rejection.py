@@ -10,7 +10,7 @@ import pytest
 from pypdf import PdfReader
 
 from immuknow.orchestrator import run_pipeline
-from tests.integration.test_native_pipeline import ROOT, prepare_cohort, run_cli
+from tests.integration.test_native_pipeline import prepare_cohort, run_cli
 
 pytestmark = pytest.mark.integration
 
@@ -30,10 +30,11 @@ def test_bad_history_rejects_every_row_through_both_entry_points(
         "2020-02-31 - Not Specified - Valid; 2020-05-01 - MMR - Valid - Invalid;"
     )
     frame.to_csv(source, index=False)
-    template = ROOT / "immuknow/templates/overdue_agents_v1.en.typ"
+    templates = Path(command[command.index("--templates") + 1])
+    template = templates / "overdue_agents_v1.en.typ"
     assignments = command[-1]
     if selection == "template":
-        command[-2:] = ["--template", str(template)]
+        command[-4:] = ["--template", str(template)]
     if mode == "cli":
         result = run_cli(command, tmp_path)
         assert result.returncode == 1, result.stdout + result.stderr
@@ -45,6 +46,7 @@ def test_bad_history_rejects_every_row_through_both_entry_points(
             config_dir=config,
             notice_template=template if selection == "template" else None,
             notice_assignments=Path(assignments) if selection == "manifest" else None,
+            template_dir=templates if selection == "manifest" else None,
         )
     record = json.loads(saved.read_text())
     assert record["status"] == "rejected_input"
@@ -98,9 +100,12 @@ def test_identifier_and_assignment_problems_are_collected_before_rejection(
     rows.pop(2)
     assignments.write_text(json.dumps(rows))
     if selection == "template":
-        command[-2:] = [
+        command[-4:] = [
             "--template",
-            str(ROOT / "immuknow/templates/overdue_agents_v1.en.typ"),
+            str(
+                Path(command[command.index("--templates") + 1])
+                / "overdue_agents_v1.en.typ"
+            ),
         ]
     result = run_cli(command, tmp_path)
     assert result.returncode == 1

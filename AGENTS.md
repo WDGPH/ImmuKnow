@@ -5,8 +5,10 @@ Follow the [shared language and project responsibilities](docs/developer_guide/d
 for documentation, application messages, code, comments and docstrings.
 
 Core owns native inputs, validation, notice selection, shared rendering resources,
-saved runs and delivery. Browser editing belongs in ImmuKnow Studio; workstation
-setup and helper commands belong in ImmuKnow Template. Update the owning guide
+saved runs and delivery. Browser editing belongs in ImmuKnow Studio; starter projects, wording, Settings, translations, example branding, workstation
+setup and helper commands belong in ImmuKnow Template. Core ships no starter
+letters. Use small unbranded test fixtures for engine contracts; Template owns
+starter wording and page-count tests. Update the owning guide
 and link to it from the other projects instead of copying the explanation.
 
 Follow the [testing strategy](docs/developer_guide/testing.md), including the

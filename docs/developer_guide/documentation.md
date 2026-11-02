@@ -29,12 +29,17 @@ Give each shared contract one maintained owner:
 | --- | --- |
 | ImmuKnow Core | Native inputs, notice selection, rendering resources, validation, saved runs and delivery |
 | ImmuKnow Studio | Browser editing, previews, fictional examples, and project import and download |
-| ImmuKnow Template | Local project setup, helper commands, readiness checks and project tests |
+| ImmuKnow Template | Starter letters, Settings, display translations, example branding, project configuration, local setup, helper commands and starter tests |
 
 Link to the owning guide for details. Include enough context and commands for a
 reader to complete the current task without reconstructing it across
 repositories. A short handoff summary is useful; competing specifications of
 validation or delivery are not.
+
+Core ships no starter project. Template maintains the authored starters; Studio
+consumes a verified pinned snapshot and owns its fictional client scenarios.
+Core owns the shared library, schemas and rendering/validation behavior.
+Its small unbranded test projects are fixtures, not supported starter notices.
 
 Keep names readers must recognize exact: commands, flags, paths, API names,
 schema fields, check codes and status values. Explain what they mean rather

@@ -14,7 +14,7 @@ from immuknow import bundle_pdfs, compile_notices, run_report
 from immuknow.orchestrator import run_pipeline
 from immuknow.validate_pdfs import inspect_notice
 from tests.fixtures.sample_input import create_test_input_dataframe
-from tests.integration.test_native_templates import prepare_case, compile_case
+from tests.integration.test_native_project import prepare_case, compile_case
 from tests.integration.test_run_accounting import prepare_inputs
 
 pytestmark = pytest.mark.integration

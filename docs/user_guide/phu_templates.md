@@ -10,24 +10,26 @@ project exports. This guide owns the native facts and Typst component contract.
 
 ## Select a complete project
 
-Copy `immuknow/templates/`, including `settings.typ`, `presentation.typ`,
-`assets/`, `translations/` and `lib/immuknow/`, to a directory you control.
-The six maintained entry points are English/French overdue disease and agent
-notices, an English affirmative notice and an English suspension order.
+Get a starter project from [ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template)
+or download your authored project from Studio. Template owns the starter letters,
+Settings, display translations and example images. Core supplies the shared
+Typst library and native contracts; its package contains no starter project.
+Keep `settings.typ`, `presentation.typ`, `assets/`, `translations/` and
+`lib/immuknow/` together in the project's `templates/` directory.
 
 ```bash
-cp -r immuknow/templates ./my-phu
-immuknow clients.csv --template ./my-phu/overdue_diseases_v1.en.typ --output ./runs
-immuknow clients.csv --notice-assignments ./assignments.json --templates ./my-phu --output ./runs
+immuknow clients.csv --template ./my-project/templates/overdue_diseases_v1.en.typ --config ./my-project/config --output ./runs
+immuknow clients.csv --notice-assignments ./assignments.json --templates ./my-project/templates --config ./my-project/config --output ./runs
 ```
 
-Keep PHU templates outside the ImmuKnow checkout, or beneath its
-`phu_templates/` directory, which Git ignores. The directory name has no
-meaning to the CLI; always pass the path explicitly.
+Manifest runs require an explicit `--templates` directory. Single-template runs
+use the selected file's directory. The directory name has no meaning to the CLI.
+Every run stages its own copy and preserves the original authored files.
 
-For an installed wheel, use `importlib.resources.files("immuknow")` to locate
-and copy its `templates` directory. The selected tree supplies all authored
-helpers and assets. It is staged once in the run; installed files remain read-only.
+For your own project, `immuknow.resources.typst_library_root()` locates the
+engine's library. Copy that directory to `templates/lib/immuknow/`. Template's
+`sync_lib.py` helper does this after an engine upgrade. Obtain starter changes
+from Template separately from Core upgrades.
 
 Keep `lib/immuknow/` complete and unchanged, including its nested files. Native
 runs, saved-run delivery and Studio check its bytes against the supplied library;

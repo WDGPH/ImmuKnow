@@ -48,7 +48,6 @@ from . import (
 # isort: on
 
 DEFAULT_OUTPUT_DIR = Path.cwd() / "runs"
-DEFAULT_TEMPLATES_DIR = Path(str(files("immuknow").joinpath("templates")))
 DEFAULT_CONFIG_DIR = Path(str(files("immuknow").joinpath("config")))
 
 
@@ -113,7 +112,7 @@ Each run keeps its own originals, run.json and report.html under --output.
         type=Path,
         default=None,
         dest="template_dir",
-        help="Template directory for --notice-assignments (default: packaged examples).",
+        help="Required template project directory for --notice-assignments.",
     )
     selection = parser.add_mutually_exclusive_group(required=True)
     selection.add_argument(
@@ -128,7 +127,14 @@ Each run keeps its own originals, run.json and report.html under --output.
         help="One <version_id>.<language>.typ template file for every client.",
     )
 
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.notice_assignments is not None and args.template_dir is None:
+        parser.error(
+            "--notice-assignments requires --templates DIRECTORY; Core supplies no starter templates"
+        )
+    if args.notice_template is not None and args.template_dir is not None:
+        parser.error("--template supplies its own directory; omit --templates")
+    return args
 
 
 @contextmanager
@@ -183,7 +189,11 @@ def run_pipeline(
     if notice_template is not None:
         notice_template = notice_template.parent.resolve() / notice_template.name
         template_dir = notice_template.parent
-    template_dir = (template_dir or DEFAULT_TEMPLATES_DIR).resolve()
+    if template_dir is None:
+        raise ValueError(
+            "notice_assignments requires template_dir; supply a template project"
+        )
+    template_dir = template_dir.resolve()
     notice_assignments = notice_assignments.resolve() if notice_assignments else None
     for source in (input_path, config_dir, template_dir, notice_assignments):
         if source is not None:

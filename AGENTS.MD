@@ -21,8 +21,9 @@ end-to-end results, not obsolete step APIs.
 Python owns source checks, normalized facts, applicability warnings, explicit
 assignment reconciliation, encryption, and grouping. Upstream systems assess
 immunization status. Typst owns notice prose, labels, dates, dose wording,
-history display, QR destinations and drawing, and layout findings. The authored entry points and assets live under
-`immuknow/templates/`, including project translations; factual configuration
+history display, QR destinations and drawing, and layout findings. Authored starter entry points, Settings, assets and project translations live in
+ImmuKnow Template. Core ships its shared library under `immuknow/typst/` and
+uses small unbranded projects only as test fixtures; factual configuration
 lives under `immuknow/config/`. PHU template and configuration directories are isolated.
 Use a bounded run workspace and never write into installed package files.
 Native compilation uses system fonts; ship no font files in the native package

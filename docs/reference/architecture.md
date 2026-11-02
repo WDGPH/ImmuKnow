@@ -102,7 +102,7 @@ font discovery and creation timestamp. One `<immuknow-report>` summary supplies 
 actual pages, component presence, checks, measurements and QR destinations.
 The entry's `render_summary` retains that report.
 The version 2 report schema is supplied at
-`templates/lib/immuknow/report-v2.json`. It owns render check names, component
+`typst/report-v2.json`. It owns render check names, component
 names and field types. Native and browser validators use it and the same
 valid/invalid examples. They also check source row and filename association,
 page bounds, page order and agreement between component presence and findings.

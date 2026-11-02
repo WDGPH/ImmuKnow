@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from tests.fixtures.project import copy_project
+
 import json
 from pathlib import Path
 
@@ -52,10 +54,7 @@ def test_prepared_facts_survive_staged_json_round_trip(
         catalog=catalog(),
         manifest=assigned_manifest(df, "fr"),
     )
-    shutil.copytree(
-        Path(__file__).resolve().parents[2] / "immuknow/templates",
-        tmp_path / "resources/templates",
-    )
+    copy_project(tmp_path / "resources/templates")
     job = prepare_render_jobs(result.clients, tmp_path, config)[0]
     payload = json.loads(job.data.read_text())
     client = result.clients[0]

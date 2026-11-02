@@ -14,9 +14,11 @@ in `immuknow/schemas/input_schema.json`; it is maintained with preparation code.
 | `school_reference.json` | Optional school matching reference |
 | `notice_versions.yaml` | Named applicability checks for explicitly selected notices |
 
-Authored display choices belong in `templates/settings.typ`. This includes
+Authored project configuration and starter letters are maintained in ImmuKnow
+Template. Core ships reference configuration and accepts `--config DIRECTORY`.
+Authored display choices belong in the project’s `templates/settings.typ`. This includes
 history columns, hidden agents, validity markers, overdue dose wording, QR
-options, page geometry, theme, assets and contact details. Approved display
+options, page geometry, theme and assets. Contact details belong directly in the letter source. Approved display
 labels live in `templates/translations/`. Python preserves all normalized
 administrations and mappings independently of those choices. Retired Python
 settings (`qr`, `preprocess`, `ignore_agents`, `chart_diseases_header` and

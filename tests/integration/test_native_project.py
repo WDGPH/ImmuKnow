@@ -1,10 +1,11 @@
-"""Compile maintained entry points and retain semantic, literal-data and label checks."""
+"""External fixture projects exercise engine identity, literal-data and label contracts."""
 
 from __future__ import annotations
 
+from tests.fixtures.project import copy_project
+
 import json
 import os
-import shutil
 import subprocess
 from dataclasses import replace
 from pathlib import Path
@@ -24,7 +25,7 @@ pytestmark = pytest.mark.integration
 def prepare_case(
     workspace: Path, version: str = "overdue_diseases_v1", language: str = "en"
 ):
-    shutil.copytree(ROOT / "immuknow/templates", workspace / "resources/templates")
+    copy_project(workspace / "resources/templates")
     client = replace(
         create_test_client_record(has_received_vaccines=True, language=language),
         version_id=version,
@@ -47,112 +48,25 @@ def compile_case(job):
     return report, reader
 
 
-@pytest.mark.parametrize(
-    "version,language,title,selected_wording,pages",
-    [
-        (
-            "overdue_diseases_v1",
-            "en",
-            "Request for Immunization Record",
-            "your child has",
-            2,
-        ),
-        (
-            "overdue_diseases_v1",
-            "fr",
-            "Demande de dossier d'immunisation",
-            "votre enfant n’a",
-            2,
-        ),
-        (
-            "overdue_agents_v1",
-            "en",
-            "Request for Immunization Record",
-            "your child has",
-            2,
-        ),
-        (
-            "overdue_agents_v1",
-            "fr",
-            "Demande de dossier d'immunisation",
-            "votre enfant n’a",
-            2,
-        ),
-        (
-            "affirmative_schedule_v1",
-            "en",
-            "Request for Immunization Record",
-            "your child is",
-            2,
-        ),
-        (
-            "suspension_order_v1",
-            "en",
-            "Order for Suspension from Attendance at School",
-            "twenty school days",
-            1,
-        ),
-    ],
-)
-def test_maintained_entry_points_keep_their_content_and_component_choices(
-    tmp_path: Path,
-    version: str,
-    language: str,
-    title: str,
-    selected_wording: str,
-    pages: int,
+@pytest.mark.parametrize("language", ["en", "fr"])
+def test_external_project_records_its_identity_and_placed_components(
+    tmp_path, language
 ):
-    job, _ = prepare_case(tmp_path, version, language)
+    job, _ = prepare_case(tmp_path, language=language)
     report, reader = compile_case(job)
-    first = " ".join(reader.pages[0].extract_text().split())
-    assert title in first
-    assert selected_wording in first
-    assert "0000000001" in first
-    assert reader.root_object["/Lang"] == language + "-CA"
-    assert len(reader.pages) == pages
     assert report["identity"] == {
         "row_key": job.sequence,
         "template": job.template.name,
         "client_id": "0000000001",
-        "version_id": version,
+        "version_id": "overdue_diseases_v1",
         "language": language,
     }
-    assert (
-        job.template.read_bytes()
-        == (ROOT / "immuknow/templates" / job.template.name).read_bytes()
-    )
-    assert not any(
-        "MARK_END_" in page.extract_text() or "MEASURE_" in page.extract_text()
-        for page in reader.pages
-    )
-    suspension = version == "suspension_order_v1"
-    assert report["components"]["history"] is (not suspension)
-    assert report["components"]["privacy"] is (not suspension)
-    privacy_text = (
-        "The information in this notice was collected"
-        if language == "en"
-        else "Les renseignements figurant dans cet avis"
-    )
-    assert privacy_text not in first
-    if not suspension:
-        last = " ".join(reader.pages[-1].extract_text().split())
-        assert privacy_text in last
-        assert report["measurements"]["privacy"] == [{"page": pages}]
-        assert any(
-            check["code"] == "layout.privacy_page" and check["status"] == "pass"
-            for check in report["checks"]
-        )
-        assert "2020-05-01" in last and "DTaP" in last
-        assert (
-            "End of immunization record"
-            if language == "en"
-            else "Fin du dossier d’immunisation"
-        ) in last
-    if version == "overdue_agents_v1":
-        assert "MMR" in first and "DTaP" in first
-        assert ("• Measles" if language == "en" else "• Rougeole") not in first
-    elif version == "overdue_diseases_v1":
-        assert ("Measles" if language == "en" else "Rougeole") in first
+    assert reader.root_object["/Lang"] == language + "-CA"
+    assert len(reader.pages) == 2
+    assert "0000000001" in reader.pages[0].extract_text()
+    for component in ("client", "history", "privacy", "qr", "link"):
+        assert report["components"][component]
+    assert report["measurements"]["privacy"] == [{"page": 2}]
 
 
 @pytest.mark.parametrize(
@@ -198,7 +112,7 @@ def compile_presentation_probe(
 ) -> subprocess.CompletedProcess:
     """Evaluate the maintained presentation helper with the real Typst compiler."""
     workspace.mkdir(parents=True)
-    shutil.copytree(ROOT / "immuknow" / "templates", workspace / "templates")
+    copy_project(workspace / "templates")
     probe = workspace / "probe.typ"
     probe.write_text('#import "/templates/presentation.typ" as presentation\n' + body)
     return subprocess.run(
