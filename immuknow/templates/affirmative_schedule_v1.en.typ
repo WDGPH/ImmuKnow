@@ -34,8 +34,8 @@ Thank you for helping to keep our children safe.
   Sincerely,
 
 #immuknow.signature-block(
-  signature: signature,
-  name: signature-name,
+  signature: image("assets/signature.png", width: 4.5cm), // Change width; height follows the image’s aspect ratio.
+  name: "Dr. Annie Body",
   title: "Associate Medical Officer of Health",
 )
 

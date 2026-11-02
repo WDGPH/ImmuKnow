@@ -16,13 +16,12 @@
 
 As of *#date_as_of* our files show that #if notice.client_data.over_16 == true [you have] else if notice.client_data.over_16 == false [your child has] else [the named client has] not received the following immunization(s):
 
-#set list(indent: 0.8cm)
 #strong(
   immuknow.overdue-diseases(
     notice,
-    style: list-style,
-    columns: list-columns,
-    include-dose: include-dose,
+    style: "bullets",
+    columns: 1,
+    include-dose: false,
     labels: presentation.selected-labels(),
   )
 )
@@ -50,8 +49,8 @@ If you have any questions, please call #health-unit-phone.
   Sincerely,
 
 #immuknow.signature-block(
-  signature: signature,
-  name: signature-name,
+  signature: image("assets/signature.png", width: 4.5cm), // Change width; height follows the image’s aspect ratio.
+  name: "Dr. Annie Body",
   title: "Associate Medical Officer of Health",
 )
 

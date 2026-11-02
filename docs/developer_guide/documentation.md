@@ -65,6 +65,21 @@ can help a review; repository guides do not need that development history.
 Omit agent attribution and detailed verification logs. Include validation details
 only when they help a reviewer understand a material risk or limitation.
 
+## Template authoring principles
+
+Design for the person reading and editing the source. Keep choices close to where
+they take effect, and introduce indirection when it expresses a shared meaning
+or removes meaningful duplication. Prefer explicit, discoverable configuration
+over conventions an author must already know.
+
+Give components useful defaults with local, understandable overrides. Keep
+concepts independently editable when their meanings differ, even if their
+initial example values happen to match.
+
+Make editing conveniences serve clear authored source. Preserve the author's
+intent and control as work moves through editing, resets and downloads. Put
+shared behavior in its owning project and link to it from the others.
+
 ## Publish through the documentation hub
 
 Documentation stays here. The public [WDGPH documentation hub](https://docs.phiz.ca/)

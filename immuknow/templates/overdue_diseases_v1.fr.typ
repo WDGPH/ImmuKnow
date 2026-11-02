@@ -16,13 +16,12 @@
 
 En date du *#date_as_of*, nos dossiers indiquent que #if notice.client_data.over_16 == true [vous n'avez] else if notice.client_data.over_16 == false [votre enfant n'a] else [la personne nommée n'a] pas reçu les immunisations suivantes :
 
-#set list(indent: 0.8cm)
 #strong(
   immuknow.overdue-diseases(
     notice,
-    style: list-style,
-    columns: list-columns,
-    include-dose: include-dose,
+    style: "bullets",
+    columns: 1,
+    include-dose: false,
     labels: presentation.selected-labels(),
   )
 )
@@ -50,8 +49,8 @@ Si vous avez des questions sur #if notice.client_data.over_16 == true [vos vacci
   Sincères salutations,
 
 #immuknow.signature-block(
-  signature: signature,
-  name: signature-name,
+  signature: image("assets/signature.png", width: 4.5cm), // Change width; height follows the image’s aspect ratio.
+  name: "Dr. Annie Body",
   title: "Médecin hygiéniste adjoint",
 )
 

@@ -16,3 +16,6 @@ need documentation checks, not native or browser rebuilds.
 
 Keep changes small and focused. Use a branch for changes and preserve unrelated
 work. Keep real client data and private assets out of examples and test fixtures.
+
+Prefer clear, direct authoring and abstractions that earn their complexity. Follow
+Core's [authoring principles](docs/developer_guide/documentation.md#template-authoring-principles).

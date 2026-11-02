@@ -1,7 +1,7 @@
 #import "localization.typ": overdue-label
 #import "findings.typ": component
 
-#let items-grid(items, columns, spacing, row-spacing, empty, style) = {
+#let items-grid(items, columns, spacing, row-spacing, empty, style, indent) = {
   assert(style in ("bullets", "comma-separated"), message: "style must be bullets or comma-separated")
   if columns == auto { columns = 2 }
   assert(type(columns) == int and columns > 0, message: "columns must be a positive integer or auto")
@@ -10,22 +10,22 @@
   if style == "comma-separated" { return items.join(", ") }
   // Row-major reading order: left to right, then top to bottom.
   grid(columns: (1fr,) * columns, column-gutter: spacing, row-gutter: row-spacing,
-    ..items.map(item => list(tight: true, item)))
+    ..items.map(item => list(tight: true, indent: indent, item)))
 }
 
-#let overdue-diseases(notice, style: "bullets", columns: auto, include-dose: false, spacing: 12pt, row-spacing: 4pt, empty: none, language: auto, labels: none) = {
+#let overdue-diseases(notice, style: "bullets", columns: auto, indent: 0.8cm, include-dose: false, spacing: 12pt, row-spacing: 4pt, empty: none, language: auto, labels: none) = {
   let lang = if language == auto { notice.language } else { language }
   assert(lang in ("en", "fr"), message: "Unsupported notice language")
   let doses = include-dose
   assert(type(doses) == bool, message: "include-dose must be a boolean")
   component("overdue_diseases", notice: notice)
   let items = notice.overdue_diseases.map(entry => overdue-label(entry, doses, lang, labels: labels))
-  items-grid(items, columns, spacing, row-spacing, empty, style)
+  items-grid(items, columns, spacing, row-spacing, empty, style, indent)
 }
 
-#let overdue-agents(notice, style: "bullets", columns: auto, spacing: 12pt, row-spacing: 4pt, empty: none, language: auto) = {
+#let overdue-agents(notice, style: "bullets", columns: auto, indent: 0.8cm, spacing: 12pt, row-spacing: 4pt, empty: none, language: auto) = {
   let lang = if language == auto { notice.language } else { language }
   assert(lang in ("en", "fr"), message: "Unsupported notice language")
   component("overdue_agents", notice: notice)
-  items-grid(notice.overdue_agents, columns, spacing, row-spacing, empty, style)
+  items-grid(notice.overdue_agents, columns, spacing, row-spacing, empty, style, indent)
 }

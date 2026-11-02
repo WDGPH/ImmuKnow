@@ -16,8 +16,7 @@
 
 En date du *#date_as_of*, nos dossiers indiquent que #if notice.client_data.over_16 == true [vous n'avez] else if notice.client_data.over_16 == false [votre enfant n'a] else [la personne nommée n'a] pas reçu les immunisations suivantes :
 
-#set list(indent: 0.8cm)
-#strong(immuknow.overdue-agents(notice, columns: list-columns))
+#strong(immuknow.overdue-agents(notice, columns: 1))
 
 Veuillez examiner le dossier d'immunisation à la page 2 et mettre à jour #if notice.client_data.over_16 == true [votre dossier] else if notice.client_data.over_16 == false [le dossier de votre enfant] else [le dossier de la personne nommée] en utilisant l'une des options suivantes :
 
@@ -42,8 +41,8 @@ Si vous avez des questions sur #if notice.client_data.over_16 == true [vos vacci
   Sincères salutations,
 
 #immuknow.signature-block(
-  signature: signature,
-  name: signature-name,
+  signature: image("assets/signature.png", width: 4.5cm), // Change width; height follows the image’s aspect ratio.
+  name: "Dr. Annie Body",
   title: "Médecin hygiéniste adjoint",
 )
 
