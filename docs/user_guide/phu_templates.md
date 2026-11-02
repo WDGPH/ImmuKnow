@@ -178,7 +178,7 @@ Use an explicit image path and width inside the signature block:
 ```typst
 #immuknow.signature-block(
   signature: image("assets/signature.png", width: 4.5cm),
-  name: signature-name,
+  name: "Dr. Annie Body",
   title: "Medical Officer of Health",
 )
 ```
@@ -238,3 +238,8 @@ pipeline also records findings and delivery accounting. Inspect English/French,
 unknown-age, long-address and long-history examples, including QR links,
 window placement, signatures, symbols and page continuation. The
 [testing guide](../developer_guide/testing.md) describes repeatable checks.
+
+Keep the printed name directly in the signature call. It may include credentials,
+for example `name: "Dr. Annie Body, MD"`. The suspension order defines a separate
+`order-signatory-name` in its Template for the legal wording, without requiring
+the printed signature to use exactly the same text.

@@ -50,7 +50,7 @@ Si vous avez des questions sur #if notice.client_data.over_16 == true [vos vacci
 
 #immuknow.signature-block(
   signature: image("assets/signature.png", width: 4.5cm), // Change width; height follows the image’s aspect ratio.
-  name: signature-name,
+  name: "Dr. Annie Body",
   title: "Médecin hygiéniste adjoint",
 )
 

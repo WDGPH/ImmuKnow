@@ -116,10 +116,15 @@ Show the signature image path and size directly in the block:
 ```typst
 #immuknow.signature-block(
   signature: image("assets/signature.png", width: 4.5cm),
-  name: signature-name,
+  name: "Dr. Annie Body",
   title: "Medical Officer of Health",
 )
 ```
 
 To make it smaller, use `width: 3cm`. Omitting height preserves the original
 aspect ratio. No signature filename is assumed by the helper.
+
+Keep the printed name directly in the signature call. It may include credentials,
+for example `name: "Dr. Annie Body, MD"`. The suspension order defines a separate
+`order-signatory-name` in its Template for the legal wording, without requiring
+the printed signature to use exactly the same text.

@@ -39,7 +39,6 @@
 #let records-email = "records@example.org" // Records email address
 #let exemptions-url = "https://example.org/exemptions" // Exemption forms
 #let health-unit-phone = "1-800-555-0100" // Public contact number
-#let signature-name = "Dr. Annie Body" // Printed name below the signature
 // Reader wording is chosen in the Template using the client’s age
 #let address-addressee = auto // Same reader as the letter
 

@@ -16,3 +16,8 @@ need documentation checks, not native or browser rebuilds.
 
 Keep changes small and focused. Use a branch for changes and preserve unrelated
 work. Keep real client data and private assets out of examples and test fixtures.
+
+Follow the [template authoring principles](docs/developer_guide/documentation.md#template-authoring-principles):
+keep one-off options beside their component, show image paths and proportional
+sizes explicitly, and give shared helpers useful local defaults. Distinguish
+printed names with credentials from names used in prose.
