@@ -102,3 +102,13 @@
   }
   (: ..defaults, ..legend-labels)
 }
+
+// Neutral wording works for notices addressed to a client, guardian, or other reader.
+#let no-records-message(lang) = {
+  assert(lang in ("en", "fr"), message: "Unsupported notice language")
+  if lang == "fr" {
+    "Aucune vaccination n’est consignée au dossier de la personne nommée dans cet avis. Veuillez nous transmettre les documents de vaccination disponibles afin que nous puissions mettre son dossier à jour."
+  } else {
+    "We have no immunization records on file for the person named in this notice. Please send us any available vaccination records so we can update their file."
+  }
+}

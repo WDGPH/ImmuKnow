@@ -35,6 +35,16 @@ display-default adapter or separate layout-settings file.
   same selection. Template setup exposes boolean `to_student` and `to_guardian`
   flags, with both false when the reader is unknown. Reader choice never changes
   age facts or supplies another person's contact details.
+- `notice-flags(notice)` returns `to_student`, `to_guardian`, `up_to_date` and
+  `no_records` booleans. Reader flags follow `reader(notice)`. `up_to_date`
+  means the supplied overdue-disease list is empty, regardless of overdue
+  immunizing agents. `no_records` means there were no source administrations,
+  before exclusions and history display choices. Both may be true. Projects
+  can expose these names from shared setup for `#if` expressions.
+  `include-ispa: true` adds `ispa_up_to_date`, using the same birth-cohort-aware
+  disease selection as `overdue-diseases(ispa-only: true)`. ISPA selection needs
+  a birth date for cohort-dependent diseases and, for earlier meningococcal
+  cohorts, `date_as_of`. Missing required facts fail the ISPA-specific operation.
 - `notice-dates(notice)` returns localized delivery, as-of, and birth dates.
   `long-date(iso, language, required: false)` leaves unknown dates blank.
 - `notice-header(title: ..., logo: ...)` centers the title beside the logo and
@@ -56,7 +66,17 @@ display-default adapter or separate layout-settings file.
   `allow-overflow: true` option declares intentional continuation.
 - `overdue-diseases(notice, include-dose: false)` and `overdue-agents(notice)`
   produce bullets or comma-separated lists. Dose numbering describes the
-  overdue requirement.
+  overdue requirement. Both helpers accept `no-records: auto` to replace their
+  list with an English/Canadian French request for records when the source
+  contains no administrations. A string or content overrides the message;
+  `none` (the default) retains the list. Surrounding prose is unaffected.
+  This differs from `empty`, which applies when the overdue list is empty.
+  `overdue-diseases(..., ispa-only: true)` filters the displayed disease list
+  without changing supplied facts. Varicella applies from the 2010 birth cohort;
+  meningococcal scope also follows birth cohort and age. Mixed lists remain
+  supported. `ispa-only: true` on `overdue-agents` raises an explicit error.
+  See the [authoring guide](https://docs.phiz.ca/immuknow/latest/user_guide/phu_templates/#ispa-disease-display-and-assertions)
+  for the rules and suspension/affirmative assertions.
 - `immunization-history(notice, diseases: (...), include-other: true,
   ignore-agents: (), show-validity: true, omit-invalid: false)` derives the
   displayed table from complete administrations. Valid and invalid doses have

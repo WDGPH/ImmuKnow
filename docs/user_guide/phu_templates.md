@@ -161,11 +161,110 @@ it before compilation; strings remain literal data rather than executable source
 | `overdue_agents` | Source vaccine agent names |
 | `history` | Normalized administrations with ISO `date_given`, `agent`, `display_name`, complete `diseases` and `validity` |
 | `validity_coverage` | Whole-cohort `all_present`, `all_absent` or `mixed` |
+| `has_immunization_records` | Whether the source contains any administrations before exclusions or deduplication |
 | `history_validity_coverage` | Per-history source flag coverage, before exclusions and deduplication: `all_present`, `all_absent` or `mixed` |
 
 A missing birth date is blank, and unknown `age`/`over_16` are JSON null. Blank
 source values and unusable fragments are retained in `run.json` with preparation
 findings. Display choices never alter administrations or disease mappings.
+
+## Record and overdue flags
+
+Core's `notice-flags(notice)` returns four booleans for shared setup:
+
+```typst
+#let flags = core.notice-flags(notice)
+#let to_student = flags.to_student
+#let to_guardian = flags.to_guardian
+#let up_to_date = flags.up_to_date
+#let no_records = flags.no_records
+```
+
+`to_student` and `to_guardian` follow the same intended-reader selection as the
+address block. `up_to_date` is true when the supplied overdue-disease list is
+empty; overdue immunizing agents do not affect it. This reflects the supplied
+assessment, rather than assessing vaccination requirements in Core.
+`no_records` is true when no administrations were supplied in the source history.
+Invalid doses, unknown vaccine names and records excluded from the displayed
+chart still count as records. A blank history or the source's empty-history
+placeholder does not. The two record/overdue flags are independent and may both
+be true.
+
+Use the flags for individual phrases or to omit an entire section:
+
+```typst
+#if not no_records and not up_to_date [
+  Our records show the following outstanding disease requirements:
+  #immuknow.overdue-diseases()
+]
+```
+
+To replace only a list, both `overdue-diseases` and `overdue-agents` accept
+`no-records: auto`. When no records were supplied, the helper shows a request
+for vaccination records instead of the list, using English or Canadian French
+wording selected by its language. This does not change surrounding paragraphs.
+
+```typst
+#immuknow.overdue-diseases(no-records: auto)
+#immuknow.overdue-agents(no-records: [Please send any vaccination records you have.])
+```
+
+`no-records: none` is the default and retains the regular list. A string or
+Typst content overrides the no-records message; the override is used only when
+there are no source records. This is separate from `empty`, which supplies
+content when the overdue list itself is empty. Prepared overdue lists, facts,
+notice assignments and delivery checks remain intact.
+
+### ISPA disease display and assertions
+
+`overdue-diseases(ispa-only: true)` shows the applicable ISPA subset of the
+supplied overdue diseases. Mixed ISPA/non-ISPA input remains valid; the default
+`ispa-only: false` shows the complete list. Dose numbers and selected translations
+are preserved. `overdue-agents(ispa-only: true)` is unsupported and raises an
+error, including when a no-records replacement would otherwise be shown.
+
+ISPA selection uses canonical disease identifiers and the client's birth cohort:
+Diphtheria, Tetanus, Polio, Measles, Mumps, Rubella and Pertussis are included;
+Varicella is included for births on or after January 1, 2010. Meningococcal
+disease applies to births on or after September 1, 2004, or births on or after
+January 1, 1997 once the client is 12. The earlier meningococcal cohort uses
+`date_as_of` for that age boundary. These scope rules come from
+[Ontario's school requirements](https://www.ontario.ca/page/vaccines-children-school)
+and [Regulation 645, Table 1](https://www.ontario.ca/laws/regulation/900645).
+They select already-reported overdue diseases; they do not reassess doses,
+exemptions or the other legal steps needed for a suspension order.
+
+When ISPA status is needed, request the additional boolean explicitly:
+
+```typst
+#let flags = core.notice-flags(notice, include-ispa: true)
+#let ispa_up_to_date = flags.ispa_up_to_date
+#assert(not ispa_up_to_date,
+  message: "This suspension notice requires an applicable overdue ISPA disease.")
+#immuknow.overdue-diseases(ispa-only: true)
+```
+
+`ispa_up_to_date` uses the same selection as the list and is independent of
+`up_to_date`, which always considers the complete overdue-disease list.
+Requesting ISPA selection fails if a birth date needed for Varicella or
+Meningococcal applicability is missing or invalid, or if `date_as_of` is missing
+when needed for the meningococcal age boundary. The default four flags and
+ordinary lists remain available without those ISPA-specific facts.
+
+An affirmative template can guard its wording explicitly:
+
+```typst
+#assert(up_to_date, message: "This notice requires no overdue diseases.")
+```
+
+The catalog's `no_overdue` rule checks the same disease-based condition before
+rendering; it is the default for `kind: affirmative`. Applicability conflicts
+warn while preserving explicit assignments. A template assertion makes this a
+mandatory rendering error, close to the wording it protects. A dynamic notice that handles several
+cases internally can use `requires: any` and branch on the flags. Its selected
+version and language stay fixed. Explicit filename assignments remain available
+for distinct wording, customization and A/B testing; Core does not choose a
+notice from these flags.
 
 ## Component choices and findings
 

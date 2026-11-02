@@ -492,6 +492,7 @@ def build_preprocess_result(
                 history=history,
                 validity_coverage=coverage,
                 history_validity_coverage=classify_dataset_validity([parsed]),
+                has_immunization_records=bool(parsed.doses),
                 unparsed_history=[issue.fragment for issue in parsed.issues],
             )
         )

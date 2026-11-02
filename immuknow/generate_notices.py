@@ -135,6 +135,9 @@ def build_notice_data(client: ClientRecord, config: dict[str, Any]) -> dict[str,
         "overdue_diseases": client.overdue_diseases,
         "overdue_agents": client.overdue_agents,
         "history": client.history,
+        "has_immunization_records": client.has_immunization_records
+        if client.has_immunization_records is not None
+        else bool(client.history),
         "validity_coverage": client.validity_coverage,
         "history_validity_coverage": client.history_validity_coverage
         if client.history_validity_coverage is not None

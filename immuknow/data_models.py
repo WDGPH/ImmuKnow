@@ -35,7 +35,9 @@ class ClientRecord:
     Typst owns its display format. Overdue disease entries keep an optional
     numeric dose; invalid source doses also keep ``dose_raw``.
     ``history_validity_coverage`` preserves flag presence before source exclusions
-    and deduplication. Direct callers may omit it to describe the supplied history.
+    and deduplication. ``has_immunization_records`` records whether the source
+    contained any administrations before those exclusions. Direct callers may
+    omit these source facts to describe the supplied history.
     """
 
     sequence: str
@@ -53,6 +55,7 @@ class ClientRecord:
     history: list[dict[str, Any]] = field(default_factory=list)
     validity_coverage: str = "all_absent"
     history_validity_coverage: str | None = None
+    has_immunization_records: bool | None = None
     unparsed_history: list[str] = field(default_factory=list)
 
 

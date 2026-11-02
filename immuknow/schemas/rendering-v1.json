@@ -164,6 +164,9 @@
         "minLength": 1
       }
     },
+    "has_immunization_records": {
+      "type": "boolean"
+    },
     "history": {
       "type": "array",
       "items": {

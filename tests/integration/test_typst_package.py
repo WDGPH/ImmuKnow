@@ -25,7 +25,9 @@ ROOT = Path(__file__).resolve().parents[2]
 pytestmark = pytest.mark.integration
 
 
-def compile_package(tmp_path: Path, body: str) -> tuple[dict, PdfReader]:
+def compile_package(
+    tmp_path: Path, body: str, notice_overrides: dict | None = None
+) -> tuple[dict, PdfReader]:
     shutil.copytree(typst_library_root(), tmp_path / "lib/immuknow")
     notice = {
         "schema_version": 1,
@@ -65,7 +67,9 @@ def compile_package(tmp_path: Path, body: str) -> tuple[dict, PdfReader]:
         ],
         "validity_coverage": "all_present",
         "history_validity_coverage": "all_present",
+        "has_immunization_records": True,
     }
+    notice.update(notice_overrides or {})
     (tmp_path / "data.json").write_text(json.dumps(notice))
     source = tmp_path / "notice.typ"
     source.write_text(
@@ -115,17 +119,20 @@ def compile_package(tmp_path: Path, body: str) -> tuple[dict, PdfReader]:
     return reports[0], reader
 
 
-def history_facts(raw: str) -> str:
-    """Inject source coverage alongside normalized history in component tests."""
+def history_data(raw: str) -> dict:
+    """Prepare source facts alongside normalized history for rendering tests."""
     parsed = parse_history(raw)
-    facts = {
+    return {
         "history": build_history_items(parsed.doses, [], {}),
+        "has_immunization_records": bool(parsed.doses),
         "history_validity_coverage": classify_dataset_validity([parsed]),
         "validity_coverage": classify_dataset_validity([parsed]),
     }
-    return (
-        f"#let notice = (: ..notice, ..json(bytes({json.dumps(json.dumps(facts))})))\n"
-    )
+
+
+def history_facts(raw: str) -> str:
+    """Inject prepared history facts into an individual component call."""
+    return f"#let notice = (: ..notice, ..json(bytes({json.dumps(json.dumps(history_data(raw)))})))\n"
 
 
 @pytest.mark.parametrize(
@@ -145,6 +152,316 @@ def test_overdue_list_indent_is_local_and_can_be_overridden(tmp_path, helper, wo
     assert len(starts) == 3
     assert starts[1] - starts[0] == pytest.approx(0.8 * 72 / 2.54, abs=0.01)
     assert starts[2] == pytest.approx(starts[0], abs=0.01)
+
+
+@pytest.mark.parametrize("helper", ["overdue-diseases", "overdue-agents"])
+@pytest.mark.parametrize("language", ["en", "fr"])
+@pytest.mark.parametrize("has_records", [False, True])
+def test_no_records_option_replaces_only_the_overdue_list(
+    tmp_path: Path, helper: str, language: str, has_records: bool
+) -> None:
+    raw = "2020-01-01 - MMR;" if has_records else ""
+    report, reader = compile_package(
+        tmp_path,
+        "Introduction stays visible.\n"
+        + f'#immuknow.{helper}(notice, no-records: auto, language: "{language}")',
+        notice_overrides=history_data(raw),
+    )
+    text = " ".join(" ".join(page.extract_text().split()) for page in reader.pages)
+    message = (
+        "We have no immunization records on file"
+        if language == "en"
+        else "Aucune vaccination n’est consignée au dossier"
+    )
+    assert "Introduction stays visible." in text
+    assert (message in text) == (not has_records)
+    assert ("MMR" in text or "Measles" in text or "Rougeole" in text) == has_records
+    component = helper.replace("-", "_")
+    assert report["components"][component]
+    assert all(item["source_matches"] for item in report["measurements"][component])
+
+
+@pytest.mark.parametrize("helper", ["overdue-diseases", "overdue-agents"])
+@pytest.mark.parametrize("language", ["en", "fr"])
+def test_no_records_replacement_accepts_custom_content(
+    tmp_path: Path, helper: str, language: str
+) -> None:
+    options = (
+        ", labels: (en_diseases_overdue: (:), fr_diseases_overdue: (:))"
+        if helper == "overdue-diseases"
+        else ""
+    )
+    report, reader = compile_package(
+        tmp_path,
+        f"#immuknow.{helper}(notice, no-records: [Please #emph[send] your records.], "
+        f'language: "{language}"{options})',
+        notice_overrides=history_data(""),
+    )
+    text = " ".join(" ".join(page.extract_text().split()) for page in reader.pages)
+    assert "Please send your records." in text
+    assert "MMR" not in text and "Measles" not in text
+    assert not any(
+        check["code"] == "content.translation_missing" for check in report["checks"]
+    )
+
+
+@pytest.mark.parametrize("helper", ["overdue-diseases", "overdue-agents"])
+def test_no_records_replacement_is_opt_in(tmp_path: Path, helper: str) -> None:
+    _, reader = compile_package(
+        tmp_path, f"#immuknow.{helper}(notice)", notice_overrides=history_data("")
+    )
+    text = " ".join(page.extract_text() for page in reader.pages)
+    assert ("Measles" if helper == "overdue-diseases" else "MMR") in text
+    assert "We have no immunization records on file" not in text
+
+
+@pytest.mark.parametrize(
+    "has_records,diseases,agents,reader,up_to_date",
+    [
+        (False, [{"disease": "Measles", "dose": 2}], ["MMR"], "guardian", False),
+        (True, [{"disease": "Measles", "dose": 2}], [], "student", False),
+        (True, [], ["MMR"], "student", True),
+        (False, [], [], "guardian", True),
+        (True, [], [], None, True),
+    ],
+    ids=[
+        "no-records",
+        "overdue-disease",
+        "agents-only",
+        "independent-flags",
+        "neutral",
+    ],
+)
+def test_notice_flags_can_toggle_an_entire_overdue_section(
+    tmp_path: Path,
+    has_records: bool,
+    diseases: list,
+    agents: list,
+    reader: str | None,
+    up_to_date: bool,
+) -> None:
+    overrides = history_data("2020-01-01 - MMR;" if has_records else "")
+    overrides.update(
+        overdue_diseases=diseases,
+        overdue_agents=agents,
+        reader=reader,
+    )
+    overrides["client_data"] = {
+        "date_of_birth_iso": "",
+        "over_16": None,
+    }
+    body = f"""
+#let flags = immuknow.notice-flags(notice)
+#let to_student = flags.to_student
+#let to_guardian = flags.to_guardian
+#let no_records = flags.no_records
+#let up_to_date = flags.up_to_date
+#assert(type(to_student) == bool and type(to_guardian) == bool)
+#assert(type(no_records) == bool and type(up_to_date) == bool)
+#assert(to_student == {str(reader == "student").lower()})
+#assert(to_guardian == {str(reader == "guardian").lower()})
+#assert(no_records == {str(not has_records).lower()})
+#assert(up_to_date == {str(up_to_date).lower()})
+#if not no_records and not up_to_date [
+  Overdue introduction.
+  #immuknow.overdue-diseases(notice)
+] else [Section omitted.]
+"""
+    report, pdf = compile_package(tmp_path, body, notice_overrides=overrides)
+    text = " ".join(page.extract_text() for page in pdf.pages)
+    shown = has_records and not up_to_date
+    assert ("Overdue introduction." in text) == shown
+    assert report["components"]["overdue_diseases"] == shown
+    assert any(
+        check["code"] == "component.overdue_diseases.absent"
+        for check in report["checks"]
+    ) == (not shown)
+
+
+@pytest.mark.parametrize("has_overdue_diseases", [False, True])
+def test_affirmative_template_can_assert_up_to_date(
+    tmp_path: Path, has_overdue_diseases: bool
+) -> None:
+    body = """
+#let up_to_date = immuknow.notice-flags(notice).up_to_date
+#assert(up_to_date, message: "Affirmative notice requires no overdue diseases.")
+Affirmative branch.
+"""
+    overrides = {
+        "overdue_diseases": [{"disease": "Measles", "dose": 2}]
+        if has_overdue_diseases
+        else [],
+        "overdue_agents": ["MMR"],
+    }
+    if has_overdue_diseases:
+        with pytest.raises(
+            AssertionError, match="Affirmative notice requires no overdue diseases"
+        ):
+            compile_package(tmp_path, body, notice_overrides=overrides)
+        assert not (tmp_path / "notice.pdf").exists()
+    else:
+        _, pdf = compile_package(tmp_path, body, notice_overrides=overrides)
+        assert "Affirmative branch." in pdf.pages[0].extract_text()
+
+
+@pytest.mark.parametrize(
+    "birth,as_of,diseases,expected",
+    [
+        ("2009-12-31", "2026-06-01", ["HPV", "Varicella"], []),
+        ("2010-01-01", "2026-06-01", ["HPV", "Varicella"], ["Varicella"]),
+        ("2009-12-31", "2026-06-01", ["Measles", "Varicella"], ["Measles"]),
+        ("", "2026-06-01", ["Measles", "HPV"], ["Measles"]),
+        ("", "", ["HPV", "Hepatitis B"], []),
+        ("1996-12-31", "2026-06-01", ["Meningococcal"], []),
+        ("2004-08-31", "2016-08-30", ["Meningococcal"], []),
+        ("2004-08-31", "2016-08-31", ["Meningococcal"], ["Meningococcal"]),
+        ("2004-09-01", "2015-01-01", ["Meningococcal"], ["Meningococcal"]),
+    ],
+    ids=[
+        "varicella-2009",
+        "varicella-2010",
+        "mixed-cohorts",
+        "birth-not-needed",
+        "non-ispa",
+        "meningococcal-before-cohort",
+        "before-age-12",
+        "at-age-12",
+        "meningococcal-younger-cohort",
+    ],
+)
+def test_ispa_list_and_flag_use_the_same_birth_cohort_selection(
+    tmp_path: Path, birth: str, as_of: str, diseases: list[str], expected: list[str]
+) -> None:
+    entries = [{"disease": disease, "dose": 2} for disease in diseases]
+    labels = {disease: disease for disease in diseases}
+    body = (
+        "#let flags = immuknow.notice-flags(notice, include-ispa: true)\n"
+        f"#assert(flags.up_to_date == {str(not diseases).lower()})\n"
+        f"#assert(flags.ispa_up_to_date == {str(not expected).lower()})\n"
+        f"#let labels = (en_diseases_overdue: json(bytes({json.dumps(json.dumps(labels))})))\n"
+        'Full list: #immuknow.overdue-diseases(notice, style: "comma-separated", labels: labels)\n'
+        "Filtered: #immuknow.overdue-diseases(notice, ispa-only: true, "
+        'include-dose: true, style: "comma-separated", labels: labels) End filtered.'
+    )
+    report, pdf = compile_package(
+        tmp_path,
+        body,
+        notice_overrides={
+            "client_data": {"date_of_birth_iso": birth, "over_16": None},
+            "date_as_of": as_of,
+            "overdue_diseases": entries,
+        },
+    )
+    text = " ".join(" ".join(page.extract_text().split()) for page in pdf.pages)
+    filtered = text.split("Filtered:")[1].split("End filtered.")[0]
+    for disease in diseases:
+        assert (disease in filtered) == (disease in expected)
+    assert ("2nd dose" in filtered) == bool(expected)
+    assert report["notice"]["overdue_diseases"] == entries
+    assert all(
+        item["source_matches"] for item in report["measurements"]["overdue_diseases"]
+    )
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "#immuknow.overdue-diseases(notice, ispa-only: true)",
+        "#let flags = immuknow.notice-flags(notice, include-ispa: true)\n#flags.ispa_up_to_date",
+    ],
+)
+def test_ispa_operations_reject_missing_required_birth_date(
+    tmp_path: Path, body: str
+) -> None:
+    with pytest.raises(
+        AssertionError, match="ISPA disease selection requires a valid birth date"
+    ):
+        compile_package(
+            tmp_path,
+            body,
+            notice_overrides={
+                "client_data": {"date_of_birth_iso": "", "over_16": None},
+                "overdue_diseases": [{"disease": "Varicella", "dose": 2}],
+            },
+        )
+
+
+def test_non_ispa_notices_do_not_require_birth_cohort_data(tmp_path: Path) -> None:
+    _, pdf = compile_package(
+        tmp_path,
+        "#let flags = immuknow.notice-flags(notice)\n"
+        "#assert(not flags.up_to_date)\n"
+        '#assert("ispa_up_to_date" not in flags)\n'
+        "#immuknow.overdue-diseases(notice)",
+        notice_overrides={
+            "client_data": {"date_of_birth_iso": "", "over_16": None},
+            "overdue_diseases": [{"disease": "Varicella", "dose": 2}],
+        },
+    )
+    assert "Varicella" in pdf.pages[0].extract_text()
+
+
+def test_ispa_requires_as_of_date_for_an_age_dependent_cohort(tmp_path: Path) -> None:
+    with pytest.raises(
+        AssertionError, match="requires date_as_of for this birth cohort"
+    ):
+        compile_package(
+            tmp_path,
+            "#immuknow.overdue-diseases(notice, ispa-only: true)",
+            notice_overrides={
+                "client_data": {"date_of_birth_iso": "2000-01-01", "over_16": True},
+                "date_as_of": "",
+                "overdue_diseases": [{"disease": "Meningococcal", "dose": 1}],
+            },
+        )
+
+
+@pytest.mark.parametrize("has_records", [False, True])
+def test_ispa_only_agents_error_even_when_no_records_message_is_enabled(
+    tmp_path: Path, has_records: bool
+) -> None:
+    with pytest.raises(
+        AssertionError, match="ispa-only is not supported for overdue-agents"
+    ):
+        compile_package(
+            tmp_path,
+            "#immuknow.overdue-agents(notice, ispa-only: true, no-records: auto)",
+            notice_overrides=history_data("2020-01-01 - MMR;" if has_records else ""),
+        )
+
+
+@pytest.mark.parametrize(
+    "birth,diseases,should_render",
+    [
+        ("2009-12-31", ["Varicella"], False),
+        ("2010-01-01", ["Varicella"], True),
+        ("2010-01-01", ["HPV"], False),
+        ("2010-01-01", ["HPV", "Measles"], True),
+    ],
+)
+def test_suspension_assertion_requires_an_applicable_ispa_disease(
+    tmp_path: Path, birth: str, diseases: list[str], should_render: bool
+) -> None:
+    body = """
+#let ispa_up_to_date = immuknow.notice-flags(notice, include-ispa: true).ispa_up_to_date
+#assert(not ispa_up_to_date, message: "Suspension notice requires an applicable overdue ISPA disease.")
+#immuknow.overdue-diseases(notice, ispa-only: true)
+"""
+    overrides = {
+        "client_data": {"date_of_birth_iso": birth, "over_16": None},
+        "overdue_diseases": [{"disease": disease, "dose": 2} for disease in diseases],
+    }
+    if should_render:
+        _, pdf = compile_package(tmp_path, body, notice_overrides=overrides)
+        text = " ".join(page.extract_text() for page in pdf.pages)
+        assert "HPV" not in text
+    else:
+        with pytest.raises(
+            AssertionError,
+            match="Suspension notice requires an applicable overdue ISPA disease",
+        ):
+            compile_package(tmp_path, body, notice_overrides=overrides)
+        assert not (tmp_path / "notice.pdf").exists()
 
 
 @pytest.mark.parametrize(

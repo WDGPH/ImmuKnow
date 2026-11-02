@@ -330,7 +330,9 @@ def test_component_for_another_row_cannot_repeat_the_same_external_id(tmp_path):
         "address-block(other)",
         "immunization-history(other)",
         "overdue-diseases(other)",
+        "overdue-diseases(other, no-records: auto)",
         "overdue-agents(other)",
+        "overdue-agents(other, no-records: auto)",
         'qr-code(other, url: "https://example.test/record")',
     ],
 )
@@ -347,7 +349,7 @@ def test_placed_personal_content_must_use_the_prepared_notice(
         "#immuknow.client-block(notice)\n"
         f"#let other = (..notice, row_key: {json.dumps('row-000002' if change_row else job.sequence)},\n"
         '  client_data: (..notice.client_data, name: "Morgan Example", address: "88 Other Road"),\n'
-        '  history_validity_coverage: "all_present",\n'
+        '  history_validity_coverage: "all_present", has_immunization_records: false,\n'
         '  history: ((date_given: "2018-03-04", agent: "IPV", display_name: "Other vaccine", diseases: ("Polio",), validity: "valid"),),\n'
         '  overdue_diseases: ((disease: "Polio", dose: 1),), overdue_agents: ("Other vaccine",))\n'
         f"#immuknow.{content}"
@@ -364,6 +366,8 @@ def test_placed_personal_content_must_use_the_prepared_notice(
         "overdue-agents": "Other vaccine",
         "qr-code": None,
     }[content.split("(")[0]]
+    if "no-records: auto" in content:
+        marker = "We have no immunization records on file"
     if marker:
         assert marker in "".join(
             page.extract_text() for page in PdfReader(job.pdf).pages
