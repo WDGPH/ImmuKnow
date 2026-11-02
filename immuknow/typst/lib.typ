@@ -1,9 +1,10 @@
 // Importing this package performs no client reads and requires no sys.inputs.
 #import "src/validation.typ": check-notice
+#import "src/reader.typ": reader
 #import "src/history.typ": immunization-history
 #import "src/localization.typ": long-date, notice-dates
 #import "src/overdue.typ": overdue-diseases, overdue-agents
 #import "src/localization.typ" as localization
-#import "src/layout.typ": notice-page, notice-style, notice-section, notice-header, address-block, client-block, signature-block, privacy-notice, envelope-preset
+#import "src/layout.typ": notice-page, letter, notice-section, notice-header, address-block, client-block, signature-block, privacy-notice, envelope-preset
 #import "src/qr.typ": qr-code
-#import "src/links.typ": url-encode, query-url, notice-link
+#import "src/links.typ": url-encode, query-url, link

@@ -200,6 +200,12 @@ RULES = {
             "preprocess",
         ),
         RuleDefinition(
+            "source.reader_invalid",
+            "Intended reader is student, guardian or blank",
+            "preprocess",
+            mandatory=True,
+        ),
+        RuleDefinition(
             "source.overdue_unusable",
             "Supplied forecast can be interpreted",
             "preprocess",

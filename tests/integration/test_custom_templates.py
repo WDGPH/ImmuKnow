@@ -1,7 +1,8 @@
 """Native custom templates remain isolated and work outside the checkout."""
 
+from tests.fixtures.project import TEMPLATES, copy_project
+
 import json
-import shutil
 
 import pandas as pd
 from pathlib import Path
@@ -11,7 +12,7 @@ from pypdf import PdfReader
 
 from immuknow.generate_notices import select_template
 from immuknow.orchestrator import run_pipeline
-from tests.integration.test_native_pipeline import ROOT, prepare_cohort, run_cli
+from tests.integration.test_native_pipeline import prepare_cohort, run_cli
 
 pytestmark = pytest.mark.integration
 
@@ -21,7 +22,7 @@ def test_single_language_custom_template(tmp_path: Path, language: str) -> None:
     """A PHU needs only its supported language, with its own unchanged source."""
     command, output_dir, _ = prepare_cohort(tmp_path, (language,))
     custom = tmp_path / "PHU modèles"
-    shutil.copytree(ROOT / "immuknow" / "templates", custom)
+    copy_project(custom)
     other = "fr" if language == "en" else "en"
     (custom / f"overdue_agents_v1.{other}.typ").unlink()
     entry = custom / f"overdue_agents_v1.{language}.typ"
@@ -48,9 +49,7 @@ def test_unsafe_template_version_rejected(tmp_path: Path, version: str) -> None:
 def test_missing_affirmative_translation_is_not_invented() -> None:
     """French affirmative notices remain unavailable until an author supplies one."""
     with pytest.raises(FileNotFoundError, match="fr.typ"):
-        select_template(
-            ROOT / "immuknow" / "templates", "affirmative_schedule_v1", "fr"
-        )
+        select_template(TEMPLATES, "affirmative_schedule_v1", "fr")
 
 
 def test_sequential_runs_freeze_project_labels_and_keep_source_facts(tmp_path: Path):
@@ -61,7 +60,7 @@ def test_sequential_runs_freeze_project_labels_and_keep_source_facts(tmp_path: P
     frame["imms_given"] = "2020-05-01 - MMR; 2020-05-02 - Ig;"
     frame.to_csv(source, index=False)
     custom = tmp_path / "project"
-    shutil.copytree(ROOT / "immuknow/templates", custom)
+    copy_project(custom)
     template = custom / "overdue_diseases_v1.fr.typ"
     first_path = run_pipeline(
         source, output, config_dir=config, notice_template=template
@@ -110,12 +109,12 @@ def test_template_symlink_keeps_the_selected_filename_and_project(tmp_path: Path
     command, output, config = prepare_cohort(tmp_path, ("fr",))
     source = Path(command[3])
     custom = tmp_path / "project"
-    shutil.copytree(ROOT / "immuknow/templates", custom)
+    copy_project(custom)
     # A filename chooses identity even when its bytes come from a symlink.
     # Surrounding authored English prose is not automatically translated.
     entry = custom / "overdue_diseases_v1.fr.typ"
     entry.unlink()
-    entry.symlink_to(ROOT / "immuknow/templates/overdue_diseases_v1.en.typ")
+    entry.symlink_to(TEMPLATES / "overdue_diseases_v1.en.typ")
     labels = custom / "translations/fr_diseases_overdue.json"
     selected = json.loads(labels.read_text())
     selected["Measles"] = "PROJECT LABEL RETAINED"

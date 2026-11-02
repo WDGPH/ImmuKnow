@@ -1,4 +1,4 @@
-"""Read installed templates, schemas and rendering identity for authoring tools.
+"""Read engine resources, the shared Typst library and rendering identity for authoring tools.
 
 Resources belong to the installed engine. Copy them before editing; neither
 Studio builds nor native runs should write into the installed package.
@@ -16,6 +16,11 @@ def resource_root() -> Path:
     return Path(str(files("immuknow")))
 
 
+def typst_library_root() -> Path:
+    """Locate the engine's shared library; copy it to a project's lib/immuknow/."""
+    return resource_root() / "typst"
+
+
 def rendering_build_info() -> dict[str, Any]:
     """Identify the installed engine and its complete shared rendering resources.
 
@@ -25,11 +30,7 @@ def rendering_build_info() -> dict[str, Any]:
     package = resource_root()
     build = current_build_info()
     shared = [package / "schemas/rendering-v1.json"]
-    shared.extend(
-        path
-        for path in (package / "templates/lib/immuknow").rglob("*")
-        if path.is_file()
-    )
+    shared.extend(path for path in typst_library_root().rglob("*") if path.is_file())
     return {
         "application_version": build["application_version"],
         "rendering_schema_version": build["rendering_schema_version"],

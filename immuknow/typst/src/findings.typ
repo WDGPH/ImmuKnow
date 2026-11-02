@@ -53,6 +53,19 @@
     message: if web-urls.len() == 0 { "No web links were placed." }
       else if invalid { "A web link is missing HTTPS or a host, or contains spaces." }
       else { "Web links use HTTPS and include a host." }))
+  // Basic address checks; these do not test whether a destination responds.
+  let valid-destination(url) = {
+    if url.contains(regex("[\\s\\p{Cc}]")) { return false }
+    if url.contains(regex("(?i)^https://[^/?#@:]+(:[0-9]+)?([/?#]|$)")) { return true }
+    if url.contains(regex("(?i)^mailto:[^@/?#]+@[^@/?#]+(\\?[^#]*)?$")) { return true }
+    url.contains(regex("(?i)^tel:\\+?[0-9]([0-9().-]*[0-9])?(;ext=[0-9]+)?$"))
+  }
+  let invalid-destinations = destinations.filter(url => not valid-destination(url))
+  checks.push((code: "content.link_destination", stage: "render",
+    status: if destinations.len() == 0 { "not_applicable" } else if invalid-destinations.len() > 0 { "warn" } else { "pass" },
+    message: if destinations.len() == 0 { "No links were placed." }
+      else if invalid-destinations.len() > 0 { "Use a complete HTTPS, mailto or tel address without spaces or control characters. Check: " + invalid-destinations.join(", ") }
+      else { "Link destinations use HTTPS, mailto or tel address formats." }))
   checks.push((code: "content.multiple_links", stage: "render",
     status: if destinations.len() == 0 { "not_applicable" } else if destinations.len() > 1 { "warn" } else { "pass" },
     message: if destinations.len() == 0 { "No links were placed." }

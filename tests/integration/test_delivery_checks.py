@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from tests.fixtures.project import copy_project
+
 import json
 import shutil
 from copy import deepcopy
@@ -27,7 +29,7 @@ def saved_run(tmp_path):
     config = tmp_path / "config"
     templates = tmp_path / "templates"
     shutil.copytree(ROOT / "immuknow/config", config)
-    shutil.copytree(ROOT / "immuknow/templates", templates)
+    copy_project(templates)
     settings = yaml.safe_load((config / "parameters.yaml").read_text())
     settings["bundling"] = {"bundle_size": 2}
     settings["validation"] = {
@@ -38,10 +40,10 @@ def saved_run(tmp_path):
     template = templates / "overdue_diseases_v1.en.typ"
     template.write_text(
         template.read_text().replace(
-            'name: "Dr. Annie Body",',
+            'name: "Fixture signer",',
             'name: if notice.client_id == "0000000002" { '
             "[#for _ in range(120) [Signature line #linebreak()]] "
-            '} else { "Dr. Annie Body" },',
+            '} else { "Fixture signer" },',
         )
     )
     frame = create_test_input_dataframe(num_clients=3)
@@ -237,7 +239,7 @@ def test_saved_run_refuses_unsupported_resources_even_without_review(saved_run, 
         ]
     if damage in {"resource", "library"}:
         name = (
-            "assets/logo.png"
+            "assets/logo.svg"
             if damage == "resource"
             else "lib/immuknow/src/findings.typ"
         )

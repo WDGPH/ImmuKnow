@@ -253,6 +253,14 @@
           "type": "string"
         }
       }
+    },
+    "reader": {
+      "enum": [
+        "student",
+        "guardian",
+        null
+      ],
+      "description": "Optional intended-reader override. Null or absent uses the age default in Typst."
     }
   },
   "additionalProperties": false

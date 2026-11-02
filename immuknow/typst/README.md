@@ -7,7 +7,15 @@ prepared facts described by `immuknow/schemas/rendering-v1.json`.
 Text links and URL helpers live in `src/links.typ`; QR rendering lives in
 `src/qr.typ`. Use the public helpers exported by `lib.typ` in your templates.
 
-Wrap the whole document with `#show: immuknow.notice-style.with(notice: notice)`.
+Template projects connect these low-level helpers to their prepared notice in
+shared setup. Letters import that setup and use `#show: immuknow.letter`,
+`#immuknow.client-block()` and `#immuknow.immunization-history()` without
+repeating the data argument. Project defaults can be overridden on one call.
+See [ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template#customizing)
+for the maintained setup. Core imports never load client data.
+
+For a direct library import, wrap the whole document with
+`#show: immuknow.letter.with(notice: notice)`.
 The wrapper requires the prepared notice and emits one `<immuknow-report>`
 metadata element. `notice-page` applies page styling; `notice-section(title)[body]`
 starts a named section and checks whether it continues onto another page.
@@ -15,12 +23,18 @@ Set `allow-overflow: true` for intentional continuation. Overflows produce
 warnings while preserving visible content.
 
 Put notice-specific helper options directly in the Template. Keep shared page,
-Theme and contact values in Settings. There is no Python
+Theme, QR and history choices in Settings. Write contact details and
+notice-specific options directly where they appear in the Template. There is no Python
 display-default adapter or separate layout-settings file.
 
 - `check-notice(notice, version: ..., language: ...)` checks the authored filename
   identity against prepared facts. The caller obtains the trusted identity from
   `notice-version` and `notice-language` compiler inputs.
+- `reader(notice)` returns `"student"`, `"guardian"` or `none`. An explicit
+  `notice.reader` takes priority over the age default. Address helpers use this
+  same selection. Template setup exposes boolean `to_student` and `to_guardian`
+  flags, with both false when the reader is unknown. Reader choice never changes
+  age facts or supplies another person's contact details.
 - `notice-dates(notice)` returns localized delivery, as-of, and birth dates.
   `long-date(iso, language, required: false)` leaves unknown dates blank.
 - `notice-header(title: ..., logo: ...)` centers the title beside the logo and
@@ -29,7 +43,7 @@ display-default adapter or separate layout-settings file.
   client ID, with details beside the address or below it (`details: "below"`).
   `id-label: "Record number"` changes the label. Each placed ID records its
   source row, value and measured area for checking against the PDF text.
-  The source province is the default. Unknown age uses a neutral addressee;
+  The source province is the default. An unknown reader uses a neutral addressee;
   unknown birth dates remain blank and produce a warning when displayed.
   It warns if the client-details area enters the first-page envelope window.
   `window: none` keeps the default block layout without claiming window fit.
@@ -53,13 +67,17 @@ display-default adapter or separate layout-settings file.
   rounded modules are configurable. The resolved destination is shared by the
   drawn code, PDF link, and report.
 
-`notice-link(destination)[label]` records an external link's destination and
+`link(destination)[label]` records an external link's destination and
 starting page for PDF checks. The label is optional, as with Typst's `link`.
+Destinations are checked as HTTPS web addresses, email (`mailto:`) or phone
+(`tel:`) links. These checks inspect the address format; they do not contact the
+website, email address or phone number. For an extension, use
+`link("tel:+18005550100;ext=1234")[1-800-555-0100 ext. 1234]`.
 Link text stays together by default and moves to the next line when needed. If it
 is wider than a whole line in its enclosing paragraph, column or box, it wraps
 normally and reports `layout.link_width` as a warning. Text is not shrunk or
 clipped by the helper. Explicit line breaks in an authored label remain. Use
-`notice-link(destination, keep-together: false)[label]` to allow normal wrapping
+`link(destination, keep-together: false)[label]` to allow normal wrapping
 without this width warning.
 
 For client-specific links, encode raw query values once:
@@ -69,12 +87,15 @@ For client-specific links, encode raw query values once:
   client: notice.client_id,
   name: notice.client_data.name,
 ))
-#let immunization-history() = immuknow.immunization-history(
+#let immunization-history(..options) = immuknow.immunization-history(
   notice, diseases: ("Measles", "Mumps", "Rubella"), show-validity: true,
+  ..options,
 )
 ```
 
 Insert `#immunization-history()` only where the history should be displayed.
+With this wrapper, `#immunization-history(show-age: true)` changes just that table;
+options passed at the call override the project defaults.
 Unused content emits no component findings. `url-encode(string)` encodes UTF-8
 query/path components with RFC 3986 unreserved characters; `query-url` applies
 it to raw dictionary keys and values. A fixed URL string is used verbatim.

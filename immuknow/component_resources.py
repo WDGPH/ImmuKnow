@@ -1,12 +1,13 @@
 """Check project components against the files supplied by the installed engine."""
 
-from importlib.resources import files
 from pathlib import Path
+
+from .resources import typst_library_root
 
 
 def verify_components(templates: Path) -> None:
     """Require the complete, unchanged library; project manifests cannot replace it."""
-    supplied = Path(str(files("immuknow").joinpath("templates/lib/immuknow")))
+    supplied = typst_library_root()
     library = templates / "lib/immuknow"
     if (templates / "lib").is_symlink() or library.is_symlink():
         raise ValueError("The supplied ImmuKnow library must not use linked paths.")

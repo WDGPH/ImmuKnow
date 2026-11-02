@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from immuknow.resources import typst_library_root
+
 import json
 import os
 import shutil
@@ -19,7 +21,7 @@ pytestmark = pytest.mark.integration
 
 
 def compile_package(tmp_path: Path, body: str) -> tuple[dict, PdfReader]:
-    shutil.copytree(ROOT / "immuknow/templates/lib", tmp_path / "lib")
+    shutil.copytree(typst_library_root(), tmp_path / "lib/immuknow")
     notice = {
         "schema_version": 1,
         "version_id": "test",
@@ -63,7 +65,7 @@ def compile_package(tmp_path: Path, body: str) -> tuple[dict, PdfReader]:
     source.write_text(
         '#import "lib/immuknow/lib.typ" as immuknow\n'
         '#let notice = json("data.json")\n'
-        "#show: immuknow.notice-style.with(notice: notice)\n" + body
+        "#show: immuknow.letter.with(notice: notice)\n" + body
     )
     common = [
         os.environ.get("TYPST_BIN", "typst"),
@@ -131,51 +133,51 @@ def test_overdue_list_indent_is_local_and_can_be_overridden(tmp_path, helper, wo
     [
         ("No links", "not_applicable", "not_applicable"),
         (
-            '#immuknow.notice-link("https://example.org/records")[Records]',
+            '#immuknow.link("https://example.org/records")[Records]',
             "pass",
             "pass",
         ),
         (
-            '#immuknow.notice-link("https://example.org/records")[Records] ' * 2,
+            '#immuknow.link("https://example.org/records")[Records] ' * 2,
             "pass",
             "pass",
         ),
         (
-            '#immuknow.notice-link("https://example.org/records")[Records] '
+            '#immuknow.link("https://example.org/records")[Records] '
             '#immuknow.qr-code(notice, url: "https://example.org/records")',
             "pass",
             "pass",
         ),
         (
-            '#immuknow.notice-link("https://example.org/records")[Records] '
+            '#immuknow.link("https://example.org/records")[Records] '
             '#immuknow.qr-code(notice, url: "https://example.org/update")',
             "pass",
             "warn",
         ),
         (
-            '#immuknow.notice-link("https://example.org/records")[Records] '
-            '#immuknow.notice-link("mailto:records@example.org")[Email] '
-            '#immuknow.notice-link("tel:+15555550100")[Call]',
+            '#immuknow.link("https://example.org/records")[Records] '
+            '#immuknow.link("mailto:records@example.org")[Email] '
+            '#immuknow.link("tel:+15555550100")[Call]',
             "pass",
             "warn",
         ),
         (
-            '#immuknow.notice-link("mailto:records@example.org")[Email]',
+            '#immuknow.link("mailto:records@example.org")[Email]',
             "not_applicable",
             "pass",
         ),
         (
-            '#immuknow.notice-link("http://example.org/records")[Records]',
+            '#immuknow.link("http://example.org/records")[Records]',
             "warn",
             "pass",
         ),
-        ('#immuknow.notice-link("https:///records")[Records]', "warn", "pass"),
+        ('#immuknow.link("https:///records")[Records]', "warn", "pass"),
         (
-            '#immuknow.notice-link("https://example.org/has space")[Records]',
+            '#immuknow.link("https://example.org/has space")[Records]',
             "warn",
             "pass",
         ),
-        ('#immuknow.notice-link("https://exämple.org/élève")[Records]', "pass", "pass"),
+        ('#immuknow.link("https://exämple.org/élève")[Records]', "pass", "pass"),
     ],
 )
 def test_placed_links_get_basic_https_and_multiple_destination_findings(
@@ -203,7 +205,7 @@ def test_link_labels_stay_together_by_default_with_a_wrapping_opt_out(
         "#set page(width: 200pt, height: 150pt, margin: 20pt, footer: none)\n"
         '#set text(font: "FreeSans", size: 10pt)\n'
         "#box(width: 110pt)[Before] "
-        f'#immuknow.notice-link("https://example.org/records"{option})[{label}] After',
+        f'#immuknow.link("https://example.org/records"{option})[{label}] After',
     )
     checks = [
         check for check in report["checks"] if check["code"] == "layout.link_width"
@@ -239,7 +241,7 @@ def test_oversized_link_wraps_with_its_complete_text_and_destination(tmp_path, o
         tmp_path,
         "#set page(width: 200pt, height: 150pt, margin: 20pt, footer: none)\n"
         '#set text(font: "FreeSans", size: 10pt)\n'
-        f'#block(width: 65pt)[#immuknow.notice-link("https://example.org/records"{option})[{label}]]',
+        f'#block(width: 65pt)[#immuknow.link("https://example.org/records"{option})[{label}]]',
     )
     checks = [
         check for check in report["checks"] if check["code"] == "layout.link_width"
@@ -271,7 +273,7 @@ def test_long_kept_labels_can_continue_across_pages_without_losing_text(
         tmp_path,
         "#set page(width: 200pt, height: 150pt, margin: 20pt, footer: none)\n"
         '#set text(font: "FreeSans", size: 10pt)\n'
-        f'#immuknow.notice-link("https://example.org/records", keep-together: true)[{label}]',
+        f'#immuknow.link("https://example.org/records", keep-together: true)[{label}]',
     )
     assert len(reader.pages) > 1
     words = " ".join(" ".join(page.extract_text().split()) for page in reader.pages)
@@ -286,7 +288,7 @@ def test_long_kept_labels_can_continue_across_pages_without_losing_text(
 def test_reused_kept_link_checks_each_enclosing_width_independently(tmp_path):
     report, _ = compile_package(
         tmp_path,
-        '#let kept = immuknow.notice-link("https://example.org/records", keep-together: true)[Read the record information]\n'
+        '#let kept = immuknow.link("https://example.org/records", keep-together: true)[Read the record information]\n'
         "#block(width: 160pt)[#kept]\n#block(width: 65pt)[#kept]",
     )
     checks = [
@@ -297,7 +299,7 @@ def test_reused_kept_link_checks_each_enclosing_width_independently(tmp_path):
 
 
 def test_package_import_and_unused_history_require_no_facts(tmp_path: Path) -> None:
-    shutil.copytree(ROOT / "immuknow/templates/lib", tmp_path / "lib")
+    shutil.copytree(typst_library_root(), tmp_path / "lib/immuknow")
     source = tmp_path / "import.typ"
     source.write_text('#import "lib/immuknow/lib.typ" as immuknow\nImported.')
     result = subprocess.run(
@@ -451,3 +453,58 @@ def test_overflow_retains_pages_and_reports_real_bounds(tmp_path: Path) -> None:
         )
         == 1
     )
+
+
+@pytest.mark.parametrize(
+    "destination,expected",
+    [
+        ("https://example.org/records", "pass"),
+        ("HTTPS://example.org:8443/records?name=Jane%20Doe#info", "pass"),
+        ("https://exämple.org/élève", "pass"),
+        ("mailto:privacy@example.org", "pass"),
+        ("mailto:privacy@example.org?subject=My%20record", "pass"),
+        ("tel:1-800-555-0100", "pass"),
+        ("tel:+18005550100;ext=1234", "pass"),
+        ("http://example.org", "warn"),
+        ("ftp://example.org", "warn"),
+        ("javascript:alert(1)", "warn"),
+        ("example.org", "warn"),
+        ("https:///records", "warn"),
+        ("https://example.org/has space", "warn"),
+        ("mailto:", "warn"),
+        ("mailto:privacy", "warn"),
+        ("mailto:privacy@@example.org", "warn"),
+        ("mailto:privacy@example.org extra", "warn"),
+        ("tel:", "warn"),
+        ("tel:call-me", "warn"),
+        ("tel:1-800-555-0100 ext. 1234", "warn"),
+        ("tel:+18005550100;ext=", "warn"),
+    ],
+)
+def test_link_destination_formats(tmp_path, destination, expected):
+    report, _ = compile_package(
+        tmp_path, f"#immuknow.link({json.dumps(destination)})[Contact]"
+    )
+    check = next(c for c in report["checks"] if c["code"] == "content.link_destination")
+    assert check["status"] == expected
+
+
+def test_link_and_privacy_contacts_keep_pdf_evidence(tmp_path):
+    report, reader = compile_package(
+        tmp_path,
+        '#immuknow.link("https://example.org")[Record]\n'
+        "#immuknow.privacy-notice[Call "
+        '#immuknow.link("tel:+18005550100;ext=1234")[1-800-555-0100 ext. 1234] or '
+        '#immuknow.link("mailto:privacy@example.org").]',
+    )
+    urls = {m["url"] for m in report["measurements"]["link"]}
+    assert urls == {
+        "https://example.org",
+        "tel:+18005550100;ext=1234",
+        "mailto:privacy@example.org",
+    }
+    pdf_urls = {
+        a.get_object().get("/A", {}).get("/URI")
+        for a in reader.pages[0].get("/Annots", [])
+    }
+    assert urls <= pdf_urls

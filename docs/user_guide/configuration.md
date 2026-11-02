@@ -2,11 +2,12 @@
 
 ## Portable native resources
 
-The installed package includes a complete authored project: Settings, maintained
-notices, English/French labels, images, the reusable Typst library, its licensed
-QR encoder. Copy the whole `immuknow/templates/` tree
-when creating a PHU project. Keep its supporting paths together when moving it;
-an entry file alone is not a complete project.
+The installed engine includes the reusable Typst library and its licensed QR
+encoder under `typst/`. Complete starter projects belong to
+[ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template); Studio uses a
+pinned copy of those authored files. Keep a project's templates, Settings,
+translations, assets and configuration together when moving it. An entry file
+alone is not a complete project.
 
 Native compilation uses system fonts and Typst's built-in fallback fonts. No font
 files are shipped in the native package or added by the engine. Set `body-font` in

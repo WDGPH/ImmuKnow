@@ -3,12 +3,16 @@
 Install Python 3.11 or later, [uv](https://docs.astral.sh/uv/), and
 [Typst 0.15.1](https://typst.app/docs/changelog/0.15.1/). Put `typst`
 on `PATH`, set `TYPST_BIN`, or configure `typst.bin` in
-`parameters.yaml`. From a checkout:
+`parameters.yaml`. Obtain a starter project from
+[ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template) or download a
+project from Studio. Core contains no starter letters. With the project in
+`./my-project`, run from a Core checkout:
 
 ```bash
 uv sync
 uv run immuknow ./input/sample_students.csv \
-  --notice-assignments ./input/sample_assignments.json --output ./runs
+  --notice-assignments ./input/sample_assignments.json \
+  --templates ./my-project/templates --config ./my-project/config --output ./runs
 ```
 
 `input/sample_students.csv` and `input/sample_assignments.json` contain
@@ -57,6 +61,19 @@ with each source row in `run.json`.
 The packaged input schema defines the columns and cannot be replaced through
 `--config`.
 
+### Intended reader
+
+The optional `reader` column accepts `student` or `guardian`. An explicit choice
+controls both ordinary letter wording and the default address addressee,
+regardless of age. Leave it blank to use the default: students aged 16 or older
+receive student wording, younger clients receive guardian wording, and unknown
+age uses neutral wording. Reader selection does not change the birth date or age.
+
+Supply the mailing destination in the existing street, city, province and postal
+code columns. A reader choice does not create guardian contact details. Invalid
+values reject the cohort before any notices are rendered; correct the source
+and run it again. Saved source rows retain the supplied choice.
+
 ### History format
 
 End every administration with a semicolon, including the last, as in Panorama
@@ -85,7 +102,8 @@ Select exactly one route for the whole CSV:
 - `--notice-assignments PATH` reads a JSON manifest. Each client
   needs a `client_id` and a `template` filename such as
   `overdue_agents_v1.fr.typ`. The filename selects version and language
-  within the packaged or selected complete template tree.
+  within the complete template tree supplied with the required
+  `--templates DIRECTORY` option.
 - `--template PATH` selects one such `.typ` file for all
   clients. Its filename supplies the version and language. Known applicability
   conflicts warn without changing this explicit choice.

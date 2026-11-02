@@ -4,7 +4,8 @@
 selector: `notice_assignments=Path(...)` for explicit per-client filenames, or
 `notice_template=Path(...)` for one selected file applied unchanged to every row.
 `config_dir` selects source references and run options; `template_dir` selects the
-complete authored tree in manifest mode.
+complete authored tree and is required in manifest mode. Core supplies no
+implicit template project.
 
 ```python
 from pathlib import Path
@@ -41,9 +42,14 @@ prose, display choices, QR construction and component findings.
 ## Resources for authoring tools
 
 `immuknow.resources.resource_root()` returns the installed package directory.
-The supported resource directories are `templates/`, `config/` and `schemas/`.
+The supported resource directories are `typst/`, `config/` and `schemas/`.
 Treat them as read-only and copy files before customization. Resources are
 included in wheels and source distributions; no source checkout is needed.
+
+`immuknow.resources.typst_library_root()` returns the shared Typst library
+directory. Copy it intact to a project’s `templates/lib/immuknow/`. Starter
+letters, Settings, images and project translations come from Template or a
+Studio download, not the installed Core package.
 
 `immuknow.resources.rendering_build_info()` returns the engine version, native
 Typst version, rendering schema version, Core source identity, and a file/hash

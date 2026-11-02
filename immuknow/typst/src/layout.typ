@@ -1,5 +1,6 @@
 #import "localization.typ": long-date
 #import "findings.typ": check, component, report
+#import "reader.typ": reader
 
 #let notice-page(body, language: "en", paper: "us-letter", margins: (top: 1cm, bottom: 2cm, left: 1.75cm, right: 2cm), font: "FreeSans", font-size: 10pt, page-numbers: true) = {
   assert(language in ("en", "fr"), message: "Unsupported notice language")
@@ -47,12 +48,12 @@
   assert(window.width > 2 * window.padding and window.height > 2 * window.padding, message: "Envelope padding leaves no usable area")
 }
 
-#let address-content(client, language: "en", addressee: auto, province: auto) = {
-  let salutation = if addressee != auto { addressee } else if client.over_16 == none {
+#let address-content(client, language: "en", addressee: auto, province: auto, reader: none) = {
+  let salutation = if addressee != auto { addressee } else if reader == none {
     if language == "en" { "To:" } else { "À:" }
   } else if language == "en" {
-    if client.over_16 { "To:" } else { "To Parent/Guardian of:" }
-  } else { if client.over_16 { "À:" } else { "Au parent ou tuteur de:" } }
+    if reader == "student" { "To:" } else { "To Parent/Guardian of:" }
+  } else { if reader == "student" { "À:" } else { "Au parent ou tuteur de:" } }
   let region = if province == auto { client.province } else { province }
   assert(type(salutation) == str and type(region) == str, message: "Address addressee and province must be plain text")
   (
@@ -64,14 +65,15 @@
 #let address-block(notice, language: auto, addressee: auto, province: auto) = {
   let client = notice.client_data
   let language = if language == auto { notice.language } else { language }
-  let address = address-content(client, language: language, addressee: addressee, province: province)
+  let selected-reader = reader(notice)
+  let address = address-content(client, language: language, addressee: addressee, province: province, reader: selected-reader)
   block(breakable: false)[#layout(available => context {
     let position = here().position()
     let size = measure(address.body, width: available.width)
     component("address", notice: notice, measurements: (page: position.page,
       x_pt: position.x.pt(), y_pt: position.y.pt(), width_pt: size.width.pt(), height_pt: size.height.pt(), text: address.text))
-    if client.over_16 == none and addressee == auto {
-      check("content.address_age_unknown", "warn", "Recipient age is unknown; a neutral addressee is used.", component: "address", page: position.page)
+    if selected-reader == none and addressee == auto {
+      check("content.address_reader_unknown", "warn", "Intended reader is unknown; a neutral addressee is used.", component: "address", page: position.page)
     }
     address.body
   })]
@@ -94,7 +96,8 @@
   let id-label = if id-label != auto { id-label } else if lang == "en" { "Client ID" } else { "Identifiant du client" }
   assert(type(id-label) == str, message: "Client ID label must be text")
   let school-label = if school-label != auto { school-label } else if lang == "en" { "School" } else { "École" }
-  let address = address-content(client, language: lang, addressee: addressee, province: province)
+  let selected-reader = reader(notice)
+  let address = address-content(client, language: lang, addressee: addressee, province: province, reader: selected-reader)
   assert(not show-school or type(school-label) == str, message: "School label must be text")
   let birth-label = if lang == "en" { "Date of Birth" } else { "Date de naissance" }
   let birth-date = if show-birth-date { long-date(client.date_of_birth_iso, lang, required: false) } else { "" }
@@ -130,7 +133,7 @@
           if not has-window { "not_applicable" } else if fits { "pass" } else { "warn" },
           if not has-window { "No envelope window was specified." } else if fits { "Address fits the envelope safe area." } else { "Address extends outside the envelope safe area." },
           component: "address", page: position.page, measurements: (: ..bounds, ..overflow))
-        if client.over_16 == none and addressee == auto { check("content.address_age_unknown", "warn", "Recipient age is unknown; a neutral addressee is used.", component: "address", page: position.page) }
+        if selected-reader == none and addressee == auto { check("content.address_reader_unknown", "warn", "Intended reader is unknown; a neutral addressee is used.", component: "address", page: position.page) }
         address.body
       }],
       block(inset: area.padding)[#layout(available => context {
@@ -175,8 +178,8 @@
   }
 }
 
-#let notice-style(body, notice: none, language: auto, paper: "us-letter", margins: (top: 1cm, bottom: 2cm, left: 1.75cm, right: 2cm), font: "FreeSans", font-size: 10pt, link-color: blue, paragraph-spacing: 0.55em, page-numbers: true) = {
-  assert(notice != none, message: "notice-style requires the prepared notice for document evidence")
+#let letter(body, notice: none, language: auto, paper: "us-letter", margins: (top: 1cm, bottom: 2cm, left: 1.75cm, right: 2cm), font: "FreeSans", font-size: 10pt, link-color: blue, paragraph-spacing: 0.55em, page-numbers: true) = {
+  assert(notice != none, message: "letter requires the prepared notice for document evidence")
   let lang = if language == auto { notice.language } else { language }
   show: notice-page.with(language: lang, paper: paper, margins: margins, font: font, font-size: font-size, page-numbers: page-numbers)
   set par(spacing: paragraph-spacing)

@@ -19,8 +19,10 @@
   address + (if address.contains("?") { "&" } else { "?" }) + query + fragment
 }
 
+#let typst-link = link
+
 // Record a placed external link for comparison with the PDF destination.
-#let notice-link(destination, keep-together: true, ..body) = {
+#let link(destination, keep-together: true, ..body) = {
   assert(type(destination) == str and destination != "", message: "Link destination must be nonempty text")
   assert(type(keep-together) == bool, message: "Link keep-together must be boolean")
   if keep-together { context {
@@ -31,7 +33,7 @@
     ]))
     let spaces = query(<immuknow-link-space>).filter(it => it.value.owner == owner)
     let available = if spaces.len() > 0 { spaces.first().value.size } else { (width: 0pt, height: 0pt) }
-    let linked = link(destination, ..body)
+    let linked = typst-link(destination, ..body)
     let natural = measure(linked)
     let fits = natural.width <= available.width + 0.1pt
     let placed = context {
@@ -46,6 +48,6 @@
     if fits and natural.height <= available.height { box(placed) } else { placed }
   } } else { context {
     component("link", measurements: (page: here().page(), url: destination))
-    link(destination, ..body)
+    typst-link(destination, ..body)
   } }
 }

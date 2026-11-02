@@ -729,8 +729,8 @@
               ]
             },
             {
-              "const": "content.address_age_unknown",
-              "description": "Addressee age is known",
+              "const": "content.address_reader_unknown",
+              "description": "Intended reader is known",
               "x-evaluator": "Typst address",
               "x-adjustable": false,
               "x-components": [
@@ -830,6 +830,13 @@
             {
               "const": "content.link_https",
               "description": "Web links use HTTPS and include a host",
+              "x-evaluator": "Typst report",
+              "x-adjustable": true,
+              "x-components": []
+            },
+            {
+              "const": "content.link_destination",
+              "description": "Link destinations use HTTPS, mailto or tel address formats",
               "x-evaluator": "Typst report",
               "x-adjustable": true,
               "x-components": []

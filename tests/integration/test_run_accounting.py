@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from tests.fixtures.project import copy_project
+
 import json
 import shutil
 import subprocess
@@ -98,7 +100,8 @@ def test_csv_rejection_retains_source_without_starting_notices(tmp_path):
         run_pipeline(
             source,
             tmp_path / "runs",
-            notice_template=ROOT / "immuknow/templates/overdue_diseases_v1.en.typ",
+            notice_template=copy_project(tmp_path / "templates")
+            / "overdue_diseases_v1.en.typ",
         )
     (saved,) = (tmp_path / "runs").glob("*/run.json")
     record = json.loads(saved.read_text())
@@ -149,7 +152,7 @@ def prepare_inputs(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
     config_dir = tmp_path / "config"
     templates = tmp_path / "templates"
     shutil.copytree(ROOT / "immuknow/config", config_dir)
-    shutil.copytree(ROOT / "immuknow/templates", templates)
+    copy_project(templates)
     config_path = config_dir / "parameters.yaml"
     config = yaml.safe_load(config_path.read_text())
     config["bundling"] = {"bundle_size": 10}
