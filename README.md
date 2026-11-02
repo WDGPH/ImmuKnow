@@ -91,8 +91,8 @@ uv run --locked prek run --all-files
 ```
 
 Install hooks once per clone. They lint and format Python with Ruff; CI checks
-the same rules without rewriting files. Keep Ruff's versions in `pyproject.toml`
-and `.pre-commit-config.yaml` aligned.
+the same rules without rewriting files. The hooks run the Ruff version
+locked by the project.
 
 Build the native wheel and source distribution with:
 

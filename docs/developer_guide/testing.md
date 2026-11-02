@@ -64,8 +64,7 @@ uv run --locked prek install
 ```
 
 Install the hooks once per clone. Ruff lints and formats Python when committing;
-CI checks the same rules without rewriting files. Keep its versions in
-`pyproject.toml` and `.pre-commit-config.yaml` aligned.
+CI checks the same rules without rewriting files. The hooks run the Ruff version locked by the project.
 
 Native CI covers Linux with Python 3.11, 3.12 and 3.14. Other operating systems
 are not covered by that suite.
