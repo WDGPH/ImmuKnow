@@ -1,6 +1,6 @@
 """Keep one writer at a time in each run, with automatic release on process exit."""
 
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -8,7 +8,7 @@ from filelock import FileLock, SoftFileLock, Timeout
 
 
 @contextmanager
-def run_lock(run_dir: Path) -> Iterator[None]:
+def run_lock(run_dir: Path) -> Generator[None]:
     """Refuse a busy run immediately using an operating-system file lock.
 
     The operating system owns the lock, so an interrupted process cannot leave

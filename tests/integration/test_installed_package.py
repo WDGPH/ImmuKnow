@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import tomllib
 import zipfile
 from hashlib import sha256
 from pathlib import Path
@@ -113,8 +114,12 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
             }
             & build.keys()
         )
-        assert build["build_tools"]["setuptools"] == "84.1.0"
-        assert build["build_tools"]["wheel"] == "0.48.0"
+        declared_build_tools = tomllib.loads((ROOT / "pyproject.toml").read_text())[
+            "build-system"
+        ]["requires"]
+        for requirement in declared_build_tools:
+            name, version = requirement.split("==")
+            assert build["build_tools"][name] == version
         assert {
             item["path"]: item["sha256"] for item in build["package_files"]["files"]
         } == {

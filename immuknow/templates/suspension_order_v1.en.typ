@@ -2,6 +2,9 @@
 #import "settings.typ": *
 #show: notice-style // Apply the layout and theme from Settings
 
+// Name used in the legal wording; the printed signature may include credentials.
+#let order-signatory-name = "Dr. Annie Body"
+
 // The explicit assignment comes from the upstream assessment.
 // The supplied overdue diseases must already reflect exemptions and the MOH's assessment.
 #notice-page("Order for Suspension from Attendance at School")[
@@ -22,7 +25,7 @@
 ]
 
 #v(10pt) // Separate service instructions from the order
-I, *#signature-name*, Medical Officer of Health for *#health-unit-name*, order the suspension of the above named student for a period of twenty school days,
+I, *#order-signatory-name*, Medical Officer of Health for *#health-unit-name*, order the suspension of the above named student for a period of twenty school days,
 
 #grid(columns: (1fr, 1fr), gutter: 12pt,
   [*From:* #immuknow.long-date(suspension-start, "en")],
@@ -69,8 +72,8 @@ Although a hearing may be requested, this order takes effect when it is served.
 #v(10pt) // Space above the signature and service date
 #grid(columns: (1fr, auto), gutter: 12pt, align: horizon,
   immuknow.signature-block(
-    signature: signature,
-    name: signature-name,
+    signature: image("assets/signature.png", width: 4.5cm), // Change width; height follows the image’s aspect ratio.
+    name: "Dr. Annie Body",
     title: "Medical Officer of Health",
   ),
   [*Date Served:* #date_of_delivery],

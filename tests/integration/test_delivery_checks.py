@@ -38,10 +38,10 @@ def saved_run(tmp_path):
     template = templates / "overdue_diseases_v1.en.typ"
     template.write_text(
         template.read_text().replace(
-            "name: signature-name,",
+            'name: "Dr. Annie Body",',
             'name: if notice.client_id == "0000000002" { '
             "[#for _ in range(120) [Signature line #linebreak()]] "
-            "} else { signature-name },",
+            '} else { "Dr. Annie Body" },',
         )
     )
     frame = create_test_input_dataframe(num_clients=3)

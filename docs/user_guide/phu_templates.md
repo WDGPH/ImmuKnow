@@ -62,7 +62,7 @@ The opening stays short:
 #notice-page("Request for Immunization Record")[
   #immuknow.client-block(notice, window: envelope-window)
   As of *#date_as_of*, our files show these overdue immunizations:
-  #immuknow.overdue-diseases(notice, include-dose: include-dose)
+  #immuknow.overdue-diseases(notice, include-dose: false)
 ]
 #notice-page("Immunization Record")[
   #immunization-history()
@@ -167,6 +167,26 @@ can explicitly allow intentional overflow. Structural misuse or compiler errors
 can prevent a PDF. Report findings show which components were used, their checks,
 resolved QR URLs and layout measurements.
 
+Put options used by one component directly in its Template call. For example,
+set `style: "bullets"`, `columns: 1` and `include-dose: false` on
+`overdue-diseases`. Bullet lists use `indent: 0.8cm` without a surrounding
+`#set list` rule; pass `indent: 1cm` to override just that component.
+Keep shared page setup, Theme colours and contact details in Settings.
+
+Use an explicit image path and width inside the signature block:
+
+```typst
+#immuknow.signature-block(
+  signature: image("assets/signature.png", width: 4.5cm),
+  name: "Dr. Annie Body",
+  title: "Medical Officer of Health",
+)
+```
+
+For a smaller signature, change `width: 4.5cm` to `width: 3cm`. Leave height
+unspecified to preserve the image's aspect ratio. The helper assumes no default
+image filename. Use `signature: none` to omit the image.
+
 The supplied report builder writes version 2 evidence under `report-v2.json`
 inside the library. It includes the source row and selected filename as well as
 client, version and language. Missing fields, unknown checks/components,
@@ -218,3 +238,8 @@ pipeline also records findings and delivery accounting. Inspect English/French,
 unknown-age, long-address and long-history examples, including QR links,
 window placement, signatures, symbols and page continuation. The
 [testing guide](../developer_guide/testing.md) describes repeatable checks.
+
+Keep the printed name directly in the signature call. It may include credentials,
+for example `name: "Dr. Annie Body, MD"`. The suspension order defines a separate
+`order-signatory-name` in its Template for the legal wording, without requiring
+the printed signature to use exactly the same text.

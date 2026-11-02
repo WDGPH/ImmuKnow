@@ -39,11 +39,11 @@ dev = [
     "setuptools==84.2.1",
     "wheel==0.48.0",
     "ruff==0.17.2",
-    "pymupdf==2.0",
+    "pymupdf==1.28.2",
     "zxing-cpp==3.1.1",
     "pytest",
     "pytest-cov",
-    "pre-commit",
+    "prek",
     "ty>=0.0.91",
     "pytest-xdist>=3.8.0",
 ]
@@ -58,6 +58,10 @@ docs = [
 [project.scripts]
 immuknow = "immuknow.orchestrator:main"
 immuknow-rebundle = "immuknow.rebundle:main"
+
+[tool.ruff.lint]
+# Keep the existing lint policy independent of Ruff's changing defaults.
+select = ["E4", "E7", "E9", "F"]
 
 [tool.coverage.run]
 source = ["immuknow"]
