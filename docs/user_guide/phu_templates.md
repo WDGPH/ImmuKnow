@@ -58,6 +58,8 @@ warning/failure behavior.
 The opening stays short:
 
 ```typst
+// Essential setup: keep these opening lines.
+// @immuknow-settings: settings.typ
 #import "setup.typ": *
 #show: immuknow.letter // Apply the letter layout
 
@@ -114,7 +116,8 @@ contacts, for example:
 Link destinations are checked for HTTPS, email or telephone address format;
 the checks do not establish that a destination exists or responds.
 
-Use explicit `true`, `false` and unknown branches for `notice.client_data.over_16`.
+Shared setup exposes `notice.client_data.over_16` directly as `over_16`.
+Use explicit `true`, `false` and unknown branches for `over_16`.
 Unknown birth/age never means under 16. The maintained examples use neutral
 client wording in that case. Address components use the source province.
 
@@ -198,7 +201,9 @@ Put options used by one component directly in its Template call. For example,
 set `style: "bullets"`, `columns: 1` and `include-dose: false` on
 `overdue-diseases`. Bullet lists use `indent: 0.8cm` without a surrounding
 `#set list` rule; pass `indent: 1cm` to override just that component.
-Keep shared page setup and Theme colours in Settings. Write contact details
+The client block defaults to `font-size: 10pt` and `details: "right"`. Omit those
+options unless changing them on that call. Omit QR calls in letters without a
+QR code. Keep shared page setup and Theme colours in Settings. Write contact details
 directly where they appear in the Template.
 
 Use an explicit image path and width inside the signature block:
