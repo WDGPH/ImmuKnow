@@ -1,7 +1,4 @@
 // Authored project labels may be edited independently of normalized disease names.
-#import "lib/immuknow/lib.typ": localization
-#let long-date = localization.long-date
-#let table-labels = localization.table-labels
 
 #let selected-labels() = {
   let result = (:)
@@ -13,6 +10,3 @@
   }
   result
 }
-
-#let disease-label(domain, key, lang) = localization.disease-label(domain, key, lang, labels: selected-labels())
-#let overdue-label(entry, include-dose, lang) = localization.overdue-label(entry, include-dose, lang, labels: selected-labels())

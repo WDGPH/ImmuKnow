@@ -86,7 +86,10 @@ Omit helper options when their defaults already express what you want. Its confi
 `notice-page` helper supplies the header and section styling. Dates are bound
 as `date_of_delivery`, `date_as_of` and `date_of_birth`. History remains a lazy
 function so a suspension order can omit it without evaluating history display
-requirements. The suspension example has one order page and no history or
+requirements. Template’s `immunization-history` and `notice-page` helpers accept
+named options for one call, after the shared defaults. See
+[Template customization](https://github.com/WDGPH/ImmuKnow-Template#customizing)
+for examples. The suspension example has one order page and no history or
 privacy appendix.
 
 Privacy wording lives directly at the end of each applicable template in an

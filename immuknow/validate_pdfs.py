@@ -155,7 +155,7 @@ def check_pdf_evidence(
             "output.unrecorded_link",
             "output",
             "warn" if unrecorded else "pass" if checked else "not_applicable",
-            "A PDF link destination was not recorded by a supplied helper; use notice-link for external links."
+            "A PDF link destination was not recorded by a supplied helper; use immuknow.link for external links."
             if unrecorded
             else "PDF link destinations are recorded by supplied helpers."
             if checked

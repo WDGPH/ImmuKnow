@@ -60,7 +60,6 @@ Destinations are checked as HTTPS web addresses, email (`mailto:`) or phone
 (`tel:`) links. These checks inspect the address format; they do not contact the
 website, email address or phone number. For an extension, use
 `link("tel:+18005550100;ext=1234")[1-800-555-0100 ext. 1234]`.
-The previous name `notice-link` remains available for existing projects.
 Link text stays together by default and moves to the next line when needed. If it
 is wider than a whole line in its enclosing paragraph, column or box, it wraps
 normally and reports `layout.link_width` as a warning. Text is not shrunk or
@@ -75,12 +74,15 @@ For client-specific links, encode raw query values once:
   client: notice.client_id,
   name: notice.client_data.name,
 ))
-#let immunization-history() = immuknow.immunization-history(
+#let immunization-history(..options) = immuknow.immunization-history(
   notice, diseases: ("Measles", "Mumps", "Rubella"), show-validity: true,
+  ..options,
 )
 ```
 
 Insert `#immunization-history()` only where the history should be displayed.
+With this wrapper, `#immunization-history(show-age: true)` changes just that table;
+options passed at the call override the project defaults.
 Unused content emits no component findings. `url-encode(string)` encodes UTF-8
 query/path components with RFC 3986 unreserved characters; `query-url` applies
 it to raw dictionary keys and values. A fixed URL string is used verbatim.

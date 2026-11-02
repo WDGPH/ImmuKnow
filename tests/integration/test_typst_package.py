@@ -489,10 +489,10 @@ def test_link_destination_formats(tmp_path, destination, expected):
     assert check["status"] == expected
 
 
-def test_old_link_name_and_privacy_contacts_keep_pdf_evidence(tmp_path):
+def test_link_and_privacy_contacts_keep_pdf_evidence(tmp_path):
     report, reader = compile_package(
         tmp_path,
-        '#immuknow.notice-link("https://example.org")[Record]\n'
+        '#immuknow.link("https://example.org")[Record]\n'
         "#immuknow.privacy-notice[Call "
         '#immuknow.link("tel:+18005550100;ext=1234")[1-800-555-0100 ext. 1234] or '
         '#immuknow.link("mailto:privacy@example.org").]',

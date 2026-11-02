@@ -107,14 +107,14 @@ def test_json_punctuation_remains_literal_text(tmp_path: Path):
     assert "First line Second line" in text
 
 
-def compile_presentation_probe(
+def compile_localization_probe(
     workspace: Path, body: str
 ) -> subprocess.CompletedProcess:
-    """Evaluate the maintained presentation helper with the real Typst compiler."""
+    """Evaluate the shared localization functions with the real Typst compiler."""
     workspace.mkdir(parents=True)
     copy_project(workspace / "templates")
     probe = workspace / "probe.typ"
-    probe.write_text('#import "/templates/presentation.typ" as presentation\n' + body)
+    probe.write_text('#import "/templates/lib/immuknow/lib.typ" as immuknow\n' + body)
     return subprocess.run(
         [
             os.environ.get("TYPST_BIN", "typst"),
@@ -171,21 +171,21 @@ def test_presentation_dates_and_doses(tmp_path: Path) -> None:
             ("en", f"{english} {day}, 2024"),
             ("fr", f"{day} {french} 2024"),
         ):
-            expressions.append(f'#presentation.long-date("{iso}", "{language}")')
+            expressions.append(f'#immuknow.long-date("{iso}", "{language}")')
             expected.append(formatted)
     for dose in (1, 2, 3, 11, 12, 13, 21):
         suffix = {1: "st", 2: "nd", 3: "rd", 21: "st"}.get(dose, "th")
         expressions.append(
-            f'#presentation.overdue-label((disease: "Measles", dose: {dose}), true, "en")'
+            f'#immuknow.localization.overdue-label((disease: "Measles", dose: {dose}), true, "en")'
         )
         expected.append(f"Measles ({dose}{suffix} dose)")
         expressions.append(
-            f'#presentation.overdue-label((disease: "Measles", dose: {dose}), true, "fr")'
+            f'#immuknow.localization.overdue-label((disease: "Measles", dose: {dose}), true, "fr")'
         )
         expected.append(f"Rougeole ({dose}{'re' if dose == 1 else 'e'} dose)")
     body = "\n#linebreak()\n".join(expressions)
-    body += '\n#assert(presentation.long-date("", "fr", required: false) == "")\n'
-    result = compile_presentation_probe(workspace, body)
+    body += '\n#assert(immuknow.long-date("", "fr", required: false) == "")\n'
+    result = compile_localization_probe(workspace, body)
     assert result.returncode == 0, result.stderr
     rendered = "\n".join(
         page.extract_text() for page in PdfReader(workspace / "probe.pdf").pages
@@ -199,9 +199,9 @@ def test_presentation_rejects_missing_or_invalid_required_date(
     tmp_path: Path, value: str
 ) -> None:
     workspace = tmp_path / "invalid date"
-    result = compile_presentation_probe(
+    result = compile_localization_probe(
         workspace,
-        f'#presentation.long-date("{value}", "en")',
+        f'#immuknow.long-date("{value}", "en")',
     )
     assert result.returncode != 0
     assert not (workspace / "probe.pdf").exists()

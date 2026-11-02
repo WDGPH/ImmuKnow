@@ -51,6 +51,3 @@
     typst-link(destination, ..body)
   } }
 }
-
-// Existing authored projects may still use this name.
-#let notice-link = link
