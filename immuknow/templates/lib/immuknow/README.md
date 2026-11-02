@@ -15,7 +15,8 @@ Set `allow-overflow: true` for intentional continuation. Overflows produce
 warnings while preserving visible content.
 
 Put notice-specific helper options directly in the Template. Keep shared page,
-Theme and contact values in Settings. There is no Python
+Theme, QR and history choices in Settings. Write contact details and
+notice-specific options directly where they appear in the Template. There is no Python
 display-default adapter or separate layout-settings file.
 
 - `check-notice(notice, version: ..., language: ...)` checks the authored filename
@@ -53,13 +54,18 @@ display-default adapter or separate layout-settings file.
   rounded modules are configurable. The resolved destination is shared by the
   drawn code, PDF link, and report.
 
-`notice-link(destination)[label]` records an external link's destination and
+`link(destination)[label]` records an external link's destination and
 starting page for PDF checks. The label is optional, as with Typst's `link`.
+Destinations are checked as HTTPS web addresses, email (`mailto:`) or phone
+(`tel:`) links. These checks inspect the address format; they do not contact the
+website, email address or phone number. For an extension, use
+`link("tel:+18005550100;ext=1234")[1-800-555-0100 ext. 1234]`.
+The previous name `notice-link` remains available for existing projects.
 Link text stays together by default and moves to the next line when needed. If it
 is wider than a whole line in its enclosing paragraph, column or box, it wraps
 normally and reports `layout.link_width` as a warning. Text is not shrunk or
 clipped by the helper. Explicit line breaks in an authored label remain. Use
-`notice-link(destination, keep-together: false)[label]` to allow normal wrapping
+`link(destination, keep-together: false)[label]` to allow normal wrapping
 without this width warning.
 
 For client-specific links, encode raw query values once:

@@ -505,8 +505,8 @@ def test_placed_links_match_pdf_destinations_without_a_qr_code(tmp_path, url):
     job.template.write_text(
         '#import "settings.typ": *\n#show: notice-style\n'
         "#immuknow.client-block(notice)\n#pagebreak()\n"
-        f"#immuknow.notice-link({json.dumps(url, ensure_ascii=False)})\n\n"
-        f"#immuknow.notice-link({json.dumps(url, ensure_ascii=False)})[Read the record information and complete the requested information for the health unit.]"
+        f"#immuknow.link({json.dumps(url, ensure_ascii=False)})\n\n"
+        f"#immuknow.link({json.dumps(url, ensure_ascii=False)})[Read the record information and complete the requested information for the health unit.]"
     )
     summary, _ = compile_case(job)
     assert not summary["qr_urls"]
@@ -526,9 +526,9 @@ def test_link_evidence_follows_an_automatic_page_break(tmp_path, keep_together):
     )
     job.template.write_text(
         '#import "settings.typ": *\n#show: notice-style\n'
-        '#let unused = immuknow.notice-link("https://example.org/unused")\n'
+        '#let unused = immuknow.link("https://example.org/unused")\n'
         "#immuknow.client-block(notice)\n#v(500pt)\n"
-        '#text(size: 40pt)[#immuknow.notice-link("https://example.org/record"'
+        '#text(size: 40pt)[#immuknow.link("https://example.org/record"'
         f"{option})[Read the record]]"
     )
     summary, _ = compile_case(job)
@@ -544,7 +544,7 @@ def test_oversized_kept_link_records_a_reviewable_warning_in_native_evidence(tmp
     job.template.write_text(
         '#import "settings.typ": *\n#show: notice-style\n'
         "#immuknow.client-block(notice)\n"
-        '#block(width: 65pt)[#immuknow.notice-link("https://example.org/record")[Read the record information]]'
+        '#block(width: 65pt)[#immuknow.link("https://example.org/record")[Read the record information]]'
     )
     summary, reader = compile_case(job)
     checks = {check["code"]: check for check in summary["checks"]}
@@ -565,8 +565,8 @@ def test_a_link_on_another_page_cannot_hide_a_broken_link(tmp_path, damage):
     job.template.write_text(
         '#import "settings.typ": *\n#show: notice-style\n'
         "#immuknow.client-block(notice)\n"
-        '#immuknow.notice-link("https://example.org/record")[Read the record]\n'
-        '#pagebreak()\n#immuknow.notice-link("https://example.org/record")[Read the record]'
+        '#immuknow.link("https://example.org/record")[Read the record]\n'
+        '#pagebreak()\n#immuknow.link("https://example.org/record")[Read the record]'
     )
     summary, reader = compile_case(job)
     assert [link["page"] for link in summary["measurements"]["link"]] == [1, 2]
@@ -625,9 +625,7 @@ def test_link_destinations_outside_helpers_warn_even_without_a_qr(
         "#immuknow.client-block(notice)\n"
     )
     if recorded:
-        body += (
-            '#immuknow.notice-link("https://example.org/record")[Read the record]\n\n'
-        )
+        body += '#immuknow.link("https://example.org/record")[Read the record]\n\n'
     job.template.write_text(
         body + f"#link({json.dumps(url, ensure_ascii=False)})[Extra information]"
     )
@@ -652,7 +650,7 @@ def test_a_recorded_link_can_continue_across_pages(tmp_path):
     job.template.write_text(
         '#import "settings.typ": *\n#show: notice-style\n'
         "#immuknow.client-block(notice)\n"
-        f'#immuknow.notice-link("https://example.org/record")[#{text}]'
+        f'#immuknow.link("https://example.org/record")[#{text}]'
     )
     summary, reader = compile_case(job)
     assert len(reader.pages) > 1

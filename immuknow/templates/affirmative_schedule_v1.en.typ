@@ -10,7 +10,6 @@
   window: envelope-window,
   font-size: client-font-size,
   details: client-details,
-  addressee: address-addressee,
 ) // Mailing address and client details
 #v(0.3cm) // Space before the message
 
@@ -18,18 +17,18 @@ As of *#date_as_of* our files show that #if notice.client_data.over_16 == true [
 
 For any future received vaccines, you can update #if notice.client_data.over_16 == true [your record] else if notice.client_data.over_16 == false [your child's record] else [the client's record] by using one of the following options:
 
-1. By visiting #immuknow.notice-link(records-url)
-2. By emailing #immuknow.notice-link("mailto:" + records-email)[#records-email]
-3. By mailing a photocopy of #if notice.client_data.over_16 == true [your] else if notice.client_data.over_16 == false [your child's] else [the client's] immunization record to #health-unit-name, #health-unit-address
-4. By Phone: #health-unit-phone
+1. By visiting #immuknow.link("https://example.org/immunization")
+2. By emailing #immuknow.link("mailto:records@example.org")
+3. By mailing a photocopy of #if notice.client_data.over_16 == true [your] else if notice.client_data.over_16 == false [your child's] else [the client's] immunization record to Cedar Ridge Health Unit, 123 Example Street, Demo City, ON N0N 0N0
+4. By Phone: #immuknow.link("tel:1-800-555-0100")
 
 Please update Public Health#if notice.client_data.over_16 == false [ and your childcare centre] every time #if notice.client_data.over_16 == true [you receive] else if notice.client_data.over_16 == false [your child receives] else [the client receives] a vaccine.
 
-If you have any questions, please call #health-unit-phone.
+If you have any questions, please call #immuknow.link("tel:1-800-555-0100").
 
 Thank you for helping to keep our children safe.
 
-#immuknow.qr-code(notice, ..affirmative-qr)
+#immuknow.qr-code(notice, ..qr, enabled: false) // Set true to show the QR code
 
   Sincerely,
 
@@ -50,5 +49,5 @@ Thank you for helping to keep our children safe.
 
 // Privacy notice: edit wording and contact details here
 #immuknow.privacy-notice[
-  The information in this notice was collected under the authority of the _Health Protection and Promotion Act_ in accordance with the _Municipal Freedom of Information and Protection of Privacy Act_ and the _Personal Health Information Protection Act_. This information is used for the delivery of public health programs and services; the administration of the agency; and the maintenance of healthcare databases, registries and related research, in compliance with legal and regulatory requirements. Any questions about the management of this information should be addressed to the Chief Privacy Officer at 1-800-555-0100 ext. 1234 or privacy\@example.org.
+  The information in this notice was collected under the authority of the _Health Protection and Promotion Act_ in accordance with the _Municipal Freedom of Information and Protection of Privacy Act_ and the _Personal Health Information Protection Act_. This information is used for the delivery of public health programs and services; the administration of the agency; and the maintenance of healthcare databases, registries and related research, in compliance with legal and regulatory requirements. Any questions about the management of this information should be addressed to the Chief Privacy Officer at #immuknow.link("tel:+18005550100;ext=1234")[1-800-555-0100 ext. 1234] or #immuknow.link("mailto:privacy@example.org").
 ]

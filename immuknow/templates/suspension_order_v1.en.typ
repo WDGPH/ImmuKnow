@@ -11,7 +11,7 @@
 #align(center)[_Pursuant to s. 6 of the Immunization of School Pupils Act_]
 #immuknow.client-block(
   notice,
-  window: suspension-window,
+  window: if envelope-window == none { none } else { (..envelope-window, y: 135pt) }, // Room for the order title
   font-size: client-font-size,
   details: client-details,
   addressee: "Student:",
@@ -25,11 +25,12 @@
 ]
 
 #v(10pt) // Separate service instructions from the order
-I, *#order-signatory-name*, Medical Officer of Health for *#health-unit-name*, order the suspension of the above named student for a period of twenty school days,
+I, *#order-signatory-name*, Medical Officer of Health for *Cedar Ridge Health Unit*, order the suspension of the above named student for a period of twenty school days,
 
+// Sample suspension dates: set the end date using your school calendar (20 school days)
 #grid(columns: (1fr, 1fr), gutter: 12pt,
-  [*From:* #immuknow.long-date(suspension-start, "en")],
-  [*To:* #immuknow.long-date(suspension-end, "en")],
+  [*From:* #immuknow.long-date("2026-02-02", "en")],
+  [*To:* #immuknow.long-date("2026-03-02", "en")],
 )
 
 #v(10pt) // Space after the suspension dates
@@ -63,9 +64,9 @@ The reasons for this order are:
 #v(10pt) // Separate the reasons from the reader information
 *#if notice.client_data.over_16 == true [Student] else if notice.client_data.over_16 == false [Parent/Guardian] else [Client or representative]:*
 
-Questions about this Order can be directed to #health-unit-name — Toll-free: #health-unit-phone.
+Questions about this Order can be directed to Cedar Ridge Health Unit — Toll-free: #immuknow.link("tel:1-800-555-0100").
 
-You are entitled to a hearing by the Health Services Appeal and Review Board if you mail or deliver to me, and the Health Services Appeal and Review Board, #hearing-board-address, and the principal of *#notice.client_data.school*, a request for a hearing within 15 days of this notice being served.
+You are entitled to a hearing by the Health Services Appeal and Review Board if you mail or deliver to me, and the Health Services Appeal and Review Board, 151 Bloor Street West, 9th Floor, Toronto, ON M5S 1S4, and the principal of *#notice.client_data.school*, a request for a hearing within 15 days of this notice being served.
 
 Although a hearing may be requested, this order takes effect when it is served.
 

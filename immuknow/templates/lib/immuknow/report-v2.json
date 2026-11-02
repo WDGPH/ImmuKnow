@@ -835,6 +835,13 @@
               "x-components": []
             },
             {
+              "const": "content.link_destination",
+              "description": "Link destinations use HTTPS, mailto or tel address formats",
+              "x-evaluator": "Typst report",
+              "x-adjustable": true,
+              "x-components": []
+            },
+            {
               "const": "content.multiple_links",
               "description": "Multiple link destinations have been reviewed",
               "x-evaluator": "Typst report",

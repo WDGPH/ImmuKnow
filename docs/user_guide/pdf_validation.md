@@ -25,7 +25,7 @@ changed facts even when row and client IDs are unchanged. It does not compare
 printed vaccine history or overdue lists with the PDF.
 
 Every recorded QR destination must occur in the PDF's clickable links.
-Destinations from `notice-link` must also occur on the page where the helper
+Destinations from `link` must also occur on the page where the helper
 starts. Missing, changed or unreadable destinations fail the evidence check,
 including when rebundling a saved run. These comparisons make no network requests.
 They do not check individual link positions or decode printed QR images.
@@ -109,6 +109,7 @@ or `severity: fail`, for a run or an explicitly selected source row.
 | History columns have enough width | `layout.history_width` |
 | Title fits its line limit | `layout.header_title_lines` |
 | Placed content has a translation | `content.translation_missing` |
+| Link destinations use HTTPS, mailto or tel address formats | `content.link_destination` |
 | Web links use HTTPS and include a host | `content.link_https` |
 | Multiple link destinations have been reviewed | `content.multiple_links` |
 | QR destination has an HTTP or HTTPS web address | `output.qr_destination` |

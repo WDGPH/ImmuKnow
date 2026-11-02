@@ -16,8 +16,6 @@
 // #let envelope-window = (x: 1.75cm, y: 165.1pt, width: 100mm, height: 45mm, padding: 11pt) // DL
 // #let envelope-window = (x: 1.75cm, y: 165.1pt, width: 90mm, height: 45mm, padding: 11pt) // C5
 
-#let suspension-window = if envelope-window == none { none } else { (..envelope-window, y: 135pt) } // Room for the order title and legal subtitle
-
 #let client-details = "right" // Client details beside the address; "below" places them underneath
 
 #let logo-width = 7cm // Logo width
@@ -31,16 +29,6 @@
 #let accent-color = rgb("#005568") // Default colour of the QR code
 #let title-size = 20pt // Size of the letter and history headings
 #let client-font-size = 10pt // Size of the address and client details
-
-// Letter features
-#let health-unit-name = "Cedar Ridge Health Unit" // Issuing organization
-#let health-unit-address = "123 Example Street, Demo City, ON N0N 0N0" // Mailing address
-#let records-url = "https://example.org/immunization" // Submit immunization records
-#let records-email = "records@example.org" // Records email address
-#let exemptions-url = "https://example.org/exemptions" // Exemption forms
-#let health-unit-phone = "1-800-555-0100" // Public contact number
-// Reader wording is chosen in the Template using the client’s age
-#let address-addressee = auto // Same reader as the letter
 
 // QR destination is resolved in Typst and shared by the code and its clickable link
 #let qr = (
@@ -58,13 +46,6 @@
 )
 // #let qr = (..qr, enabled: false)
 // #let qr = (..qr, url: "https://example.org/immunization") // One destination for everyone
-
-#let affirmative-qr = (..qr, enabled: false) // QR options for up-to-date notices
-
-// Suspension order: sample dates; set the end date using your school calendar (20 school days)
-#let suspension-start = "2026-02-02"
-#let suspension-end = "2026-03-02"
-#let hearing-board-address = "151 Bloor Street West, 9th Floor, Toronto, ON M5S 1S4"
 
 // Notice data and supporting imports.
 #let notice = json(sys.inputs.at("data"))

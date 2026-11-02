@@ -76,7 +76,11 @@ through `sys.inputs.at("data")`, and checks trusted compiler inputs
 repeat literal identity declarations. `notice-style` receives `notice:` and
 wraps the whole document, collecting native component findings and page count.
 
-Settings follows page/envelope, theme and letter-feature order. Its configured
+Settings holds shared page, envelope, theme, QR and history choices.
+Write organization names, mailing addresses, links and phone numbers directly
+in the Template where they appear. Keep notice-specific choices there too,
+including suspension dates and whether that notice shows a QR code.
+Omit helper options when their defaults already express what you want. Its configured
 `notice-page` helper supplies the header and section styling. Dates are bound
 as `date_of_delivery`, `date_as_of` and `date_of_birth`. History remains a lazy
 function so a suspension order can omit it without evaluating history display
@@ -85,9 +89,20 @@ privacy appendix.
 
 Privacy wording lives directly at the end of each applicable template in an
 `#immuknow.privacy-notice[Your privacy wording here.]` block. Edit its wording
-and contact details in the Template editor. The helper places it at the bottom
-of the page and reports unexpected continuation. Templates without a privacy
-notice simply omit the block; Settings does not insert one automatically.
+and contact details in the Template editor. The helper places the privacy block
+at the bottom of the page and reports unexpected continuation. Templates without
+a privacy notice simply omit the block; Settings does not insert one automatically.
+
+Use `immuknow.link` for clickable
+contacts, for example:
+
+```typst
+#immuknow.link("tel:+18005550100;ext=1234")[1-800-555-0100 ext. 1234]
+#immuknow.link("mailto:privacy@example.org")
+```
+
+Link destinations are checked for HTTPS, email or telephone address format;
+the checks do not establish that a destination exists or responds.
 
 Use explicit `true`, `false` and unknown branches for `notice.client_data.over_16`.
 Unknown birth/age never means under 16. The maintained examples use neutral
@@ -96,7 +111,7 @@ client wording in that case. Address components use the source province.
 Link labels stay together by default:
 
 ```typst
-#immuknow.notice-link("https://example.org/records")[Update your record]
+#immuknow.link("https://example.org/records")[Update your record]
 ```
 
 The label moves intact to the next line when needed. A label wider than a whole
@@ -194,7 +209,7 @@ contradictory presence findings and invalid page ranges are refused by native
 runs and Studio. Keep the supplied builder; do not write a replacement report
 in an authored template.
 
-Use `immuknow.notice-link("https://example.org/record")[Read the record]` for
+Use `immuknow.link("https://example.org/record")[Read the record]` for
 external links. It also accepts `mailto:` and `tel:` destinations. Omitting the
 bracketed text keeps Typst's default label. Python compares its destination with
 a clickable link on the recorded page, including during saved-run delivery.
