@@ -21,8 +21,6 @@
 #let client-details = "right" // Client details beside the address; "below" places them underneath
 
 #let logo-width = 7cm // Logo width
-#let signature-width = 4.5cm // Signature width
-#let signature-height = 1.5cm // Signature height
 
 // Theme
 // Match your organization’s fonts and colours. Colour values can be copied from your brand guide
@@ -44,10 +42,6 @@
 #let signature-name = "Dr. Annie Body" // Printed name below the signature
 // Reader wording is chosen in the Template using the client’s age
 #let address-addressee = auto // Same reader as the letter
-
-#let list-style = "bullets" // "comma-separated" for a plain inline list
-#let list-columns = 1 // Columns when using bullets
-#let include-dose = false // Add the overdue disease dose number
 
 // QR destination is resolved in Typst and shared by the code and its clickable link
 #let qr = (
@@ -83,7 +77,6 @@
   language: sys.inputs.at("notice-language"),
 )
 #let logo = image("assets/logo.png", width: logo-width)
-#let signature = image("assets/signature.png", width: signature-width, height: signature-height, fit: "contain")
 #let dates = immuknow.notice-dates(notice)
 #let date_of_delivery = dates.date_of_delivery
 #let date_as_of = dates.date_as_of

@@ -182,7 +182,7 @@ information. Python does not assess exemptions or calculate school calendars.
 ### Validity and next-dose display
 
 Python always reads validity and next-dose information from the input and
-keeps it in the notice data. Settings decides whether notices show it.
+keeps it in the notice data. The Template and Settings decide whether notices show it.
 Nothing is switched on automatically when the input contains this information.
 
 - `show-validity` in `immunization-history(...)`: mark each dose in the
@@ -191,13 +191,10 @@ Nothing is switched on automatically when the input contains this information.
 - `omit-invalid` in `immunization-history(...)`: leave doses marked
   ` - Invalid` out of the history chart. This applies even when
   `show-validity` is `false`.
-- top-level `include-dose` in `settings.typ`: add the dose number to overdue
-  diseases, for example "Measles (2nd dose)" or "Rougeole (2e dose)". A
-  template uses the setting only where it passes
-  `include-dose: include-dose`; a template that passes
-  its own value, or leaves the argument out (default `false`), ignores it. The
-  maintained overdue disease notices pass the setting, and the suspension
-  order passes `false`. Overdue agent lists never show dose numbers.
+- `include-dose` on `immuknow.overdue-diseases(...)` in the Template: add the
+  dose number, for example "Measles (2nd dose)" or "Rougeole (2e dose)".
+  Set `include-dose: true` on the component call to show it. The default is
+  `false`. Overdue agent lists never show dose numbers.
 
 Validity comes from ` - Valid` or ` - Invalid` after each `imms_given` entry.
 Dose numbers come from ` - N` after each `overdue_disease` entry. See the
@@ -214,9 +211,9 @@ Rows that do not name `omit-invalid` use its default, `false`.
 | Has validity | `show-validity: false`, `omit-invalid: true` | Plain ⬤ marks; invalid doses are left out |
 | Has validity | `show-validity: true`, `omit-invalid: true` | ⬤ / ? marks; invalid doses are left out, and the legend has no ○ line |
 | No validity | `omit-invalid: true` | No effect; doses without validity are never treated as invalid |
-| Has dose numbers | `include-dose = false` | Disease names only |
-| Has dose numbers | `include-dose = true` | Disease names with dose numbers |
-| No dose numbers | `include-dose = true` | Disease names only; no warning |
+| Has dose numbers | `include-dose: false` | Disease names only |
+| Has dose numbers | `include-dose: true` | Disease names with dose numbers |
+| No dose numbers | `include-dose: true` | Disease names only; no warning |
 | Dose suffix is not a positive whole number | either | Disease name only; `source.overdue_unusable` warning |
 
 When `show-validity` is `true`, validity coverage is judged across the whole

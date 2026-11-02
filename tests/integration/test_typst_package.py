@@ -108,6 +108,25 @@ def compile_package(tmp_path: Path, body: str) -> tuple[dict, PdfReader]:
 
 
 @pytest.mark.parametrize(
+    "helper,word", [("overdue-diseases", "Measles"), ("overdue-agents", "MMR")]
+)
+def test_overdue_list_indent_is_local_and_can_be_overridden(tmp_path, helper, word):
+    compile_package(
+        tmp_path,
+        "#set list(indent: 3cm)\n"
+        f"#immuknow.{helper}(notice, columns: 1)\n"
+        f"#immuknow.{helper}(notice, columns: 1, indent: 1.6cm)\n"
+        "#set list(indent: 0pt)\n"
+        f"#immuknow.{helper}(notice, columns: 1)",
+    )
+    with pymupdf.open(tmp_path / "notice.pdf") as document:
+        starts = [w[0] for w in document[0].get_text("words") if w[4] == word]
+    assert len(starts) == 3
+    assert starts[1] - starts[0] == pytest.approx(0.8 * 72 / 2.54, abs=0.01)
+    assert starts[2] == pytest.approx(starts[0], abs=0.01)
+
+
+@pytest.mark.parametrize(
     "body,https,multiple",
     [
         ("No links", "not_applicable", "not_applicable"),

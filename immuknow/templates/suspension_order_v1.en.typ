@@ -69,7 +69,7 @@ Although a hearing may be requested, this order takes effect when it is served.
 #v(10pt) // Space above the signature and service date
 #grid(columns: (1fr, auto), gutter: 12pt, align: horizon,
   immuknow.signature-block(
-    signature: signature,
+    signature: image("assets/signature.png", width: 4.5cm), // Change width; height follows the image’s aspect ratio.
     name: signature-name,
     title: "Medical Officer of Health",
   ),
