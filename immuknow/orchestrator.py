@@ -18,7 +18,7 @@ import pandas as pd
 from pypdf.errors import PdfReadError
 from dataclasses import asdict
 from contextlib import contextmanager
-from collections.abc import Iterator
+from collections.abc import Generator
 from datetime import datetime, timezone
 from importlib.resources import files
 from pathlib import Path
@@ -132,7 +132,7 @@ Each run keeps its own originals, run.json and report.html under --output.
 
 
 @contextmanager
-def run_logging(log_path: Path) -> Iterator[None]:
+def run_logging(log_path: Path) -> Generator[None]:
     """Write this run's application messages without replacing caller logging."""
     logger = logging.getLogger("immuknow")
     previous_level = logger.level

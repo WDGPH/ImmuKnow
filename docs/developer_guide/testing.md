@@ -60,7 +60,12 @@ Studio's fonts together.
 
 ```bash
 uv sync --locked --all-groups
+uv run --locked prek install
 ```
+
+Install the hooks once per clone. Ruff lints and formats Python when committing;
+CI checks the same rules without rewriting files. Keep its versions in
+`pyproject.toml` and `.pre-commit-config.yaml` aligned.
 
 Native CI covers Linux with Python 3.11, 3.12 and 3.14. Other operating systems
 are not covered by that suite.
@@ -72,7 +77,7 @@ uv run --locked ty check
 uv run --locked ruff check --no-fix .
 uv run --locked ruff format --check .
 uv run --locked pytest
-uv run --locked pre-commit run --all-files
+uv run --locked prek run --all-files
 uv run --locked python docs/generate_schema_docs.py
 uv run --locked --group docs mkdocs build --strict --site-dir /tmp/immuknow-docs-check
 ```

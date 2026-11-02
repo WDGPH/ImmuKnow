@@ -86,8 +86,13 @@ QR destinations belong in Typst Settings. Native use needs no Node, Rust, or bro
 uv sync --all-groups
 uv run ty check
 uv run pytest
-uv run pre-commit run --all-files
+uv run --locked prek install
+uv run --locked prek run --all-files
 ```
+
+Install hooks once per clone. They lint and format Python with Ruff; CI checks
+the same rules without rewriting files. Keep Ruff's versions in `pyproject.toml`
+and `.pre-commit-config.yaml` aligned.
 
 Build the native wheel and source distribution with:
 

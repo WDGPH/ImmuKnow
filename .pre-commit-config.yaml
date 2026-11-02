@@ -1,7 +1,8 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.13.0
+    rev: v0.17.2
     hooks:
       - id: ruff-check
-        args: [--fix]  # Lint and auto-fix
-      - id: ruff-format # Format code like black
+        args: [--fix]
+      - id: ruff-format
+        types_or: [python, pyi, jupyter]

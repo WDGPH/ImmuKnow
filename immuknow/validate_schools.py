@@ -338,9 +338,11 @@ def validate_schools(
         lambda x: _attr(x, "mismatch_reason") if pd.notna(x) else ""
     )
     df[col("matched_phu")] = df[school_column].apply(
-        lambda x: target_phu
-        if pd.notna(x) and _attr(x, "match_type", "no_match") != "no_match"
-        else ""
+        lambda x: (
+            target_phu
+            if pd.notna(x) and _attr(x, "match_type", "no_match") != "no_match"
+            else ""
+        )
     )
 
     # Split into categories
