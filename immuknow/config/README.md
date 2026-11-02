@@ -188,7 +188,7 @@ keeps it in the notice data. The Template and Settings decide whether notices sh
 Nothing is switched on automatically when the input contains this information.
 
 - `show-validity` in `immunization-history(...)`: mark each dose in the
-  history chart as valid (⬤), invalid (○) or unknown (?), and add a legend.
+  history chart as valid (⬤) or invalid (○), and add a legend for marks shown.
   When `false`, every recorded dose shows ⬤ and validity is ignored.
 - `omit-invalid` in `immunization-history(...)`: leave doses marked
   ` - Invalid` out of the history chart. This applies even when
@@ -206,22 +206,27 @@ Rows that do not name `omit-invalid` use its default, `false`.
 | Input | Setting | Notice shows |
 |---|---|---|
 | Has validity | `show-validity: false` | Plain ⬤ marks; looks the same as input without validity |
-| Has validity | `show-validity: true` | ⬤ / ○ / ? marks with legend |
+| Has validity | `show-validity: true` | ⬤ / ○ marks with matching legend |
 | No validity | `show-validity: false` | Plain ⬤ marks |
-| No validity | `show-validity: true` | Every mark is ?; each notice gets a `content.history_validity` warning |
-| Some rows with validity | `show-validity: true` | Doses without validity show ?; every notice in the cohort gets a `content.history_validity` warning, including notices whose own doses all have validity |
+| No validity | `show-validity: true` | Rendering fails until every dose has Valid/Invalid or validity display is disabled |
+| Some rows with validity | `show-validity: true` | Notices with missing dose validity fail rendering; notices with complete validity render with a cohort warning |
 | Has validity | `show-validity: false`, `omit-invalid: true` | Plain ⬤ marks; invalid doses are left out |
-| Has validity | `show-validity: true`, `omit-invalid: true` | ⬤ / ? marks; invalid doses are left out, and the legend has no ○ line |
+| Has validity | `show-validity: true`, `omit-invalid: true` | ⬤ marks; invalid doses are left out, and the legend has no ○ line |
 | No validity | `omit-invalid: true` | No effect; doses without validity are never treated as invalid |
 | Has dose numbers | `include-dose: false` | Disease names only |
 | Has dose numbers | `include-dose: true` | Disease names with dose numbers |
 | No dose numbers | `include-dose: true` | Disease names only; no warning |
 | Dose suffix is not a positive whole number | either | Disease name only; `source.overdue_unusable` warning |
 
-When `show-validity` is `true`, validity coverage is judged across the whole
-input file, not per notice. Input that mixes rows with and without validity
-still produces notices, but every notice warns. Check the run report for
-`content.history_validity` before mailing.
+When `show-validity` is `true`, every dose in the notice must have an explicit
+Valid/Invalid source value, including doses hidden by display options. Missing
+values fail rendering; they are never displayed as a third validity category.
+An empty history has no missing doses and needs no validity legend.
+Notices with complete validity can render independently. They retain a
+`content.history_validity` warning if other rows in the cohort lack validity.
+English and Canadian French legend defaults explain whether a dose counts toward
+vaccination requirements. See [template authoring](https://docs.phiz.ca/immuknow/latest/user_guide/phu_templates/#component-choices-and-findings)
+for `legend-labels` overrides.
 
 ## Reference and label updates
 

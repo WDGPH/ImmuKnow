@@ -73,18 +73,16 @@
   }
 }
 
-#let table-labels(lang) = {
+#let table-labels(lang, legend-labels: (:)) = {
   assert(lang == "en" or lang == "fr", message: "Unsupported notice language: " + lang)
-  if lang == "fr" {
+  let defaults = if lang == "fr" {
     (
       date: "Date du vaccin",
       age: "À l’âge de",
       vaccine: "Vaccin(s)",
       unspecified: "*indique un agent vaccinal non spécifié",
-      valid: "Dose valide",
-      invalid: "Dose non valide",
-      unknown: "Validité inconnue",
-      recorded: "Administration consignée",
+      valid: "Dose prise en compte dans les exigences de vaccination",
+      invalid: "Dose non prise en compte dans les exigences de vaccination",
     )
   } else {
     (
@@ -92,10 +90,15 @@
       age: "At Age",
       vaccine: "Vaccine(s)",
       unspecified: "*indicates unspecified vaccine agent",
-      valid: "Valid dose",
-      invalid: "Invalid dose",
-      unknown: "Validity unknown",
-      recorded: "Administration recorded",
+      valid: "Dose counts toward vaccination requirements",
+      invalid: "Dose does not count toward vaccination requirements",
     )
   }
+  assert(type(legend-labels) == dictionary, message: "legend-labels must be a dictionary")
+  for (key, value) in legend-labels {
+    assert(key in ("unspecified", "valid", "invalid"), message: "Unsupported history legend label: " + key)
+    assert((type(value) == str and value != "") or type(value) == content,
+      message: "History legend labels must be nonempty strings or content: " + key)
+  }
+  (: ..defaults, ..legend-labels)
 }

@@ -59,9 +59,13 @@ display-default adapter or separate layout-settings file.
   overdue requirement.
 - `immunization-history(notice, diseases: (...), include-other: true,
   ignore-agents: (), show-validity: false, omit-invalid: false)` derives the
-  displayed table from complete administrations. Valid, invalid, and unknown
-  validity have distinct marks and a matching legend. Unparsed entries appear
-  below the table. Optional age display uses an em dash for unknown ages.
+  displayed table from complete administrations. Valid and invalid doses have
+  distinct marks; legend entries appear only for marks used in visible columns.
+  Validity display requires an explicit Valid/Invalid value for every dose;
+  missing values fail rendering before display exclusions. With validity display
+  disabled, doses use ordinary recorded-dose marks. `legend-labels` overrides
+  `valid`, `invalid` and `unspecified` text; each has English and Canadian French
+  defaults. Optional age display uses an em dash for unknown ages.
 - `qr-code(notice, url: ...)` requires an explicit URL string or function of the
   notice. Disabled QR components do no work. Colours and square, dotted, or
   rounded modules are configurable. The resolved destination is shared by the

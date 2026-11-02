@@ -195,8 +195,34 @@ Other-column inclusion, invalid-dose omission and chart styling. Settings
 supplies the shared defaults; named options on a call change that table only.
 The unspecified-agent footnote appears only when a displayed vaccine name
 contains the `*` marker. Ignored agents and omitted invalid doses do not trigger it.
-Whole-cohort mixed validity produces a warning when
-validity display is requested. Invalid source history rejects input before
+Valid and invalid legend entries appear only when their marks occur in the
+visible disease columns. Each footnote and legend item has an English and
+Canadian French default, selected by the chart's language. The validity wording
+explains whether a dose counts toward vaccination requirements.
+
+Customize individual items with `legend-labels`; omitted items keep their
+localized defaults. Values accept plain text or Typst content. Use `valid`,
+`invalid` and `unspecified` as keys. For example:
+
+```typst
+#immuknow.immunization-history(
+  show-validity: true,
+  legend-labels: if notice.language == "fr" {
+    (valid: "Dose prise en compte dans les exigences de vaccination",
+     invalid: "Dose non prise en compte dans les exigences de vaccination")
+  } else {
+    (valid: "Dose counts toward vaccination requirements",
+     invalid: "Dose does not count toward vaccination requirements")
+  },
+)
+```
+
+Include the `*` in an override for the `unspecified` footnote.
+Validity display requires an explicit Valid/Invalid value for every dose in
+the notice, before display exclusions. Missing values fail rendering; correct
+the source or disable `show-validity`. No unknown indicator or legend is shown.
+A notice with complete validity still warns if other rows in its cohort have
+missing validity values. Invalid source history rejects input before
 rendering; its fragments remain in the run report. Omitted components produce
 no component checks, but do not bypass source validation.
 

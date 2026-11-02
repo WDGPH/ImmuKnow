@@ -57,9 +57,9 @@ def compile_package(tmp_path: Path, body: str) -> tuple[dict, PdfReader]:
                 "diseases": ["Measles"],
                 "validity": validity,
             }
-            for validity in ("valid", "invalid", "unknown")
+            for validity in ("valid", "invalid")
         ],
-        "validity_coverage": "mixed",
+        "validity_coverage": "all_present",
     }
     (tmp_path / "data.json").write_text(json.dumps(notice))
     source = tmp_path / "notice.typ"
@@ -365,6 +365,119 @@ def test_history_unspecified_footnote_follows_displayed_agents(
     assert ("HB*" in text) == expected
 
 
+@pytest.mark.parametrize("language", ["en", "fr"])
+@pytest.mark.parametrize(
+    "raw,options,valid,invalid",
+    [
+        ("", "", False, False),
+        ("2020-01-01 - MMR - Valid;", "", True, False),
+        ("2020-01-01 - MMR - Invalid;", "", False, True),
+        (
+            "2020-01-01 - MMR - Valid; 2020-02-01 - HB - Invalid;",
+            "",
+            True,
+            True,
+        ),
+        (
+            "2020-01-01 - MMR - Valid; 2020-02-01 - HB - Invalid;",
+            "omit-invalid: true,",
+            True,
+            False,
+        ),
+        (
+            "2020-01-01 - MMR - Valid; 2020-02-01 - HB - Invalid;",
+            'ignore-agents: ("MMR",),',
+            False,
+            True,
+        ),
+        ("2020-01-01 - MMR - Valid;", "include-other: false,", False, False),
+    ],
+    ids=["empty", "valid", "invalid", "both", "omitted", "ignored", "no-marks"],
+)
+def test_history_validity_legend_follows_visible_marks(
+    tmp_path: Path, language: str, raw: str, options: str, valid: bool, invalid: bool
+) -> None:
+    history = build_history_items(parse_history(raw).doses, [], {})
+    _, reader = compile_package(
+        tmp_path,
+        f"#let notice = (..notice, history: json(bytes({json.dumps(json.dumps(history))})))\n"
+        f'#immuknow.immunization-history(notice, language: "{language}", '
+        f"show-validity: true, {options})",
+    )
+    text = " ".join(" ".join(page.extract_text().split()) for page in reader.pages)
+    valid_label, invalid_label = (
+        (
+            "Dose counts toward vaccination requirements",
+            "Dose does not count toward vaccination requirements",
+        )
+        if language == "en"
+        else (
+            "Dose prise en compte dans les exigences de vaccination",
+            "Dose non prise en compte dans les exigences de vaccination",
+        )
+    )
+    assert (valid_label in text) == valid
+    assert (invalid_label in text) == invalid
+
+
+@pytest.mark.parametrize(
+    "options", ["", 'ignore-agents: ("MMR",),', "omit-invalid: true,"]
+)
+def test_validity_display_rejects_missing_values_before_filtering(
+    tmp_path: Path, options: str
+) -> None:
+    history = build_history_items(
+        parse_history("2020-01-01 - MMR; 2020-02-01 - HB - Valid;").doses, [], {}
+    )
+    with pytest.raises(
+        AssertionError, match="Validity display requires Valid or Invalid"
+    ):
+        compile_package(
+            tmp_path,
+            f"#let notice = (..notice, history: json(bytes({json.dumps(json.dumps(history))})))\n"
+            f"#immuknow.immunization-history(notice, show-validity: true, {options})",
+        )
+    assert not (tmp_path / "notice.pdf").exists()
+
+
+def test_missing_validity_can_be_displayed_as_recorded_doses(tmp_path: Path) -> None:
+    history = build_history_items(parse_history("2020-01-01 - MMR;").doses, [], {})
+    _, reader = compile_package(
+        tmp_path,
+        f"#let notice = (..notice, history: json(bytes({json.dumps(json.dumps(history))})))\n"
+        "#immuknow.immunization-history(notice, show-validity: false)",
+    )
+    text = " ".join(page.extract_text() for page in reader.pages)
+    assert "MMR" in text and "⬤" in text
+    assert "?" not in text and "○" not in text
+    assert "vaccination requirements" not in text
+
+
+@pytest.mark.parametrize("language", ["en", "fr"])
+def test_history_legend_labels_can_be_overridden(tmp_path: Path, language: str) -> None:
+    history = build_history_items(
+        parse_history(
+            "2020-01-01 - HB-unspecified - Valid; 2020-02-01 - MMR - Invalid;"
+        ).doses,
+        [],
+        {},
+    )
+    _, reader = compile_package(
+        tmp_path,
+        f"#let notice = (..notice, history: json(bytes({json.dumps(json.dumps(history))})))\n"
+        f'#immuknow.immunization-history(notice, language: "{language}", '
+        'show-validity: true, legend-labels: (valid: "Counts for this notice", '
+        'invalid: [Does #emph[not] count], unspecified: "*Agent not specified"))',
+    )
+    text = " ".join(" ".join(page.extract_text().split()) for page in reader.pages)
+    for label in ("Counts for this notice", "Does not count", "*Agent not specified"):
+        assert label in text
+    assert "vaccination requirements" not in text
+    assert "exigences de vaccination" not in text
+    assert "indicates unspecified" not in text
+    assert "indique un agent" not in text
+
+
 @pytest.mark.parametrize("show_history", [False, True])
 @pytest.mark.parametrize(
     "base,query_start,fragment",
@@ -447,12 +560,12 @@ def test_placed_history_and_qr_share_honest_evidence(
         for expected in (
             "⬤",
             "○",
-            "?",
-            "Valid dose",
-            "Invalid dose",
-            "Validity unknown",
+            "Dose counts toward vaccination requirements",
+            "Dose does not count toward vaccination requirements",
         ):
             assert expected in text
+        assert "?" not in text
+        assert "Validity unknown" not in text
     else:
         assert any(
             check["component"] == "history" and check["status"] == "not_applicable"
