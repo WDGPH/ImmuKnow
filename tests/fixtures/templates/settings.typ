@@ -46,7 +46,7 @@
 #let date_as_of = dates.date_as_of
 #let date_of_birth = dates.date_of_birth
 
-#let notice-style(body) = immuknow.notice-style(
+#let letter(body) = immuknow.letter(
   body,
   notice: notice,
   language: notice.language,

@@ -175,8 +175,8 @@
   }
 }
 
-#let notice-style(body, notice: none, language: auto, paper: "us-letter", margins: (top: 1cm, bottom: 2cm, left: 1.75cm, right: 2cm), font: "FreeSans", font-size: 10pt, link-color: blue, paragraph-spacing: 0.55em, page-numbers: true) = {
-  assert(notice != none, message: "notice-style requires the prepared notice for document evidence")
+#let letter(body, notice: none, language: auto, paper: "us-letter", margins: (top: 1cm, bottom: 2cm, left: 1.75cm, right: 2cm), font: "FreeSans", font-size: 10pt, link-color: blue, paragraph-spacing: 0.55em, page-numbers: true) = {
+  assert(notice != none, message: "letter requires the prepared notice for document evidence")
   let lang = if language == auto { notice.language } else { language }
   show: notice-page.with(language: lang, paper: paper, margins: margins, font: font, font-size: font-size, page-numbers: page-numbers)
   set par(spacing: paragraph-spacing)

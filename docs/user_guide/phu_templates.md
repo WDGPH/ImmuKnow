@@ -14,7 +14,7 @@ Get a starter project from [ImmuKnow Template](https://github.com/WDGPH/ImmuKnow
 or download your authored project from Studio. Template owns the starter letters,
 Settings, display translations and example images. Core supplies the shared
 Typst library and native contracts; its package contains no starter project.
-Keep `settings.typ`, `presentation.typ`, `assets/`, `translations/` and
+Keep `setup.typ`, `settings.typ`, `presentation.typ`, `assets/`, `translations/` and
 `lib/immuknow/` together in the project's `templates/` directory.
 
 ```bash
@@ -58,35 +58,40 @@ warning/failure behavior.
 The opening stays short:
 
 ```typst
-#import "settings.typ": *
-#show: notice-style
+#import "setup.typ": *
+#show: immuknow.letter // Apply the letter layout
 
-#notice-page("Request for Immunization Record")[
-  #immuknow.client-block(notice, window: envelope-window)
+#immuknow.notice-page("Request for Immunization Record")[
+  #immuknow.client-block(window: envelope-window)
   As of *#date_as_of*, our files show these overdue immunizations:
-  #immuknow.overdue-diseases(notice, include-dose: false)
+  #immuknow.overdue-diseases(include-dose: false)
 ]
-#notice-page("Immunization Record")[
-  #immunization-history()
+#immuknow.notice-page("Immunization Record")[
+  #immuknow.immunization-history()
   #align(center)[End of immunization record]
 ]
 ```
 
-Settings imports `lib/immuknow/lib.typ` as `immuknow`, reads the JSON supplied
-through `sys.inputs.at("data")`, and checks trusted compiler inputs
-`notice-template`, `notice-version` and `notice-language`. Entry points do not
-repeat literal identity declarations. `notice-style` receives `notice:` and
-wraps the whole document, collecting native component findings and page count.
+`setup.typ` exposes the configured helpers as `immuknow`. Settings reads the
+JSON supplied through `sys.inputs.at("data")` and checks trusted compiler inputs
+`notice-template`, `notice-version` and `notice-language`. It connects the client
+data to the helpers once. Entry points do not repeat data arguments or literal
+identity declarations. `#show: immuknow.letter` applies the letter layout and
+collects component findings and page count for the whole document.
+
+Core's underlying functions still take explicit data arguments and never read
+compiler inputs when imported. Template owns the project setup that makes those
+functions ready to use.
 
 Settings holds shared page, envelope, theme, QR and history choices.
 Write organization names, mailing addresses, links and phone numbers directly
 in the Template where they appear. Keep notice-specific choices there too,
 including suspension dates and whether that notice shows a QR code.
 Omit helper options when their defaults already express what you want. Its configured
-`notice-page` helper supplies the header and section styling. Dates are bound
+`immuknow.notice-page` helper supplies the header and section styling. Dates are bound
 as `date_of_delivery`, `date_as_of` and `date_of_birth`. History remains a lazy
 function so a suspension order can omit it without evaluating history display
-requirements. Template’s `immunization-history` and `notice-page` helpers accept
+requirements. The configured `immuknow.immunization-history` and `immuknow.notice-page` helpers accept
 named options for one call, after the shared defaults. See
 [Template customization](https://github.com/WDGPH/ImmuKnow-Template#customizing)
 for examples. The suspension example has one order page and no history or
@@ -153,10 +158,11 @@ text. The helper records the client-details area; Python checks its ID, displaye
 birth date and school against the PDF text, allowing spaces and line breaks to
 change. Repeated blocks are allowed when each belongs to the same source row.
 
-Pass the complete, unchanged `notice` to address, history, overdue-list and QR helpers too.
-Their placed content records the source row and client ID. Mixing helpers from
+Shared setup connects the complete, unchanged `notice` to address, history,
+overdue-list and QR helpers. Their placed content records the source row and
+client ID. Mixing helpers from
 different rows fails the report check, even when the external ID is blank.
-Use `address-block(notice)` when only the mailing address is needed.
+Use `immuknow.address-block()` when only the mailing address is needed.
 Use `window: none` on `client-block`, or set `envelope-window = none` in Settings,
 when no envelope window is specified. The client block uses its default layout;
 fit and overlap checks are not applicable. A notice with addresses but no
@@ -169,8 +175,9 @@ The report retains the notice data used for layout and checks that each placed
 helper used the same data. Native and browser checks compare it with the prepared input.
 
 `immunization-history` accepts disease columns, ignored agents, validity markers,
-Other-column inclusion, invalid-dose omission and chart styling. Settings is the
-only owner of these options. Whole-cohort mixed validity produces a warning when
+Other-column inclusion, invalid-dose omission and chart styling. Settings
+supplies the shared defaults; named options on a call change that table only.
+Whole-cohort mixed validity produces a warning when
 validity display is requested. Invalid source history rejects input before
 rendering; its fragments remain in the run report. Omitted components produce
 no component checks, but do not bypass source validation.
@@ -191,7 +198,8 @@ Put options used by one component directly in its Template call. For example,
 set `style: "bullets"`, `columns: 1` and `include-dose: false` on
 `overdue-diseases`. Bullet lists use `indent: 0.8cm` without a surrounding
 `#set list` rule; pass `indent: 1cm` to override just that component.
-Keep shared page setup, Theme colours and contact details in Settings.
+Keep shared page setup and Theme colours in Settings. Write contact details
+directly where they appear in the Template.
 
 Use an explicit image path and width inside the signature block:
 

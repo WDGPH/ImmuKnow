@@ -82,7 +82,7 @@ def test_custom_labels_and_repeated_client_blocks_match_the_pdf(tmp_path, langua
     )
     job.data.write_text(json.dumps(payload))
     job.template.write_text(
-        '#import "settings.typ": *\n#show: notice-style\n'
+        '#import "settings.typ": *\n#show: letter\n'
         '#immuknow.client-block(notice, id-label: "Record number", school-label: "Learning centre")\n'
         '#pagebreak()\n#immuknow.client-block(notice, id-label: "Dossier")\n'
         "#pagebreak()\n#immuknow.address-block(notice)"
@@ -154,7 +154,7 @@ def test_unspecified_window_warns_without_claiming_a_fit(tmp_path, version, lang
 )
 def test_window_warning_depends_on_placed_addresses(tmp_path, body, warning):
     job, _ = prepare_case(tmp_path)
-    job.template.write_text('#import "settings.typ": *\n#show: notice-style\n' + body)
+    job.template.write_text('#import "settings.typ": *\n#show: letter\n' + body)
     summary, _ = compile_case(job)
     assert [
         c["status"]
@@ -172,7 +172,7 @@ def test_client_details_overlap_is_reported_from_the_placed_pdf(
 ):
     job, payload = prepare_case(tmp_path, language=language)
     job.template.write_text(
-        '#import "settings.typ": *\n#show: notice-style\n'
+        '#import "settings.typ": *\n#show: letter\n'
         f'#immuknow.client-block(notice, details: "{placement}", spacing: {spacing}pt, '
         "window: (x: 63pt, y: 120pt, width: 324pt, height: 81pt, padding: 11pt))"
     )
@@ -207,7 +207,7 @@ def test_correct_id_elsewhere_cannot_hide_a_missing_or_wrong_client_block(
 ):
     job, _ = prepare_case(tmp_path)
     job.template.write_text(
-        '#import "settings.typ": *\n#show: notice-style\n'
+        '#import "settings.typ": *\n#show: letter\n'
         "#immuknow.client-block(notice)\n"
         "#pagebreak()\n#immuknow.client-block(notice)"
     )
@@ -301,7 +301,7 @@ def test_blank_or_hidden_client_details_match_the_pdf(tmp_path, language, show):
     payload["client_data"]["school"] = "" if show else "School should not appear"
     job.data.write_text(json.dumps(payload))
     job.template.write_text(
-        '#import "settings.typ": *\n#show: notice-style\n'
+        '#import "settings.typ": *\n#show: letter\n'
         f"#immuknow.client-block(notice, show-birth-date: {str(show).lower()}, show-school: {str(show).lower()})"
     )
     summary, reader = compile_case(job)
@@ -313,7 +313,7 @@ def test_blank_or_hidden_client_details_match_the_pdf(tmp_path, language, show):
 def test_component_for_another_row_cannot_repeat_the_same_external_id(tmp_path):
     job, _ = prepare_case(tmp_path)
     job.template.write_text(
-        '#import "settings.typ": *\n#show: notice-style\n'
+        '#import "settings.typ": *\n#show: letter\n'
         "#immuknow.client-block(notice)\n#pagebreak()\n"
         '#immuknow.client-block((..notice, row_key: "row-000002"))'
     )
@@ -343,7 +343,7 @@ def test_placed_personal_content_must_use_the_prepared_notice(
         job.data.write_text(json.dumps(payload))
         job = replace(job, client_id="")
     job.template.write_text(
-        '#import "settings.typ": *\n#show: notice-style\n'
+        '#import "settings.typ": *\n#show: letter\n'
         "#immuknow.client-block(notice)\n"
         f"#let other = (..notice, row_key: {json.dumps('row-000002' if change_row else job.sequence)},\n"
         '  client_data: (..notice.client_data, name: "Morgan Example", address: "88 Other Road"),\n'
@@ -374,7 +374,7 @@ def test_changing_both_the_report_and_components_cannot_replace_source_facts(tmp
     job.template.write_text(
         '#import "settings.typ": *\n'
         '#let changed = (..notice, client_data: (..notice.client_data, name: "Morgan Example"))\n'
-        "#show: immuknow.notice-style.with(notice: changed)\n"
+        "#show: immuknow.letter.with(notice: changed)\n"
         "#immuknow.client-block(changed)"
     )
     with pytest.raises(ValueError, match="differs from the prepared notice"):
@@ -445,7 +445,7 @@ def test_qr_destination_quality_is_checked_without_discarding_the_pdf(
 ):
     job, _ = prepare_case(tmp_path)
     job.template.write_text(
-        '#import "settings.typ": *\n#show: notice-style\n'
+        '#import "settings.typ": *\n#show: letter\n'
         "#immuknow.client-block(notice)\n"
         f"#immuknow.qr-code(notice, url: {json.dumps(url, ensure_ascii=False)})"
     )
@@ -475,7 +475,7 @@ def test_unicode_qr_chooses_a_size_that_fits_its_encoding(
     value = "é" + "a" * (capacity + extra - 2)
     job, _ = prepare_case(tmp_path)
     job.template.write_text(
-        '#import "settings.typ": *\n#show: notice-style\n'
+        '#import "settings.typ": *\n#show: letter\n'
         f'#immuknow.qr-code(notice, url: {json.dumps(value, ensure_ascii=False)}, error-correction: "{level}")'
     )
     compile_case(job)
@@ -503,7 +503,7 @@ def test_unicode_qr_chooses_a_size_that_fits_its_encoding(
 def test_placed_links_match_pdf_destinations_without_a_qr_code(tmp_path, url):
     job, _ = prepare_case(tmp_path)
     job.template.write_text(
-        '#import "settings.typ": *\n#show: notice-style\n'
+        '#import "settings.typ": *\n#show: letter\n'
         "#immuknow.client-block(notice)\n#pagebreak()\n"
         f"#immuknow.link({json.dumps(url, ensure_ascii=False)})\n\n"
         f"#immuknow.link({json.dumps(url, ensure_ascii=False)})[Read the record information and complete the requested information for the health unit.]"
@@ -525,7 +525,7 @@ def test_link_evidence_follows_an_automatic_page_break(tmp_path, keep_together):
         else f", keep-together: {str(keep_together).lower()}"
     )
     job.template.write_text(
-        '#import "settings.typ": *\n#show: notice-style\n'
+        '#import "settings.typ": *\n#show: letter\n'
         '#let unused = immuknow.link("https://example.org/unused")\n'
         "#immuknow.client-block(notice)\n#v(500pt)\n"
         '#text(size: 40pt)[#immuknow.link("https://example.org/record"'
@@ -542,7 +542,7 @@ def test_link_evidence_follows_an_automatic_page_break(tmp_path, keep_together):
 def test_oversized_kept_link_records_a_reviewable_warning_in_native_evidence(tmp_path):
     job, _ = prepare_case(tmp_path)
     job.template.write_text(
-        '#import "settings.typ": *\n#show: notice-style\n'
+        '#import "settings.typ": *\n#show: letter\n'
         "#immuknow.client-block(notice)\n"
         '#block(width: 65pt)[#immuknow.link("https://example.org/record")[Read the record information]]'
     )
@@ -563,7 +563,7 @@ def test_oversized_kept_link_records_a_reviewable_warning_in_native_evidence(tmp
 def test_a_link_on_another_page_cannot_hide_a_broken_link(tmp_path, damage):
     job, _ = prepare_case(tmp_path)
     job.template.write_text(
-        '#import "settings.typ": *\n#show: notice-style\n'
+        '#import "settings.typ": *\n#show: letter\n'
         "#immuknow.client-block(notice)\n"
         '#immuknow.link("https://example.org/record")[Read the record]\n'
         '#pagebreak()\n#immuknow.link("https://example.org/record")[Read the record]'
@@ -620,10 +620,7 @@ def test_link_destinations_outside_helpers_warn_even_without_a_qr(
     tmp_path, recorded, url
 ):
     job, _ = prepare_case(tmp_path)
-    body = (
-        '#import "settings.typ": *\n#show: notice-style\n'
-        "#immuknow.client-block(notice)\n"
-    )
+    body = '#import "settings.typ": *\n#show: letter\n#immuknow.client-block(notice)\n'
     if recorded:
         body += '#immuknow.link("https://example.org/record")[Read the record]\n\n'
     job.template.write_text(
@@ -648,7 +645,7 @@ def test_a_recorded_link_can_continue_across_pages(tmp_path):
     job, _ = prepare_case(tmp_path)
     text = json.dumps("Read the record. " * 400)
     job.template.write_text(
-        '#import "settings.typ": *\n#show: notice-style\n'
+        '#import "settings.typ": *\n#show: letter\n'
         "#immuknow.client-block(notice)\n"
         f'#immuknow.link("https://example.org/record")[#{text}]'
     )
@@ -665,7 +662,7 @@ def test_a_recorded_link_can_continue_across_pages(tmp_path):
 def test_internal_page_links_do_not_need_external_link_evidence(tmp_path):
     job, _ = prepare_case(tmp_path)
     job.template.write_text(
-        '#import "settings.typ": *\n#show: notice-style\n'
+        '#import "settings.typ": *\n#show: letter\n'
         "#immuknow.client-block(notice)\n"
         "#link(<details>)[Read the details]\n#pagebreak()\n= Details <details>"
     )

@@ -7,7 +7,15 @@ prepared facts described by `immuknow/schemas/rendering-v1.json`.
 Text links and URL helpers live in `src/links.typ`; QR rendering lives in
 `src/qr.typ`. Use the public helpers exported by `lib.typ` in your templates.
 
-Wrap the whole document with `#show: immuknow.notice-style.with(notice: notice)`.
+Template projects connect these low-level helpers to their prepared notice in
+shared setup. Letters import that setup and use `#show: immuknow.letter`,
+`#immuknow.client-block()` and `#immuknow.immunization-history()` without
+repeating the data argument. Project defaults can be overridden on one call.
+See [ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template#customizing)
+for the maintained setup. Core imports never load client data.
+
+For a direct library import, wrap the whole document with
+`#show: immuknow.letter.with(notice: notice)`.
 The wrapper requires the prepared notice and emits one `<immuknow-report>`
 metadata element. `notice-page` applies page styling; `notice-section(title)[body]`
 starts a named section and checks whether it continues onto another page.

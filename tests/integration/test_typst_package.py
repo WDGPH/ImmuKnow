@@ -65,7 +65,7 @@ def compile_package(tmp_path: Path, body: str) -> tuple[dict, PdfReader]:
     source.write_text(
         '#import "lib/immuknow/lib.typ" as immuknow\n'
         '#let notice = json("data.json")\n'
-        "#show: immuknow.notice-style.with(notice: notice)\n" + body
+        "#show: immuknow.letter.with(notice: notice)\n" + body
     )
     common = [
         os.environ.get("TYPST_BIN", "typst"),
