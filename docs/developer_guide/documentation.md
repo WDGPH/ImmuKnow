@@ -67,36 +67,18 @@ only when they help a reviewer understand a material risk or limitation.
 
 ## Template authoring principles
 
-Optimize starter templates for the author reading the source. Keep options used
-by one component directly in that component's call. A variable is useful when
-it represents a value genuinely shared by several uses or notices, rather than
-just moving a literal away from its only use. Shared page setup, fonts, colours
-and organization contact details belong in Settings. Values shared only within
-one notice can be defined in that Template.
+Design for the person reading and editing the source. Keep choices close to where
+they take effect, and introduce indirection when it expresses a shared meaning
+or removes meaningful duplication. Prefer explicit, discoverable configuration
+over conventions an author must already know.
 
-Show image filenames and sizing where the image is placed. For signatures,
-prefer `signature: image("assets/signature.png", width: 4.5cm)` over an opaque
-`signature: signature` alias or an implicit filename. Specify one dimension by
-default so the original aspect ratio is preserved. Include a practical size
-example in the authoring help.
+Give components useful defaults with local, understandable overrides. Keep
+concepts independently editable when their meanings differ, even if their
+initial example values happen to match.
 
-Core helpers should supply useful defaults for the layout they own. For example,
-an overdue-list helper owns its bullet indentation and offers an explicit
-override; callers should not need an ambient `#set list` rule. Defaults must
-remain local to the component. Keep editorial choices such as bold emphasis
-visible in the Template.
-
-Keep distinct meanings independently editable. A printed signature name may
-include credentials that do not belong in the notice's prose or legal wording;
-do not couple those fields just because their initial example text is the same.
-
-Studio's Theme controls should work with clear authored source rather than force
-values into Settings for the convenience of the UI. Support straightforward
-literal component arguments, preserve surrounding bytes and comments, and leave
-ambiguous or calculated expressions to source editing. Template downloads and
-resets must preserve the supported Theme choices. Core owns shared starters and
-helpers; Studio owns browser editing; Template owns workstation setup and helper
-commands. Link to this guidance instead of maintaining competing rules.
+Make editing conveniences serve clear authored source. Preserve the author's
+intent and control as work moves through editing, resets and downloads. Put
+shared behavior in its owning project and link to it from the others.
 
 ## Publish through the documentation hub
 
