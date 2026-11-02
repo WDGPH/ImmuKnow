@@ -207,6 +207,13 @@
         }
       }
     },
+    "history_validity_coverage": {
+      "enum": [
+        "all_present",
+        "all_absent",
+        "mixed"
+      ]
+    },
     "validity_coverage": {
       "enum": [
         "all_present",

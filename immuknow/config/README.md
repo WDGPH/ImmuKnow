@@ -185,11 +185,14 @@ information. Python does not assess exemptions or calculate school calendars.
 
 Python always reads validity and next-dose information from the input and
 keeps it in the notice data. The Template and Settings decide whether notices show it.
-Nothing is switched on automatically when the input contains this information.
+Dose validity is shown by default when flags are available. Dose numbering is
+shown only when requested.
 
 - `show-validity` in `immunization-history(...)`: mark each dose in the
   history chart as valid (⬤) or invalid (○), and add a legend for marks shown.
-  When `false`, every recorded dose shows ⬤ and validity is ignored.
+  The default is `true`. A history with no flags uses ordinary ⬤ recorded-dose
+  marks without a validity legend. When `false`, every recorded dose shows ⬤
+  and validity is ignored.
 - `omit-invalid` in `immunization-history(...)`: leave doses marked
   ` - Invalid` out of the history chart. This applies even when
   `show-validity` is `false`.
@@ -208,8 +211,8 @@ Rows that do not name `omit-invalid` use its default, `false`.
 | Has validity | `show-validity: false` | Plain ⬤ marks; looks the same as input without validity |
 | Has validity | `show-validity: true` | ⬤ / ○ marks with matching legend |
 | No validity | `show-validity: false` | Plain ⬤ marks |
-| No validity | `show-validity: true` | Rendering fails until every dose has Valid/Invalid or validity display is disabled |
-| Some rows with validity | `show-validity: true` | Notices with missing dose validity fail rendering; notices with complete validity render with a cohort warning |
+| No validity | `show-validity: true` | Plain ⬤ recorded-dose marks; no validity legend |
+| Some rows with validity | `show-validity: true` | Fully flagged and fully unflagged histories render with a cohort warning; partially flagged histories fail rendering |
 | Has validity | `show-validity: false`, `omit-invalid: true` | Plain ⬤ marks; invalid doses are left out |
 | Has validity | `show-validity: true`, `omit-invalid: true` | ⬤ marks; invalid doses are left out, and the legend has no ○ line |
 | No validity | `omit-invalid: true` | No effect; doses without validity are never treated as invalid |
@@ -218,12 +221,15 @@ Rows that do not name `omit-invalid` use its default, `false`.
 | No dose numbers | `include-dose: true` | Disease names only; no warning |
 | Dose suffix is not a positive whole number | either | Disease name only; `source.overdue_unusable` warning |
 
-When `show-validity` is `true`, every dose in the notice must have an explicit
-Valid/Invalid source value, including doses hidden by display options. Missing
-values fail rendering; they are never displayed as a third validity category.
-An empty history has no missing doses and needs no validity legend.
-Notices with complete validity can render independently. They retain a
-`content.history_validity` warning if other rows in the cohort lack validity.
+`show-validity` defaults to `true`. Fully unflagged histories remain supported
+and use ordinary recorded-dose marks without a validity legend. Once a history
+contains a Valid/Invalid flag, every dose in that history must have one,
+including doses hidden by display options. Partially flagged histories fail
+rendering unless validity display is explicitly disabled. Missing flags are
+never shown as a third validity category. Empty histories need no validity legend.
+Fully flagged and fully unflagged notices can render independently. They retain
+a `content.history_validity` warning when validity coverage varies across the
+cohort; a fully unflagged cohort does not warn about missing validity.
 English and Canadian French legend defaults explain whether a dose counts toward
 vaccination requirements. See [template authoring](https://docs.phiz.ca/immuknow/latest/user_guide/phu_templates/#component-choices-and-findings)
 for `legend-labels` overrides.

@@ -22,7 +22,12 @@ from frictionless import Schema
 
 from . import validate_schools
 from .assignment_manifest import ManifestRow, ReconciliationResult, reconcile
-from .data_models import CheckResult, ClientRecord, PreprocessResult
+from .data_models import (
+    CheckResult,
+    ClientRecord,
+    PreprocessResult,
+    classify_validity_coverage,
+)
 from .version_notices import NoticeVersionCatalog, attach_notice
 from .structured_input import read_json
 from .load_config import validate_dates
@@ -486,6 +491,7 @@ def build_preprocess_result(
                 else None,
                 history=history,
                 validity_coverage=coverage,
+                history_validity_coverage=classify_dataset_validity([parsed]),
                 unparsed_history=[issue.fragment for issue in parsed.issues],
             )
         )
@@ -691,12 +697,9 @@ def classify_dataset_validity(
     histories: list[ParsedHistory],
 ) -> Literal["all_present", "all_absent", "mixed"]:
     """Use all parsed administrations before exclusions or deduplication."""
-    states = {
-        dose["validity"] != "unknown" for history in histories for dose in history.doses
-    }
-    if len(states) > 1:
-        return "mixed"
-    return "all_present" if True in states else "all_absent"
+    return classify_validity_coverage(
+        dose["validity"] for history in histories for dose in history.doses
+    )
 
 
 def build_history_items(

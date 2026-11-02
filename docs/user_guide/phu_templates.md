@@ -161,6 +161,7 @@ it before compilation; strings remain literal data rather than executable source
 | `overdue_agents` | Source vaccine agent names |
 | `history` | Normalized administrations with ISO `date_given`, `agent`, `display_name`, complete `diseases` and `validity` |
 | `validity_coverage` | Whole-cohort `all_present`, `all_absent` or `mixed` |
+| `history_validity_coverage` | Per-history source flag coverage, before exclusions and deduplication: `all_present`, `all_absent` or `mixed` |
 
 A missing birth date is blank, and unknown `age`/`over_16` are JSON null. Blank
 source values and unusable fragments are retained in `run.json` with preparation
@@ -218,11 +219,13 @@ localized defaults. Values accept plain text or Typst content. Use `valid`,
 ```
 
 Include the `*` in an override for the `unspecified` footnote.
-Validity display requires an explicit Valid/Invalid value for every dose in
-the notice, before display exclusions. Missing values fail rendering; correct
-the source or disable `show-validity`. No unknown indicator or legend is shown.
-A notice with complete validity still warns if other rows in its cohort have
-missing validity values. Invalid source history rejects input before
+Validity display is enabled by default (`show-validity: true`). A history with
+no validity flags remains supported: it uses ordinary recorded-dose marks and
+has no validity legend. A history containing both flagged and unflagged doses
+fails rendering even if deduplication or display exclusions would hide the
+missing flags; correct the source or explicitly
+set `show-validity: false`. No unknown indicator or legend is shown. Notices
+still warn when validity coverage varies across their cohort. Invalid source history rejects input before
 rendering; its fragments remain in the run report. Omitted components produce
 no component checks, but do not bypass source validation.
 

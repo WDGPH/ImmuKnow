@@ -3,17 +3,21 @@
 #import "findings.typ": component, check
 
 // Project preserved facts only after applying the author's display options.
-#let history-view(notice, diseases: (), ignore-agents: (), include-other: true, show-validity: false, omit-invalid: false) = {
+#let history-view(notice, diseases: (), ignore-agents: (), include-other: true, show-validity: true, omit-invalid: false) = {
   strings(diseases, "diseases", unique: true)
   assert("Other" not in diseases, message: "Use include-other instead of adding Other to diseases")
   strings(ignore-agents, "ignore-agents")
   assert(type(include-other) == bool, message: "include-other must be a boolean")
   assert(type(show-validity) == bool, message: "show-validity must be a boolean")
   assert(type(omit-invalid) == bool, message: "omit-invalid must be a boolean")
+  // Use source coverage so deduplication cannot disguise a partially flagged history.
   if show-validity {
-    assert(notice.history.all(item => item.validity in ("valid", "invalid")),
+    let coverage = notice.history_validity_coverage
+    assert(coverage != "mixed" and notice.history.all(item =>
+      if coverage == "all_absent" { item.validity == "unknown" } else { item.validity in ("valid", "invalid") }),
       message: "Validity display requires Valid or Invalid for every dose. Correct the source history or disable show-validity.")
   }
+  show-validity = show-validity and notice.history_validity_coverage == "all_present"
   let columns = diseases + if include-other { ("Other",) } else { () }
   let items = notice.history.filter(item => item.agent not in ignore-agents and (not omit-invalid or item.validity != "invalid"))
   let dates = items.map(item => item.date_given).dedup()
@@ -57,7 +61,7 @@
 
 #let immunization-history(
   notice, diseases: (), ignore-agents: (), include-other: true,
-  show-validity: false, omit-invalid: false, show-age: false, age-width: 64pt, min-rows: 5, font-size: 11pt,
+  show-validity: true, omit-invalid: false, show-age: false, age-width: 64pt, min-rows: 5, font-size: 11pt,
   date-width: 75pt, disease-width: 12pt, agent-width: 1fr,
   inset: (x: 1pt, y: 2pt), stroke: 0.5pt, language: auto, labels: none, legend-labels: (:),
   heading-size: auto, indicator-font: "FreeSans", indicator-size: auto, indicator-offset: (x: 0pt, y: 0pt),
@@ -100,8 +104,9 @@
   context {
     component("history", notice: notice, measurements: (administrations: notice.history.len(), displayed_rows: view.rows.len(), page: here().page()))
     if show-validity {
-      let complete = notice.validity_coverage == "all_present"
-      check("content.history_validity", if complete { "pass" } else { "warn" }, if complete { "Administration validity is known." } else { "Validity values are missing elsewhere in the cohort; this notice has explicit validity for every dose." }, component: "history", page: here().page())
+      let mixed = notice.validity_coverage == "mixed"
+      let message = if view.show-validity { "Every dose in this history has explicit validity." } else { "This history has no validity flags; doses are shown as recorded." }
+      check("content.history_validity", if mixed { "warn" } else { "pass" }, if mixed { "Validity coverage varies across the cohort. " + message } else { message }, component: "history", page: here().page())
     }
     if show-age and notice.client_data.date_of_birth_iso == "" { check("content.history_age_unknown", "warn", "Birth date is unknown; vaccination ages are unavailable.", component: "history", page: here().page()) }
   }

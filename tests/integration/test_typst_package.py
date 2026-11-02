@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from immuknow.preprocess import build_history_items, parse_history
+from immuknow.preprocess import (
+    build_history_items,
+    classify_dataset_validity,
+    parse_history,
+)
 from immuknow.resources import typst_library_root
 
 import json
@@ -60,6 +64,7 @@ def compile_package(tmp_path: Path, body: str) -> tuple[dict, PdfReader]:
             for validity in ("valid", "invalid")
         ],
         "validity_coverage": "all_present",
+        "history_validity_coverage": "all_present",
     }
     (tmp_path / "data.json").write_text(json.dumps(notice))
     source = tmp_path / "notice.typ"
@@ -108,6 +113,19 @@ def compile_package(tmp_path: Path, body: str) -> tuple[dict, PdfReader]:
     assert all(check["stage"] == "render" for check in reports[0]["checks"])
     assert "MEASURE_" not in "".join(page.extract_text() for page in reader.pages)
     return reports[0], reader
+
+
+def history_facts(raw: str) -> str:
+    """Inject source coverage alongside normalized history in component tests."""
+    parsed = parse_history(raw)
+    facts = {
+        "history": build_history_items(parsed.doses, [], {}),
+        "history_validity_coverage": classify_dataset_validity([parsed]),
+        "validity_coverage": classify_dataset_validity([parsed]),
+    }
+    return (
+        f"#let notice = (: ..notice, ..json(bytes({json.dumps(json.dumps(facts))})))\n"
+    )
 
 
 @pytest.mark.parametrize(
@@ -349,11 +367,10 @@ def test_package_import_and_unused_history_require_no_facts(tmp_path: Path) -> N
 def test_history_unspecified_footnote_follows_displayed_agents(
     tmp_path: Path, language: str, raw: str, options: str, expected: bool
 ) -> None:
-    history = build_history_items(parse_history(raw).doses, [], {})
     _, reader = compile_package(
         tmp_path,
-        f"#let notice = (..notice, history: json(bytes({json.dumps(json.dumps(history))})))\n"
-        f'#immuknow.immunization-history(notice, language: "{language}", {options})',
+        history_facts(raw)
+        + f'#immuknow.immunization-history(notice, language: "{language}", {options})',
     )
     text = " ".join(page.extract_text() for page in reader.pages)
     footnote = (
@@ -397,12 +414,11 @@ def test_history_unspecified_footnote_follows_displayed_agents(
 def test_history_validity_legend_follows_visible_marks(
     tmp_path: Path, language: str, raw: str, options: str, valid: bool, invalid: bool
 ) -> None:
-    history = build_history_items(parse_history(raw).doses, [], {})
     _, reader = compile_package(
         tmp_path,
-        f"#let notice = (..notice, history: json(bytes({json.dumps(json.dumps(history))})))\n"
-        f'#immuknow.immunization-history(notice, language: "{language}", '
-        f"show-validity: true, {options})",
+        history_facts(raw)
+        + f'#immuknow.immunization-history(notice, language: "{language}", '
+        f"{options})",
     )
     text = " ".join(" ".join(page.extract_text().split()) for page in reader.pages)
     valid_label, invalid_label = (
@@ -426,46 +442,67 @@ def test_history_validity_legend_follows_visible_marks(
 def test_validity_display_rejects_missing_values_before_filtering(
     tmp_path: Path, options: str
 ) -> None:
-    history = build_history_items(
-        parse_history("2020-01-01 - MMR; 2020-02-01 - HB - Valid;").doses, [], {}
-    )
+    raw = "2020-01-01 - MMR; 2020-02-01 - HB - Valid;"
     with pytest.raises(
         AssertionError, match="Validity display requires Valid or Invalid"
     ):
         compile_package(
             tmp_path,
-            f"#let notice = (..notice, history: json(bytes({json.dumps(json.dumps(history))})))\n"
-            f"#immuknow.immunization-history(notice, show-validity: true, {options})",
+            history_facts(raw)
+            + f"#immuknow.immunization-history(notice, show-validity: true, {options})",
         )
     assert not (tmp_path / "notice.pdf").exists()
 
 
-def test_missing_validity_can_be_displayed_as_recorded_doses(tmp_path: Path) -> None:
-    history = build_history_items(parse_history("2020-01-01 - MMR;").doses, [], {})
+@pytest.mark.parametrize("language", ["en", "fr"])
+def test_partial_history_can_explicitly_disable_validity(
+    tmp_path: Path, language: str
+) -> None:
     _, reader = compile_package(
         tmp_path,
-        f"#let notice = (..notice, history: json(bytes({json.dumps(json.dumps(history))})))\n"
-        "#immuknow.immunization-history(notice, show-validity: false)",
+        history_facts("2020-01-01 - MMR; 2020-02-01 - HB - Invalid;")
+        + f'#immuknow.immunization-history(notice, language: "{language}", show-validity: false)',
+    )
+    text = " ".join(page.extract_text() for page in reader.pages)
+    assert "MMR" in text and "HB" in text and "⬤" in text
+    assert "?" not in text and "○" not in text
+    assert "vaccination requirements" not in text
+    assert "exigences de vaccination" not in text
+
+
+@pytest.mark.parametrize("show_validity", [None, False, True])
+@pytest.mark.parametrize("language", ["en", "fr"])
+def test_unflagged_history_is_displayed_as_recorded_doses(
+    tmp_path: Path, show_validity: bool | None, language: str
+) -> None:
+    raw = "2020-01-01 - MMR;"
+    options = (
+        "" if show_validity is None else f"show-validity: {str(show_validity).lower()},"
+    )
+    report, reader = compile_package(
+        tmp_path,
+        history_facts(raw)
+        + f'#immuknow.immunization-history(notice, language: "{language}", '
+        f"{options})",
     )
     text = " ".join(page.extract_text() for page in reader.pages)
     assert "MMR" in text and "⬤" in text
     assert "?" not in text and "○" not in text
     assert "vaccination requirements" not in text
+    assert "exigences de vaccination" not in text
+    assert not any(
+        check["code"] == "content.history_validity" and check["status"] != "pass"
+        for check in report["checks"]
+    )
 
 
 @pytest.mark.parametrize("language", ["en", "fr"])
 def test_history_legend_labels_can_be_overridden(tmp_path: Path, language: str) -> None:
-    history = build_history_items(
-        parse_history(
-            "2020-01-01 - HB-unspecified - Valid; 2020-02-01 - MMR - Invalid;"
-        ).doses,
-        [],
-        {},
-    )
+    raw = "2020-01-01 - HB-unspecified - Valid; 2020-02-01 - MMR - Invalid;"
     _, reader = compile_package(
         tmp_path,
-        f"#let notice = (..notice, history: json(bytes({json.dumps(json.dumps(history))})))\n"
-        f'#immuknow.immunization-history(notice, language: "{language}", '
+        history_facts(raw)
+        + f'#immuknow.immunization-history(notice, language: "{language}", '
         'show-validity: true, legend-labels: (valid: "Counts for this notice", '
         'invalid: [Does #emph[not] count], unspecified: "*Agent not specified"))',
     )

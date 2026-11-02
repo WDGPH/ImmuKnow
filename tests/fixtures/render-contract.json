@@ -63,6 +63,7 @@
         "validity": "unknown"
       }
     ],
+    "history_validity_coverage": "all_absent",
     "validity_coverage": "all_absent"
   },
   "report": {
@@ -131,6 +132,7 @@
           "validity": "unknown"
         }
       ],
+      "history_validity_coverage": "all_absent",
       "validity_coverage": "all_absent"
     },
     "identity": {
@@ -1313,6 +1315,7 @@
             "notice"
           ],
           "value": {
+            "history_validity_coverage": "all_absent",
             "validity_coverage": "all_absent",
             "history": [
               {
@@ -1502,6 +1505,27 @@
             "reader"
           ],
           "value": "guardian"
+        }
+      ]
+    },
+    {
+      "name": "saved payloads without source history coverage remain supported",
+      "valid": true,
+      "changes": [
+        {
+          "target": "payload",
+          "path": [
+            "history_validity_coverage"
+          ],
+          "remove": true
+        },
+        {
+          "target": "report",
+          "path": [
+            "notice",
+            "history_validity_coverage"
+          ],
+          "remove": true
         }
       ]
     }

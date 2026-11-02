@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from .data_models import ClientRecord, RenderJob
+from .data_models import ClientRecord, RenderJob, classify_validity_coverage
 from .render_payload import validate_render_payload
 from .version_notices import Language, validate_version_id
 
@@ -136,4 +136,7 @@ def build_notice_data(client: ClientRecord, config: dict[str, Any]) -> dict[str,
         "overdue_agents": client.overdue_agents,
         "history": client.history,
         "validity_coverage": client.validity_coverage,
+        "history_validity_coverage": client.history_validity_coverage
+        if client.history_validity_coverage is not None
+        else classify_validity_coverage(item["validity"] for item in client.history),
     }
