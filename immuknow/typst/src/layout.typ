@@ -82,7 +82,7 @@
 #let client-block(notice, window: envelope-preset, font-size: 10pt, min-font-size: 10pt,
   addressee: auto, province: auto, id-label: auto, school-label: auto, show-birth-date: true,
   show-school: true, show-client-id: true, show-oiid: false, oiid-label: auto,
-  details: "right", spacing: 0pt, border: none) = {
+  missing-oiid: none, details: "right", spacing: 0pt, border: none) = {
   let has-window = window != none
   if has-window { check-window(window) }
   let area = if has-window { window } else { envelope-preset }
@@ -101,6 +101,7 @@
   let oiid = notice.at("oiid", default: "")
   let oiid-label = if oiid-label != auto { oiid-label } else if lang == "en" { "Ontario Immunization ID" } else { "Identifiant d’immunisation de l’Ontario" }
   assert(not show-oiid or type(oiid-label) == str, message: "OIID label must be text")
+  assert(missing-oiid == none or missing-oiid == auto or type(missing-oiid) == str, message: "missing-oiid must be none, auto, or text")
   if show-oiid {
     assert(notice.at("oiid_coverage", default: "all_absent") != "all_absent", message: "OIID display requires at least one OIID in the input cohort")
   }
@@ -114,7 +115,16 @@
   let text-lines = ()
   let fields = ()
   if show-client-id { fields.push((id-label, notice.client_id, true)) }
-  if show-oiid and oiid != "" { fields.push((oiid-label, oiid, true)) }
+  if show-oiid {
+    if oiid != "" {
+      fields.push((oiid-label, oiid, true))
+    } else if missing-oiid != none {
+      let placeholder = if missing-oiid == auto {
+        if lang == "en" { "Not available" } else { "Non disponible" }
+      } else { missing-oiid }
+      fields.push((oiid-label, placeholder, false))
+    }
+  }
   if show-birth-date { fields.push((birth-label, birth-date, false)) }
   if show-school { fields.push((school-label, client.school, false)) }
   // Keep the same selected lines in visible content and PDF evidence.

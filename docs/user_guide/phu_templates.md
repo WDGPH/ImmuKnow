@@ -277,7 +277,11 @@ ID as text, preserving leading zeros. The prepared notice exposes `oiid` and
 
 Enabling `show-oiid` requires at least one nonblank OIID in the input cohort;
 an entirely absent OIID cohort fails rendering until the input or display
-choice is corrected. In a mixed cohort, clients without an OIID omit that line.
+choice is corrected. In a mixed cohort, `missing-oiid` controls clients without
+an OIID: `none` (the default) omits the line, `""` leaves the value blank after
+the label, `auto` shows “Not available” / “Non disponible”, and a plain-text
+string supplies custom wording. This option applies only with `show-oiid: true`;
+it does not replace an available OIID or bypass the all-absent cohort error.
 An omitted or blank OIID column remains supported with OIID display disabled.
 Set `id-label: "Record number"`, `oiid-label: "Record key"`, or `school-label`
 to customize plain-text labels. Default labels are provided in English and

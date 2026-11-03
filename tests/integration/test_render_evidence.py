@@ -1004,8 +1004,9 @@ def test_client_block_identifier_choices_keep_pdf_evidence(
 @pytest.mark.parametrize(
     "oiid,coverage", [("0000987654", "mixed"), ("", "mixed"), ("", "all_absent")]
 )
+@pytest.mark.parametrize("missing", ["none", "auto", '""'])
 def test_oiid_display_requires_cohort_availability_and_skips_missing_rows(
-    tmp_path, oiid, coverage
+    tmp_path, oiid, coverage, missing
 ):
     job, payload = prepare_case(tmp_path)
     payload.update(oiid=oiid, oiid_coverage=coverage)
@@ -1013,7 +1014,7 @@ def test_oiid_display_requires_cohort_availability_and_skips_missing_rows(
     job.template.write_text(
         '#import "settings.typ": *\n#show: letter\n'
         "#immuknow.client-block(notice, show-client-id: false, show-oiid: true, "
-        'oiid-label: "Record key", show-birth-date: false, show-school: false)'
+        f'missing-oiid: {missing}, oiid-label: "Record key", show-birth-date: false, show-school: false)'
     )
     if coverage == "all_absent":
         with pytest.raises(subprocess.CalledProcessError) as failure:
@@ -1022,8 +1023,9 @@ def test_oiid_display_requires_cohort_availability_and_skips_missing_rows(
         return
     summary, reader = compile_case(job)
     text = reader.pages[0].extract_text()
-    assert ("Record key:" in text) == bool(oiid)
-    assert summary["components"]["client"] == bool(oiid)
+    displayed = bool(oiid) or missing != "none"
+    assert ("Record key:" in text) == displayed
+    assert summary["components"]["client"] == displayed
     _, checks = inspect_notice(job, tmp_path, summary)
     assert all(check.status in ("pass", "not_applicable") for check in checks)
 
@@ -1135,3 +1137,51 @@ def test_address_only_client_block_remains_bound_to_source(tmp_path, change):
     )
     with pytest.raises(ValueError, match="different source row|changed notice data"):
         compile_case(job)
+
+
+@pytest.mark.parametrize("language", ["en", "fr"])
+@pytest.mark.parametrize("missing", ["none", '""', "auto", '"Ask us for your ID"'])
+def test_missing_oiid_presentation_keeps_source_facts_and_pdf_evidence(
+    tmp_path, language, missing
+):
+    job, payload = prepare_case(tmp_path, language=language)
+    payload.update(oiid="", oiid_coverage="mixed")
+    job.data.write_text(json.dumps(payload))
+    job.template.write_text(
+        '#import "settings.typ": *\n#show: letter\n'
+        "#immuknow.client-block(notice, show-client-id: false, show-oiid: true, "
+        f'missing-oiid: {missing}, oiid-label: "OIID", show-birth-date: false, show-school: false)'
+    )
+    summary, reader = compile_case(job)
+    assert summary["notice"]["oiid"] == ""
+    text = " ".join(reader.pages[0].extract_text().split())
+    expected = {
+        "none": None,
+        '""': "",
+        "auto": "Not available" if language == "en" else "Non disponible",
+        '"Ask us for your ID"': "Ask us for your ID",
+    }[missing]
+    assert summary["components"]["client"] == (expected is not None)
+    if expected is None:
+        assert "OIID:" not in text
+    else:
+        assert ("OIID: " + expected).strip() in text
+        assert summary["measurements"]["client"][0]["text"] == "OIID: " + expected
+    _, checks = inspect_notice(job, tmp_path, summary)
+    assert all(check.status in ("pass", "not_applicable") for check in checks)
+
+
+def test_available_oiid_overrides_missing_placeholder(tmp_path):
+    job, payload = prepare_case(tmp_path)
+    payload.update(oiid="0000987654", oiid_coverage="mixed")
+    job.data.write_text(json.dumps(payload))
+    job.template.write_text(
+        '#import "settings.typ": *\n#show: letter\n'
+        '#immuknow.client-block(notice, show-oiid: true, missing-oiid: "Unavailable")'
+    )
+    summary, reader = compile_case(job)
+    text = reader.pages[0].extract_text()
+    assert payload["oiid"] in text
+    assert "Unavailable" not in text
+    _, checks = inspect_notice(job, tmp_path, summary)
+    assert all(check.status in ("pass", "not_applicable") for check in checks)
