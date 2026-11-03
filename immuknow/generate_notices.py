@@ -109,6 +109,12 @@ def build_notice_data(client: ClientRecord, config: dict[str, Any]) -> dict[str,
         "schema_version": 1,
         "row_key": client.sequence,
         "client_id": client.client_id,
+        "oiid": client.oiid,
+        "oiid_coverage": client.oiid_coverage
+        if client.oiid_coverage is not None
+        else "all_present"
+        if client.oiid
+        else "all_absent",
         "template": f"{client.version_id}.{client.language}.typ",
         "version_id": client.version_id,
         "language": client.language,

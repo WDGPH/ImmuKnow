@@ -241,8 +241,8 @@ def check_client_identity(
             f"PDF text could not be checked: {exc}",
         )
     matches = (
-        bool(client_id and ids)
-        and all(area["client_id"] == client_id for area in ids)
+        bool(client_id and regions)
+        and all(area["client_id"] == client_id for area in regions)
         and all(
             " ".join("".join(parts).split()) == " ".join(area["text"].split())
             for area, parts in zip(regions, observed)
@@ -272,10 +272,10 @@ def describe_identity_difference(
     Only the two characters at the first differing position are shown, with the
     PDF fonts in that block, so font text-mapping faults can be recognised.
     """
-    if not (client_id and ids):
-        return " No client details block was placed."
-    if any(area["client_id"] != client_id for area in ids):
-        return " A client details block belongs to a different client."
+    if not (client_id and regions):
+        return " No personal content block was placed."
+    if any(area["client_id"] != client_id for area in regions):
+        return " A personal content block belongs to a different client."
     for index, (area, parts) in enumerate(zip(regions, observed)):
         expected = " ".join(area["text"].split())
         found = " ".join("".join(parts).split())
@@ -313,8 +313,8 @@ def inspect_notice(
     """Inspect actual original bytes; Typst alone owns layout measurements.
 
     A readable PDF remains an output even if its text or render evidence cannot
-    be checked. Identity requires the exact expected value inside each supplied client
-    block; an incidental phone number cannot satisfy it.
+    be checked. Identity requires the expected personal text inside each supplied client
+    or address block; incidental text elsewhere cannot satisfy it.
     """
     content = job.pdf.read_bytes()
     reader = PdfReader(BytesIO(content))
