@@ -86,3 +86,29 @@ def test_overlap_resolution_catches_symlink_and_both_ancestor_directions(
             reject_overlap(source, destination)
         with pytest.raises(ValueError, match="overlaps output workspace"):
             reject_overlap(destination, source)
+
+
+@pytest.mark.parametrize(
+    "raw,has_records,normalized_count",
+    [
+        ("", False, 0),
+        ("-;", False, 0),
+        ("2020-05-01 - MMR;", True, 1),
+        ("2020-05-01 - MMR - Invalid;", True, 1),
+        ("2020-05-01 - Not Specified;", True, 0),
+        ("2020-05-01 - MMR; 2020-05-01 - MMR;", True, 1),
+    ],
+    ids=["blank", "placeholder", "recorded", "invalid", "excluded-agent", "duplicate"],
+)
+def test_record_presence_preserves_source_before_exclusions(
+    raw: str, has_records: bool, normalized_count: int
+) -> None:
+    frame = source_rows()
+    frame.loc[0, "imms_given"] = raw
+    prepared, _ = prepare(frame)
+    client = prepared.clients[0]
+    payload = build_notice_data(client, {})
+    validate_render_payload(payload)
+    assert client.has_immunization_records is has_records
+    assert payload["has_immunization_records"] is has_records
+    assert len(payload["history"]) == normalized_count

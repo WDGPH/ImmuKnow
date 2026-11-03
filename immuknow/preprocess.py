@@ -274,6 +274,14 @@ def build_preprocess_result(
     delivery = config.get("date_of_delivery") or ""
     raw_rows = df.fillna("").astype(str).to_dict(orient="records")
     rows = validate_input(clean_csv_text(df)).to_dict(orient="records")
+    oiid_states = {bool(row["oiid"]) for row in rows}
+    oiid_coverage = (
+        "mixed"
+        if len(oiid_states) > 1
+        else "all_present"
+        if True in oiid_states
+        else "all_absent"
+    )
     histories = [parse_history(row["imms_given"]) for row in raw_rows]
     coverage = classify_dataset_validity(histories)
     clients: list[ClientRecord] = []
@@ -466,6 +474,8 @@ def build_preprocess_result(
             ClientRecord(
                 sequence=key,
                 client_id=row["client_id"],
+                oiid=row["oiid"],
+                oiid_coverage=oiid_coverage,
                 language="",
                 person={
                     "first_name": row["first_name"],
@@ -492,6 +502,7 @@ def build_preprocess_result(
                 history=history,
                 validity_coverage=coverage,
                 history_validity_coverage=classify_dataset_validity([parsed]),
+                has_immunization_records=bool(parsed.doses),
                 unparsed_history=[issue.fragment for issue in parsed.issues],
             )
         )

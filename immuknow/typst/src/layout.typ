@@ -81,7 +81,8 @@
 
 #let client-block(notice, window: envelope-preset, font-size: 10pt, min-font-size: 10pt,
   addressee: auto, province: auto, id-label: auto, school-label: auto, show-birth-date: true,
-  show-school: true, details: "right", spacing: 0pt, border: none) = {
+  show-school: true, show-client-id: true, show-oiid: false, oiid-label: auto,
+  missing-oiid: none, details: "right", spacing: 0pt, border: none) = {
   let has-window = window != none
   if has-window { check-window(window) }
   let area = if has-window { window } else { envelope-preset }
@@ -94,21 +95,45 @@
   let lang = notice.language
   let client = notice.client_data
   let id-label = if id-label != auto { id-label } else if lang == "en" { "Client ID" } else { "Identifiant du client" }
-  assert(type(id-label) == str, message: "Client ID label must be text")
+  assert(type(show-client-id) == bool, message: "show-client-id must be boolean")
+  assert(type(show-oiid) == bool, message: "show-oiid must be boolean")
+  assert(not show-client-id or type(id-label) == str, message: "Client ID label must be text")
+  let oiid = notice.at("oiid", default: "")
+  let oiid-label = if oiid-label != auto { oiid-label } else if lang == "en" { "Ontario Immunization ID" } else { "Identifiant d’immunisation de l’Ontario" }
+  assert(not show-oiid or type(oiid-label) == str, message: "OIID label must be text")
+  assert(missing-oiid == none or missing-oiid == auto or type(missing-oiid) == str, message: "missing-oiid must be none, auto, or text")
+  if show-oiid {
+    assert(notice.at("oiid_coverage", default: "all_absent") != "all_absent", message: "OIID display requires at least one OIID in the input cohort")
+  }
   let school-label = if school-label != auto { school-label } else if lang == "en" { "School" } else { "École" }
   let selected-reader = reader(notice)
   let address = address-content(client, language: lang, addressee: addressee, province: province, reader: selected-reader)
   assert(not show-school or type(school-label) == str, message: "School label must be text")
   let birth-label = if lang == "en" { "Date of Birth" } else { "Date de naissance" }
   let birth-date = if show-birth-date { long-date(client.date_of_birth_iso, lang, required: false) } else { "" }
-  let info-text = id-label + ": " + notice.client_id
-  if show-birth-date { info-text += "\n" + birth-label + ": " + birth-date }
-  if show-school { info-text += "\n" + school-label + ": " + client.school }
-  let info = [
-    #id-label: #box[#strong(notice.client_id)]
-    #if show-birth-date [#linebreak()#birth-label: #strong(birth-date)]
-    #if show-school [#linebreak()#school-label: #strong(client.school)]
-  ]
+  let lines = ()
+  let text-lines = ()
+  let fields = ()
+  if show-client-id { fields.push((id-label, notice.client_id, true)) }
+  if show-oiid {
+    if oiid != "" {
+      fields.push((oiid-label, oiid, true))
+    } else if missing-oiid != none {
+      let placeholder = if missing-oiid == auto {
+        if lang == "en" { "Not available" } else { "Non disponible" }
+      } else { missing-oiid }
+      fields.push((oiid-label, placeholder, false))
+    }
+  }
+  if show-birth-date { fields.push((birth-label, birth-date, false)) }
+  if show-school { fields.push((school-label, client.school, false)) }
+  // Keep the same selected lines in visible content and PDF evidence.
+  for (label, value, keep-together) in fields {
+    text-lines.push(label + ": " + value)
+    lines.push([#label: #if keep-together { box(strong(value)) } else { strong(value) }])
+  }
+  let info-text = text-lines.join("\n")
+  let info = lines.join(linebreak())
   block(width: 100%, breakable: false)[
     #block(width: 0pt, height: 0pt, above: 0pt, below: 0pt)[#metadata(none) <immuknow-client-origin>]
     #context {
@@ -136,7 +161,7 @@
         if selected-reader == none and addressee == auto { check("content.address_reader_unknown", "warn", "Intended reader is unknown; a neutral addressee is used.", component: "address", page: position.page) }
         address.body
       }],
-      block(inset: area.padding)[#layout(available => context {
+      if fields.len() > 0 { block(inset: area.padding)[#layout(available => context {
         let position = here().position()
         let size = measure(info, width: available.width)
         component("client", notice: notice, measurements: (
@@ -152,7 +177,7 @@
             ..window-bounds))
         if show-birth-date and client.date_of_birth_iso == "" { check("content.birth_date_unknown", "warn", "Birth date is unknown.", component: "client", page: here().page()) }
         info
-      })],
+      })] },
     )]
   }]
 }

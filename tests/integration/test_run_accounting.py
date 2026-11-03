@@ -778,3 +778,86 @@ def test_forecast_coverage_uses_the_selected_lookup_string_values(tmp_path):
         "unmapped_agents": [],
     }
     assert first["original"]["status"] == "completed"
+
+
+def test_dynamic_template_keeps_one_assignment_while_branching_on_flags(
+    tmp_path: Path,
+) -> None:
+    source, config, templates, _ = prepare_inputs(tmp_path)
+    frame = create_test_input_dataframe(num_clients=3)
+    frame["overdue_disease"] = ["Measles;", "", "Measles;"]
+    frame["overdue_agent"] = "M;"
+    frame["imms_given"] = ["-;", "2020-05-01 - MMR;", "2020-05-01 - MMR;"]
+    frame.to_csv(source, index=False)
+    catalog_path = config / "notice_versions.yaml"
+    catalog = yaml.safe_load(catalog_path.read_text())
+    catalog["versions"]["dynamic_v1"] = {"kind": "informational", "requires": "any"}
+    catalog_path.write_text(yaml.safe_dump(catalog))
+    template = templates / "dynamic_v1.en.typ"
+    template.write_text(
+        '#import "settings.typ": *\n#show: letter\n'
+        "#let flags = immuknow.notice-flags(notice)\n"
+        '#notice-page("Dynamic fixture")[\n'
+        "#immuknow.client-block(notice)\n"
+        "#if flags.no_records [\n"
+        "  #immuknow.overdue-diseases(notice, no-records: auto)\n"
+        "] else if flags.up_to_date [Up-to-date branch.] else [\n"
+        "  Overdue branch. #immuknow.overdue-diseases(notice)\n"
+        "]\n]"
+    )
+    saved = run_pipeline(
+        source, tmp_path / "runs", config_dir=config, notice_template=template
+    )
+    record = json.loads(saved.read_text())
+    assert all(
+        entry["original"]["status"] == "completed" for entry in record["entries"]
+    )
+    texts = []
+    for entry in record["entries"]:
+        assert entry["assignment"]["template"] == "dynamic_v1.en.typ"
+        assert entry["assignment"]["version_id"] == "dynamic_v1"
+        assert entry["assignment"]["language"] == "en"
+        texts.append(
+            " ".join(
+                page.extract_text()
+                for page in PdfReader(saved.parent / entry["original"]["path"]).pages
+            )
+        )
+    assert "We have no immunization records on file" in texts[0]
+    assert "Measles" not in texts[0]
+    assert "Up-to-date branch." in texts[1]
+    assert "Overdue branch." in texts[2] and "Measles" in texts[2]
+
+
+def test_affirmative_assertion_blocks_rendering_without_changing_assignment(
+    tmp_path: Path,
+) -> None:
+    source, config, templates, _ = prepare_inputs(tmp_path)
+    frame = pd.read_csv(source, dtype=str, keep_default_na=False)
+    frame["overdue_disease"] = ["Measles;", ""]
+    frame["overdue_agent"] = "M;"
+    frame.to_csv(source, index=False)
+    template = templates / "affirmative_schedule_v1.en.typ"
+    template.write_text(
+        '#import "settings.typ": *\n#show: letter\n'
+        "#assert(immuknow.notice-flags(notice).up_to_date,\n"
+        '  message: "Affirmative notice requires no overdue diseases.")\n'
+        '#notice-page("Affirmative fixture")[#immuknow.client-block(notice)]'
+    )
+    saved = run_pipeline(
+        source, tmp_path / "runs", config_dir=config, notice_template=template
+    )
+    record = json.loads(saved.read_text())
+    blocked, complete = record["entries"]
+    assert blocked["original"]["status"] == "failed"
+    assert blocked["bundle"] is None
+    assert any(
+        check["code"] == "rendering.failed"
+        and "Affirmative notice requires no overdue diseases" in check["message"]
+        for check in blocked["checks"]
+    )
+    assert complete["original"]["status"] == "completed"
+    assert all(
+        entry["assignment"]["version_id"] == "affirmative_schedule_v1"
+        for entry in record["entries"]
+    )
