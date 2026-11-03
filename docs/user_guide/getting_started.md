@@ -77,6 +77,17 @@ to `intended_reader` before running.
 
 ### History format
 
+Every history agent must occur in the selected project's
+`config/vaccine_reference.json`, with the exact spelling and case. Unknown agents
+reject the entire input file before rendering. Each affected row has a
+`source.history_unmapped_agent` error listing its unknown names in `run.json`
+and `report.html`. Correct the source names or add verified disease mappings to
+the project's reference; agents explicitly mapped to `Other` are accepted.
+Hiding an agent with `ignore-agents`, omitting the history table or marking a
+dose `Invalid` does not bypass this check. The recognized Panorama placeholder
+agents `-unspecified`, `unspecified`, `Not Specified`, `Not specified` and
+`Not Specified-unspecified` remain excluded from displayed history.
+
 End every administration with a semicolon, including the last, as in Panorama
 exports. Each entry is exactly `YYYY-MM-DD - Agent;`, optionally with
 ` - Valid` or ` - Invalid` before the semicolon, for example

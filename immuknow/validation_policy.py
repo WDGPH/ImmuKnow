@@ -19,7 +19,7 @@ from .data_models import CheckResult
 from .render_contract import report_schema
 from .structured_input import read_json
 
-POLICY_VERSION = 20
+POLICY_VERSION = 21
 
 
 @dataclass(frozen=True)
@@ -213,6 +213,12 @@ RULES = {
         RuleDefinition(
             "source.history_invalid",
             "History has valid source syntax",
+            "preprocess",
+            mandatory=True,
+        ),
+        RuleDefinition(
+            "source.history_unmapped_agent",
+            "History agents occur in the selected vaccine reference",
             "preprocess",
             mandatory=True,
         ),

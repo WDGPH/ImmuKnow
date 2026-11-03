@@ -17,6 +17,94 @@ pytestmark = pytest.mark.integration
 
 @pytest.mark.parametrize("mode", ["cli", "api"])
 @pytest.mark.parametrize("selection", ["template", "manifest"])
+def test_unknown_history_agents_reject_the_cohort_even_without_a_history_table(
+    tmp_path, mode, selection
+):
+    command, output, config = prepare_cohort(
+        tmp_path, ("en", "en", "en"), encrypted=True
+    )
+    source = command[3]
+    frame = pd.read_csv(source, dtype=str, keep_default_na=False)
+    frame.loc[1, "imms_given"] = "2020-05-01 - HepA - Invalid;"
+    frame.loc[2, "imms_given"] = "2020-05-01 - Ig - Valid;"
+    frame.to_csv(source, index=False)
+    templates = Path(command[command.index("--templates") + 1])
+    template = templates / "overdue_agents_v1.en.typ"
+    # Ig is hidden in Settings. Neither that choice nor omitting history
+    # can turn an unmapped source administration into accepted input.
+    template.write_text(template.read_text().replace("#immunization-history()", ""))
+    assignments = Path(command[-1])
+    if selection == "template":
+        command[-4:] = ["--template", str(template)]
+    if mode == "cli":
+        result = run_cli(command, tmp_path)
+        assert result.returncode == 1, result.stdout + result.stderr
+        (saved,) = output.glob("*/run.json")
+    else:
+        saved = run_pipeline(
+            Path(source),
+            output,
+            config_dir=config,
+            notice_template=template if selection == "template" else None,
+            notice_assignments=assignments if selection == "manifest" else None,
+            template_dir=templates if selection == "manifest" else None,
+        )
+    record = json.loads(saved.read_text())
+    assert record["status"] == "rejected_input"
+    assert record["input"]["accepted"] is False
+    assert len(record["entries"]) == 3
+    assert all(entry["original"]["status"] == "not_run" for entry in record["entries"])
+    assert all(
+        entry["encryption"]["status"] == "not_run" for entry in record["entries"]
+    )
+    assert not record["delivery_attempts"]
+    assert not list(saved.parent.rglob("*.pdf"))
+    failures = [
+        (entry["row_key"], check)
+        for entry in record["entries"]
+        for check in entry["checks"]
+        if check["code"] == "source.history_unmapped_agent"
+    ]
+    assert [key for key, _ in failures] == ["row-000002", "row-000003"]
+    assert [check["measurements"]["unmapped_agents"] for _, check in failures] == [
+        ["HepA"],
+        ["Ig"],
+    ]
+    assert all(check["status"] == "fail" for _, check in failures)
+    html = saved.with_name("report.html").read_text()
+    assert "source.history_unmapped_agent" in html and "HepA" in html and "Ig" in html
+    for index, entry in enumerate(record["entries"]):
+        assert entry["source"]["values"]["imms_given"] == frame.loc[index, "imms_given"]
+
+
+def test_adding_a_verified_project_mapping_accepts_a_new_run(tmp_path):
+    command, output, config = prepare_cohort(tmp_path, ("en",))
+    source = command[3]
+    frame = pd.read_csv(source, dtype=str, keep_default_na=False)
+    frame.loc[0, "imms_given"] = "2020-05-01 - Project agent - Valid;"
+    frame.to_csv(source, index=False)
+    assert run_cli(command, tmp_path).returncode == 1
+    (rejected,) = output.glob("*/run.json")
+    saved_rejection = rejected.read_bytes()
+    reference_path = config / "vaccine_reference.json"
+    reference = json.loads(reference_path.read_text())
+    reference["Project agent"] = ["Measles", "Mumps", "Rubella"]
+    reference_path.write_text(json.dumps(reference))
+    result = run_cli(command, tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    (completed,) = [path for path in output.glob("*/run.json") if path != rejected]
+    record = json.loads(completed.read_text())
+    assert record["input"]["accepted"] is True
+    (entry,) = record["entries"]
+    (dose,) = entry["facts"]["prepared"]["history"]
+    assert dose["agent"] == "Project agent"
+    assert dose["diseases"] == reference["Project agent"]
+    assert (completed.parent / entry["original"]["path"]).is_file()
+    assert rejected.read_bytes() == saved_rejection
+
+
+@pytest.mark.parametrize("mode", ["cli", "api"])
+@pytest.mark.parametrize("selection", ["template", "manifest"])
 def test_bad_history_rejects_every_row_through_both_entry_points(
     tmp_path, mode, selection
 ):

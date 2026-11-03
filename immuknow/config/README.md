@@ -271,6 +271,12 @@ for `legend-labels` overrides.
 
 ## Reference and label updates
 
+History agents must have exact entries in the project's `vaccine_reference.json`,
+including agents hidden by Settings. An unknown agent rejects the input cohort;
+correct the source name or supply a verified mapping rather than relying on the
+"Other" display column. See [history input](https://docs.phiz.ca/immuknow/latest/user_guide/getting_started/#history-format)
+for findings and recognized Panorama placeholders.
+
 Keep normalization output names consistent with vaccine mappings and authored
 history columns. Mappings retain diseases even when the current chart omits
 them. Same-agent administrations on one date collapse with

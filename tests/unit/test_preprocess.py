@@ -9,6 +9,7 @@ import pytest
 from immuknow import preprocess
 from immuknow.assignment_manifest import ManifestRow
 from immuknow.generate_notices import build_notice_data
+from immuknow.load_config import load_config
 from immuknow.render_payload import validate_render_payload
 from immuknow.version_notices import load_catalog
 
@@ -48,10 +49,12 @@ def source_rows() -> pd.DataFrame:
     )
 
 
-def prepare(frame: pd.DataFrame):
+def prepare(frame: pd.DataFrame, vaccine_reference: dict | None = None):
     return preprocess.build_preprocess_result(
         frame,
-        {"MMR": ["Measles", "Mumps", "Rubella"]},
+        {"MMR": ["Measles", "Mumps", "Rubella"]}
+        if vaccine_reference is None
+        else vaccine_reference,
         preprocess.UNSPECIFIED_AGENTS,
         config={"date_of_delivery": "2026-10-12"},
         config_dir=preprocess.CONFIG_DIR,
@@ -212,6 +215,89 @@ def test_history_checks_excluded_and_duplicate_entries_before_building_rows(
     assert result.clients[0].history[0]["validity"] == "valid"
     assert result.clients[0].validity_coverage == "mixed"
     assert not result.clients[1].history
+
+
+def test_unknown_history_agents_fail_each_row_before_deduplication():
+    frame = source_rows()
+    frame.loc[0, "imms_given"] = (
+        "2020-05-01 - HepA - Invalid; 2020-05-01 - HepA - Valid; "
+        "2020-05-02 - Influenza (IIV4); 2020-02-31 - MMR;"
+    )
+    frame.loc[1, "imms_given"] = "2020-05-01 - mmr - Valid;"
+    result, _ = prepare(frame)
+    for key, agents in (
+        ("row-000001", ["HepA", "Influenza (IIV4)"]),
+        ("row-000002", ["mmr"]),
+    ):
+        (finding,) = [
+            check
+            for check in result.row_checks[key]
+            if check.code == "source.history_unmapped_agent"
+        ]
+        assert finding.status == "fail"
+        assert finding.stage == "preparation"
+        assert finding.component == "history"
+        assert finding.measurements == {
+            "column": "imms_given",
+            "unmapped_agents": agents,
+        }
+        assert all(agent in finding.message for agent in agents)
+    assert any(
+        check.code == "source.history_invalid"
+        for check in result.row_checks["row-000001"]
+    )
+    assert result.source_rows["row-000001"]["imms_given"] == frame.loc[0, "imms_given"]
+    assert all(
+        not dose["diseases"] for client in result.clients for dose in client.history
+    )
+
+
+@pytest.mark.parametrize("diseases", [["Hepatitis A"], "Other", []])
+def test_history_uses_project_specific_agent_mappings(diseases):
+    frame = source_rows().iloc[:1].copy()
+    frame.loc[0, "imms_given"] = "2020-05-01 - Project agent - Invalid;"
+    result, _ = prepare(frame, {"Project agent": diseases, "IPV": ["Polio"]})
+    assert not any(check.status == "fail" for check in result.row_checks["row-000001"])
+    (dose,) = result.clients[0].history
+    assert dose["diseases"] == (diseases if isinstance(diseases, list) else [diseases])
+
+
+def test_only_recognized_placeholders_bypass_history_agent_lookup():
+    frame = source_rows().iloc[:1].copy()
+    frame.loc[0, "imms_given"] = (
+        "".join(f"2020-05-01 - {agent};" for agent in preprocess.UNSPECIFIED_AGENTS)
+        + "2020-05-01 - rota-unspecified; 2020-05-02 - unknown-unspecified;"
+    )
+    result, _ = prepare(frame, {"rota-unspecified": ["Rotavirus"], "IPV": ["Polio"]})
+    (finding,) = [
+        check
+        for check in result.row_checks["row-000001"]
+        if check.code == "source.history_unmapped_agent"
+    ]
+    assert finding.measurements["unmapped_agents"] == ["unknown-unspecified"]
+    assert [dose["agent"] for dose in result.clients[0].history] == [
+        "rota-unspecified",
+        "unknown-unspecified",
+    ]
+
+
+def test_repository_sample_passes_preparation_with_the_packaged_reference(tmp_path):
+    source = Path(__file__).resolve().parents[2] / "input/sample_students.csv"
+    result, _ = preprocess.prepare_clients(
+        preprocess.read_input(source),
+        tmp_path,
+        load_config(preprocess.CONFIG_DIR / "parameters.yaml"),
+        preprocess.CONFIG_DIR,
+        load_catalog(preprocess.CONFIG_DIR),
+        {},
+        ("overdue_diseases_v1", "en"),
+    )
+    assert len(result.clients) == len(preprocess.read_input(source))
+    assert not any(
+        check.status == "fail"
+        for checks in result.row_checks.values()
+        for check in checks
+    )
 
 
 @pytest.mark.unit
