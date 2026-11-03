@@ -102,7 +102,7 @@
     },
     {
       "name": "imms_given",
-      "description": "Semicolon-separated entries in the exact form 'YYYY-MM-DD - Agent', optionally followed by ' - Valid' or ' - Invalid', for example '2020-05-01 - MMR - Valid;'. Agent names must exactly match the selected vaccine_reference.json, except recognized Panorama placeholders; unknown history agents reject the whole input file even when hidden by the notice. Month and day always have two digits. Dates must exist. Every entry ends with ';', including the last. Spaces, tabs and line breaks may surround entries; field separators are exactly space-hyphen-space. Blank history and the placeholders '-;' and '-  -;' (when validity is exported) mean no history. A missing final ';', a leading ';', ';;' and other empty entries, extra fields and wrongly cased status tokens reject the whole input file.",
+      "description": "Semicolon-separated entries in the exact form 'YYYY-MM-DD - Agent', optionally followed by ' - Valid' or ' - Invalid', for example '2020-05-01 - MMR - Valid;'. Agent names are matched exactly against the selected vaccine_reference.json. A placed history table reports an error for an unknown agent unless its ignore-agents option explicitly excludes it. Month and day always have two digits. Dates must exist. Every entry ends with ';', including the last. Spaces, tabs and line breaks may surround entries; field separators are exactly space-hyphen-space. Blank history and the placeholders '-;' and '-  -;' (when validity is exported) mean no history. A missing final ';', a leading ';', ';;' and other empty entries, extra fields and wrongly cased status tokens reject the whole input file.",
       "type": "string",
       "stripWhitespace": true,
       "constraints": {

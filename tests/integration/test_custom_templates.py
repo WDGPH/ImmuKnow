@@ -59,10 +59,6 @@ def test_sequential_runs_freeze_project_labels_and_keep_source_facts(tmp_path: P
     frame = pd.read_csv(source, dtype=str, keep_default_na=False)
     frame["imms_given"] = "2020-05-01 - MMR; 2020-05-02 - Ig;"
     frame.to_csv(source, index=False)
-    reference_path = config / "vaccine_reference.json"
-    reference = json.loads(reference_path.read_text())
-    reference["Ig"] = ["Other"]
-    reference_path.write_text(json.dumps(reference))
     custom = tmp_path / "project"
     copy_project(custom)
     template = custom / "overdue_diseases_v1.fr.typ"

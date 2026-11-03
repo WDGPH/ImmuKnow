@@ -711,6 +711,15 @@
               ]
             },
             {
+              "const": "content.history_mapping",
+              "description": "History agents have configured mappings or are explicitly ignored",
+              "x-evaluator": "Typst history",
+              "x-adjustable": false,
+              "x-components": [
+                "history"
+              ]
+            },
+            {
               "const": "content.history_validity",
               "description": "Displayed dose validity is known",
               "x-evaluator": "Typst history",
@@ -1016,6 +1025,14 @@
         },
         "title": {
           "type": "string"
+        },
+        "unmapped_agents": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
         }
       },
       "required": [],

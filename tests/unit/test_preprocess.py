@@ -217,7 +217,7 @@ def test_history_checks_excluded_and_duplicate_entries_before_building_rows(
     assert not result.clients[1].history
 
 
-def test_unknown_history_agents_fail_each_row_before_deduplication():
+def test_unknown_history_agents_retain_mapping_facts_for_the_selected_history():
     frame = source_rows()
     frame.loc[0, "imms_given"] = (
         "2020-05-01 - HepA - Invalid; 2020-05-01 - HepA - Valid; "
@@ -225,31 +225,18 @@ def test_unknown_history_agents_fail_each_row_before_deduplication():
     )
     frame.loc[1, "imms_given"] = "2020-05-01 - mmr - Valid;"
     result, _ = prepare(frame)
-    for key, agents in (
-        ("row-000001", ["HepA", "Influenza (IIV4)"]),
-        ("row-000002", ["mmr"]),
-    ):
-        (finding,) = [
-            check
-            for check in result.row_checks[key]
-            if check.code == "source.history_unmapped_agent"
-        ]
-        assert finding.status == "fail"
-        assert finding.stage == "preparation"
-        assert finding.component == "history"
-        assert finding.measurements == {
-            "column": "imms_given",
-            "unmapped_agents": agents,
-        }
-        assert all(agent in finding.message for agent in agents)
+    assert result.source_rows["row-000001"]["imms_given"] == frame.loc[0, "imms_given"]
     assert any(
         check.code == "source.history_invalid"
         for check in result.row_checks["row-000001"]
     )
-    assert result.source_rows["row-000001"]["imms_given"] == frame.loc[0, "imms_given"]
-    assert all(
-        not dose["diseases"] for client in result.clients for dose in client.history
-    )
+    for client in result.clients:
+        assert all(not dose["mapping_known"] for dose in client.history)
+        assert all(not dose["diseases"] for dose in client.history)
+    assert [dose["agent"] for dose in result.clients[0].history] == [
+        "HepA",
+        "Influenza (IIV4)",
+    ]
 
 
 @pytest.mark.parametrize("diseases", [["Hepatitis A"], "Other", []])
@@ -260,6 +247,7 @@ def test_history_uses_project_specific_agent_mappings(diseases):
     assert not any(check.status == "fail" for check in result.row_checks["row-000001"])
     (dose,) = result.clients[0].history
     assert dose["diseases"] == (diseases if isinstance(diseases, list) else [diseases])
+    assert dose["mapping_known"] is True
 
 
 def test_only_recognized_placeholders_bypass_history_agent_lookup():
@@ -269,12 +257,10 @@ def test_only_recognized_placeholders_bypass_history_agent_lookup():
         + "2020-05-01 - rota-unspecified; 2020-05-02 - unknown-unspecified;"
     )
     result, _ = prepare(frame, {"rota-unspecified": ["Rotavirus"], "IPV": ["Polio"]})
-    (finding,) = [
-        check
-        for check in result.row_checks["row-000001"]
-        if check.code == "source.history_unmapped_agent"
+    assert [dose["mapping_known"] for dose in result.clients[0].history] == [
+        True,
+        False,
     ]
-    assert finding.measurements["unmapped_agents"] == ["unknown-unspecified"]
     assert [dose["agent"] for dose in result.clients[0].history] == [
         "rota-unspecified",
         "unknown-unspecified",
@@ -326,6 +312,7 @@ def test_same_agent_same_date_validity_precedence(states: str, expected: str):
             "date_given": "2020-05-01",
             "agent": "MMR",
             "display_name": "MMR",
+            "mapping_known": True,
             "diseases": ["Measles", "Mumps", "Rubella"],
             "validity": expected,
         }

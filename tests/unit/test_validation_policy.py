@@ -341,7 +341,7 @@ def test_invalid_rule_changes_are_refused(change):
         "output.readable",
         "assignment.duplicate_client_id",
         "source.history_invalid",
-        "source.history_unmapped_agent",
+        "content.history_mapping",
         "unknown.rule",
     ],
 )
@@ -356,17 +356,16 @@ def test_unmapped_history_agents_cannot_be_accepted_as_a_warning():
     record, entry = evidence()
     entry["checks"].append(
         {
-            "code": "source.history_unmapped_agent",
-            "stage": "preparation",
+            "code": "content.history_mapping",
+            "stage": "render",
             "status": "warn",
             "message": "Unmapped history agent",
         }
     )
     evaluation = evaluate_original(record, entry, entry["checks"])
-    assert "source.history_unmapped_agent" in evaluation.failed_checks
+    assert "content.history_mapping" in evaluation.failed_checks
     assert all(
-        "source.history_unmapped_agent" not in token
-        for token in evaluation.warning_tokens
+        "content.history_mapping" not in token for token in evaluation.warning_tokens
     )
     accept_warnings(
         record,

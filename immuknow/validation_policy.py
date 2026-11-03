@@ -217,9 +217,9 @@ RULES = {
             mandatory=True,
         ),
         RuleDefinition(
-            "source.history_unmapped_agent",
-            "History agents occur in the selected vaccine reference",
-            "preprocess",
+            "content.history_mapping",
+            "History agents have configured mappings or are explicitly ignored",
+            "Typst history",
             mandatory=True,
         ),
         RuleDefinition(

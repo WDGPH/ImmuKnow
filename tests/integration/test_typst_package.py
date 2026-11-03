@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from immuknow.preprocess import (
+    CONFIG_DIR,
     build_history_items,
     classify_dataset_validity,
     parse_history,
@@ -62,6 +63,7 @@ def compile_package(
                 "date_given": "2020-01-01",
                 "agent": "MMR",
                 "display_name": "MMR",
+                "mapping_known": True,
                 "diseases": ["Measles"],
                 "validity": validity,
             }
@@ -127,7 +129,11 @@ def history_data(raw: str) -> dict:
     """Prepare source facts alongside normalized history for rendering tests."""
     parsed = parse_history(raw)
     return {
-        "history": build_history_items(parsed.doses, [], {}),
+        "history": build_history_items(
+            parsed.doses,
+            [],
+            json.loads((CONFIG_DIR / "vaccine_reference.json").read_text()),
+        ),
         "has_immunization_records": bool(parsed.doses),
         "history_validity_coverage": classify_dataset_validity([parsed]),
         "validity_coverage": classify_dataset_validity([parsed]),
@@ -137,6 +143,58 @@ def history_data(raw: str) -> dict:
 def history_facts(raw: str) -> str:
     """Inject prepared history facts into an individual component call."""
     return f"#let notice = (: ..notice, ..json(bytes({json.dumps(json.dumps(history_data(raw)))})))\n"
+
+
+@pytest.mark.parametrize(
+    "options,expected",
+    [
+        ("", "fail"),
+        ('ignore-agents: ("Unknown agent",),', "pass"),
+        ("include-other: false,", "fail"),
+        ("omit-invalid: true,", "fail"),
+        ('ignore-agents: ("Unknown agent",), include-other: false,', "pass"),
+    ],
+)
+def test_history_mapping_respects_explicit_exclusions_only(tmp_path, options, expected):
+    report, _ = compile_package(
+        tmp_path,
+        history_facts("2020-01-01 - MMR - Valid; 2020-02-01 - Unknown agent - Invalid;")
+        + f"#immuknow.immunization-history(notice, {options})",
+    )
+    (check,) = [
+        item for item in report["checks"] if item["code"] == "content.history_mapping"
+    ]
+    assert check["status"] == expected
+    assert check["measurements"]["unmapped_agents"] == (
+        ["Unknown agent"] if expected == "fail" else []
+    )
+
+
+@pytest.mark.parametrize("language,expected", [("en", "pass"), ("fr", "fail")])
+def test_history_mapping_uses_evaluated_typst_options(tmp_path, language, expected):
+    report, _ = compile_package(
+        tmp_path,
+        history_facts("2020-01-01 - Unknown agent - Valid;")
+        + '#immuknow.immunization-history(notice, ignore-agents: if notice.language == "en" { ("Unknown agent",) } else { () })',
+        notice_overrides={"language": language},
+    )
+    (check,) = [
+        item for item in report["checks"] if item["code"] == "content.history_mapping"
+    ]
+    assert check["status"] == expected
+
+
+def test_ignoring_an_agent_in_one_history_does_not_waive_another_table(tmp_path):
+    report, _ = compile_package(
+        tmp_path,
+        history_facts("2020-01-01 - Unknown agent - Valid;")
+        + '#immuknow.immunization-history(notice, ignore-agents: ("Unknown agent",))\n'
+        + "#immuknow.immunization-history(notice)",
+    )
+    checks = [
+        item for item in report["checks"] if item["code"] == "content.history_mapping"
+    ]
+    assert [item["status"] for item in checks] == ["pass", "fail"]
 
 
 @pytest.mark.parametrize(

@@ -180,6 +180,7 @@ def create_test_client_record(
                 "diseases": ["Diphtheria", "Tetanus", "Pertussis"],
                 "agent": "DTaP",
                 "display_name": "DTaP",
+                "mapping_known": True,
                 "validity": "unknown",
             },
             {
@@ -187,6 +188,7 @@ def create_test_client_record(
                 "diseases": ["Measles", "Mumps", "Rubella"],
                 "agent": "MMR",
                 "display_name": "MMR",
+                "mapping_known": True,
                 "validity": "unknown",
             },
         ]

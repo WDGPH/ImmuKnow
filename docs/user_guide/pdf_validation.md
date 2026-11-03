@@ -107,6 +107,7 @@ or `severity: fail`, for a run or an explicitly selected source row.
 | Privacy text stays on its expected page | `layout.privacy_page` |
 | Section stays within its page boundary | `layout.section_pages` |
 | History columns have enough width | `layout.history_width` |
+| History agents have mappings or are explicitly ignored | `content.history_mapping` |
 | Title fits its line limit | `layout.header_title_lines` |
 | Placed content has a translation | `content.translation_missing` |
 | Link destinations use HTTPS, mailto or tel address formats | `content.link_destination` |

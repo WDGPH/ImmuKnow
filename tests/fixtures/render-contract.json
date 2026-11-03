@@ -48,7 +48,8 @@
         ],
         "agent": "DTaP",
         "display_name": "DTaP",
-        "validity": "unknown"
+        "validity": "unknown",
+        "mapping_known": true
       },
       {
         "date_given": "2021-06-15",
@@ -59,7 +60,8 @@
         ],
         "agent": "MMR",
         "display_name": "MMR",
-        "validity": "unknown"
+        "validity": "unknown",
+        "mapping_known": true
       }
     ],
     "history_validity_coverage": "all_absent",
@@ -116,7 +118,8 @@
           ],
           "agent": "DTaP",
           "display_name": "DTaP",
-          "validity": "unknown"
+          "validity": "unknown",
+          "mapping_known": true
         },
         {
           "date_given": "2021-06-15",
@@ -127,7 +130,8 @@
           ],
           "agent": "MMR",
           "display_name": "MMR",
-          "validity": "unknown"
+          "validity": "unknown",
+          "mapping_known": true
         }
       ],
       "history_validity_coverage": "all_absent",
@@ -1325,7 +1329,8 @@
                 ],
                 "agent": "DTaP",
                 "display_name": "DTaP",
-                "validity": "unknown"
+                "validity": "unknown",
+                "mapping_known": true
               },
               {
                 "date_given": "2021-06-15",
@@ -1336,7 +1341,8 @@
                 ],
                 "agent": "MMR",
                 "display_name": "MMR",
-                "validity": "unknown"
+                "validity": "unknown",
+                "mapping_known": true
               }
             ],
             "overdue_agents": [
@@ -1523,6 +1529,88 @@
             "history_validity_coverage"
           ],
           "remove": true
+        }
+      ]
+    },
+    {
+      "name": "history mapping presence is required",
+      "valid": false,
+      "changes": [
+        {
+          "target": "payload",
+          "path": [
+            "history",
+            0,
+            "mapping_known"
+          ],
+          "remove": true
+        }
+      ]
+    },
+    {
+      "name": "history mapping presence must be boolean",
+      "valid": false,
+      "changes": [
+        {
+          "target": "payload",
+          "path": [
+            "history",
+            0,
+            "mapping_known"
+          ],
+          "value": "false"
+        }
+      ]
+    },
+    {
+      "name": "placed history mapping error",
+      "valid": true,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "checks",
+            0
+          ],
+          "value": {
+            "code": "content.history_mapping",
+            "stage": "render",
+            "status": "fail",
+            "message": "Unknown history agent",
+            "component": "history",
+            "page": 1,
+            "measurements": {
+              "unmapped_agents": [
+                "Unknown agent"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "unmapped history names must be strings",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "checks",
+            0
+          ],
+          "value": {
+            "code": "content.history_mapping",
+            "stage": "render",
+            "status": "fail",
+            "message": "Unknown history agent",
+            "component": "history",
+            "page": 1,
+            "measurements": {
+              "unmapped_agents": [
+                1
+              ]
+            }
+          }
         }
       ]
     }

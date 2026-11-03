@@ -461,30 +461,6 @@ def build_preprocess_result(
                 },
             )
         )
-        unmapped_history_agents = sorted(
-            {
-                dose["vaccine"]
-                for dose in parsed.doses
-                if dose["vaccine"] not in vaccine_reference
-                and dose["vaccine"] not in excluded_agents
-            }
-        )
-        if unmapped_history_agents:
-            checks.append(
-                CheckResult(
-                    "source.history_unmapped_agent",
-                    "preparation",
-                    "fail",
-                    "History agents are absent from vaccine_reference.json: "
-                    + ", ".join(unmapped_history_agents)
-                    + ". Correct the source names or add verified disease mappings before running notices.",
-                    component="history",
-                    measurements={
-                        "column": "imms_given",
-                        "unmapped_agents": unmapped_history_agents,
-                    },
-                )
-            )
         history = build_history_items(parsed.doses, excluded_agents, vaccine_reference)
         for issue in parsed.issues:
             checks.append(
@@ -775,6 +751,7 @@ def build_history_items(
                     " unspecified", "*"
                 ),
                 "diseases": list(dict.fromkeys(diseases)),
+                "mapping_known": agent in vaccine_reference,
                 "validity": validity,
             }
         )

@@ -351,7 +351,7 @@ def test_placed_personal_content_must_use_the_prepared_notice(
         f"#let other = (..notice, row_key: {json.dumps('row-000002' if change_row else job.sequence)},\n"
         '  client_data: (..notice.client_data, name: "Morgan Example", address: "88 Other Road"),\n'
         '  history_validity_coverage: "all_present", has_immunization_records: false,\n'
-        '  history: ((date_given: "2018-03-04", agent: "IPV", display_name: "Other vaccine", diseases: ("Polio",), validity: "valid"),),\n'
+        '  history: ((date_given: "2018-03-04", agent: "IPV", display_name: "Other vaccine", diseases: ("Polio",), validity: "valid", mapping_known: true),),\n'
         '  overdue_diseases: ((disease: "Polio", dose: 1),), overdue_agents: ("Other vaccine",))\n'
         f"#immuknow.{content}"
     )
