@@ -127,6 +127,46 @@ def test_ignored_agents_do_not_bypass_history_syntax_checks(tmp_path):
     assert not list(saved.parent.rglob("*.pdf"))
 
 
+@pytest.mark.parametrize("agent", ["Not Specified", "-unspecified"])
+def test_unmapped_source_tokens_require_a_mapping_or_explicit_exclusion(
+    tmp_path, agent
+):
+    command, output, _ = prepare_cohort(tmp_path, ("en",))
+    source = Path(command[3])
+    frame = pd.read_csv(source, dtype=str, keep_default_na=False)
+    frame["imms_given"] = f"2020-05-01 - {agent} - Valid;"
+    frame.to_csv(source, index=False)
+    result = run_cli(command, tmp_path)
+    assert result.returncode == 1, result.stdout + result.stderr
+    (failed,) = output.glob("*/run.json")
+    (entry,) = json.loads(failed.read_text())["entries"]
+    assert entry["facts"]["prepared"]["history"][0]["agent"] == agent
+    assert any(
+        check["code"] == "content.history_mapping"
+        and check["status"] == "fail"
+        and check["measurements"]["unmapped_agents"] == [agent]
+        for check in entry["checks"]
+    )
+    template = (
+        Path(command[command.index("--templates") + 1]) / "overdue_agents_v1.en.typ"
+    )
+    template.write_text(
+        template.read_text().replace(
+            "#immunization-history()",
+            f"#immuknow.immunization-history(notice, ignore-agents: ({json.dumps(agent)},))",
+        )
+    )
+    result = run_cli(command, tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    (completed,) = [path for path in output.glob("*/run.json") if path != failed]
+    (entry,) = json.loads(completed.read_text())["entries"]
+    assert entry["facts"]["prepared"]["history"][0]["agent"] == agent
+    assert any(
+        check["code"] == "content.history_mapping" and check["status"] == "pass"
+        for check in entry["checks"]
+    )
+
+
 @pytest.mark.parametrize("diseases", [["Measles", "Mumps", "Rubella"], []])
 def test_project_specific_mappings_resolve_unknown_names_in_a_new_run(
     tmp_path, diseases

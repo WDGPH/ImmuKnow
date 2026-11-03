@@ -95,12 +95,12 @@ def test_overlap_resolution_catches_symlink_and_both_ancestor_directions(
         ("-;", False, 0),
         ("2020-05-01 - MMR;", True, 1),
         ("2020-05-01 - MMR - Invalid;", True, 1),
-        ("2020-05-01 - Not Specified;", True, 0),
+        ("2020-05-01 - Not Specified;", True, 1),
         ("2020-05-01 - MMR; 2020-05-01 - MMR;", True, 1),
     ],
-    ids=["blank", "placeholder", "recorded", "invalid", "excluded-agent", "duplicate"],
+    ids=["blank", "placeholder", "recorded", "invalid", "unmapped-agent", "duplicate"],
 )
-def test_record_presence_preserves_source_before_exclusions(
+def test_record_presence_counts_every_parsed_administration(
     raw: str, has_records: bool, normalized_count: int
 ) -> None:
     frame = source_rows()

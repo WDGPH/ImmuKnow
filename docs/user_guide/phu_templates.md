@@ -159,7 +159,7 @@ it before compilation; strings remain literal data rather than executable source
 | `date_of_delivery`, `date_as_of` | ISO dates or blank |
 | `overdue_diseases` | `{disease, dose}` facts; invalid numeric doses retain `dose_raw` |
 | `overdue_agents` | Source vaccine agent names |
-| `history` | Normalized administrations with ISO `date_given`, `agent`, `display_name`, complete `diseases`, `validity` and boolean `mapping_known` |
+| `history` | Normalized administrations with ISO `date_given`, `agent`, `display_name`, configured `diseases`, `validity` and boolean `mapping_known` |
 | `validity_coverage` | Whole-cohort `all_present`, `all_absent` or `mixed` |
 | `has_immunization_records` | Whether the source contains any administrations before exclusions or deduplication |
 | `history_validity_coverage` | Per-history source flag coverage, before exclusions and deduplication: `all_present`, `all_absent` or `mixed` |
@@ -187,7 +187,8 @@ produces an empty string. QR destination functions can use
 
 A missing birth date is blank, and unknown `age` is JSON null. Blank
 source values and unusable fragments are retained in `run.json` with preparation
-findings. Display choices never alter administrations or disease mappings.
+findings. Display options leave prepared administrations and disease mappings
+unchanged.
 
 Each history item's `mapping_known` records whether the selected vaccine reference
 contains that exact agent name. Unknown names retain an empty `diseases` list and
@@ -339,8 +340,10 @@ helper used the same data. Native and browser checks compare it with the prepare
 `immunization-history` accepts disease columns, ignored agents, validity markers,
 Other-column inclusion, invalid-dose omission and chart styling. Settings
 supplies the shared defaults; named options on a call change that table only.
-The unspecified-agent footnote appears only when a displayed vaccine name
-contains the `*` marker. Ignored agents and omitted invalid doses do not trigger it.
+The formulation footnote appears only when a displayed vaccine name contains
+`*`, as in `HB*` for `HB-unspecified`. The full source name is used for lookup;
+the marker means its formulation is unspecified. Ignored agents and omitted
+invalid doses do not trigger it.
 Valid and invalid legend entries appear only when their marks occur in the
 visible disease columns. Each footnote and legend item has an English and
 Canadian French default, selected by the chart's language. The validity wording
@@ -348,7 +351,8 @@ explains whether a dose counts toward vaccination requirements.
 
 Customize individual items with `legend-labels`; omitted items keep their
 localized defaults. Values accept plain text or Typst content. Use `valid`,
-`invalid` and `unspecified` as keys. For example:
+`invalid` and `unspecified` as keys. The first two label dose-validity marks;
+`unspecified` explains the formulation asterisk. For example:
 
 ```typst
 #immuknow.immunization-history(
@@ -369,19 +373,23 @@ no validity flags remains supported: it uses ordinary recorded-dose marks and
 has no validity legend. A history containing both flagged and unflagged doses
 fails rendering even if deduplication or display exclusions would hide the
 missing flags; correct the source or explicitly
-set `show-validity: false`. No unknown indicator or legend is shown. Notices
-still warn when validity coverage varies across their cohort. Invalid source history rejects input before
-rendering; its fragments remain in the run report. Omitted components produce
+set `show-validity: false`. There is no separate marker or legend for missing
+validity flags. Notices still warn when validity coverage varies across their
+cohort. Invalid source history rejects input before rendering; its fragments
+remain in the run report. Omitted components produce
 no component checks, but do not bypass source validation.
 
-The `content.history_mapping` check fails when a placed history includes an agent
-with `mapping_known: false`. Explicitly omit an agent with `ignore-agents` when
-it should not appear in that table. Each table uses its own evaluated options,
-so ignoring an agent in one table does not excuse another table that includes it.
-Hiding the Other column or setting `omit-invalid: true` does not replace an
-explicit agent exclusion. A failed mapping check retains the PDF for inspection
-and prevents delivery; it cannot be accepted as a warning. With no history table,
-there is no history-mapping check. History syntax checks still apply to all input.
+Each placed history table checks the prepared agents against its own evaluated
+`ignore-agents` list. Any remaining agent with `mapping_known: false` produces a
+`content.history_mapping` error. This check runs before `omit-invalid` and does
+not depend on whether the Other column is shown. An explicit exclusion in one
+table applies only to that table.
+
+A mapping error alone leaves a successfully rendered PDF in review and prevents
+delivery. It cannot be disabled, downgraded or accepted as a warning. Correct the
+source name or reference entry, or add an explicit agent exclusion and generate
+a new run. A notice without a history table has no history-mapping check. Other
+errors, such as mixed validity flags, can prevent compilation entirely.
 
 History marks use the same `indicator-font` and `indicator-size` in the table
 and its legend. The default FreeSans marks keep their size and centring when

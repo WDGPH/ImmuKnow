@@ -79,15 +79,15 @@ display-default adapter or separate layout-settings file.
   for the rules and suspension/affirmative assertions.
 - `immunization-history(notice, diseases: (...), include-other: true,
   ignore-agents: (), show-validity: true, omit-invalid: false)` derives the
-  displayed table from complete administrations. Valid and invalid doses have
+  displayed table from prepared administrations. Valid and invalid doses have
   distinct marks; legend entries appear only for marks used in visible columns.
   Validity display is enabled by default. A history with no validity flags uses
   ordinary recorded-dose marks and no validity legend. A history mixing flagged
   and unflagged doses fails rendering before display exclusions. Explicitly
   disabling validity display uses ordinary recorded-dose marks for all doses.
   `legend-labels` overrides
-  `valid`, `invalid` and `unspecified` text; each has English and Canadian French
-  defaults. Optional age display uses an em dash for unknown ages.
+  the `valid` and `invalid` dose labels and the `unspecified` formulation
+  footnote; each has English and Canadian French defaults. Optional age display uses an em dash for unknown ages.
 - `qr-code(notice, url: ...)` requires an explicit URL string or function of the
   notice. Disabled QR components do no work. Colours and square, dotted, or
   rounded modules are configurable. The resolved destination is shared by the

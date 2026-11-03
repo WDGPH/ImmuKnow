@@ -274,8 +274,8 @@ for `legend-labels` overrides.
 History agents are matched exactly against the project's `vaccine_reference.json`.
 A placed history table fails `content.history_mapping` for unknown agents unless
 its `ignore-agents` option explicitly excludes them. Correct source names or
-supply verified mappings for agents you want to display. See [history input](https://docs.phiz.ca/immuknow/latest/user_guide/getting_started/#history-format)
-for findings and recognized Panorama placeholders.
+supply verified mappings for agents you want to display. See [history input](https://docs.phiz.ca/immuknow/latest/user_guide/getting_started/#vaccine-names-in-history)
+for source-name matching and formulation markers.
 
 Keep normalization output names consistent with vaccine mappings and authored
 history columns. Mappings retain diseases even when the current chart omits

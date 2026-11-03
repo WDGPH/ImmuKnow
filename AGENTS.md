@@ -61,9 +61,10 @@ outputs. See [architecture](docs/reference/architecture.md) for output evidence.
 Recoverable quality problems warn and retain the row. Invalid history, exact
 nonblank identifier collisions, and missing or ambiguous assignments reject the
 whole input before rendering. Parse history once with exact `Valid`/`Invalid`
-tokens and check every source fragment before exclusions. Keep history mapping
-presence in prepared facts. Each placed history table fails on unknown agents
-unless its actual `ignore-agents` option excludes them; omitted tables have no
+tokens and check every source fragment before display exclusions. Retain all
+parsed agents and their mapping presence in prepared facts. Formulation markers
+change display names only; use no implicit agent-name exclusions. Each placed
+history table fails on unknown agents unless its actual `ignore-agents` option excludes them; omitted tables have no
 mapping check. Forecasted agents must cover overdue diseases: missing coverage
 rejects the cohort; extra coverage warns. Demographic duplicate matching and
 remediation are out of scope. Read

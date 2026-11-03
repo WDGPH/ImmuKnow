@@ -34,7 +34,7 @@ class ClientRecord:
     ``person["date_of_birth_iso"]`` is an ISO date or empty when absent;
     Typst owns its display format. Overdue disease entries keep an optional
     numeric dose; invalid source doses also keep ``dose_raw``.
-    ``history_validity_coverage`` preserves flag presence before source exclusions
+    ``history_validity_coverage`` preserves flag presence before display exclusions
     and deduplication. ``has_immunization_records`` records whether the source
     contained any administrations before those exclusions. Direct callers may
     omit these source facts to describe the supplied history. ``oiid`` is an

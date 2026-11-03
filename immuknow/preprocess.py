@@ -35,13 +35,6 @@ from .load_config import validate_dates
 CONFIG_DIR = Path(str(files("immuknow").joinpath("config")))
 INPUT_SCHEMA_PATH = Path(str(files("immuknow").joinpath("schemas/input_schema.json")))
 CSV_ENCODINGS = ("utf-8-sig", "cp1252", "latin-1")
-UNSPECIFIED_AGENTS = [
-    "-unspecified",
-    "unspecified",
-    "Not Specified",
-    "Not specified",
-    "Not Specified-unspecified",
-]
 
 
 def prepare_clients(
@@ -84,7 +77,6 @@ def prepare_clients(
     result, reconciliation = build_preprocess_result(
         frame,
         vaccine_reference,
-        UNSPECIFIED_AGENTS,
         config=config,
         config_dir=config_dir,
         catalog=catalog,
@@ -264,7 +256,6 @@ def run_school_validation(
 def build_preprocess_result(
     df: pd.DataFrame,
     vaccine_reference: dict[str, Any],
-    excluded_agents: list[str],
     *,
     config: dict[str, Any],
     config_dir: Path,
@@ -461,7 +452,7 @@ def build_preprocess_result(
                 },
             )
         )
-        history = build_history_items(parsed.doses, excluded_agents, vaccine_reference)
+        history = build_history_items(parsed.doses, vaccine_reference)
         for issue in parsed.issues:
             checks.append(
                 CheckResult(
@@ -662,8 +653,7 @@ def parse_history(raw: str) -> ParsedHistory:
     stripped = raw.strip(" \t\r\n")
     if not stripped:
         return ParsedHistory(doses, issues)
-    # Panorama ends every history with one ";" and writes "-;" (or "-  -;" when
-    # validity is exported) for no history. A missing final ";" is an error.
+    # Each history entry ends with ";". "-;" and "-  -;" encode no history.
     text = stripped.removesuffix(";")
     terminated = text != stripped
     if terminated and text.rstrip(" \t\r\n") in ("-", "-  -"):
@@ -721,14 +711,11 @@ def classify_dataset_validity(
 
 def build_history_items(
     doses: list[dict[str, str]],
-    placeholder_agents: list[str],
     vaccine_reference: dict[str, Any],
 ) -> list[dict[str, Any]]:
-    """Keep full mappings; duplicates follow unknown > valid > invalid precedence."""
+    """Retain administrations and mappings; deduplicate with unknown > valid > invalid."""
     grouped: dict[tuple[str, str], list[str]] = {}
     for dose in doses:
-        if dose["vaccine"] in placeholder_agents:
-            continue
         grouped.setdefault((dose["date_given"], dose["vaccine"]), []).append(
             dose["validity"]
         )
@@ -743,13 +730,16 @@ def build_history_items(
         )
         mapped = vaccine_reference.get(agent, [])
         diseases = mapped if isinstance(mapped, list) else [mapped]
+        display_name = agent
+        for suffix in ("-unspecified", " unspecified"):
+            if agent.endswith(suffix) and agent != suffix:
+                display_name = agent.removesuffix(suffix) + "*"
+                break
         result.append(
             {
                 "date_given": given,
                 "agent": agent,
-                "display_name": agent.replace("-unspecified", "*").replace(
-                    " unspecified", "*"
-                ),
+                "display_name": display_name,
                 "diseases": list(dict.fromkeys(diseases)),
                 "mapping_known": agent in vaccine_reference,
                 "validity": validity,

@@ -80,7 +80,7 @@
       date: "Date du vaccin",
       age: "À l’âge de",
       vaccine: "Vaccin(s)",
-      unspecified: "*indique un agent vaccinal non spécifié",
+      unspecified: "*Formulation du vaccin non précisée",
       valid: "Dose prise en compte dans les exigences de vaccination",
       invalid: "Dose non prise en compte dans les exigences de vaccination",
     )
@@ -89,7 +89,7 @@
       date: "Date Given",
       age: "At Age",
       vaccine: "Vaccine(s)",
-      unspecified: "*indicates unspecified vaccine agent",
+      unspecified: "*Vaccine formulation not specified",
       valid: "Dose counts toward vaccination requirements",
       invalid: "Dose does not count toward vaccination requirements",
     )

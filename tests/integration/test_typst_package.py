@@ -131,7 +131,6 @@ def history_data(raw: str) -> dict:
     return {
         "history": build_history_items(
             parsed.doses,
-            [],
             json.loads((CONFIG_DIR / "vaccine_reference.json").read_text()),
         ),
         "has_immunization_records": bool(parsed.doses),
@@ -718,32 +717,32 @@ def test_package_import_and_unused_history_require_no_facts(tmp_path: Path) -> N
 
 @pytest.mark.parametrize("language", ["en", "fr"])
 @pytest.mark.parametrize(
-    "raw,options,expected",
+    "raw,options,marker",
     [
-        ("", "", False),
-        ("2020-01-01 - MMR;", "", False),
-        ("2020-01-01 - HB-unspecified;", "", True),
-        ("2020-01-01 - HB unspecified;", "", True),
+        ("", "", None),
+        ("2020-01-01 - MMR;", "", None),
+        ("2020-01-01 - HB-unspecified;", "", "HB*"),
+        ("2020-01-01 - men-AC unspecified;", "", "men-AC*"),
         (
             "2020-01-01 - HB-unspecified; 2020-01-01 - MMR;",
             'ignore-agents: ("HB-unspecified",),',
-            False,
+            None,
         ),
         (
             "2020-01-01 - HB-unspecified - Invalid; 2020-01-01 - MMR - Valid;",
             "show-validity: true, omit-invalid: true,",
-            False,
+            None,
         ),
         (
             "2020-01-01 - HB-unspecified - Invalid; 2020-01-01 - MMR - Valid;",
             "show-validity: true,",
-            True,
+            "HB*",
         ),
     ],
     ids=["empty", "specified", "hyphen", "space", "ignored", "omitted", "mixed"],
 )
 def test_history_unspecified_footnote_follows_displayed_agents(
-    tmp_path: Path, language: str, raw: str, options: str, expected: bool
+    tmp_path: Path, language: str, raw: str, options: str, marker: str | None
 ) -> None:
     _, reader = compile_package(
         tmp_path,
@@ -752,12 +751,15 @@ def test_history_unspecified_footnote_follows_displayed_agents(
     )
     text = " ".join(page.extract_text() for page in reader.pages)
     footnote = (
-        "*indicates unspecified vaccine agent"
+        "*Vaccine formulation not specified"
         if language == "en"
-        else "*indique un agent vaccinal non spécifié"
+        else "*Formulation du vaccin non précisée"
     )
-    assert (footnote in text) == expected
-    assert ("HB*" in text) == expected
+    assert (footnote in text) == (marker is not None)
+    if marker is not None:
+        assert marker in text
+    else:
+        assert "HB*" not in text and "men-AC*" not in text
 
 
 @pytest.mark.parametrize("language", ["en", "fr"])
@@ -882,15 +884,19 @@ def test_history_legend_labels_can_be_overridden(tmp_path: Path, language: str) 
         history_facts(raw)
         + f'#immuknow.immunization-history(notice, language: "{language}", '
         'show-validity: true, legend-labels: (valid: "Counts for this notice", '
-        'invalid: [Does #emph[not] count], unspecified: "*Agent not specified"))',
+        'invalid: [Does #emph[not] count], unspecified: "*Formulation not specified"))',
     )
     text = " ".join(" ".join(page.extract_text().split()) for page in reader.pages)
-    for label in ("Counts for this notice", "Does not count", "*Agent not specified"):
+    for label in (
+        "Counts for this notice",
+        "Does not count",
+        "*Formulation not specified",
+    ):
         assert label in text
     assert "vaccination requirements" not in text
     assert "exigences de vaccination" not in text
-    assert "indicates unspecified" not in text
-    assert "indique un agent" not in text
+    assert "Vaccine formulation not specified" not in text
+    assert "Formulation du vaccin non précisée" not in text
 
 
 @pytest.mark.parametrize("show_history", [False, True])
