@@ -19,6 +19,7 @@
   }
   show-validity = show-validity and notice.history_validity_coverage == "all_present"
   let columns = diseases + if include-other { ("Other",) } else { () }
+  let unmapped-agents = notice.history.filter(item => item.agent not in ignore-agents and not item.mapping_known).map(item => item.agent).dedup().sorted()
   let items = notice.history.filter(item => item.agent not in ignore-agents and (not omit-invalid or item.validity != "invalid"))
   let dates = items.map(item => item.date_given).dedup()
   let rows = ()
@@ -41,7 +42,7 @@
       rows.push((date: date, rowspan: if index == 0 { groups.len() } else { 0 }, agents: group.map(item => item.display_name), marks: marks))
     }
   }
-  (columns: columns, rows: rows, show-validity: show-validity)
+  (columns: columns, rows: rows, show-validity: show-validity, unmapped-agents: unmapped-agents)
 }
 
 // Completed calendar months, treating month-end as the anniversary when needed.
@@ -103,6 +104,11 @@
   set text(size: font-size, lang: lang, region: "CA")
   context {
     component("history", notice: notice, measurements: (administrations: notice.history.len(), displayed_rows: view.rows.len(), page: here().page()))
+    check("content.history_mapping", if view.unmapped-agents.len() > 0 { "fail" } else { "pass" },
+      if view.unmapped-agents.len() > 0 {
+        "History agents are absent from vaccine_reference.json: " + view.unmapped-agents.join(", ") + ". Correct their names or mappings, or explicitly exclude them with ignore-agents."
+      } else { "History agents have configured mappings or are explicitly ignored." },
+      component: "history", page: here().page(), measurements: (unmapped_agents: view.unmapped-agents))
     if show-validity {
       let mixed = notice.validity_coverage == "mixed"
       let message = if view.show-validity { "Every dose in this history has explicit validity." } else { "This history has no validity flags; doses are shown as recorded." }

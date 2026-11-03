@@ -253,6 +253,7 @@ def test_duplicate_display_labels_keep_distinct_disease_cells(tmp_path: Path):
             "date_given": "2024-02-29",
             "agent": "source-agent",
             "display_name": "source-agent",
+            "mapping_known": True,
             "diseases": ["Measles"],
             "validity": "valid",
         }

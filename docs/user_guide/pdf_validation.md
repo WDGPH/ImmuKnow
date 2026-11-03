@@ -93,6 +93,11 @@ absent; names are never used as selectors.
 
 The report provides each rule code, message, location and measurements.
 
+A history table's `content.history_mapping` error prevents delivery and cannot be
+accepted as a warning or changed through rule settings. Correct the agent name
+or reference mapping, or explicitly exclude it with `ignore-agents`, then generate
+a new run. See [history options](phu_templates.md#component-choices-and-findings).
+
 ## Rule settings
 
 These checks are enabled and warn by default. Each permits `enabled: false`

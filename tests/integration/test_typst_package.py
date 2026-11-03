@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from immuknow.preprocess import (
+    CONFIG_DIR,
     build_history_items,
     classify_dataset_validity,
     parse_history,
@@ -62,6 +63,7 @@ def compile_package(
                 "date_given": "2020-01-01",
                 "agent": "MMR",
                 "display_name": "MMR",
+                "mapping_known": True,
                 "diseases": ["Measles"],
                 "validity": validity,
             }
@@ -127,7 +129,10 @@ def history_data(raw: str) -> dict:
     """Prepare source facts alongside normalized history for rendering tests."""
     parsed = parse_history(raw)
     return {
-        "history": build_history_items(parsed.doses, [], {}),
+        "history": build_history_items(
+            parsed.doses,
+            json.loads((CONFIG_DIR / "vaccine_reference.json").read_text()),
+        ),
         "has_immunization_records": bool(parsed.doses),
         "history_validity_coverage": classify_dataset_validity([parsed]),
         "validity_coverage": classify_dataset_validity([parsed]),
@@ -137,6 +142,58 @@ def history_data(raw: str) -> dict:
 def history_facts(raw: str) -> str:
     """Inject prepared history facts into an individual component call."""
     return f"#let notice = (: ..notice, ..json(bytes({json.dumps(json.dumps(history_data(raw)))})))\n"
+
+
+@pytest.mark.parametrize(
+    "options,expected",
+    [
+        ("", "fail"),
+        ('ignore-agents: ("Unknown agent",),', "pass"),
+        ("include-other: false,", "fail"),
+        ("omit-invalid: true,", "fail"),
+        ('ignore-agents: ("Unknown agent",), include-other: false,', "pass"),
+    ],
+)
+def test_history_mapping_respects_explicit_exclusions_only(tmp_path, options, expected):
+    report, _ = compile_package(
+        tmp_path,
+        history_facts("2020-01-01 - MMR - Valid; 2020-02-01 - Unknown agent - Invalid;")
+        + f"#immuknow.immunization-history(notice, {options})",
+    )
+    (check,) = [
+        item for item in report["checks"] if item["code"] == "content.history_mapping"
+    ]
+    assert check["status"] == expected
+    assert check["measurements"]["unmapped_agents"] == (
+        ["Unknown agent"] if expected == "fail" else []
+    )
+
+
+@pytest.mark.parametrize("language,expected", [("en", "pass"), ("fr", "fail")])
+def test_history_mapping_uses_evaluated_typst_options(tmp_path, language, expected):
+    report, _ = compile_package(
+        tmp_path,
+        history_facts("2020-01-01 - Unknown agent - Valid;")
+        + '#immuknow.immunization-history(notice, ignore-agents: if notice.language == "en" { ("Unknown agent",) } else { () })',
+        notice_overrides={"language": language},
+    )
+    (check,) = [
+        item for item in report["checks"] if item["code"] == "content.history_mapping"
+    ]
+    assert check["status"] == expected
+
+
+def test_ignoring_an_agent_in_one_history_does_not_waive_another_table(tmp_path):
+    report, _ = compile_package(
+        tmp_path,
+        history_facts("2020-01-01 - Unknown agent - Valid;")
+        + '#immuknow.immunization-history(notice, ignore-agents: ("Unknown agent",))\n'
+        + "#immuknow.immunization-history(notice)",
+    )
+    checks = [
+        item for item in report["checks"] if item["code"] == "content.history_mapping"
+    ]
+    assert [item["status"] for item in checks] == ["pass", "fail"]
 
 
 @pytest.mark.parametrize(
@@ -660,32 +717,32 @@ def test_package_import_and_unused_history_require_no_facts(tmp_path: Path) -> N
 
 @pytest.mark.parametrize("language", ["en", "fr"])
 @pytest.mark.parametrize(
-    "raw,options,expected",
+    "raw,options,marker",
     [
-        ("", "", False),
-        ("2020-01-01 - MMR;", "", False),
-        ("2020-01-01 - HB-unspecified;", "", True),
-        ("2020-01-01 - HB unspecified;", "", True),
+        ("", "", None),
+        ("2020-01-01 - MMR;", "", None),
+        ("2020-01-01 - HB-unspecified;", "", "HB*"),
+        ("2020-01-01 - men-AC unspecified;", "", "men-AC*"),
         (
             "2020-01-01 - HB-unspecified; 2020-01-01 - MMR;",
             'ignore-agents: ("HB-unspecified",),',
-            False,
+            None,
         ),
         (
             "2020-01-01 - HB-unspecified - Invalid; 2020-01-01 - MMR - Valid;",
             "show-validity: true, omit-invalid: true,",
-            False,
+            None,
         ),
         (
             "2020-01-01 - HB-unspecified - Invalid; 2020-01-01 - MMR - Valid;",
             "show-validity: true,",
-            True,
+            "HB*",
         ),
     ],
     ids=["empty", "specified", "hyphen", "space", "ignored", "omitted", "mixed"],
 )
 def test_history_unspecified_footnote_follows_displayed_agents(
-    tmp_path: Path, language: str, raw: str, options: str, expected: bool
+    tmp_path: Path, language: str, raw: str, options: str, marker: str | None
 ) -> None:
     _, reader = compile_package(
         tmp_path,
@@ -694,12 +751,15 @@ def test_history_unspecified_footnote_follows_displayed_agents(
     )
     text = " ".join(page.extract_text() for page in reader.pages)
     footnote = (
-        "*indicates unspecified vaccine agent"
+        "*Vaccine formulation not specified"
         if language == "en"
-        else "*indique un agent vaccinal non spécifié"
+        else "*Formulation du vaccin non précisée"
     )
-    assert (footnote in text) == expected
-    assert ("HB*" in text) == expected
+    assert (footnote in text) == (marker is not None)
+    if marker is not None:
+        assert marker in text
+    else:
+        assert "HB*" not in text and "men-AC*" not in text
 
 
 @pytest.mark.parametrize("language", ["en", "fr"])
@@ -824,15 +884,19 @@ def test_history_legend_labels_can_be_overridden(tmp_path: Path, language: str) 
         history_facts(raw)
         + f'#immuknow.immunization-history(notice, language: "{language}", '
         'show-validity: true, legend-labels: (valid: "Counts for this notice", '
-        'invalid: [Does #emph[not] count], unspecified: "*Agent not specified"))',
+        'invalid: [Does #emph[not] count], unspecified: "*Formulation not specified"))',
     )
     text = " ".join(" ".join(page.extract_text().split()) for page in reader.pages)
-    for label in ("Counts for this notice", "Does not count", "*Agent not specified"):
+    for label in (
+        "Counts for this notice",
+        "Does not count",
+        "*Formulation not specified",
+    ):
         assert label in text
     assert "vaccination requirements" not in text
     assert "exigences de vaccination" not in text
-    assert "indicates unspecified" not in text
-    assert "indique un agent" not in text
+    assert "Vaccine formulation not specified" not in text
+    assert "Formulation du vaccin non précisée" not in text
 
 
 @pytest.mark.parametrize("show_history", [False, True])

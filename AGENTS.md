@@ -61,9 +61,13 @@ outputs. See [architecture](docs/reference/architecture.md) for output evidence.
 Recoverable quality problems warn and retain the row. Invalid history, exact
 nonblank identifier collisions, and missing or ambiguous assignments reject the
 whole input before rendering. Parse history once with exact `Valid`/`Invalid`
-tokens and check every source fragment before exclusions. Forecasted agents must
-cover overdue diseases: missing coverage rejects the cohort; extra coverage
-warns. Demographic duplicate matching and remediation are out of scope. Read
+tokens and check every source fragment before display exclusions. Retain all
+parsed agents and their mapping presence in prepared facts. Formulation markers
+change display names only; use no implicit agent-name exclusions. Each placed
+history table fails on unknown agents unless its actual `ignore-agents` option excludes them; omitted tables have no
+mapping check. Forecasted agents must cover overdue diseases: missing coverage
+rejects the cohort; extra coverage warns. Demographic duplicate matching and
+remediation are out of scope. Read
 shared JSON/YAML through `structured_input.py`; reject repeated fields, unknown
 settings and wrong types. Render checks use placed Typst metadata. Missing
 evidence retains a readable PDF with a failed mandatory evidence check.

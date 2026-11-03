@@ -9,6 +9,7 @@ import pytest
 from immuknow import preprocess
 from immuknow.assignment_manifest import ManifestRow
 from immuknow.generate_notices import build_notice_data
+from immuknow.load_config import load_config
 from immuknow.render_payload import validate_render_payload
 from immuknow.version_notices import load_catalog
 
@@ -48,11 +49,12 @@ def source_rows() -> pd.DataFrame:
     )
 
 
-def prepare(frame: pd.DataFrame):
+def prepare(frame: pd.DataFrame, vaccine_reference: dict | None = None):
     return preprocess.build_preprocess_result(
         frame,
-        {"MMR": ["Measles", "Mumps", "Rubella"]},
-        preprocess.UNSPECIFIED_AGENTS,
+        {"MMR": ["Measles", "Mumps", "Rubella"]}
+        if vaccine_reference is None
+        else vaccine_reference,
         config={"date_of_delivery": "2026-10-12"},
         config_dir=preprocess.CONFIG_DIR,
         catalog=load_catalog(preprocess.CONFIG_DIR),
@@ -185,7 +187,7 @@ def test_history_valid_tokens_hyphens_and_defined_whitespace_preserve_upstream_f
     ]
 
 
-def test_history_checks_excluded_and_duplicate_entries_before_building_rows(
+def test_history_checks_every_fragment_before_building_deduplicated_rows(
     monkeypatch,
 ):
     frame = source_rows()
@@ -211,7 +213,110 @@ def test_history_checks_excluded_and_duplicate_entries_before_building_rows(
     assert [check.measurements["fragment_number"] for check in errors] == [2, 3]
     assert result.clients[0].history[0]["validity"] == "valid"
     assert result.clients[0].validity_coverage == "mixed"
-    assert not result.clients[1].history
+    assert result.clients[1].history[0]["agent"] == "Not Specified"
+    assert result.clients[1].history[0]["mapping_known"] is False
+
+
+def test_unknown_history_agents_retain_mapping_facts_for_the_selected_history():
+    frame = source_rows()
+    frame.loc[0, "imms_given"] = (
+        "2020-05-01 - HepA - Invalid; 2020-05-01 - HepA - Valid; "
+        "2020-05-02 - Influenza (IIV4); 2020-02-31 - MMR;"
+    )
+    frame.loc[1, "imms_given"] = "2020-05-01 - mmr - Valid;"
+    result, _ = prepare(frame)
+    assert result.source_rows["row-000001"]["imms_given"] == frame.loc[0, "imms_given"]
+    assert any(
+        check.code == "source.history_invalid"
+        for check in result.row_checks["row-000001"]
+    )
+    for client in result.clients:
+        assert all(not dose["mapping_known"] for dose in client.history)
+        assert all(not dose["diseases"] for dose in client.history)
+    assert [dose["agent"] for dose in result.clients[0].history] == [
+        "HepA",
+        "Influenza (IIV4)",
+    ]
+
+
+@pytest.mark.parametrize("diseases", [["Hepatitis A"], "Other", []])
+def test_history_uses_project_specific_agent_mappings(diseases):
+    frame = source_rows().iloc[:1].copy()
+    frame.loc[0, "imms_given"] = "2020-05-01 - Project agent - Invalid;"
+    result, _ = prepare(frame, {"Project agent": diseases, "IPV": ["Polio"]})
+    assert not any(check.status == "fail" for check in result.row_checks["row-000001"])
+    (dose,) = result.clients[0].history
+    assert dose["diseases"] == (diseases if isinstance(diseases, list) else [diseases])
+    assert dose["mapping_known"] is True
+
+
+@pytest.mark.parametrize(
+    "agent",
+    [
+        "-unspecified",
+        "unspecified",
+        "Not Specified",
+        "Not specified",
+        "Not Specified-unspecified",
+        "unknown-unspecified",
+    ],
+)
+def test_bare_unknown_names_are_retained_for_mapping_checks(agent):
+    frame = source_rows().iloc[:1].copy()
+    frame.loc[0, "imms_given"] = f"2020-05-01 - {agent};"
+    result, _ = prepare(frame)
+    (dose,) = result.clients[0].history
+    assert dose["agent"] == agent
+    assert dose["mapping_known"] is False
+    assert dose["diseases"] == []
+    if agent in ("-unspecified", "unspecified", "Not Specified", "Not specified"):
+        assert dose["display_name"] == agent
+
+
+@pytest.mark.parametrize(
+    "agent,display,diseases",
+    [
+        ("HB-unspecified", "HB*", ["Hepatitis B"]),
+        ("men-AC unspecified", "men-AC*", ["Meningococcal"]),
+        ("rota-unspecified", "rota*", ["Rotavirus"]),
+    ],
+)
+def test_unspecified_formulations_keep_the_full_lookup_key(agent, display, diseases):
+    frame = source_rows().iloc[:1].copy()
+    frame.loc[0, "imms_given"] = f"2020-05-01 - {agent};"
+    result, _ = prepare(frame, {agent: diseases})
+    (dose,) = result.clients[0].history
+    assert dose["agent"] == agent
+    assert dose["display_name"] == display
+    assert dose["mapping_known"] is True
+    assert dose["diseases"] == diseases
+
+
+def test_formulation_marker_replaces_a_suffix_only():
+    (dose,) = preprocess.build_history_items(
+        preprocess.parse_history("2020-05-01 - Example-unspecified-extra;").doses,
+        {"Example-unspecified-extra": ["Other"]},
+    )
+    assert dose["display_name"] == "Example-unspecified-extra"
+
+
+def test_repository_sample_passes_preparation_with_the_packaged_reference(tmp_path):
+    source = Path(__file__).resolve().parents[2] / "input/sample_students.csv"
+    result, _ = preprocess.prepare_clients(
+        preprocess.read_input(source),
+        tmp_path,
+        load_config(preprocess.CONFIG_DIR / "parameters.yaml"),
+        preprocess.CONFIG_DIR,
+        load_catalog(preprocess.CONFIG_DIR),
+        {},
+        ("overdue_diseases_v1", "en"),
+    )
+    assert len(result.clients) == len(preprocess.read_input(source))
+    assert not any(
+        check.status == "fail"
+        for checks in result.row_checks.values()
+        for check in checks
+    )
 
 
 @pytest.mark.unit
@@ -232,7 +337,6 @@ def test_same_agent_same_date_validity_precedence(states: str, expected: str):
     )
     history = preprocess.build_history_items(
         preprocess.parse_history(raw).doses,
-        [],
         {"MMR": ["Measles", "Mumps", "Rubella"]},
     )
     assert history == [
@@ -240,6 +344,7 @@ def test_same_agent_same_date_validity_precedence(states: str, expected: str):
             "date_given": "2020-05-01",
             "agent": "MMR",
             "display_name": "MMR",
+            "mapping_known": True,
             "diseases": ["Measles", "Mumps", "Rubella"],
             "validity": expected,
         }
@@ -247,17 +352,21 @@ def test_same_agent_same_date_validity_precedence(states: str, expected: str):
 
 
 @pytest.mark.unit
-def test_history_keeps_complete_disease_maps_and_named_display_exclusions():
+def test_history_keeps_mapped_formulations_and_unmapped_agents():
     history = preprocess.build_history_items(
         preprocess.parse_history(
             "2020-05-01 - HB-unspecified - Valid; 2020-05-01 - Ig; 2020-05-01 - Not Specified;"
         ).doses,
-        preprocess.UNSPECIFIED_AGENTS,
         {"HB-unspecified": ["Hepatitis B"]},
     )
-    assert [row["agent"] for row in history] == ["HB-unspecified", "Ig"]
+    assert [row["agent"] for row in history] == [
+        "HB-unspecified",
+        "Ig",
+        "Not Specified",
+    ]
     assert history[0]["display_name"] == "HB*"
     assert history[0]["diseases"] == ["Hepatitis B"]
+    assert [row["mapping_known"] for row in history] == [True, False, False]
 
 
 @pytest.mark.unit

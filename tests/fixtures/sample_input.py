@@ -95,7 +95,7 @@ def create_test_input_dataframe(
             [
                 "2020-05-01 - DTaP; 2021-06-15 - MMR;",
                 "2019-04-10 - IPV;",
-                "2020-09-05 - Varicella;",
+                "2020-09-05 - Var;",
                 "-;",
                 "2022-01-20 - DTaP; 2022-02-28 - IPV;",
             ][:num_clients]
@@ -180,6 +180,7 @@ def create_test_client_record(
                 "diseases": ["Diphtheria", "Tetanus", "Pertussis"],
                 "agent": "DTaP",
                 "display_name": "DTaP",
+                "mapping_known": True,
                 "validity": "unknown",
             },
             {
@@ -187,6 +188,7 @@ def create_test_client_record(
                 "diseases": ["Measles", "Mumps", "Rubella"],
                 "agent": "MMR",
                 "display_name": "MMR",
+                "mapping_known": True,
                 "validity": "unknown",
             },
         ]

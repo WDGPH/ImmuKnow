@@ -83,18 +83,34 @@ exports. Each entry is exactly `YYYY-MM-DD - Agent;`, optionally with
 `2020-05-01 - MMR - Valid;`. Month and day always have two digits
 (`2020-05-01`, not `2020-5-1`), and the date must exist. Use one space on
 each side of the separating hyphens. Spaces, tabs and line breaks may surround
-complete entries. Hyphenated names such as `COVID-19 mRNA` remain intact; an
+complete entries. Hyphenated names such as `DTaP-IPV-Hib` remain intact; an
 extra field separator inside an agent name is ambiguous and is rejected.
 
-Blank history and the Panorama placeholders `-;` and `-  -;` (the latter when
-validity is exported) mean no history. A missing final semicolon, a leading
-semicolon, `;;` and other empty entries, extra fields, impossible dates, dates
+Blank history, `-;` and `-  -;` mean no recorded history. A missing final
+semicolon, a leading semicolon, `;;` and other empty entries, extra fields,
+impossible dates, dates
 in any other form (such as `May 1, 2020`) and wrongly cased status tokens
 reject the entire input file before any notices are generated, even when a
-notice omits history. `Invalid` is accepted as an
-upstream assessment. An omitted status remains unknown. Every bad fragment is
-recorded with its source row, column and fragment number; correct the source
+notice omits history or its `ignore-agents` option excludes the agent. `Invalid`
+is accepted as an upstream assessment. An omitted status leaves dose validity
+unknown. Every bad fragment is recorded with its source row, column and
+fragment number; correct the source
 and start a new run. Warning acceptance cannot release rejected input.
+
+### Vaccine names in history
+
+Use the full source agent name for lookup in the selected project's
+`config/vaccine_reference.json`, including spelling and case. The supplied
+reference maps `HB-unspecified` to Hepatitis B. It displays as `HB*`, where the
+asterisk marks an unspecified vaccine formulation. Displaying `*` does not
+change the lookup key or establish that a name has a reference entry.
+
+An agent absent from the reference stays in the source and prepared history.
+A history table reports a `content.history_mapping` error unless its
+`ignore-agents` option explicitly excludes that name. Correct the source name,
+add an appropriate reference entry, or deliberately exclude the agent from the
+table. See [history options](phu_templates.md#component-choices-and-findings)
+for exclusions and how mapping errors affect delivery.
 
 ## Select notices
 

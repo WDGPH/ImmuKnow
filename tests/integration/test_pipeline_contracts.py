@@ -48,7 +48,6 @@ def test_prepared_facts_survive_staged_json_round_trip(
     result, _ = preprocess.build_preprocess_result(
         preprocess.clean_csv_text(df),
         default_vaccine_reference,
-        [],
         config=config,
         config_dir=preprocess.CONFIG_DIR,
         catalog=catalog(),
@@ -97,7 +96,6 @@ def test_school_mapping_from_selected_config_preserves_prepared_clients(
     result, _ = preprocess.build_preprocess_result(
         enriched,
         default_vaccine_reference,
-        [],
         config=config,
         config_dir=preprocess.CONFIG_DIR,
         catalog=catalog(),

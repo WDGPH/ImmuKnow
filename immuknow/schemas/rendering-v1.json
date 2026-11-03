@@ -175,7 +175,8 @@
           "agent",
           "display_name",
           "diseases",
-          "validity"
+          "validity",
+          "mapping_known"
         ],
         "additionalProperties": false,
         "properties": {
@@ -205,6 +206,10 @@
               "invalid",
               "unknown"
             ]
+          },
+          "mapping_known": {
+            "type": "boolean",
+            "description": "Whether the selected vaccine reference contains this exact agent name, independently of its mapped disease list."
           }
         }
       }

@@ -341,6 +341,7 @@ def test_invalid_rule_changes_are_refused(change):
         "output.readable",
         "assignment.duplicate_client_id",
         "source.history_invalid",
+        "content.history_mapping",
         "unknown.rule",
     ],
 )
@@ -349,6 +350,30 @@ def test_integrity_and_unknown_rules_cannot_be_changed(code):
         validation_policy.validate_policy(
             {"rules": {code: {"enabled": False, "reason": "Reviewed"}}}
         )
+
+
+def test_unmapped_history_agents_cannot_be_accepted_as_a_warning():
+    record, entry = evidence()
+    entry["checks"].append(
+        {
+            "code": "content.history_mapping",
+            "stage": "render",
+            "status": "warn",
+            "message": "Unmapped history agent",
+        }
+    )
+    evaluation = evaluate_original(record, entry, entry["checks"])
+    assert "content.history_mapping" in evaluation.failed_checks
+    assert all(
+        "content.history_mapping" not in token for token in evaluation.warning_tokens
+    )
+    accept_warnings(
+        record,
+        {entry["row_key"]: evaluation},
+        list(evaluation.warning_tokens.values()),
+        "Reviewed layout",
+    )
+    assert route_original(record, evaluation, withheld=False)["destination"] == "review"
 
 
 def test_explicit_source_row_selector_works_without_external_id_and_refuses_ambiguity():
