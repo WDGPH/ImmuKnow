@@ -122,8 +122,8 @@ Shared setup supplies boolean `to_student` and `to_guardian` flags:
 #if to_student [you have] else if to_guardian [your child has] else [the named client has]
 ```
 
-Only one flag can be true. Core's `reader(notice)` helper uses the source
-`reader` choice first, then the age default: student at 16 or older, guardian
+Only one flag can be true. Core's `intended-reader(notice)` helper uses the source
+`intended_reader` choice first, then the age default: student at 16 or older, guardian
 under 16. Without a choice or known age, both flags are false and the neutral
 branch applies. Address components use the same selection and source province.
 Use a helper's explicit `addressee:` option when authored wording requires a
@@ -153,8 +153,8 @@ it before compilation; strings remain literal data rather than executable source
 | `schema_version` | Integer `1` |
 | `row_key`, `client_id` | Stable original CSV row key and string source identifier |
 | `template`, `version_id`, `language` | Explicit selected filename and its resolved identity |
-| `reader` | Optional `student` or `guardian` override; null or absent uses the age default in Typst |
-| `client_data` | Name parts, full name, address/city/province/postal code, school, ISO birth date, age and `over_16` |
+| `intended_reader` | Optional `student` or `guardian` override; null or absent uses the age default in Typst |
+| `client_data` | Client names, initials, mailing address, school, birth date and age |
 | `school`, `board` | Source name and identifier |
 | `date_of_delivery`, `date_as_of` | ISO dates or blank |
 | `overdue_diseases` | `{disease, dose}` facts; invalid numeric doses retain `dose_raw` |
@@ -164,16 +164,37 @@ it before compilation; strings remain literal data rather than executable source
 | `has_immunization_records` | Whether the source contains any administrations before exclusions or deduplication |
 | `history_validity_coverage` | Per-history source flag coverage, before exclusions and deduplication: `all_present`, `all_absent` or `mixed` |
 
-A missing birth date is blank, and unknown `age`/`over_16` are JSON null. Blank
+The fields inside `client_data` are:
+
+| Field | Meaning |
+|---|---|
+| `first_name`, `last_name`, `name` | First name, last name and full name |
+| `first_initial`, `last_initial` | First character of the corresponding name, after removing surrounding spaces |
+| `address`, `city`, `province`, `postal_code` | Mailing address |
+| `school` | School name |
+| `date_of_birth_iso` | Birth date as `YYYY-MM-DD`, or blank when unavailable |
+| `age` | Age in years on the delivery date, or null when unknown |
+
+For student or guardian wording, use `to_student` and `to_guardian` as described
+in [Entry points and Settings](#entry-points-and-settings). The `age` field
+supplies the age-based default; an explicit `intended_reader` choice takes priority and
+does not change the age facts.
+
+Each initial is the first character after removing spaces around the corresponding
+name. It keeps the original case and accents: `Élodie` gives `É`. A missing name
+produces an empty string. QR destination functions can use
+`notice.client_data.first_initial` and `notice.client_data.last_initial`.
+
+A missing birth date is blank, and unknown `age` is JSON null. Blank
 source values and unusable fragments are retained in `run.json` with preparation
 findings. Display choices never alter administrations or disease mappings.
 
 ## Record and overdue flags
 
-Core's `notice-flags(notice)` returns four booleans for shared setup:
+In `settings.typ`, `immuknow.notice-flags(notice)` returns four booleans for shared setup:
 
 ```typst
-#let flags = core.notice-flags(notice)
+#let flags = immuknow.notice-flags(notice)
 #let to_student = flags.to_student
 #let to_guardian = flags.to_guardian
 #let up_to_date = flags.up_to_date
@@ -234,10 +255,10 @@ and [Regulation 645, Table 1](https://www.ontario.ca/laws/regulation/900645).
 They select already-reported overdue diseases; they do not reassess doses,
 exemptions or the other legal steps needed for a suspension order.
 
-When ISPA status is needed, request the additional boolean explicitly:
+In a letter, when ISPA status is needed, request the additional boolean explicitly:
 
 ```typst
-#let flags = core.notice-flags(notice, include-ispa: true)
+#let flags = immuknow.notice-flags(include-ispa: true)
 #let ispa_up_to_date = flags.ispa_up_to_date
 #assert(not ispa_up_to_date,
   message: "This suspension notice requires an applicable overdue ISPA disease.")
@@ -395,7 +416,8 @@ external links. It also accepts `mailto:` and `tel:` destinations. Omitting the
 bracketed text keeps Typst's default label. Python compares its destination with
 a clickable link on the recorded page, including during saved-run delivery.
 
-QR Settings uses an explicit fixed string or a function of normalized facts:
+In the starter's `settings.typ`, use a fixed QR destination or a function of
+the notice's client facts:
 
 ```typst
 #let qr = (
@@ -411,6 +433,11 @@ QR Settings uses an explicit fixed string or a function of normalized facts:
 The helper percent-encodes query values, adds them before any `#section`, and
 uses the same destination for its code and link. Existing query values are kept.
 Python supplies facts and creates no QR images or URLs.
+
+To include initials, add `first_initial: notice.client_data.first_initial` and
+`last_initial: notice.client_data.last_initial` alongside the other URL values.
+Initials are used only when included in this function.
+
 Project display translations are editable in `translations/`; the library has
 its own packaged localization resources.
 

@@ -169,9 +169,8 @@ findings; measurement limits are authored in the templates and require a new run
 
 ## Bundle contents
 
-Delivery bundles contain unchanged original notice pages. They retain grouping
-by size, school or board. Missing grouping identifiers produce a visible
-`Unknown` group and a warning, rather than dropping the notice.
+Delivery bundles contain unchanged original notice pages. Choose [delivery grouping](configuration.md#group-delivery-bundles) by school, board,
+notice language, page count, or a combination.
 
 Review bundles form one group, split by the configured client count. Each client
 appears once, even with several warnings. A review sheet immediately precedes

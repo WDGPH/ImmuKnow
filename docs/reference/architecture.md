@@ -137,7 +137,8 @@ originals in review. Original failures always block; warnings require individual
 acceptance. Encryption failure affects its separate copy. See the
 [PDF review contract](../user_guide/pdf_validation.md) for the operator workflow.
 Review bundles group by client count, with findings preceding each marked copy.
-Delivery may group by school or board; missing grouping facts use Unknown.
+[Delivery grouping](../user_guide/configuration.md#group-delivery-bundles) can combine
+school, board, language and page count.
 Every readable original appears once in the active set, and failed rendering
 creates no membership.
 

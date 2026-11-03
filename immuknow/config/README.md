@@ -40,13 +40,42 @@ YAML aliases may reuse values, but merged fields cannot overwrite other fields.
 | `typst.bin` | Native compiler executable |
 | `typst.timeouts_seconds` | Per-operation native compiler deadlines; see below |
 | `encryption.enabled`, `encryption.password.template` | Optional individual PDF encryption |
-| `bundling.bundle_size`, `bundling.group_by` | Bundle size and grouping: size/null, school or board |
+| `bundling.bundle_size`, `bundling.group_by` | Number of notices per bundle and optional grouping fields; see below |
 | `validation.notice_length` | Optional fixed PDF page count per notice; requires `enabled: true`, a positive `count`, and `unit: pages` |
 | `school_validation.enabled` | Compare source school names with the selected reference (packaged `school_reference.json` when `reference_file` is unset) |
 
 The [PDF validation guide](https://docs.phiz.ca/immuknow/latest/user_guide/pdf_validation/)
 describes output measurements. Run findings and output accounting are recorded
 in the authoritative `run.json`.
+
+### Group delivery bundles
+
+Bundles support review and help organize printed notices for handling. Group by
+board, language or page count to suit your process, including separating longer
+notices that need hand folding. Review bundles include review sheets; delivery
+bundles contain original notice pages. Encrypted PDFs remain separate individual
+outputs. See [PDF checks and review](https://docs.phiz.ca/immuknow/latest/user_guide/pdf_validation/#bundle-contents).
+
+Set `bundle_size` to the maximum number of notices in a bundle, or `0` to
+leave bundling off. Use `group_by` to keep notices with the same school ID, board ID,
+notice language, or PDF page count together:
+
+```yaml
+bundling:
+  bundle_size: 100
+  group_by: [board, language, page_count]
+```
+
+This example makes separate bundles for each combination. `language` comes from
+the assigned notice, and `page_count` is the number of pages in the original
+PDF. `school` and `board` use the source IDs, not the names. Use any combination
+of `school`, `board`, `language`, and `page_count`, with each field appearing
+once; a single field can also be written without brackets. Use `null`, `size`,
+or an empty list to group all delivery notices together. Each group is split into
+bundles of at most `bundle_size` notices. A missing selected school or board ID
+produces a warning; when eligible for delivery, it is grouped under Unknown. Notices
+needing review stay in review bundles. Grouping by page count does not add pages
+or set a fixed notice length.
 
 ### Native compiler deadlines
 
@@ -90,30 +119,36 @@ warns; an exact name/ID match passes.
 
 The lookup reads `school_name`, which may include ` - FACILITY ID`. It does not
 replace the source name or the separate `school_id` and `board_id` fields.
-Missing source IDs stay blank. Delivery groups missing grouping information
-under Unknown. When school validation is disabled, no lookup result is claimed.
+Missing source IDs stay blank. See [delivery grouping](#group-delivery-bundles)
+for how missing IDs are handled. When school validation is disabled, no lookup
+result is claimed.
 Relative reference paths are resolved from the selected configuration directory.
 Absolute paths are also accepted. Each run uses a saved copy and records the
 original path; later changes to the source reference do not affect that run.
 
 ## Password placeholders
 
-PDF password templates support `client_id`, `first_name`, `last_name`, `name`,
+PDF password templates support `client_id`, `first_name`, `last_name`, `first_initial`, `last_initial`, `name`,
 `date_of_birth_iso`, `date_of_birth_iso_compact`, `school`, `board`,
 `street_address`, `city`, `province`, `postal_code` and `language_code`.
-The two birth date forms are `YYYY-MM-DD` and `YYYYMMDD`. The ambiguous
-`{date_of_birth}` placeholder is rejected.
+Each initial is the first character after removing spaces around the name.
+It keeps the original case and accents: `Élodie` gives `É`.
+A missing name makes its initial unavailable for encryption.
+Encryption is disabled in the reference configuration; its password template
+uses the compact birth date. Initials only affect passwords when explicitly
+included in the configured template, for example:
 
 ```yaml
 encryption:
   enabled: true
   password:
-    template: '{date_of_birth_iso_compact}'
+    template: '{first_initial}{last_initial}-{date_of_birth_iso_compact}'
 ```
 
-QR destinations are authored in Typst Settings using normalized notice fields.
-The helper resolves one destination for the encoded QR and its clickable link,
-then records that URL in the native findings.
+The two birth date forms are `YYYY-MM-DD` and `YYYYMMDD`. The ambiguous
+`{date_of_birth}` placeholder is rejected.
+
+For QR destinations, see the [template authoring guide](https://docs.phiz.ca/immuknow/latest/user_guide/phu_templates/#component-choices-and-findings).
 
 ## Explicit assignments
 

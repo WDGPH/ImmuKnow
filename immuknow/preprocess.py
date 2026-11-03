@@ -194,6 +194,10 @@ def clean_csv_text(df: pd.DataFrame) -> pd.DataFrame:
 
 def validate_input(frame: pd.DataFrame) -> pd.DataFrame:
     """Check source columns, then leave per-row values for row findings."""
+    if "reader" in frame.columns:
+        raise ValueError(
+            "CSV column reader has been renamed to intended_reader; rename the column before running."
+        )
     schema = Schema.from_descriptor(
         json.loads(INPUT_SCHEMA_PATH.read_text(encoding="utf-8"))
     )
@@ -389,14 +393,17 @@ def build_preprocess_result(
                     "Age is unknown; source birth date or delivery date is absent or unusable",
                 )
             )
-        if row["reader"] not in ("", "student", "guardian"):
+        if row["intended_reader"] not in ("", "student", "guardian"):
             checks.append(
                 CheckResult(
                     "source.reader_invalid",
                     "preparation",
                     "fail",
-                    "Reader must be student, guardian or blank. Correct the source before rendering.",
-                    measurements={"column": "reader", "value": row["reader"]},
+                    "Intended reader must be student, guardian or blank. Correct the source before rendering.",
+                    measurements={
+                        "column": "intended_reader",
+                        "value": row["intended_reader"],
+                    },
                 )
             )
         overdue_warnings: set[str] = set()
@@ -482,7 +489,6 @@ def build_preprocess_result(
                     "last_name": row["last_name"],
                     "date_of_birth_iso": dob,
                     "age": age,
-                    "over_16": age >= 16 if age is not None else None,
                 },
                 school={"name": row["school_name"], "id": row["school_id"]},
                 board={"name": row["board_name"], "id": row["board_id"]},
@@ -496,8 +502,8 @@ def build_preprocess_result(
                 overdue_agents=overdue_agents,
                 metadata={"row_key": key},
                 version_id=row["version_id"] or None,
-                reader=row["reader"]
-                if row["reader"] in ("student", "guardian")
+                intended_reader=row["intended_reader"]
+                if row["intended_reader"] in ("student", "guardian")
                 else None,
                 history=history,
                 validity_coverage=coverage,

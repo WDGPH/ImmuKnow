@@ -30,13 +30,13 @@ display-default adapter or separate layout-settings file.
 - `check-notice(notice, version: ..., language: ...)` checks the authored filename
   identity against prepared facts. The caller obtains the trusted identity from
   `notice-version` and `notice-language` compiler inputs.
-- `reader(notice)` returns `"student"`, `"guardian"` or `none`. An explicit
-  `notice.reader` takes priority over the age default. Address helpers use this
+- `intended-reader(notice)` returns `"student"`, `"guardian"` or `none`. An explicit
+  `notice.intended_reader` takes priority over the age default. Address helpers use this
   same selection. Template setup exposes boolean `to_student` and `to_guardian`
   flags, with both false when the reader is unknown. Reader choice never changes
   age facts or supplies another person's contact details.
 - `notice-flags(notice)` returns `to_student`, `to_guardian`, `up_to_date` and
-  `no_records` booleans. Reader flags follow `reader(notice)`. `up_to_date`
+  `no_records` booleans. Reader flags follow `intended-reader(notice)`. `up_to_date`
   means the supplied overdue-disease list is empty, regardless of overdue
   immunizing agents. `no_records` means there were no source administrations,
   before exclusions and history display choices. Both may be true. Projects

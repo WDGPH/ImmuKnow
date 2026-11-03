@@ -1,6 +1,6 @@
 #import "localization.typ": long-date
 #import "findings.typ": check, component, report
-#import "reader.typ": reader
+#import "intended-reader.typ": intended-reader
 
 #let notice-page(body, language: "en", paper: "us-letter", margins: (top: 1cm, bottom: 2cm, left: 1.75cm, right: 2cm), font: "FreeSans", font-size: 10pt, page-numbers: true) = {
   assert(language in ("en", "fr"), message: "Unsupported notice language")
@@ -65,7 +65,7 @@
 #let address-block(notice, language: auto, addressee: auto, province: auto) = {
   let client = notice.client_data
   let language = if language == auto { notice.language } else { language }
-  let selected-reader = reader(notice)
+  let selected-reader = intended-reader(notice)
   let address = address-content(client, language: language, addressee: addressee, province: province, reader: selected-reader)
   block(breakable: false)[#layout(available => context {
     let position = here().position()
@@ -106,7 +106,7 @@
     assert(notice.at("oiid_coverage", default: "all_absent") != "all_absent", message: "OIID display requires at least one OIID in the input cohort")
   }
   let school-label = if school-label != auto { school-label } else if lang == "en" { "School" } else { "École" }
-  let selected-reader = reader(notice)
+  let selected-reader = intended-reader(notice)
   let address = address-content(client, language: lang, addressee: addressee, province: province, reader: selected-reader)
   assert(not show-school or type(school-label) == str, message: "School label must be text")
   let birth-label = if lang == "en" { "Date of Birth" } else { "Date de naissance" }

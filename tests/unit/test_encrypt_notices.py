@@ -8,6 +8,7 @@ from pypdf.generic import DictionaryObject
 from pypdf.errors import DependencyError
 
 from immuknow.encrypt_notices import encrypt_notice
+from immuknow.load_config import validate_config
 from tests.fixtures.sample_input import create_test_client_record
 
 
@@ -105,3 +106,28 @@ def test_encryption_failure_preserves_original_and_existing_copy(
     assert original.read_bytes() == content
     assert encrypted.read_bytes() == b"previous encrypted copy"
     assert not list(tmp_path.glob("*.partial.pdf"))
+
+
+def test_initials_in_password_and_missing_name(tmp_path: Path) -> None:
+    original = tmp_path / "original.pdf"
+    writer = PdfWriter()
+    writer.add_blank_page(width=100, height=100)
+    writer.write(original)
+    settings = {"password": {"template": "{first_initial}{last_initial}-123"}}
+    validate_config({"encryption": {"enabled": True, **settings}})
+    encrypted = tmp_path / "encrypted.pdf"
+    encrypt_notice(
+        create_test_client_record(first_name="  Élodie ", last_name=" o’Connor "),
+        original,
+        encrypted,
+        settings,
+    )
+    assert PdfReader(encrypted).decrypt("Éo-123")
+    with pytest.raises(ValueError, match="first_initial"):
+        encrypt_notice(
+            create_test_client_record(first_name="  ", last_name="Example"),
+            original,
+            tmp_path / "missing.pdf",
+            settings,
+        )
+    assert not (tmp_path / "missing.pdf").exists()

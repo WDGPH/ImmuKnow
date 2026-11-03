@@ -18,6 +18,7 @@ from urllib.parse import quote
 
 import pytest
 import pymupdf
+import zxingcpp
 from pypdf import PdfReader
 from pypdf.generic import DictionaryObject
 
@@ -44,13 +45,14 @@ def compile_package(
             "name": "Éloïse & 50% $(hello)",
             "first_name": "Éloïse",
             "last_name": "Example",
+            "first_initial": "É",
+            "last_initial": "E",
             "address": "42 Example Street",
             "city": "Montréal",
             "province": "Québec",
             "postal_code": "A1A 1A1",
             "school": "Example School",
             "date_of_birth_iso": "",
-            "over_16": None,
             "age": None,
         },
         "overdue_diseases": [{"disease": "Measles", "dose": 2}],
@@ -69,7 +71,9 @@ def compile_package(
         "history_validity_coverage": "all_present",
         "has_immunization_records": True,
     }
-    notice.update(notice_overrides or {})
+    overrides = dict(notice_overrides or {})
+    notice["client_data"].update(overrides.pop("client_data", {}))
+    notice.update(overrides)
     (tmp_path / "data.json").write_text(json.dumps(notice))
     source = tmp_path / "notice.typ"
     source.write_text(
@@ -244,11 +248,10 @@ def test_notice_flags_can_toggle_an_entire_overdue_section(
     overrides.update(
         overdue_diseases=diseases,
         overdue_agents=agents,
-        reader=reader,
+        intended_reader=reader,
     )
     overrides["client_data"] = {
         "date_of_birth_iso": "",
-        "over_16": None,
     }
     body = f"""
 #let flags = immuknow.notice-flags(notice)
@@ -347,7 +350,7 @@ def test_ispa_list_and_flag_use_the_same_birth_cohort_selection(
         tmp_path,
         body,
         notice_overrides={
-            "client_data": {"date_of_birth_iso": birth, "over_16": None},
+            "client_data": {"date_of_birth_iso": birth},
             "date_as_of": as_of,
             "overdue_diseases": entries,
         },
@@ -380,7 +383,7 @@ def test_ispa_operations_reject_missing_required_birth_date(
             tmp_path,
             body,
             notice_overrides={
-                "client_data": {"date_of_birth_iso": "", "over_16": None},
+                "client_data": {"date_of_birth_iso": ""},
                 "overdue_diseases": [{"disease": "Varicella", "dose": 2}],
             },
         )
@@ -394,7 +397,7 @@ def test_non_ispa_notices_do_not_require_birth_cohort_data(tmp_path: Path) -> No
         '#assert("ispa_up_to_date" not in flags)\n'
         "#immuknow.overdue-diseases(notice)",
         notice_overrides={
-            "client_data": {"date_of_birth_iso": "", "over_16": None},
+            "client_data": {"date_of_birth_iso": ""},
             "overdue_diseases": [{"disease": "Varicella", "dose": 2}],
         },
     )
@@ -409,7 +412,7 @@ def test_ispa_requires_as_of_date_for_an_age_dependent_cohort(tmp_path: Path) ->
             tmp_path,
             "#immuknow.overdue-diseases(notice, ispa-only: true)",
             notice_overrides={
-                "client_data": {"date_of_birth_iso": "2000-01-01", "over_16": True},
+                "client_data": {"date_of_birth_iso": "2000-01-01"},
                 "date_as_of": "",
                 "overdue_diseases": [{"disease": "Meningococcal", "dose": 1}],
             },
@@ -448,7 +451,7 @@ def test_suspension_assertion_requires_an_applicable_ispa_disease(
 #immuknow.overdue-diseases(notice, ispa-only: true)
 """
     overrides = {
-        "client_data": {"date_of_birth_iso": birth, "over_16": None},
+        "client_data": {"date_of_birth_iso": birth},
         "overdue_diseases": [{"disease": disease, "dose": 2} for disease in diseases],
     }
     if should_render:
@@ -1021,3 +1024,23 @@ def test_link_and_privacy_contacts_keep_pdf_evidence(tmp_path):
         for a in reader.pages[0].get("/Annots", [])
     }
     assert urls <= pdf_urls
+
+
+def test_qr_destination_uses_initials(tmp_path: Path) -> None:
+    report, reader = compile_package(
+        tmp_path,
+        """
+#immuknow.qr-code(notice, url: n => immuknow.query-url(
+  "https://example.test/record",
+  (first: n.client_data.first_initial, last: n.client_data.last_initial)))
+""",
+    )
+    expected = "https://example.test/record?first=%C3%89&last=E"
+    assert report["qr_urls"] == [expected]
+    annotations = reader.pages[0].annotations
+    assert annotations
+    assert annotations[0].get_object()["/A"]["/URI"] == expected
+    with pymupdf.open(tmp_path / "notice.pdf") as pdf:
+        pixmap = pdf[0].get_pixmap(dpi=200, colorspace=pymupdf.csGRAY)
+        pixels = memoryview(pixmap.samples).cast("B", [pixmap.height, pixmap.width])
+        assert [code.text for code in zxingcpp.read_barcodes(pixels)] == [expected]

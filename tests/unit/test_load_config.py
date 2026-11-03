@@ -161,6 +161,10 @@ def test_unknown_settings_cannot_be_silently_ignored(config):
         {"date_of_delivery": "20260102"},
         {"bundling": {1: 10}},
         {"bundling": {"group_by": "district"}},
+        {"bundling": {"group_by": ["school", "school"]}},
+        {"bundling": {"group_by": ["size", "board"]}},
+        {"bundling": {"group_by": ["board", 1]}},
+        {"bundling": {"group_by": {"board": True}}},
         {"encryption": {"enabled": False, "password": "private-value"}},
         {"encryption": {"enabled": True, "password": {}}},
         {"pipeline": {"after_run": []}},
@@ -244,3 +248,11 @@ def test_fixed_notice_length_requires_bundling_and_rejects_client_exceptions():
                 }
             }
         )
+
+
+@pytest.mark.parametrize(
+    "grouping",
+    [None, "size", "language", "page_count", [], ["board", "language", "page_count"]],
+)
+def test_delivery_grouping_accepts_fields_and_combinations(grouping):
+    validate_config({"bundling": {"group_by": grouping}})

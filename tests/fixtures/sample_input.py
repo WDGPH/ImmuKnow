@@ -159,7 +159,6 @@ def create_test_client_record(
         "last_name": last_name,
         "date_of_birth_iso": date_of_birth,
         "age": 9,
-        "over_16": False,
     }
 
     contact_dict: Dict[str, Any] = {

@@ -16,7 +16,6 @@
       "postal_code": "N1H 2T2",
       "date_of_birth_iso": "2015-01-02",
       "age": 9,
-      "over_16": false,
       "school": "Tunnel Academy"
     },
     "school": {
@@ -85,7 +84,6 @@
         "postal_code": "N1H 2T2",
         "date_of_birth_iso": "2015-01-02",
         "age": 9,
-        "over_16": false,
         "school": "Tunnel Academy"
       },
       "school": {
@@ -971,7 +969,7 @@
             "client_data",
             "name"
           ],
-          "value": "Élise #not-executable() – 王"
+          "value": "\u00c9lise #not-executable() \u2013 \u738b"
         },
         {
           "target": "report",
@@ -980,7 +978,7 @@
             "client_data",
             "name"
           ],
-          "value": "Élise #not-executable() – 王"
+          "value": "\u00c9lise #not-executable() \u2013 \u738b"
         }
       ]
     },
@@ -1371,7 +1369,6 @@
               "postal_code": "N1H 2T2",
               "date_of_birth_iso": "2015-01-02",
               "age": 9,
-              "over_16": false,
               "school": "Tunnel Academy"
             },
             "language": "en",
@@ -1385,7 +1382,7 @@
       ]
     },
     {
-      "name": "rendered source flag has the wrong type",
+      "name": "rendered age has the wrong type",
       "valid": false,
       "changes": [
         {
@@ -1393,9 +1390,9 @@
           "path": [
             "notice",
             "client_data",
-            "over_16"
+            "age"
           ],
-          "value": 0
+          "value": true
         }
       ]
     },
@@ -1454,7 +1451,7 @@
         {
           "target": "payload",
           "path": [
-            "reader"
+            "intended_reader"
           ],
           "value": "student"
         },
@@ -1462,7 +1459,7 @@
           "target": "report",
           "path": [
             "notice",
-            "reader"
+            "intended_reader"
           ],
           "value": "student"
         }
@@ -1475,7 +1472,7 @@
         {
           "target": "payload",
           "path": [
-            "reader"
+            "intended_reader"
           ],
           "value": "parent"
         }
@@ -1488,7 +1485,7 @@
         {
           "target": "payload",
           "path": [
-            "reader"
+            "intended_reader"
           ],
           "value": true
         }
@@ -1502,7 +1499,7 @@
           "target": "report",
           "path": [
             "notice",
-            "reader"
+            "intended_reader"
           ],
           "value": "guardian"
         }

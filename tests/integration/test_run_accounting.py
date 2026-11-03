@@ -422,7 +422,7 @@ def test_broken_notice_retains_other_original_and_reports_partial_run(
     facts = json.loads(
         (record_path.parent / warning_entry["facts"]["path"]).read_text()
     )
-    assert facts["client_data"]["over_16"] is None
+    assert "over_16" not in facts["client_data"]
     assert facts["client_data"]["province"] == "Québec"
     assert facts["validity_coverage"] == "mixed"
     text = " ".join(
