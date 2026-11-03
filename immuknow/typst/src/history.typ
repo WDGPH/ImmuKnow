@@ -3,22 +3,30 @@
 #import "findings.typ": component, check
 
 // Project preserved facts only after applying the author's display options.
-#let history-view(notice, diseases: (), ignore-agents: (), include-other: true, show-validity: false, omit-invalid: false) = {
+#let history-view(notice, diseases: (), ignore-agents: (), include-other: true, show-validity: true, omit-invalid: false) = {
   strings(diseases, "diseases", unique: true)
   assert("Other" not in diseases, message: "Use include-other instead of adding Other to diseases")
   strings(ignore-agents, "ignore-agents")
   assert(type(include-other) == bool, message: "include-other must be a boolean")
   assert(type(show-validity) == bool, message: "show-validity must be a boolean")
   assert(type(omit-invalid) == bool, message: "omit-invalid must be a boolean")
+  // Use source coverage so deduplication cannot disguise a partially flagged history.
+  if show-validity {
+    let coverage = notice.history_validity_coverage
+    assert(coverage != "mixed" and notice.history.all(item =>
+      if coverage == "all_absent" { item.validity == "unknown" } else { item.validity in ("valid", "invalid") }),
+      message: "Validity display requires Valid or Invalid for every dose. Correct the source history or disable show-validity.")
+  }
+  show-validity = show-validity and notice.history_validity_coverage == "all_present"
   let columns = diseases + if include-other { ("Other",) } else { () }
   let items = notice.history.filter(item => item.agent not in ignore-agents and (not omit-invalid or item.validity != "invalid"))
   let dates = items.map(item => item.date_given).dedup()
   let rows = ()
   for date in dates {
     let on-date = items.filter(item => item.date_given == date)
-    // Separating all status groups keeps unknown from masking known conflicts.
+    // Keep valid and invalid administrations separate when sharing a date.
     let groups = if show-validity {
-      ("valid", "invalid", "unknown").map(status => on-date.filter(item => item.validity == status)).filter(group => group.len() > 0)
+      ("valid", "invalid").map(status => on-date.filter(item => item.validity == status)).filter(group => group.len() > 0)
     } else { (on-date,) }
     for (index, group) in groups.enumerate() {
       let marks = (:)
@@ -53,13 +61,13 @@
 
 #let immunization-history(
   notice, diseases: (), ignore-agents: (), include-other: true,
-  show-validity: false, omit-invalid: false, show-age: false, age-width: 64pt, min-rows: 5, font-size: 11pt,
+  show-validity: true, omit-invalid: false, show-age: false, age-width: 64pt, min-rows: 5, font-size: 11pt,
   date-width: 75pt, disease-width: 12pt, agent-width: 1fr,
-  inset: (x: 1pt, y: 2pt), stroke: 0.5pt, language: auto, labels: none,
+  inset: (x: 1pt, y: 2pt), stroke: 0.5pt, language: auto, labels: none, legend-labels: (:),
   heading-size: auto, indicator-font: "FreeSans", indicator-size: auto, indicator-offset: (x: 0pt, y: 0pt),
 ) = {
   let lang = if language == auto { notice.language } else { language }
-  let headings = table-labels(lang)
+  let headings = table-labels(lang, legend-labels: legend-labels)
   assert(type(min-rows) == int and min-rows >= 0, message: "min-rows must be a nonnegative integer")
   assert(type(font-size) == length and font-size > 0pt, message: "font-size must be a positive length")
   heading-size = if heading-size == auto { font-size } else { heading-size }
@@ -74,7 +82,7 @@
   let count = view.columns.len() + 2 + if show-age { 1 } else { 0 }
   let widths = (date-width,) + if show-age { (age-width,) } else { () } + view.columns.map(_ => disease-width) + (agent-width,)
   let cells = ()
-  let marker(status) = if status in ("valid", "recorded") { "⬤" } else if status == "invalid" { "○" } else { "?" }
+  let marker(status) = if status == "invalid" { "○" } else { "⬤" }
   let indicator(status) = box(text(font: indicator-font, size: indicator-size, top-edge: "bounds", bottom-edge: "bounds", marker(status)))
   for row in view.rows {
     if row.rowspan > 0 {
@@ -96,8 +104,9 @@
   context {
     component("history", notice: notice, measurements: (administrations: notice.history.len(), displayed_rows: view.rows.len(), page: here().page()))
     if show-validity {
-      let complete = notice.validity_coverage == "all_present" and notice.history.all(item => item.validity != "unknown")
-      check("content.history_validity", if complete { "pass" } else { "warn" }, if complete { "Administration validity is known." } else { "Validity is mixed or unknown; unknown administrations have a distinct mark." }, component: "history", page: here().page())
+      let mixed = notice.validity_coverage == "mixed"
+      let message = if view.show-validity { "Every dose in this history has explicit validity." } else { "This history has no validity flags; doses are shown as recorded." }
+      check("content.history_validity", if mixed { "warn" } else { "pass" }, if mixed { "Validity coverage varies across the cohort. " + message } else { message }, component: "history", page: here().page())
     }
     if show-age and notice.client_data.date_of_birth_iso == "" { check("content.history_age_unknown", "warn", "Birth date is unknown; vaccination ages are unavailable.", component: "history", page: here().page()) }
   }
@@ -116,11 +125,10 @@
       table.cell(align: center + horizon, text(size: heading-size, headings.vaccine)),
     ),
     ..cells,
-    footer(headings.unspecified),
+    ..if view.rows.any(row => row.agents.any(agent => agent.contains("*"))) { (footer(headings.unspecified),) } else { () },
     ..if view.show-validity {
-      (footer(grid(columns: (disease-width, 1fr), gutter: 4pt, align: (center + horizon, left + horizon), indicator("valid"), headings.valid)),) + if omit-invalid { () } else { (footer(grid(columns: (disease-width, 1fr), gutter: 4pt, align: (center + horizon, left + horizon), indicator("invalid"), headings.invalid)),) }
+      ("valid", "invalid").filter(status => view.rows.any(row => status in row.marks.values())).map(status => footer(grid(columns: (disease-width, 1fr), gutter: 4pt, align: (center + horizon, left + horizon), indicator(status), headings.at(status))))
     } else { () },
-    ..if view.show-validity { (footer(grid(columns: (disease-width, 1fr), gutter: 4pt, align: (center + horizon, left + horizon), indicator("unknown"), headings.unknown)),) } else { () },
     )
   })
 }

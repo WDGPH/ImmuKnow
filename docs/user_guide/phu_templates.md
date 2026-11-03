@@ -161,6 +161,7 @@ it before compilation; strings remain literal data rather than executable source
 | `overdue_agents` | Source vaccine agent names |
 | `history` | Normalized administrations with ISO `date_given`, `agent`, `display_name`, complete `diseases` and `validity` |
 | `validity_coverage` | Whole-cohort `all_present`, `all_absent` or `mixed` |
+| `history_validity_coverage` | Per-history source flag coverage, before exclusions and deduplication: `all_present`, `all_absent` or `mixed` |
 
 A missing birth date is blank, and unknown `age`/`over_16` are JSON null. Blank
 source values and unusable fragments are retained in `run.json` with preparation
@@ -193,8 +194,38 @@ helper used the same data. Native and browser checks compare it with the prepare
 `immunization-history` accepts disease columns, ignored agents, validity markers,
 Other-column inclusion, invalid-dose omission and chart styling. Settings
 supplies the shared defaults; named options on a call change that table only.
-Whole-cohort mixed validity produces a warning when
-validity display is requested. Invalid source history rejects input before
+The unspecified-agent footnote appears only when a displayed vaccine name
+contains the `*` marker. Ignored agents and omitted invalid doses do not trigger it.
+Valid and invalid legend entries appear only when their marks occur in the
+visible disease columns. Each footnote and legend item has an English and
+Canadian French default, selected by the chart's language. The validity wording
+explains whether a dose counts toward vaccination requirements.
+
+Customize individual items with `legend-labels`; omitted items keep their
+localized defaults. Values accept plain text or Typst content. Use `valid`,
+`invalid` and `unspecified` as keys. For example:
+
+```typst
+#immuknow.immunization-history(
+  show-validity: true,
+  legend-labels: if notice.language == "fr" {
+    (valid: "Dose prise en compte dans les exigences de vaccination",
+     invalid: "Dose non prise en compte dans les exigences de vaccination")
+  } else {
+    (valid: "Dose counts toward vaccination requirements",
+     invalid: "Dose does not count toward vaccination requirements")
+  },
+)
+```
+
+Include the `*` in an override for the `unspecified` footnote.
+Validity display is enabled by default (`show-validity: true`). A history with
+no validity flags remains supported: it uses ordinary recorded-dose marks and
+has no validity legend. A history containing both flagged and unflagged doses
+fails rendering even if deduplication or display exclusions would hide the
+missing flags; correct the source or explicitly
+set `show-validity: false`. No unknown indicator or legend is shown. Notices
+still warn when validity coverage varies across their cohort. Invalid source history rejects input before
 rendering; its fragments remain in the run report. Omitted components produce
 no component checks, but do not bypass source validation.
 

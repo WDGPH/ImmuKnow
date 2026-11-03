@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -33,6 +34,8 @@ class ClientRecord:
     ``person["date_of_birth_iso"]`` is an ISO date or empty when absent;
     Typst owns its display format. Overdue disease entries keep an optional
     numeric dose; invalid source doses also keep ``dose_raw``.
+    ``history_validity_coverage`` preserves flag presence before source exclusions
+    and deduplication. Direct callers may omit it to describe the supplied history.
     """
 
     sequence: str
@@ -49,6 +52,7 @@ class ClientRecord:
     reader: Literal["student", "guardian"] | None = None
     history: list[dict[str, Any]] = field(default_factory=list)
     validity_coverage: str = "all_absent"
+    history_validity_coverage: str | None = None
     unparsed_history: list[str] = field(default_factory=list)
 
 
@@ -91,3 +95,13 @@ class CheckResult:
     def to_dict(self) -> dict[str, Any]:
         """Serialize the shared Typst/Python shape without inapplicable fields."""
         return {key: value for key, value in asdict(self).items() if value is not None}
+
+
+def classify_validity_coverage(
+    validities: Iterable[str],
+) -> Literal["all_present", "all_absent", "mixed"]:
+    """Describe flag presence without assigning validity to unflagged doses."""
+    states = {validity != "unknown" for validity in validities}
+    if len(states) > 1:
+        return "mixed"
+    return "all_present" if True in states else "all_absent"

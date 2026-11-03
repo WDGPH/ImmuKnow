@@ -241,6 +241,96 @@ def test_both_selectors_keep_complete_outputs_and_original_source_order(
     assert len(list(outputs.glob("*/run.json"))) == 2
 
 
+@pytest.mark.parametrize("include_flagged_history", [False, True])
+def test_unflagged_histories_render_with_validity_display_requested(
+    tmp_path: Path, include_flagged_history: bool
+) -> None:
+    source, config, templates, _ = prepare_inputs(tmp_path)
+    frame = pd.read_csv(source, dtype=str, keep_default_na=False)
+    frame.loc[0, "imms_given"] = "2020-05-01 - MMR;"
+    frame.loc[1, "imms_given"] = (
+        "2020-05-01 - MMR - Invalid;"
+        if include_flagged_history
+        else "2020-05-01 - MMR;"
+    )
+    frame.to_csv(source, index=False)
+    settings = templates / "settings.typ"
+    settings.write_text(
+        settings.read_text().replace("show-validity: false", "show-validity: true")
+    )
+    record_path = run_pipeline(
+        source,
+        tmp_path / "runs",
+        config_dir=config,
+        notice_template=templates / "overdue_agents_v1.en.typ",
+    )
+    record = json.loads(record_path.read_text())
+    assert all(
+        entry["original"]["status"] == "completed" for entry in record["entries"]
+    )
+    unflagged = record["entries"][0]
+    text = " ".join(
+        page.extract_text()
+        for page in PdfReader(record_path.parent / unflagged["original"]["path"]).pages
+    )
+    assert "MMR" in text and "⬤" in text
+    assert "vaccination requirements" not in text and "?" not in text
+    findings = [
+        check
+        for check in unflagged["checks"]
+        if check["code"] == "content.history_validity"
+    ]
+    assert len(findings) == 1
+    assert findings[0]["status"] == ("warn" if include_flagged_history else "pass")
+
+
+@pytest.mark.parametrize(
+    "partial_history",
+    [
+        "2020-05-01 - MMR; 2021-05-01 - IPV - Valid;",
+        "2020-05-01 - MMR; 2020-05-01 - MMR - Valid;",
+        "2020-05-01 - MMR; 2020-05-01 - Not Specified - Valid;",
+    ],
+    ids=["different-doses", "deduplicated-dose", "excluded-placeholder"],
+)
+def test_partially_flagged_history_fails_and_keeps_complete_notice(
+    tmp_path: Path,
+    partial_history: str,
+) -> None:
+    source, config, templates, _ = prepare_inputs(tmp_path)
+    frame = pd.read_csv(source, dtype=str, keep_default_na=False)
+    frame.loc[0, "imms_given"] = partial_history
+    frame.loc[1, "imms_given"] = "2020-05-01 - MMR - Valid;"
+    frame.to_csv(source, index=False)
+    settings = templates / "settings.typ"
+    settings.write_text(
+        settings.read_text().replace("show-validity: false", "show-validity: true")
+    )
+    record_path = run_pipeline(
+        source,
+        tmp_path / "runs",
+        config_dir=config,
+        notice_template=templates / "overdue_agents_v1.en.typ",
+    )
+    record = json.loads(record_path.read_text())
+    missing, complete = record["entries"]
+    assert missing["original"]["status"] == "failed"
+    assert missing["bundle"] is None
+    facts = json.loads((record_path.parent / missing["facts"]["path"]).read_text())
+    assert facts["history_validity_coverage"] == "mixed"
+    assert any(
+        check["code"] == "rendering.failed"
+        and "Validity display requires Valid or Invalid" in check["message"]
+        for check in missing["checks"]
+    )
+    assert complete["original"]["status"] == "completed"
+    assert (record_path.parent / complete["original"]["path"]).is_file()
+    assert any(
+        check["code"] == "content.history_validity" and check["status"] == "warn"
+        for check in complete["checks"]
+    )
+
+
 def test_broken_notice_retains_other_original_and_reports_partial_run(
     tmp_path: Path,
 ) -> None:
@@ -255,10 +345,11 @@ def test_broken_notice_retains_other_original_and_reports_partial_run(
     extra = frame.iloc[0].copy()
     extra["client_id"] = "0000000003"
     extra["last_name"] = "Still overdue"
+    extra["imms_given"] = "2020-05-01 - MMR - Valid;"
     frame.loc[0, "street_address_line_1"] = ""
     frame.loc[0, "date_of_birth"] = "unusable date"
     frame.loc[0, "province"] = "Québec"
-    frame.loc[0, "imms_given"] = "2020-05-01 - MMR - Valid; 2021-06-15 - IPV;"
+    frame.loc[0, "imms_given"] = "2020-05-01 - MMR - Valid; 2021-06-15 - IPV - Valid;"
     without_evidence = extra.copy()
     without_evidence["client_id"] = "0000000004"
     pd.concat(

@@ -245,8 +245,9 @@ def test_duplicate_display_labels_keep_distinct_disease_cells(tmp_path: Path):
     settings = tmp_path / "resources/templates/settings.typ"
     settings.write_text(
         settings.read_text()
-        + '\n#let immunization-history() = immuknow.immunization-history(notice, diseases: ("Measles", "Mumps"), include-other: false, labels: presentation.selected-labels())\n'
+        + '\n#let immunization-history() = immuknow.immunization-history(notice, diseases: ("Measles", "Mumps"), include-other: false, show-validity: false, labels: presentation.selected-labels())\n'
     )
+    notice["history_validity_coverage"] = "all_present"
     notice["history"] = [
         {
             "date_given": "2024-02-29",
