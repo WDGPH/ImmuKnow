@@ -37,7 +37,8 @@ class ClientRecord:
     ``history_validity_coverage`` preserves flag presence before source exclusions
     and deduplication. ``has_immunization_records`` records whether the source
     contained any administrations before those exclusions. Direct callers may
-    omit these source facts to describe the supplied history.
+    omit these source facts to describe the supplied history. ``oiid`` is an
+    optional opaque identifier; ``oiid_coverage`` describes its cohort availability.
     """
 
     sequence: str
@@ -57,6 +58,8 @@ class ClientRecord:
     history_validity_coverage: str | None = None
     has_immunization_records: bool | None = None
     unparsed_history: list[str] = field(default_factory=list)
+    oiid: str = ""
+    oiid_coverage: str | None = None
 
 
 @dataclass(frozen=True)

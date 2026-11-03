@@ -268,11 +268,27 @@ notice from these flags.
 
 ## Component choices and findings
 
-Use `client-block` for the client ID. Set `id-label: "Record number"` to change
-its label without changing the check. Labels for the ID and school accept plain
-text. The helper records the client-details area; Python checks its ID, displayed
-birth date and school against the PDF text, allowing spaces and line breaks to
-change. Repeated blocks are allowed when each belongs to the same source row.
+Use `client-block` for the mailing address and client details. Its independent
+`show-client-id: true` and `show-oiid: false` options allow either identifier,
+both, or neither. Client ID remains the assignment and run identifier even when
+hidden. The optional input CSV column `oiid` supplies the Ontario Immunization
+ID as text, preserving leading zeros. The prepared notice exposes `oiid` and
+`oiid_coverage` (`all_present`, `mixed`, or `all_absent`) for custom content.
+
+Enabling `show-oiid` requires at least one nonblank OIID in the input cohort;
+an entirely absent OIID cohort fails rendering until the input or display
+choice is corrected. In a mixed cohort, clients without an OIID omit that line.
+An omitted or blank OIID column remains supported with OIID display disabled.
+Set `id-label: "Record number"`, `oiid-label: "Record key"`, or `school-label`
+to customize plain-text labels. Default labels are provided in English and
+Canadian French. `show-birth-date` and `show-school` independently control the
+other details. If every detail is hidden or absent, only the mailing address
+is placed.
+
+The helper records the displayed client-details and mailing-address areas;
+Python checks their text against the PDF, allowing spaces and line breaks to
+change. Hidden identifiers are not required in the PDF. Repeated blocks are
+allowed when each belongs to the same source row.
 
 Shared setup connects the complete, unchanged `notice` to address, history,
 overdue-list and QR helpers. Their placed content records the source row and

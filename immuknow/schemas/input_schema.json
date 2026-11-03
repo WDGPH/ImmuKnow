@@ -24,6 +24,12 @@
       }
     },
     {
+      "name": "oiid",
+      "type": "string",
+      "description": "Optional Ontario Immunization ID; kept as text, including leading zeros. Some clients may not have an OIID.",
+      "stripWhitespace": true
+    },
+    {
       "name": "first_name",
       "description": "Client first name",
       "type": "string",

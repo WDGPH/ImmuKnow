@@ -510,3 +510,36 @@ def test_reader_override_is_preserved_without_changing_age(source, expected):
     payload = build_notice_data(client, {"date_of_delivery": "2026-10-12"})
     assert payload["reader"] == expected
     validate_render_payload(payload)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "values, coverage",
+    [
+        (None, "all_absent"),
+        (["", "  "], "all_absent"),
+        ([" 0000123456 ", ""], "mixed"),
+        (["0000123456", "0098765432"], "all_present"),
+    ],
+)
+def test_optional_oiid_preserves_text_and_cohort_availability(
+    tmp_path, values, coverage
+):
+    frame = source_rows()
+    frame["imms_given"] = ""
+    if values is not None:
+        frame["oiid"] = values
+    path = tmp_path / "source.csv"
+    frame.to_csv(path, index=False)
+    result, _ = prepare(preprocess.read_input(path))
+    for index, client in enumerate(result.clients):
+        expected = "" if values is None else values[index].strip()
+        assert client.oiid == expected
+        assert client.oiid_coverage == coverage
+        payload = build_notice_data(client, {})
+        assert payload["oiid"] == expected
+        assert payload["oiid_coverage"] == coverage
+    if values is not None:
+        assert result.source_rows["row-000001"]["oiid"] == values[0]
+    else:
+        assert "oiid" not in result.source_rows["row-000001"]

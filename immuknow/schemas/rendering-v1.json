@@ -271,6 +271,16 @@
         null
       ],
       "description": "Optional intended-reader override. Null or absent uses the age default in Typst."
+    },
+    "oiid": {
+      "type": "string"
+    },
+    "oiid_coverage": {
+      "enum": [
+        "all_present",
+        "all_absent",
+        "mixed"
+      ]
     }
   },
   "additionalProperties": false
