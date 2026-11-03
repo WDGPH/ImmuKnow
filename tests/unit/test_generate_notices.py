@@ -60,7 +60,7 @@ def test_payload_is_structural_and_keeps_unknown_age():
     payload = build_notice_data(client, {})
     validate_render_payload(payload)
     assert payload["client_data"]["age"] is None
-    assert payload["client_data"]["over_16"] is None
+    assert "over_16" not in payload["client_data"]
     assert "unparsed_history" not in payload
     payload["history"] = [{"date_given": "not a date"}]
     with pytest.raises(ValidationError):
@@ -112,3 +112,14 @@ def test_record_presence_preserves_source_before_exclusions(
     assert client.has_immunization_records is has_records
     assert payload["has_immunization_records"] is has_records
     assert len(payload["history"]) == normalized_count
+
+
+def test_notice_initials_use_trimmed_names():
+    frame = source_rows()
+    frame.loc[0, "first_name"] = "  Élodie "
+    frame.loc[0, "last_name"] = "  o’Connor "
+    prepared, _ = prepare(frame)
+    payload = build_notice_data(prepared.clients[0], {})
+    validate_render_payload(payload)
+    assert payload["client_data"]["first_initial"] == "É"
+    assert payload["client_data"]["last_initial"] == "o"

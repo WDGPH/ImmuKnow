@@ -1,4 +1,4 @@
-"""Client placeholders used in configured QR links and PDF passwords."""
+"""Client placeholders used in configured PDF passwords."""
 
 from __future__ import annotations
 
@@ -86,7 +86,7 @@ class TestExtractTemplateFields:
 
         Real-world significance:
         - Complex templates with multiple fields
-        - E.g., QR URL: "https://example.com?id={client_id}&dob={date_of_birth_iso}"
+        - The extractor handles surrounding literal text
         """
         result = client_placeholders.extract_template_fields(
             "https://example.com?id={client_id}&dob={date_of_birth_iso}"
@@ -184,7 +184,7 @@ class TestValidateAndFormatTemplate:
         """Verify validation against whitelist of fields.
 
         Real-world significance:
-        - Security: QR template should only use certain fields
+        - Password templates should only use supported fields
         - Prevents accidental exposure of sensitive data
         """
         template = "{client_id}"

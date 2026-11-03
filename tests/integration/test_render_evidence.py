@@ -924,28 +924,28 @@ def test_saved_report_is_rechecked_before_replacing_bundles(tmp_path):
 
 @pytest.mark.parametrize("language", ["en", "fr"])
 @pytest.mark.parametrize(
-    "over_16,override,selected",
+    "age,override,selected",
     [
-        (True, None, "student"),
-        (False, None, "guardian"),
+        (16, None, "student"),
+        (15, None, "guardian"),
         (None, None, None),
-        (True, "guardian", "guardian"),
-        (False, "student", "student"),
+        (16, "guardian", "guardian"),
+        (15, "student", "student"),
         (None, "guardian", "guardian"),
         (None, "student", "student"),
     ],
 )
 def test_reader_selection_matches_both_address_components(
-    tmp_path, language, over_16, override, selected
+    tmp_path, language, age, override, selected
 ):
     job, payload = prepare_case(tmp_path, language=language)
-    payload["client_data"]["over_16"] = over_16
-    payload["reader"] = override
+    payload["client_data"]["age"] = age
+    payload["intended_reader"] = override
     job.data.write_text(json.dumps(payload))
     expected = "none" if selected is None else json.dumps(selected)
     job.template.write_text(
         '#import "settings.typ": *\n#show: letter\n'
-        f"#assert(immuknow.reader(notice) == {expected})\n"
+        f"#assert(immuknow.intended-reader(notice) == {expected})\n"
         "#immuknow.client-block(notice, window: none)\n"
         "#immuknow.address-block(notice)\n"
     )

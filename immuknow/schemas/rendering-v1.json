@@ -46,7 +46,6 @@
         "postal_code",
         "date_of_birth_iso",
         "school",
-        "over_16",
         "province",
         "first_name",
         "last_name",
@@ -79,12 +78,6 @@
         "school": {
           "type": "string"
         },
-        "over_16": {
-          "type": [
-            "boolean",
-            "null"
-          ]
-        },
         "province": {
           "type": "string"
         },
@@ -92,6 +85,12 @@
           "type": "string"
         },
         "last_name": {
+          "type": "string"
+        },
+        "first_initial": {
+          "type": "string"
+        },
+        "last_initial": {
           "type": "string"
         },
         "age": {
@@ -264,14 +263,6 @@
         }
       }
     },
-    "reader": {
-      "enum": [
-        "student",
-        "guardian",
-        null
-      ],
-      "description": "Optional intended-reader override. Null or absent uses the age default in Typst."
-    },
     "oiid": {
       "type": "string"
     },
@@ -281,6 +272,14 @@
         "all_absent",
         "mixed"
       ]
+    },
+    "intended_reader": {
+      "enum": [
+        "student",
+        "guardian",
+        null
+      ],
+      "description": "Optional intended-reader override. Null or absent uses the age default in Typst."
     }
   },
   "additionalProperties": false

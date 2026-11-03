@@ -14,8 +14,8 @@ def main() -> None:
     lines = [
         "# CSV input fields\n\n",
         "Use these column names in your input CSV. Required columns must be present; "
-        "optional columns may be omitted. Extra columns are accepted, and columns "
-        "can appear in any order.\n\n",
+        "optional columns may be omitted. Extra columns are accepted, but `reader` "
+        "must be renamed to `intended_reader`. Columns can appear in any order.\n\n",
         "See [Prepare input](getting_started.md#prepare-input) for file formats, "
         "blank values and input checks.\n\n",
         "| Column | Required | Type | Description |\n",

@@ -9,7 +9,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from .bundle_pdfs import BundleGrouping
+from .bundle_pdfs import bundle_grouping
 from .compile_notices import CompilerTimeouts
 from .validation_policy import notice_length_settings, validate_policy
 from .structured_input import parse_yaml
@@ -268,8 +268,7 @@ def validate_config(config: dict[str, Any]) -> None:
         raise ValueError("Fixed notice length requires bundling.bundle_size above zero")
     group_by = bundling_config.get("group_by")
     try:
-        if group_by is not None:
-            BundleGrouping.from_string(group_by)
+        bundle_grouping(group_by)
     except ValueError as exc:
         raise ValueError(f"Invalid bundling.group_by strategy: {exc}") from exc
 

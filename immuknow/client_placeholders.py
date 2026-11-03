@@ -16,6 +16,8 @@ CLIENT_PLACEHOLDERS = frozenset(
         "client_id",
         "first_name",
         "last_name",
+        "first_initial",
+        "last_initial",
         "name",
         "date_of_birth_iso",
         "date_of_birth_iso_compact",
@@ -157,15 +159,17 @@ def build_client_context(client: ClientRecord) -> dict[str, str]:
     dob_iso = person.get("date_of_birth_iso", "")
 
     # Extract name components (from authoritative first/last fields)
-    first_name = person.get("first_name", "")
-    last_name = person.get("last_name", "")
+    first_name = string_or_empty(person.get("first_name", ""))
+    last_name = string_or_empty(person.get("last_name", ""))
     # Combine for display purposes
     full_name = " ".join(filter(None, [first_name, last_name])).strip()
 
     return {
         "client_id": string_or_empty(client.client_id),
         "first_name": string_or_empty(first_name),
-        "last_name": string_or_empty(last_name),
+        "last_name": last_name,
+        "first_initial": first_name[:1],
+        "last_initial": last_name[:1],
         "name": string_or_empty(full_name),
         "date_of_birth_iso": string_or_empty(dob_iso),
         "date_of_birth_iso_compact": string_or_empty(

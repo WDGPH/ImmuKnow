@@ -1,6 +1,6 @@
 // Importing this package performs no client reads and requires no sys.inputs.
 #import "src/validation.typ": check-notice
-#import "src/reader.typ": reader
+#import "src/intended-reader.typ": intended-reader
 #import "src/notice-flags.typ": notice-flags
 #import "src/history.typ": immunization-history
 #import "src/localization.typ": long-date, notice-dates

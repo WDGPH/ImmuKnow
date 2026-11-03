@@ -52,7 +52,7 @@ class ClientRecord:
     overdue_agents: list[str]
     metadata: dict[str, Any]
     version_id: str | None = None
-    reader: Literal["student", "guardian"] | None = None
+    intended_reader: Literal["student", "guardian"] | None = None
     history: list[dict[str, Any]] = field(default_factory=list)
     validity_coverage: str = "all_absent"
     history_validity_coverage: str | None = None

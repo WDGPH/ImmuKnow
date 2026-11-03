@@ -8,7 +8,6 @@ import re
 import shutil
 import subprocess
 from copy import deepcopy
-from enum import Enum
 from hashlib import sha256
 from importlib.resources import files
 from io import BytesIO
@@ -41,25 +40,39 @@ from .compile_notices import (
 REVIEW_BAND_PT = 18
 
 
-class BundleGrouping(Enum):
-    """Keep the existing size/school/board configuration contract."""
-
-    SIZE = "size"
-    SCHOOL = "school"
-    BOARD = "board"
-
-    @classmethod
-    def from_string(cls, value: str | None) -> BundleGrouping:
-        if value is None:
-            return cls.SIZE
-        if isinstance(value, str):
-            try:
-                return cls(value.lower())
-            except ValueError:
-                pass
+def bundle_grouping(value: object) -> tuple[str, ...]:
+    """Read the delivery grouping fields, including older single-field settings."""
+    if value is None or (isinstance(value, str) and value.lower() == "size"):
+        return ()
+    fields = [value] if isinstance(value, str) else value
+    if not isinstance(fields, list) or any(
+        not isinstance(field, str) for field in fields
+    ):
         raise ValueError(
-            f"Unknown bundle grouping: {value!r}. Valid options: size, school, board"
+            "Choose grouping fields from school, board, language, and page_count"
         )
+    fields = [field.lower() for field in fields]
+    if any(
+        field not in {"school", "board", "language", "page_count"} for field in fields
+    ):
+        raise ValueError(
+            "Choose grouping fields from school, board, language, and page_count"
+        )
+    if len(set(fields)) != len(fields):
+        raise ValueError("Each grouping field can be selected only once")
+    return tuple(fields)
+
+
+def _group_values(entry: dict, fields: tuple[str, ...]) -> tuple[str, ...]:
+    values = []
+    for field in fields:
+        if field in ("school", "board"):
+            values.append(entry["facts"]["prepared"][field].get("id", "") or "")
+        elif field == "language":
+            values.append(entry["assignment"]["language"])
+        else:
+            values.append(str(entry["original"]["pages"]))
+    return tuple(values)
 
 
 def _original_reader(entry: dict, run_dir: Path) -> PdfReader:
@@ -117,7 +130,7 @@ def _routes(
     run_dir: Path,
     record: dict,
     entries: list[dict],
-    group_by: BundleGrouping,
+    group_by: tuple[str, ...],
     attempt: dict,
     accept: list[str],
     reason: str | None,
@@ -172,16 +185,17 @@ def _routes(
                 if check not in observations:
                     observations.append(deepcopy(check))
         facts = entry["facts"]["prepared"]
-        if group_by != BundleGrouping.SIZE and not facts[group_by.value].get("id"):
-            observations.append(
-                {
-                    "code": "delivery.group_unknown",
-                    "stage": "delivery",
-                    "status": "warn",
-                    "message": f"Missing {group_by.value} identifier; delivery grouping uses Unknown",
-                    "measurements": {"group_by": group_by.value},
-                }
-            )
+        for field in group_by:
+            if field in ("school", "board") and not facts[field].get("id"):
+                observations.append(
+                    {
+                        "code": "delivery.group_unknown",
+                        "stage": "delivery",
+                        "status": "warn",
+                        "message": f"Missing {field} identifier; delivery grouping uses Unknown",
+                        "measurements": {"group_by": field},
+                    }
+                )
         evaluation = validation_policy.evaluate_original(
             record, entry, observations, resolved[entry["row_key"]]
         )
@@ -385,32 +399,35 @@ def _assemble(
     routed: list[tuple[dict, dict]],
     next_dir: Path,
     work: Path,
-    group_by: BundleGrouping,
+    group_by: tuple[str, ...],
     size: int,
     record: dict,
     attempt: dict,
 ) -> None:
-    groups: dict[tuple[str, str], list[tuple[dict, dict]]] = {}
+    groups: dict[tuple[str, tuple[str, ...]], list[tuple[dict, dict]]] = {}
     for entry, routing in routed:
-        group_id = ""
-        if routing["destination"] == "delivery" and group_by != BundleGrouping.SIZE:
-            group_id = entry["facts"]["prepared"][group_by.value].get("id", "") or ""
-        groups.setdefault((routing["destination"], group_id), []).append(
-            (entry, routing)
+        values = (
+            _group_values(entry, group_by)
+            if routing["destination"] == "delivery"
+            else ()
         )
+        groups.setdefault((routing["destination"], values), []).append((entry, routing))
     review_needed = any(destination == "review" for destination, _ in groups)
     if review_needed:
         _prepare_review(work, record, attempt)
     stamps: dict = {}
-    for group_number, ((destination, group_id), members) in enumerate(
+    for group_number, ((destination, values), members) in enumerate(
         sorted(groups.items()), 1
     ):
         directory = next_dir / destination
         directory.mkdir(exist_ok=True)
-        label = re.sub(r"[^A-Za-z0-9]+", "_", group_id).strip("_")[:60] or "unknown"
+        label = (
+            re.sub(r"[^A-Za-z0-9]+", "_", "_".join(values)).strip("_")[:60] or "unknown"
+        )
+        prefix = "_".join(group_by) or "size"
         for offset in range(0, len(members), size):
             chunk = members[offset : offset + size]
-            name = f"{group_by.value if destination == 'delivery' else 'review'}_{group_number:03d}_{label}_{offset // size + 1:03d}.pdf"
+            name = f"{prefix if destination == 'delivery' else 'review'}_{group_number:03d}_{label}_{offset // size + 1:03d}.pdf"
             output = directory / name
             path = "bundles/" + output.relative_to(next_dir).as_posix()
             writer = PdfWriter()
@@ -495,22 +512,34 @@ def _assemble(
             checksum = sha256(output.read_bytes()).hexdigest()
             if destination == "review":
                 group_name = "Review"
-            elif group_by == BundleGrouping.SIZE:
+            elif not group_by:
                 group_name = "All clients"
-            elif group_id:
-                group_name = (
-                    chunk[0][0]["facts"]["prepared"][group_by.value].get("name", "")
-                    or "Unknown"
-                )
             else:
-                group_name = "Unknown"
+                names = []
+                for field, value in zip(group_by, values):
+                    if field in ("school", "board"):
+                        name = (
+                            chunk[0][0]["facts"]["prepared"][field].get("name", "")
+                            if value
+                            else ""
+                        )
+                        names.append(name or "Unknown")
+                    elif field == "page_count":
+                        names.append(f"{value} pages" if value != "1" else "1 page")
+                    else:
+                        names.append(value)
+                group_name = " / ".join(names)
             artifact = {
                 "path": path,
                 "sha256": checksum,
                 "pages": cursor - 1,
                 "destination": destination,
-                "group_by": group_by.value if destination == "delivery" else "review",
-                "group_id": group_id or None,
+                "group_by": (group_by[0] if len(group_by) == 1 else list(group_by))
+                if destination == "delivery" and group_by
+                else ("size" if destination == "delivery" else "review"),
+                "group_id": (values[0] or None)
+                if len(values) == 1
+                else (list(values) if values else None),
                 "group_name": group_name,
                 "row_keys": [entry["row_key"] for entry, _ in chunk],
             }
@@ -692,7 +721,7 @@ def _bundle_run(
             raise ValueError(
                 "Fixed notice length requires bundling.bundle_size above zero"
             )
-        group_by = BundleGrouping.from_string(settings.get("group_by"))
+        group_by = bundle_grouping(settings.get("group_by"))
         entries = [
             entry
             for entry in record["entries"]

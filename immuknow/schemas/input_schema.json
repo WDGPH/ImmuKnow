@@ -133,7 +133,7 @@
       "stripWhitespace": true
     },
     {
-      "name": "reader",
+      "name": "intended_reader",
       "description": "Intended reader: student or guardian. Leave blank to use the age default (student at 16 or older, guardian under 16). Unknown age without a reader uses neutral wording. Invalid values reject the whole input file. Supply the intended mailing destination in the address columns.",
       "type": "string",
       "stripWhitespace": true,

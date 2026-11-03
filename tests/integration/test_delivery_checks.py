@@ -392,3 +392,39 @@ def test_unsupported_run_formats_are_refused(saved_run, content):
 def test_missing_run_directory_is_refused(tmp_path):
     with pytest.raises(ValueError, match="does not exist"):
         bundle_pdfs.bundle_run(tmp_path / "missing")
+
+
+def test_rebundling_groups_by_actual_page_count_and_combined_fields(saved_run):
+    saved = record(saved_run)
+    saved["configuration"]["effective"]["bundling"] = {
+        "bundle_size": 1,
+        "group_by": ["board", "language", "page_count"],
+    }
+    run_report.write_report(saved_run, saved)
+    initial = bundle_pdfs.bundle_run(saved_run, policy={})
+    assert initial["status"] == "completed", initial["checks"]
+    tokens = [
+        token
+        for evaluation in initial["evaluations"].values()
+        for token in evaluation["warning_tokens"].values()
+    ]
+    attempt = bundle_pdfs.bundle_run(
+        saved_run, policy={}, accept=tokens, reason="Inspected each original"
+    )
+    assert attempt["status"] == "completed", attempt["checks"]
+    entries = {entry["row_key"]: entry for entry in record(saved_run)["entries"]}
+    batches = [b for b in attempt["bundles"] if b["destination"] == "delivery"]
+    assert len(batches) == len(entries)
+    assert {key for batch in batches for key in batch["row_keys"]} == set(entries)
+    for batch in batches:
+        entry = entries[batch["row_keys"][0]]
+        assert batch["group_by"] == ["board", "language", "page_count"]
+        assert batch["group_id"] == [
+            entry["facts"]["prepared"]["board"]["id"],
+            entry["assignment"]["language"],
+            str(len(PdfReader(saved_run / entry["original"]["path"]).pages)),
+        ]
+        assert (
+            len(PdfReader(saved_run / batch["path"]).pages)
+            == entry["original"]["pages"]
+        )

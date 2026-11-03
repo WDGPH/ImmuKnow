@@ -76,11 +76,9 @@ def test_every_source_row_keeps_its_key_raw_values_and_unknown_state(tmp_path: P
     assert result.source_rows["row-000001"]["first_name"] == " Alice "
     assert result.clients[0].person["first_name"] == "Alice"
     assert result.clients[0].person["age"] == 16
-    assert result.clients[0].person["over_16"] is True
     assert result.clients[0].contact["province"] == "QC"
     assert result.clients[0].overdue_diseases == [{"disease": "Polio", "dose": 2}]
     assert result.clients[1].person["age"] is None
-    assert result.clients[1].person["over_16"] is None
     assert result.clients[1].person["date_of_birth_iso"] == ""
     assert result.clients[1].version_id is None
     assert result.clients[1].unparsed_history == [
@@ -500,15 +498,14 @@ def test_empty_agent_fragments_keep_source_warning_and_valid_independent_facts(
 )
 def test_reader_override_is_preserved_without_changing_age(source, expected):
     frame = source_rows().iloc[:1].copy()
-    frame["reader"] = source
+    frame["intended_reader"] = source
     result, _ = prepare(frame)
     (client,) = result.clients
-    assert client.reader == expected
+    assert client.intended_reader == expected
     assert client.person["age"] == 16
-    assert client.person["over_16"] is True
-    assert result.source_rows[client.sequence]["reader"] == source
+    assert result.source_rows[client.sequence]["intended_reader"] == source
     payload = build_notice_data(client, {"date_of_delivery": "2026-10-12"})
-    assert payload["reader"] == expected
+    assert payload["intended_reader"] == expected
     validate_render_payload(payload)
 
 
@@ -543,3 +540,10 @@ def test_optional_oiid_preserves_text_and_cohort_availability(
         assert result.source_rows["row-000001"]["oiid"] == values[0]
     else:
         assert "oiid" not in result.source_rows["row-000001"]
+
+
+def test_retired_reader_column_is_rejected_with_rename_guidance():
+    frame = source_rows().iloc[:1].copy()
+    frame["reader"] = "guardian"
+    with pytest.raises(ValueError, match="reader has been renamed to intended_reader"):
+        prepare(frame)
