@@ -32,16 +32,32 @@
   let in-finder(i, j) = finders.any(p => j >= p.at(0) and j < p.at(0) + 7 and i >= p.at(1) and i < p.at(1) + 7)
   box(width: total, height: total, baseline: quiet * unit, {
     place(top + left, rect(width: total, height: total, fill: bg, stroke: none))
+    let squares = ()
     for (i, row) in field.enumerate() {
       for (j, dark) in row.enumerate() {
         if dark and not (corner-style == "rounded" and in-finder(i, j)) {
           let shape = if reserved.at(i).at(j) { "square" } else { module-shape }
-          place(top + left, dx: (j + quiet) * unit, dy: (i + quiet) * unit, {
-            if shape == "dots" { circle(radius: unit / 2, fill: fg, stroke: none) }
-            else { rect(width: unit, height: unit, radius: if shape == "rounded" { unit * 0.25 } else { 0pt }, fill: fg, stroke: none) }
-          })
+          if shape == "square" {
+            let x = (j + quiet) * unit
+            let y = (i + quiet) * unit
+            let right = (j + quiet + 1) * unit
+            let bottom = (i + quiet + 1) * unit
+            squares += (
+              curve.move((x, y)), curve.line((right, y)),
+              curve.line((right, bottom)), curve.line((x, bottom)), curve.close(),
+            )
+          } else {
+            place(top + left, dx: (j + quiet) * unit, dy: (i + quiet) * unit, {
+              if shape == "dots" { circle(radius: unit / 2, fill: fg, stroke: none) }
+              else { rect(width: unit, height: unit, radius: unit * 0.25, fill: fg, stroke: none) }
+            })
+          }
         }
       }
+    }
+    // Fill touching squares together so antialiasing cannot expose their shared edges.
+    if squares.len() > 0 {
+      place(top + left, curve(..squares, fill: fg, stroke: none, fill-rule: "non-zero"))
     }
     if corner-style == "rounded" {
       for (x, y) in finders {

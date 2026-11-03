@@ -1108,3 +1108,42 @@ def test_qr_destination_uses_initials(tmp_path: Path) -> None:
         pixmap = pdf[0].get_pixmap(dpi=200, colorspace=pymupdf.csGRAY)
         pixels = memoryview(pixmap.samples).cast("B", [pixmap.height, pixmap.width])
         assert [code.text for code in zxingcpp.read_barcodes(pixels)] == [expected]
+
+
+@pytest.mark.parametrize("module_shape", ["square", "dots", "rounded"])
+@pytest.mark.parametrize("corner_style", ["square", "rounded"])
+def test_qr_square_markers_have_no_internal_raster_seams(
+    tmp_path: Path, module_shape: str, corner_style: str
+) -> None:
+    url = "https://example.org/update"
+    compile_package(
+        tmp_path,
+        f'#immuknow.qr-code(notice, url: "{url}", foreground: rgb("176b78"), '
+        f'module-shape: "{module_shape}", corner-style: "{corner_style}")',
+    )
+    with pymupdf.open(tmp_path / "notice.pdf") as document:
+        page = document[0]
+        bounds = next(
+            link["from"] for link in page.get_links() if link.get("uri") == url
+        )
+        # This byte-mode URL produces a version 2 symbol (25 modules + quiet zone).
+        unit = bounds.width / 33
+        for scale in (1.37, 2, 3.11):
+            raster = page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), alpha=False)
+            gray = page.get_pixmap(
+                matrix=pymupdf.Matrix(scale, scale), colorspace=pymupdf.csGRAY
+            )
+            pixels = memoryview(gray.samples).cast("B", [gray.height, gray.width])
+            assert url in {result.text for result in zxingcpp.read_barcodes(pixels)}
+            # Sample the solid centre of the top-left finder, across module edges.
+            # Inset avoids the intended outer-edge antialiasing and rounded corners.
+            left = int((bounds.x0 + 6.5 * unit) * scale) + 1
+            right = int((bounds.x0 + 8.5 * unit) * scale) - 1
+            top = int((bounds.y0 + 6.5 * unit) * scale) + 1
+            bottom = int((bounds.y0 + 8.5 * unit) * scale) - 1
+            pixels = {
+                raster.pixel(x, y)
+                for y in range(top, bottom)
+                for x in range(left, right)
+            }
+            assert len(pixels) == 1, f"Internal QR seams at {scale}x: {pixels}"
