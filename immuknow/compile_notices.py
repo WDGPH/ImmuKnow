@@ -1,8 +1,8 @@
 """Compile explicit render jobs with pinned Typst and a bounded file root.
 
 Each command passes a JSON file reference rather than personal details. A PDF is
-published only after its compilation succeeds. The orchestrator records each actual result before
-inspection and delivery; metadata extraction never erases a useful PDF.
+published only after its compilation succeeds. The orchestrator inspects each actual result before
+recording it and proceeding to delivery; metadata extraction never erases a useful PDF.
 """
 
 from __future__ import annotations
@@ -167,6 +167,7 @@ def compile_render_job(
     typst_bin: str,
     *,
     timeout: float = CompilerTimeouts.compile,
+    jobs: int | None = None,
 ) -> list[CheckResult]:
     """Publish one PDF after successful compilation, retaining compiler warnings.
 
@@ -181,6 +182,7 @@ def compile_render_job(
         typst_bin,
         "compile",
         *compiler_options(job),
+        *(["--jobs", str(jobs)] if jobs is not None else []),
         str(job.template),
         str(partial),
     ]
@@ -197,6 +199,7 @@ def evaluate_render_job(
     typst_bin: str,
     *,
     timeout: float = CompilerTimeouts.evidence,
+    jobs: int | None = None,
 ) -> dict[str, Any]:
     """Read the required placed summary without interpreting component rules.
 
@@ -209,6 +212,7 @@ def evaluate_render_job(
             typst_bin,
             "eval",
             *compiler_options(job),
+            *(["--jobs", str(jobs)] if jobs is not None else []),
             "--in",
             str(job.template),
             "query(<immuknow-report>).map(it => it.value)",

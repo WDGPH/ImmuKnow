@@ -190,6 +190,20 @@ clients from later output checks. See [configuration](configuration.md)
 for assignment and eligibility rules and [template authoring](phu_templates.md)
 for the native JSON contract.
 
+## Render progress and workers
+
+The command shows rendering and encryption progress on standard error, followed
+by delivery activity. Redirected output uses concise stage summaries. Use
+`--no-progress` to suppress progress messages.
+
+Rendering runs one notice at a time by default. To render multiple notices at
+once, pass a positive worker count, for example `--workers 4`. Choose a count
+that suits the available CPU and memory. Encryption and delivery run after
+rendering and remain serial. The run log records stage durations to help assess
+performance for your cohort. An interrupted run stops submitting notices, waits
+for active work, and saves its results before releasing the run. Delivery does
+not start after an interruption during rendering.
+
 ## Run output
 
 Each invocation creates its own directory beneath `--output` and preserves

@@ -129,5 +129,4 @@ also checks representative encrypted notices in Chromium's ordinary PDF viewer.
 
 Inspect representative English/French PDFs after presentation or compiler/font
 changes: include long names, addresses and histories, QR links, signatures,
-envelope windows and the one-page suspension order. This repository split does
-not change notice presentation or validation policy.
+envelope windows and the one-page suspension order.

@@ -33,6 +33,11 @@ Expected row failures are recorded while independent rows continue. The CLI
 uses the same workflow and returns nonzero for failed rows or delivery steps.
 Previous runs are retained.
 
+Pass `workers` as a positive integer to render notices concurrently. The default
+is `1`, which renders serially. Encryption and delivery remain serial. Progress output is disabled
+by default for Python calls; pass a writable text stream as `progress_stream`
+to receive it. Stage durations are recorded in the run log.
+
 The run freezes source bytes, selected resources and compiler inputs. Raw source
 values, normalized facts, assignments, placed findings and original/delivery
 results are recorded by stable original-order row keys. Password values are

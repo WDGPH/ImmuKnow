@@ -97,3 +97,28 @@ def test_python_assignments_require_an_explicit_template_project(tmp_path):
             notice_assignments=tmp_path / "assignments.json",
         )
     assert not (tmp_path / "runs").exists()
+
+
+@pytest.mark.parametrize("workers", [0, -1, True, 1.5, "2", None])
+def test_invalid_python_worker_count_does_not_create_a_run(tmp_path, workers):
+    with pytest.raises(ValueError, match="workers must be a positive integer"):
+        orchestrator.run_pipeline(
+            tmp_path / "input.csv",
+            tmp_path / "runs",
+            notice_template=tmp_path / "project/notice.en.typ",
+            workers=workers,
+        )
+    assert not (tmp_path / "runs").exists()
+
+
+def test_cli_interrupt_returns_130_without_a_traceback(monkeypatch, capsys):
+    monkeypatch.setattr(
+        sys, "argv", ["immuknow", "input.csv", "--template", "notice.en.typ"]
+    )
+
+    def interrupt(*args, **kwargs):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(orchestrator, "run_pipeline", interrupt)
+    assert orchestrator.main() == 130
+    assert capsys.readouterr().err == "Run interrupted\n"

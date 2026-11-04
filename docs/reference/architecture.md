@@ -23,9 +23,8 @@ runs/<run-id>/
 ```
 
 The existing `pipeline.after_run.remove_artifacts` setting removes only `work/`.
-Facts, originals, reports and resource snapshots survive cleanup. Settings that
-previously cleared all output or deleted unencrypted originals no longer do so.
-Manual deletion of an entire run removes it.
+Facts, originals, reports and resource snapshots survive cleanup. Manual
+deletion of an entire run removes it.
 
 ## Source identity and preparation
 
@@ -163,7 +162,14 @@ before propagating. Unexpected programming errors also save partial evidence
 and remain diagnosable. An unwritable output path raises directly without
 claiming a report exists.
 
-Run logging uses an application handler that is removed on exit; caller logging
-is preserved. Client-linked facts, diagnostics, saved resources and originals
-are sensitive run output and belong outside Git. The
+Rendering can use a bounded pool for notice compilation and evidence evaluation;
+PDF inspection and report updates remain in the coordinator. Typst's internal
+jobs are limited when multiple notices render concurrently. Encryption and
+delivery follow rendering serially. Progress and worker options are described
+in [getting started](../user_guide/getting_started.md#render-progress-and-workers)
+and the [Python interface](api.md).
+
+Run logging records stage and report checkpoint durations and uses an application handler that is
+removed on exit; caller logging is preserved. Client-linked facts, diagnostics,
+saved resources and originals are sensitive run output and belong outside Git. The
 [template guide](../user_guide/phu_templates.md) owns the rendered JSON contract.

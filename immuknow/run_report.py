@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import platform
 from collections import Counter
 from datetime import datetime, timezone
@@ -11,6 +12,7 @@ from html import escape
 from importlib.metadata import version
 from importlib.resources import files
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 from .data_models import CheckResult, CheckStatus
@@ -101,10 +103,16 @@ def finish_run(record: dict[str, Any], *, failed_setup: bool = False) -> None:
 
 def write_report(run_dir: Path, record: dict[str, Any]) -> Path:
     """Replace JSON and its generated view after each completed responsibility."""
-    record_path = run_dir / "run.json"
-    _replace_text(record_path, json.dumps(record, ensure_ascii=False, indent=2))
-    _replace_text(run_dir / "report.html", render_html(record))
-    return record_path
+    started = perf_counter()
+    try:
+        record_path = run_dir / "run.json"
+        _replace_text(record_path, json.dumps(record, ensure_ascii=False, indent=2))
+        _replace_text(run_dir / "report.html", render_html(record))
+        return record_path
+    finally:
+        logging.getLogger(__name__).info(
+            "Report checkpoint took %.3fs", perf_counter() - started
+        )
 
 
 def _replace_text(path: Path, content: str) -> None:
