@@ -32,7 +32,7 @@ def test_combined_grouping_keeps_distinct_values_and_splits_large_groups(
         }
         routed.append((entry, {"destination": "delivery"}))
     monkeypatch.setattr(
-        bundle_pdfs, "_original_reader", lambda entry, _: PdfReader(entry["path"])
+        bundle_pdfs, "_original_reader", lambda entry, _: (PdfReader(entry["path"]), {})
     )
     next_dir = tmp_path / "next"
     next_dir.mkdir()

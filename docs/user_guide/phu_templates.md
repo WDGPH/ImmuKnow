@@ -316,10 +316,9 @@ Canadian French. `show-birth-date` and `show-school` independently control the
 other details. If every detail is hidden or absent, only the mailing address
 is placed.
 
-The helper records the displayed client-details and mailing-address areas;
-Python checks their text against the PDF, allowing spaces and line breaks to
-change. Hidden identifiers are not required in the PDF. Repeated blocks are
-allowed when each belongs to the same source row.
+The helper records the displayed client-details and mailing-address areas in
+Typst's validation report. Hidden identifiers are not required in the notice.
+Repeated blocks are allowed when each belongs to the same source row.
 
 Shared setup connects the complete, unchanged `notice` to address, history,
 overdue-list and QR helpers. Their placed content records the source row and
@@ -331,8 +330,7 @@ when no envelope window is specified. The client block uses its default layout;
 fit and overlap checks are not applicable. A notice with addresses but no
 specified window warns. This also covers notices using only `address-block`.
 Address blocks stay on one page. The `addressee` and `province` options accept
-plain text. Python checks the mailing name and address in each block against
-the PDF, allowing changes in spaces and line breaks.
+plain text.
 Change presentation through helper options; correct factual errors in the input.
 The report retains the notice data used for layout and checks that each placed
 helper used the same data. Native and browser checks compare it with the prepared input.
@@ -435,8 +433,8 @@ in an authored template.
 
 Use `immuknow.link("https://example.org/record")[Read the record]` for
 external links. It also accepts `mailto:` and `tel:` destinations. Omitting the
-bracketed text keeps Typst's default label. Python compares its destination with
-a clickable link on the recorded page, including during saved-run delivery.
+bracketed text keeps Typst's default label. The helper records its destination
+and placed page in the Typst report and contributes to the link checks.
 
 In the starter's `settings.typ`, use a fixed QR destination or a function of
 the notice's client facts:

@@ -19,7 +19,7 @@ from .data_models import CheckResult
 from .render_contract import report_schema
 from .structured_input import read_json
 
-POLICY_VERSION = 21
+POLICY_VERSION = 22
 
 
 @dataclass(frozen=True)
@@ -59,37 +59,7 @@ RULES = {
             for item in report_schema()["$defs"]["check"]["properties"]["code"]["oneOf"]
         ),
         RuleDefinition(
-            "output.qr_destination",
-            "QR destinations have HTTP or HTTPS web addresses",
-            "validate_pdfs",
-            adjustable=True,
-        ),
-        RuleDefinition(
-            "output.unrecorded_link",
-            "PDF link destinations were recorded by supplied helpers",
-            "validate_pdfs",
-            adjustable=True,
-        ),
-        RuleDefinition(
             "output.readable", "PDF can be opened", "validate_pdfs", mandatory=True
-        ),
-        RuleDefinition(
-            "output.evidence_matches",
-            "Evidence matches the selected PDF",
-            "validate_pdfs",
-            mandatory=True,
-        ),
-        RuleDefinition(
-            "output.client_identity",
-            "Visible identity matches the source",
-            "validate_pdfs",
-            mandatory=True,
-        ),
-        RuleDefinition(
-            "output.text_readable",
-            "PDF text can be inspected",
-            "validate_pdfs",
-            mandatory=True,
         ),
         RuleDefinition(
             "render.evidence_failed",
@@ -230,10 +200,17 @@ RULES = {
     )
 }
 
-REQUIRED_ORIGINAL_CHECKS = (
-    "output.readable",
-    "output.evidence_matches",
-    "output.client_identity",
+REQUIRED_ORIGINAL_CHECKS = ("output.readable",)
+
+# Saved runs retain historical observations; these checks no longer determine routing.
+RETIRED_PDF_CHECKS = frozenset(
+    {
+        "output.client_identity",
+        "output.evidence_matches",
+        "output.qr_destination",
+        "output.unrecorded_link",
+        "output.text_readable",
+    }
 )
 
 
@@ -262,6 +239,10 @@ def _validate_rule_changes(changes: Any) -> None:
     if not isinstance(changes, dict):
         raise ValueError("validation.rules must be an object")
     for code, change in changes.items():
+        if code in RETIRED_PDF_CHECKS:
+            raise ValueError(
+                f"PDF check was retired: {code}. Remove it from validation rule settings."
+            )
         if code not in RULES or not RULES[code].adjustable:
             raise ValueError(f"Rule cannot be adjusted: {code}")
         if not isinstance(change, dict) or set(change) - {
@@ -458,6 +439,8 @@ def evaluate_original(
         if not isinstance(observation, dict):
             raise ValueError("Check evidence must be an object")
         code, status = observation.get("code"), observation.get("status")
+        if isinstance(code, str) and code in RETIRED_PDF_CHECKS:
+            continue
         if not isinstance(code, str) or code not in RULES:
             raise ValueError(f"Unknown check rule: {code!r}; checking must be renewed")
         if status not in ("pass", "warn", "fail", "not_applicable", "not_run"):

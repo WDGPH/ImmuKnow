@@ -403,10 +403,6 @@ def test_broken_notice_retains_other_original_and_reports_partial_run(
         check["code"] == "render.evidence_failed" and check["status"] == "fail"
         for check in evidence_entry["checks"]
     )
-    assert any(
-        check["code"] == "output.evidence_matches" and check["status"] == "fail"
-        for check in evidence_entry["checks"]
-    )
     warning_entry = record["entries"][0]
     assert warning_entry["encryption"]["status"] == "failed"
     assert record["entries"][2]["encryption"]["status"] == "completed"

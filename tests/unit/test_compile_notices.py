@@ -13,6 +13,7 @@ from immuknow import compile_notices
 from immuknow.data_models import RenderJob
 from immuknow.render_contract import report_schema
 from immuknow.validate_pdfs import inspect_notice
+from pypdf._page import PageObject
 
 
 @pytest.mark.unit
@@ -35,8 +36,10 @@ def test_unsupported_compiler_is_rejected(version: str) -> None:
 
 
 @pytest.mark.integration
-def test_pdf_and_required_evidence_are_separate_outputs(tmp_path: Path) -> None:
-    """A real warning PDF survives missing evidence, and a phone is not identity."""
+def test_pdf_and_required_evidence_are_separate_outputs(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Typst evidence is authoritative; artifact inspection does not parse its content."""
     data = tmp_path / "data.json"
     payload = json.loads(
         (Path(__file__).parents[1] / "fixtures/render-contract.json").read_text()
@@ -117,32 +120,24 @@ def test_pdf_and_required_evidence_are_separate_outputs(tmp_path: Path) -> None:
     warnings = compile_notices.compile_render_job(job, "typst")
     assert [warning.code for warning in warnings] == ["compiler.font_substitution"]
     report = compile_notices.evaluate_render_job(job, "typst")
-    original, checks = inspect_notice(job, tmp_path, report)
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("PDF content must not be inspected")
+
+    monkeypatch.setattr(PageObject, "extract_text", forbidden)
+    monkeypatch.setattr(PageObject, "annotations", property(forbidden))
+    original, checks = inspect_notice(job, tmp_path)
     assert original["pages"] == 1
+    assert original["sha256"]
     assert report["checks"][0]["code"] == "compiler.warning"
-    assert (
-        next(check for check in checks if check.code == "output.client_identity").status
-        == "fail"
-    )
-    entry.write_text(source.replace("9999999999", "0000000001"))
-    compile_notices.compile_render_job(job, "typst")
-    _, checks = inspect_notice(
-        job, tmp_path, compile_notices.evaluate_render_job(job, "typst")
-    )
-    assert (
-        next(check for check in checks if check.code == "output.client_identity").status
-        == "fail"
-    )
+    assert [(check.code, check.status) for check in checks] == [
+        ("output.readable", "pass")
+    ]
     entry.write_text("Client ID: 0000000001")
     compile_notices.compile_render_job(job, "typst")
     with pytest.raises(ValueError, match="exactly one"):
         compile_notices.evaluate_render_job(job, "typst")
     assert job.pdf.is_file()
-    _, checks = inspect_notice(job, tmp_path, None)
-    assert any(
-        check.code == "output.evidence_matches" and check.status == "fail"
-        for check in checks
-    )
     entry.write_text('#panic("real compile failure")')
     with pytest.raises(subprocess.CalledProcessError) as failure:
         compile_notices.compile_render_job(job, "typst")

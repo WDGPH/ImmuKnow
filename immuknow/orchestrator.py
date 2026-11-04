@@ -492,13 +492,16 @@ def run_pipeline(
                                 for check in outcome.summary["checks"]:
                                     if check not in entry["checks"]:
                                         entry["checks"].append(check)
-                            if outcome.error is not None:
+                            if outcome.error is not None or outcome.summary is None:
                                 detail = (
                                     outcome.error.stderr
                                     if isinstance(
                                         outcome.error, subprocess.CalledProcessError
                                     )
-                                    else str(outcome.error)
+                                    else str(
+                                        outcome.error
+                                        or "Required render evidence is missing"
+                                    )
                                 )
                                 run_report.add_check(
                                     entry,
@@ -509,13 +512,23 @@ def run_pipeline(
                                 )
                                 failed = True
                             entry["original"], pdf_checks = (
-                                validate_pdfs.inspect_notice(
-                                    job, run_dir, outcome.summary
-                                )
+                                validate_pdfs.inspect_notice(job, run_dir)
                             )
                             entry["checks"].extend(
                                 check.to_dict() for check in pdf_checks
                             )
+                            if (
+                                outcome.summary is not None
+                                and outcome.summary["page_count"]
+                                != entry["original"]["pages"]
+                            ):
+                                run_report.add_check(
+                                    entry,
+                                    "render.evidence_failed",
+                                    "render",
+                                    "fail",
+                                    "Render evidence page count differs from the original PDF.",
+                                )
                             failed = failed or any(
                                 check["status"] == "fail" for check in entry["checks"]
                             )

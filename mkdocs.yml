@@ -45,7 +45,7 @@ nav:
     - ImmuKnow Studio: user_guide/studio.md
     - PHU Templates: user_guide/phu_templates.md
     - CSV input fields: user_guide/input_schema.md
-    - PDF Validation: user_guide/pdf_validation.md
+    - Notice Validation: user_guide/pdf_validation.md
   - Reference:
     - Architecture: reference/architecture.md
     - API Reference: reference/api.md

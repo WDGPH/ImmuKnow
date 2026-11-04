@@ -100,9 +100,9 @@ review-sheet and notice page spans.
 
 Checks use the shared `CheckResult` shape: `code`, `stage`, `status`, `message`,
 and optional `component`, `page`, and `measurements`. Status is `pass`, `warn`,
-`fail`, `not_applicable`, or `not_run`. Every finding remains accessible in the
-HTML report, which escapes source text and links to actual outputs. For more
-than 1,000 rows, `report.html` indexes pages of 100 notices. Full source values,
+`fail`, `not_applicable`, or `not_run`. The HTML report escapes source text and
+links to actual outputs. For more than 1,000 rows, `report.html` indexes pages of
+100 notices with their findings and latest evaluations. Full source values,
 facts, and attempt details remain in `run.json`; large run and attempt check
 details may be shortened in the HTML view.
 
@@ -122,8 +122,9 @@ The version 2 report schema is supplied at
 names and field types. Native and browser validators use it and the same
 valid/invalid examples. They also check source row and filename association,
 page bounds, page order and agreement between component presence and findings.
-Python verifies PDF readability, personal text in the measured client and address
-areas, hash and page count against that evidence. It does not repeat Typst geometry rules. Compiler
+Typst owns content and layout findings. Python validates the report against the
+prepared source, records the PDF hash and readability, and checks page-count
+agreement. It does not extract PDF text or inspect link destinations. Compiler
 warnings remain findings; missing or malformed summary evidence fails a mandatory
 check and keeps the readable PDF in review.
 Saved-run delivery rechecks retained reports before assembly and includes their

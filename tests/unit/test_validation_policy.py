@@ -74,9 +74,9 @@ def test_acceptance_releases_one_warning_without_mutating_observations():
 def test_mandatory_evidence_cannot_be_waived(status):
     record, entry = evidence()
     if status == "missing":
-        entry["checks"].pop(1)
+        entry["checks"].pop(0)
     else:
-        entry["checks"][1]["status"] = status
+        entry["checks"][0]["status"] = status
     evaluation = evaluate_original(record, entry, entry["checks"])
     accept_warnings(
         record,
@@ -85,7 +85,7 @@ def test_mandatory_evidence_cannot_be_waived(status):
         "Inspected signature",
     )
     assert route_original(record, evaluation, withheld=False)["destination"] == "review"
-    assert "output.evidence_matches" in evaluation.failed_checks
+    assert "output.readable" in evaluation.failed_checks
     assert all(not key.startswith("output.") for key in evaluation.warning_tokens)
 
 
@@ -230,8 +230,6 @@ def test_encryption_failure_does_not_invalidate_print_original():
 @pytest.mark.parametrize(
     "code",
     [
-        "output.qr_destination",
-        "output.unrecorded_link",
         "content.link_https",
         "content.link_destination",
         "content.multiple_links",
@@ -336,8 +334,7 @@ def test_invalid_rule_changes_are_refused(change):
 @pytest.mark.parametrize(
     "code",
     [
-        "output.evidence_matches",
-        "output.client_identity",
+        "render.evidence_failed",
         "output.readable",
         "assignment.duplicate_client_id",
         "source.history_invalid",
@@ -347,6 +344,14 @@ def test_invalid_rule_changes_are_refused(change):
 )
 def test_integrity_and_unknown_rules_cannot_be_changed(code):
     with pytest.raises(ValueError, match="cannot be adjusted"):
+        validation_policy.validate_policy(
+            {"rules": {code: {"enabled": False, "reason": "Reviewed"}}}
+        )
+
+
+@pytest.mark.parametrize("code", ["output.qr_destination", "output.unrecorded_link"])
+def test_retired_pdf_rule_overrides_require_removal(code):
+    with pytest.raises(ValueError, match="(?i)retired.*remov"):
         validation_policy.validate_policy(
             {"rules": {code: {"enabled": False, "reason": "Reviewed"}}}
         )

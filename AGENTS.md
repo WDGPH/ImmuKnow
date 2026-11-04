@@ -72,6 +72,9 @@ remediation are out of scope. Read
 shared JSON/YAML through `structured_input.py`; reject repeated fields, unknown
 settings and wrong types. Render checks use placed Typst metadata. Missing
 evidence retains a readable PDF with a failed mandatory evidence check.
+Typst owns notice content and layout validation. Native output handling records
+PDF readability, hash and page count without extracting text or rechecking link
+destinations. Saved-run delivery validates the retained report and source binding.
 
 Use validated `compile_notices.CompilerTimeouts` for every native Typst operation.
 Preserve row continuation, readable originals after evidence timeouts and

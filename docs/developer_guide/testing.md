@@ -2,7 +2,7 @@
 
 Run commands from the Core repository root. Studio has its own repository,
 examples and browser checks. Core builds and tests do not require Node, Rust
-or Pillow. Native QR checks decode grayscale page buffers directly with ZXing.
+or Pillow. Native QR tests decode grayscale page buffers directly with ZXing.
 
 ## Testing across the projects
 
@@ -41,10 +41,9 @@ it does not include Template's maintainer pytest tests.
 Install Git, uv, Python 3.11 or later, and native Typst 0.15.1. Put `typst` on
 `PATH`, or set `TYPST_BIN` to its absolute path.
 
-Notice tests use the FreeFont `20120503-10build1` release that Studio also ships.
-Newer FreeSerif releases double accented capitals in PDF text, so French notices
-fail the client details check. Use the same checksum-verified files as CI and
-exclude other system fonts:
+Notice tests use the FreeFont `20120503-10build1` release that Studio also ships
+for a consistent presentation baseline. Use the same checksum-verified files as
+CI and exclude other system fonts:
 
 ```bash
 curl -fL https://archive.ubuntu.com/ubuntu/pool/main/f/fonts-freefont/fonts-freefont-ttf_20120503-10build1_all.deb \

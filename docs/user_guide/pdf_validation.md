@@ -1,4 +1,4 @@
-# PDF checks, review and rebundling
+# Notice validation, review and rebundling
 
 Open a run's `report.html` to inspect its rows, findings and actual output
 results. For runs over 1,000 rows, follow links to the notice pages; selected
@@ -6,37 +6,20 @@ notices, full source values and run details are in `run.json`. Some large run or
 attempt check details are shortened in the HTML view. `run.json` is the
 authoritative record. Findings do not disappear when a delivery choice changes.
 
-Python checks the actual original PDF's readability, page count, hash and
-client ID, displayed birth date and school, and mailing name and address inside
-the supplied blocks. Typst supplies measured layout evidence from the content placed in the notice. A readable PDF is retained when checking
-fails, with a blocking evidence failure. Quality warnings preserve useful
-PDFs; missing templates and failed compilation cannot produce a selected notice.
-There is no default fixed page count.
-
-These checks use each block's recorded position. Every repeated client and address block
-must match; matching text elsewhere cannot fill in for a missing or incorrect
-block. Text comparisons allow changes in spaces and line breaks. Missing IDs,
-areas outside the page, and rotated or scaled text stay in review.
-Saved-run delivery repeats this check. It does not prove that arbitrary text
-or images outside the supplied components contain
-no other person's details.
+Typst owns notice content and layout checks. Its report records findings from
+the components placed in each notice. Python validates that report against the
+prepared input and selected source row, then records the original PDF's
+readability, page count and hash. The PDF page count must agree with the report.
+A readable PDF is retained in review when required evidence is missing or
+invalid. Quality warnings preserve useful PDFs; missing templates and failed
+compilation cannot produce a selected notice. There is no default fixed page count.
 
 Reports retain the notice data used for layout. It must match the prepared input,
 and each placed personal-content helper must use that same data. This catches
-changed facts even when row and client IDs are unchanged. It does not compare
-printed vaccine history or overdue lists with the PDF.
-
-Every recorded QR destination must occur in the PDF's clickable links.
-Destinations from `link` must also occur on the page where the helper
-starts. Missing, changed or unreadable destinations fail the evidence check,
-including when rebundling a saved run. These comparisons make no network requests.
-They do not check individual link positions or decode printed QR images.
-
-Native checking also warns when an external PDF link has a destination absent
-from the supplied helpers' records, including links made with Typst's plain
-`link` function. Internal page links are excluded. A plain link to a destination
-already recorded elsewhere cannot be distinguished this way. Studio does not
-run this native check.
+changed facts even when row and client IDs are unchanged. Saved-run delivery
+validates the retained report and source binding again before applying its
+findings. Python does not extract PDF text or independently check its link
+destinations. Use the supplied helpers so the Typst report includes their checks.
 
 The supplied link and QR helpers warn when a web link lacks HTTPS or a host, or
 contains spaces, in Studio and native runs. They also warn when the notice has several different link
@@ -46,11 +29,6 @@ the warning or change its rule setting. Email and phone details still need autho
 review. These checks do not contact websites or parse email addresses and phone
 numbers.
 
-Native PDF checks also warn when a recorded QR destination is not a complete
-HTTP or HTTPS web address. They check the host, port, spaces and percent escapes,
-including encoded international domain names and IPv6 addresses. They do not check
-whether a website exists or responds. Other QR schemes need an explicit review
-or a change to the rule below. Studio does not run this native check.
 QR destinations support accented characters and other Unicode text.
 
 ## Delivery and review
@@ -58,7 +36,7 @@ QR destinations support accented characters and other Unicode text.
 For each readable original, the shared evaluator in
 `immuknow/validation_policy.py` applies these decisions in order:
 
-1. Failed original checks select review. Mandatory identity, readability and
+1. Failed original checks select review. Mandatory source binding, readability and
    evidence checks cannot be accepted as warnings. Unknown or malformed check
    evidence fails the delivery attempt.
 2. A row explicitly withheld by the operator stays in review.
@@ -119,8 +97,6 @@ or `severity: fail`, for a run or an explicitly selected source row.
 | Link destinations use HTTPS, mailto or tel address formats | `content.link_destination` |
 | Web links use HTTPS and include a host | `content.link_https` |
 | Multiple link destinations have been reviewed | `content.multiple_links` |
-| QR destination has an HTTP or HTTPS web address | `output.qr_destination` |
-| PDF link destinations are recorded by supplied helpers | `output.unrecorded_link` |
 
 The client-details check compares the supplied block's bounds with the window
 on the first page, for both right and below placement. It does not check other
@@ -152,6 +128,8 @@ To select a row without an external identifier, use
 `selector: {input_sha256: "<input hash from run.json>", row_key: row-000001}`.
 Each selector must match exactly one source row. Unknown rules, unsupported
 fields, invalid types and multiple selectors for the same row are refused.
+Remove settings for retired PDF text and link checks when the error names them;
+Typst's content and layout rules now determine those findings.
 
 Disabled checks appear as `not_run`, never as passed. Identity, row binding,
 required evidence and PDF readability cannot be disabled or downgraded.
@@ -170,7 +148,8 @@ immuknow-rebundle ./runs/<run-id> --policy rules.json
 This replaces the saved settings; omitted settings return to defaults. An empty
 object (`{}`) restores all defaults. Omitting `--policy` retains the saved settings.
 Every attempt saves its rule definitions, resolved settings and results.
-Rule changes invalidate affected warning acceptances. Recheck the report before
+Historical PDF text and link findings remain recorded but do not determine
+current routing. Rule changes invalidate affected warning acceptances. Recheck the report before
 accepting warnings again. Changing enabled state or severity reuses retained
 findings; measurement limits are authored in the templates and require a new run.
 
