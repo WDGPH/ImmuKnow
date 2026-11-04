@@ -198,6 +198,13 @@ def slow(client, source, destination, settings):
         if time.monotonic() >= deadline:
             raise TimeoutError("worker was not released")
         time.sleep(0.01)
+    try:
+        with run_lock(work):
+            raise AssertionError("run lock was released before publication")
+    except ValueError as error:
+        if "in use" not in str(error):
+            raise
+    (work / (destination.name + ".lock-held")).write_text("held")
     destination.write_text("finished")
     return {}
 encrypt_notices.encrypt_notice = slow
@@ -241,6 +248,10 @@ if __name__ == "__main__":
         with run_lock(tmp_path):
             snapshot = {p.name: p.read_bytes() for p in tmp_path.glob("*.out")}
             assert snapshot
+            assert {
+                p.name.removesuffix(".started") for p in tmp_path.glob("*.started")
+            } == set(snapshot)
+            assert all((tmp_path / (name + ".lock-held")).exists() for name in snapshot)
             time.sleep(0.5)
             assert {p.name: p.read_bytes() for p in tmp_path.glob("*.out")} == snapshot
         assert len(list(tmp_path.glob("*.started"))) <= 2
