@@ -2,21 +2,38 @@
 
 Install Python 3.11 or later, [uv](https://docs.astral.sh/uv/), and
 [Typst 0.15.1](https://typst.app/docs/changelog/0.15.1/). Put `typst`
-on `PATH`, set `TYPST_BIN`, or configure `typst.bin` in
-`parameters.yaml`. Obtain a starter project from
-[ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template) or download a
-project from Studio. Core contains no starter letters. With the project in
-`./my-project`, run from a Core checkout:
+on `PATH`, set `TYPST_BIN`, or configure `typst.bin` in `parameters.yaml`.
+Start with [ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template),
+or download a Studio project with **Include fictional client data** enabled.
+From that project directory, run the fictional sample:
+
+```bash
+uv sync --locked
+uv run python scripts/run.py --sample
+```
+
+Template maintains the example clients and sample assignments. Studio uses the
+same fictional people for previews and can include a selected example in a
+project download. Their histories and forecasts are illustrative; they are not
+vaccination schedules or clinical assessments. Follow the [Template guide](https://github.com/WDGPH/ImmuKnow-Template)
+for setup and sample options. The examples describe facts as of January 15, 2026;
+project dates determine ages and notice applicability.
+
+Keeping one CSV in Template lets native projects and browser previews use the
+same people. Template owns their facts and sample notice assignments; Studio
+supplies preview descriptions and builds preview JSON. Public examples help
+people design notices and try the workflow. Independent test fixtures exercise
+engine and project behavior; see the [testing guide](../developer_guide/testing.md).
+
+To run Core directly from a checkout, first prepare a Template project using its
+setup guide. With that project in `./my-project`:
 
 ```bash
 uv sync
-uv run immuknow ./input/sample_students.csv \
-  --notice-assignments ./input/sample_assignments.json \
+uv run immuknow ./my-project/input/sample/sample_students.csv \
+  --notice-assignments ./my-project/input/sample/sample_assignments.json \
   --templates ./my-project/templates --config ./my-project/config --output ./runs
 ```
-
-`input/sample_students.csv` and `input/sample_assignments.json` contain
-synthetic data for trying the pipeline; they describe no real clients.
 
 An installed package provides `immuknow` and its resources without a checkout.
 

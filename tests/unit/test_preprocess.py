@@ -9,7 +9,6 @@ import pytest
 from immuknow import preprocess
 from immuknow.assignment_manifest import ManifestRow
 from immuknow.generate_notices import build_notice_data
-from immuknow.load_config import load_config
 from immuknow.render_payload import validate_render_payload
 from immuknow.version_notices import load_catalog
 
@@ -298,25 +297,6 @@ def test_formulation_marker_replaces_a_suffix_only():
         {"Example-unspecified-extra": ["Other"]},
     )
     assert dose["display_name"] == "Example-unspecified-extra"
-
-
-def test_repository_sample_passes_preparation_with_the_packaged_reference(tmp_path):
-    source = Path(__file__).resolve().parents[2] / "input/sample_students.csv"
-    result, _ = preprocess.prepare_clients(
-        preprocess.read_input(source),
-        tmp_path,
-        load_config(preprocess.CONFIG_DIR / "parameters.yaml"),
-        preprocess.CONFIG_DIR,
-        load_catalog(preprocess.CONFIG_DIR),
-        {},
-        ("overdue_diseases_v1", "en"),
-    )
-    assert len(result.clients) == len(preprocess.read_input(source))
-    assert not any(
-        check.status == "fail"
-        for checks in result.row_checks.values()
-        for check in checks
-    )
 
 
 @pytest.mark.unit

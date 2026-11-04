@@ -8,28 +8,35 @@
 ## Run a cohort
 
 Install Python 3.11 or later, [uv](https://docs.astral.sh/uv/),
-and Typst 0.15.1.
-Start with a project from [ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template)
-or a Studio project download. Core supplies the engine and shared library;
-it includes no starter letters, Settings, example branding or project translations.
-The commands below assume that project is in `./my-project`. From a Core checkout:
+and Typst 0.15.1. Start with [ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template),
+or download a Studio project with **Include fictional client data** enabled.
+From the project directory, run the fictional sample:
+
+```bash
+uv sync --locked
+uv run python scripts/run.py --sample
+```
+
+Template maintains the fictional client CSV and its sample assignments. Studio
+uses the same people for previews and can include a selected example in a project
+download. The facts are illustrative, not a vaccination schedule or clinical
+assessment. Follow the [Template guide](https://github.com/WDGPH/ImmuKnow-Template)
+for setup and sample options.
+
+To run Core directly, pass one CSV and exactly one notice selector. From a Core
+checkout, with a prepared Template project in `./my-project`:
 
 ```bash
 uv sync
-uv run immuknow ./input/sample_students.csv \
-  --notice-assignments ./input/sample_assignments.json \
+uv run immuknow ./my-project/input/sample/sample_students.csv \
+  --notice-assignments ./my-project/input/sample/sample_assignments.json \
   --templates ./my-project/templates --config ./my-project/config --output ./runs
 ```
 
-`input/sample_students.csv` and `input/sample_assignments.json` contain
-synthetic data for trying the pipeline; they describe no real clients.
-
-A run selects notices in one of two ways: pass `--notice-assignments` with
-one `template` filename per client, or pass one
-`--template PATH` for the whole cohort:
+Alternatively, select one template for the whole cohort:
 
 ```bash
-uv run immuknow ./input/sample_students.csv \
+uv run immuknow ./my-project/input/sample/sample_students.csv \
   --template ./my-project/templates/overdue_diseases_v1.en.typ \
   --config ./my-project/config --output ./runs
 ```
