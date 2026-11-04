@@ -181,8 +181,13 @@ failures remain in JSON/HTML. The CSV is a view, not a second run record.
 
 `immuknow-rebundle` loads a saved run and applies current review decisions.
 It needs neither the source project nor Typst, fonts or encryption passwords.
-Assembly opens each original once, copies its pages and records the resulting
-page ranges. Completed new bundles are reopened to check their page counts.
+Initial assembly opens each original once, copies its pages and records the
+resulting page ranges. Newly assembled bundles are reopened to check their page
+counts. Review choices change the findings, not the pages: a later attempt with
+the same grouping settings copies the completed PDF files into its new directory
+and writes updated CSVs. It does not parse or reassemble those PDFs. The requested
+notice length is still checked against the original page counts.
+
 Page preservation is covered by regression tests; delivery does not serialize
 and compare every source and written page.
 

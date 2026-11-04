@@ -160,7 +160,7 @@ findings; measurement limits are authored in the templates and require a new run
 
 ## Bundle contents
 
-ImmuKnow opens completed new bundles and checks their page counts. It records
+ImmuKnow opens newly assembled bundles and checks their page counts. It records
 which notices were copied and where their pages begin and end. Page copying is
 covered by regression tests; routine runs do not compare every written page
 with its source. A same-count page substitution would therefore not be detected
@@ -246,8 +246,10 @@ immuknow-rebundle ./runs/<run-id>
 ```
 
 Rebundling uses the saved findings, original PDFs and grouping settings to
-produce a new PDF/CSV set. Source CSV and authored template directories can be
-moved or removed. Typst, installed fonts and encryption passwords are not needed.
+produce a new PDF/CSV set. Review changes do not alter notice pages, so a later
+attempt copies the previously completed PDFs and writes updated findings CSVs.
+It checks any requested fixed notice length using recorded page counts. Source
+CSV and authored template directories can be moved or removed. Typst, installed fonts and encryption passwords are not needed.
 The CLI trusts its completed originals, facts, reports and resource snapshots;
 manually changing these files is unsupported. Saved hashes identify the files
 originally produced and are not repeatedly checked for outside edits.
