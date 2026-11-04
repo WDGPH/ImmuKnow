@@ -210,7 +210,7 @@ def write_report(run_dir: Path, record: dict[str, Any]) -> Path:
     started = perf_counter()
     try:
         record_path = write_json(run_dir, record)
-        if len(record["entries"]) > 1000:
+        if len(record["entries"]) >= 1000:
             _write_large_report(run_dir, record)
         else:
             _replace_text(run_dir / "report.html", render_html(record))

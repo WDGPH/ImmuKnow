@@ -83,7 +83,7 @@ def test_slow_snapshots_lengthen_interval_but_outcome_limit_still_saves(
 def test_large_report_pages_include_all_rows_and_escape_links_and_warning_tokens(
     tmp_path,
 ):
-    record = sample_record(1001)
+    record = sample_record(1000)
     record["entries"][0]["client_id"] = "<unsafe>"
     record["entries"][0]["original"]["path"] = 'originals/"unsafe.pdf'
     record["checks"] = [
@@ -91,7 +91,7 @@ def test_large_report_pages_include_all_rows_and_escape_links_and_warning_tokens
             "status": "fail",
             "code": "input.rejected",
             "message": "bad",
-            "measurements": {"failed_rows": list(range(1001))},
+            "measurements": {"failed_rows": list(range(1000))},
         }
     ]
     record["delivery_attempts"] = [
@@ -113,11 +113,11 @@ def test_large_report_pages_include_all_rows_and_escape_links_and_warning_tokens
     run_report.write_report(tmp_path, record)
     index = (tmp_path / "report.html").read_text()
     pages = sorted(tmp_path.glob("report-*.html"))
-    assert len(pages) == 11
+    assert len(pages) == 10
     page_text = "\n".join(page.read_text() for page in pages)
     assert all(page.name in index for page in pages)
     assert all(
-        page_text.count(f"client-{number:06d}") == 1 for number in range(2, 1002)
+        page_text.count(f"client-{number:06d}") == 1 for number in range(2, 1001)
     )
     assert (
         "&lt;unsafe&gt;" in page_text
@@ -126,9 +126,9 @@ def test_large_report_pages_include_all_rows_and_escape_links_and_warning_tokens
     assert "warn&lt;id&gt;" in page_text and "token&lt;unsafe&gt;" in page_text
     assert "Accepted" in page_text
     assert "DO_NOT_EMBED_ATTEMPT" not in index + page_text
-    assert "981 more; see run.json" in index
+    assert "980 more; see run.json" in index
     assert json.loads((tmp_path / "run.json").read_text()) == record
-    assert Path(tmp_path / "report-00011.html").exists()
+    assert Path(tmp_path / "report-00010.html").exists()
 
 
 def test_failed_streamed_snapshot_preserves_previous_record(tmp_path):
@@ -186,7 +186,7 @@ def test_invalid_split_mapping_key_preserves_previous_json(tmp_path):
 
 
 def test_large_report_only_links_bundles_from_latest_completed_attempt(tmp_path):
-    record = sample_record(1001)
+    record = sample_record(1000)
     old = {
         "number": 1,
         "status": "completed",

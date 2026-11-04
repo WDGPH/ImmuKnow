@@ -101,7 +101,7 @@ review-sheet and notice page spans.
 Checks use the shared `CheckResult` shape: `code`, `stage`, `status`, `message`,
 and optional `component`, `page`, and `measurements`. Status is `pass`, `warn`,
 `fail`, `not_applicable`, or `not_run`. The HTML report escapes source text and
-links to actual outputs. For more than 1,000 rows, `report.html` indexes pages of
+links to actual outputs. For 1,000 or more rows, `report.html` indexes pages of
 100 notices with their findings and latest evaluations. Full source values,
 facts, and attempt details remain in `run.json`; large run and attempt check
 details may be shortened in the HTML view.

@@ -213,7 +213,7 @@ previous runs:
 runs/<run-id>/
   run.json        # authoritative source rows, findings and output results
   report.html     # readable report with links to actual PDFs
-  report-*.html   # notice pages for runs larger than 1,000 rows
+  report-*.html   # notice pages for runs of 1,000 or more rows
   originals/      # retained, unchanged compiled notices
   facts/          # saved notice payloads
   resources/      # source and template/configuration snapshots
@@ -224,7 +224,7 @@ runs/<run-id>/
 ```
 
 Open the printed `report.html` path to inspect every row, including failed and
-incomplete rows. For more than 1,000 rows, follow its links to pages of 100
+incomplete rows. For 1,000 or more rows, follow its links to pages of 100
 notices. The complete source values and run details are in `run.json`. During
 rendering and encryption the JSON record is checkpointed after 1,000 outcomes
 or periodically at the next outcome. The time interval starts at 30 seconds and

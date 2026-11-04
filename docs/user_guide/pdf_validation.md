@@ -1,7 +1,7 @@
 # Notice validation, review and rebundling
 
 Open a run's `report.html` to inspect its rows, findings and actual output
-results. For runs over 1,000 rows, follow links to the notice pages; selected
+results. For runs of 1,000 or more rows, follow links to the notice pages; selected
 notices, full source values and run details are in `run.json`. Some large run or
 attempt check details are shortened in the HTML view. `run.json` is the
 authoritative record. Findings do not disappear when a delivery choice changes.
