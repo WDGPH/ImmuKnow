@@ -216,7 +216,9 @@ if __name__ == "__main__":
             (work / "returned").write_text("done")
 """)
     env = dict(os.environ, PYTHONPATH=str(Path(__file__).resolve().parents[2]))
-    process = subprocess.Popen([sys.executable, str(script), str(tmp_path)], env=env)
+    process = subprocess.Popen(
+        [sys.executable, str(script), str(tmp_path)], env=env, start_new_session=True
+    )
     try:
         deadline = time.monotonic() + 20
         while not list(tmp_path.glob("*.started")) and time.monotonic() < deadline:
@@ -244,6 +246,9 @@ if __name__ == "__main__":
         assert len(list(tmp_path.glob("*.started"))) <= 2
     finally:
         (tmp_path / "release").touch()
-        if process.poll() is None:
-            process.kill()
-            process.wait()
+        # Clean up the whole process group if startup or an assertion fails.
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        process.wait()
