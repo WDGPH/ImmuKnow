@@ -184,22 +184,31 @@ def test_coordinator_records_artifact_errors_and_continues(
 def test_sigint_waits_for_spawned_workers_before_releasing_lock(tmp_path: Path) -> None:
     script = tmp_path / "interrupt.py"
     script.write_text("""
-import sys, time
+import signal, sys, time
 from pathlib import Path
 from immuknow import encrypt_notices
+from immuknow.data_models import ClientRecord
 from immuknow.run_lock import run_lock
-from tests.fixtures.sample_input import create_test_client_record
 
 work = Path(sys.argv[1])
 def slow(client, source, destination, settings):
     (work / (destination.name + ".started")).write_text("started")
-    time.sleep(1.5)
+    deadline = time.monotonic() + 30
+    while not (work / "release").exists():
+        if time.monotonic() >= deadline:
+            raise TimeoutError("worker was not released")
+        time.sleep(0.01)
     destination.write_text("finished")
     return {}
 encrypt_notices.encrypt_notice = slow
 
 if __name__ == "__main__":
-    tasks = [(create_test_client_record(), work / str(i), work / (str(i) + ".out")) for i in range(8)]
+    client = ClientRecord("row", "client", "en", {}, {}, {}, {}, [], [], {})
+    tasks = [(client, work / str(i), work / (str(i) + ".out")) for i in range(8)]
+    def interrupt(signum, frame):
+        (work / "interrupted").write_text("received")
+        raise KeyboardInterrupt
+    signal.signal(signal.SIGINT, interrupt)
     with run_lock(work):
         try:
             encrypt_notices.encrypt_many(tasks, {}, 2, lambda *args: None)
@@ -215,6 +224,16 @@ if __name__ == "__main__":
             time.sleep(0.05)
         assert list(tmp_path.glob("*.started"))
         process.send_signal(signal.SIGINT)
+        deadline = time.monotonic() + 20
+        while not (tmp_path / "interrupted").exists() and time.monotonic() < deadline:
+            assert process.poll() is None
+            time.sleep(0.05)
+        assert (tmp_path / "interrupted").exists()
+        assert process.poll() is None
+        with pytest.raises(ValueError, match="in use"):
+            with run_lock(tmp_path):
+                pass
+        (tmp_path / "release").write_text("release")
         assert process.wait(timeout=20) == 0
         assert (tmp_path / "returned").exists()
         with run_lock(tmp_path):
@@ -224,6 +243,7 @@ if __name__ == "__main__":
             assert {p.name: p.read_bytes() for p in tmp_path.glob("*.out")} == snapshot
         assert len(list(tmp_path.glob("*.started"))) <= 2
     finally:
+        (tmp_path / "release").touch()
         if process.poll() is None:
             process.kill()
             process.wait()
