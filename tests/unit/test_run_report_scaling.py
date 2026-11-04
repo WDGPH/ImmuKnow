@@ -164,7 +164,6 @@ def test_chunked_record_matches_standard_json_with_policies_and_prior_attempts(
             "evaluations": {"row-000001": {"results": [], "score": 1.25}},
             "resolved_rules": {"row-000001": {}},
             "memberships": {"row-000001": {"bundle": None}},
-            "previous_memberships": {"row-000001": {}},
             "bundles": [{"row_keys": ["row-000001"]}],
         }
         for number in (1, 2)
@@ -185,30 +184,31 @@ def test_invalid_split_mapping_key_preserves_previous_json(tmp_path):
     assert (tmp_path / "run.json").read_bytes() == previous
 
 
-def test_large_report_only_links_bundles_from_latest_completed_attempt(tmp_path):
-    record = sample_record(1000)
+@pytest.mark.parametrize("count", [1, 1000])
+def test_report_links_last_published_bundles_after_failed_attempt(tmp_path, count):
+    record = sample_record(count)
     old = {
         "number": 1,
         "status": "completed",
         "checks": [],
-        "bundles": [{"path": "bundles/stale.pdf"}],
+        "bundles": [{"path": "bundles/attempt-1/active.pdf"}],
     }
     newest = {
         "number": 2,
         "status": "failed",
         "checks": [],
-        "bundles": [{"path": "bundles/prepared.pdf"}],
+        "bundles": [{"path": "bundles/attempt-2/prepared.pdf"}],
     }
     record["delivery_attempts"] = [old, newest]
     run_report.write_report(tmp_path, record)
     index = (tmp_path / "report.html").read_text()
-    assert 'href="bundles/stale.pdf"' not in index
-    assert 'href="bundles/prepared.pdf"' not in index
+    assert 'href="bundles/attempt-1/active.pdf"' in index
+    assert 'href="bundles/attempt-2/prepared.pdf"' not in index
     newest["status"] = "completed"
     run_report.write_report(tmp_path, record)
     index = (tmp_path / "report.html").read_text()
-    assert 'href="bundles/stale.pdf"' not in index
-    assert 'href="bundles/prepared.pdf"' in index
+    assert 'href="bundles/attempt-1/active.pdf"' not in index
+    assert 'href="bundles/attempt-2/prepared.pdf"' in index
 
 
 @pytest.mark.parametrize("count", [1, 1000])
@@ -247,7 +247,9 @@ def test_report_links_active_findings_after_failed_or_disabled_attempt(tmp_path,
     ]
     run_report.write_report(tmp_path, record)
     html = (tmp_path / "report.html").read_text()
+    assert 'href="bundles/active.pdf"' in html
     assert 'href="bundles/active.csv"' in html
+    assert 'href="bundles/staged.pdf"' not in html
     assert 'href="bundles/staged.csv"' not in html
 
     record["delivery_attempts"] = [

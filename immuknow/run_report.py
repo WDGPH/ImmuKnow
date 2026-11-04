@@ -148,7 +148,6 @@ def _write_record_chunks(stream: TextIO, record: dict[str, Any]) -> None:
                 "evaluations",
                 "resolved_rules",
                 "memberships",
-                "previous_memberships",
             )
         ),
     }
@@ -245,9 +244,9 @@ def _preview(value: Any) -> Any:
     return value
 
 
-def _findings_links(record: dict[str, Any]) -> str:
-    """Link the CSV sidecars in the active completed bundle set."""
-    active = next(
+def _active_bundle_attempt(record: dict[str, Any]) -> dict[str, Any] | None:
+    """Keep the last published set available after failed or disabled attempts."""
+    return next(
         (
             attempt
             for attempt in reversed(record["delivery_attempts"])
@@ -256,6 +255,11 @@ def _findings_links(record: dict[str, Any]) -> str:
         ),
         None,
     )
+
+
+def _findings_links(record: dict[str, Any]) -> str:
+    """Link the CSV sidecars in the active completed bundle set."""
+    active = _active_bundle_attempt(record)
     if active is None:
         return ""
     links = []
@@ -334,6 +338,7 @@ def _write_large_report(run_dir: Path, record: dict[str, Any]) -> None:
             f'<li><a href="{name}">Notices {offset + 1}–{min(offset + 100, len(entries))}</a></li>'
         )
     index.append("</ul><h2>Delivery attempts</h2>")
+    active = _active_bundle_attempt(record)
     for attempt in record["delivery_attempts"]:
         index.append(
             f"<h3>Attempt {attempt['number']} · {escape(attempt['status'])}</h3>"
@@ -341,10 +346,7 @@ def _write_large_report(run_dir: Path, record: dict[str, Any]) -> None:
         index.append(
             _checks_html([_preview(check) for check in attempt.get("checks", [])])
         )
-        if (
-            attempt["status"] == "completed"
-            and attempt is record["delivery_attempts"][-1]
-        ):
+        if attempt is active:
             for bundle in attempt.get("bundles", []):
                 index.append(
                     f'<p><a href="{escape(bundle["path"], quote=True)}">{escape(bundle["path"])}</a></p>'
@@ -415,15 +417,13 @@ def render_html(record: dict[str, Any]) -> str:
             + "</pre></details>"
         )
     parts.append("<h2>Delivery attempts</h2>")
+    active = _active_bundle_attempt(record)
     for attempt in record["delivery_attempts"]:
         parts.append(
             f"<details><summary>Attempt {attempt['number']} · {escape(attempt['status'])}</summary>"
         )
         parts.append(_checks_html(attempt.get("checks", [])))
-        if (
-            attempt["status"] == "completed"
-            and attempt is record["delivery_attempts"][-1]
-        ):
+        if attempt is active:
             for bundle in attempt["bundles"]:
                 parts.append(
                     f'<p><a href="{escape(bundle["path"], quote=True)}">{escape(bundle["path"])}</a></p>'
