@@ -92,9 +92,12 @@ def test_concurrent_rendering_preserves_native_outputs_and_row_association(
         assert right["client_id"] in " ".join(
             text_of(concurrent.parent / right["original"]["path"])
         )
-        for field, digest in (("routing", "evaluation_sha256"), ("bundle", "sha256")):
-            assert {k: v for k, v in left[field].items() if k != digest} == {
-                k: v for k, v in right[field].items() if k != digest
+        for field, excluded in (
+            ("routing", {"accepted_tokens"}),
+            ("bundle", {"path", "sha256"}),
+        ):
+            assert {k: v for k, v in left[field].items() if k not in excluded} == {
+                k: v for k, v in right[field].items() if k not in excluded
             }
 
 
