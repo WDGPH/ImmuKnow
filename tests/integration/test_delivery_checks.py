@@ -179,6 +179,75 @@ def test_written_bundle_must_match_each_selected_page_in_order(
     ]
 
 
+@pytest.mark.parametrize(
+    ("source", "damage", "message"),
+    [
+        ("facts", "bytes", "Saved notice payload changed"),
+        ("original", "bytes", "Original PDF hash changed"),
+        ("facts", "escape", "Payload path is outside facts/"),
+        ("original", "escape", "Original path is outside originals/"),
+    ],
+)
+def test_delivery_rechecks_sources_after_routing(
+    saved_run, tmp_path, monkeypatch, source, damage, message
+):
+    committed = bundle_pdfs.bundle_run(saved_run, policy={})
+    assert committed["status"] == "completed", committed["checks"]
+    before = record(saved_run)
+    bundles = {
+        path.relative_to(saved_run / "bundles"): path.read_bytes()
+        for path in (saved_run / "bundles").rglob("*")
+        if path.is_file()
+    }
+    assert any(path.suffix == ".pdf" for path in bundles)
+    assert any(path.suffix == ".csv" for path in bundles)
+
+    assemble = bundle_pdfs._assemble
+
+    def change_source(routed, next_dir, group_by, size, attempt):
+        entry = routed[0][0]
+        path = saved_run / entry[source]["path"]
+        content = path.read_bytes()
+        if damage == "bytes":
+            path.write_bytes(content + b" changed")
+        else:
+            outside = tmp_path / f"outside-{source}"
+            outside.write_bytes(content)
+            path.unlink()
+            path.symlink_to(outside)
+        return assemble(routed, next_dir, group_by, size, attempt)
+
+    monkeypatch.setattr(bundle_pdfs, "_assemble", change_source)
+    failed = bundle_pdfs.bundle_run(saved_run, policy={})
+    assert failed["status"] == "failed"
+    assert message in failed["checks"][-1]["message"]
+    assert {
+        path.relative_to(saved_run / "bundles"): path.read_bytes()
+        for path in (saved_run / "bundles").rglob("*")
+        if path.is_file()
+    } == bundles
+    after = record(saved_run)
+    assert [(entry["bundle"], entry["routing"]) for entry in after["entries"]] == [
+        (entry["bundle"], entry["routing"]) for entry in before["entries"]
+    ]
+
+
+def test_delivery_validates_each_saved_payload_once(saved_run, monkeypatch):
+    validated = []
+    validate = bundle_pdfs.validate_render_payload
+
+    def count_validation(payload):
+        validated.append(payload["row_key"])
+        return validate(payload)
+
+    monkeypatch.setattr(bundle_pdfs, "validate_render_payload", count_validation)
+    result = bundle_pdfs.bundle_run(saved_run, policy={})
+    assert result["status"] == "completed", result["checks"]
+    assert sorted(validated) == sorted(
+        entry["row_key"] for entry in record(saved_run)["entries"]
+    )
+
+
 @pytest.mark.parametrize("damage", ["resource", "library", "compiler", "payload"])
 def test_saved_run_refuses_unsupported_resources_even_without_review(saved_run, damage):
     saved = record(saved_run)

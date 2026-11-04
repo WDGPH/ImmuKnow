@@ -60,8 +60,8 @@ def _group_values(entry: dict, fields: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(values)
 
 
-def _original_reader(entry: dict, run_dir: Path) -> tuple[PdfReader, dict]:
-    """Verify the retained payload binding and PDF bytes before any delivery use."""
+def _original_reader(entry: dict, run_dir: Path) -> tuple[PdfReader, bytes]:
+    """Recheck retained paths and bytes, then open one original for this pass."""
     facts = entry["facts"]
     payload_path = (run_dir / facts["path"]).resolve()
     if not payload_path.is_relative_to((run_dir / "facts").resolve()):
@@ -69,6 +69,25 @@ def _original_reader(entry: dict, run_dir: Path) -> tuple[PdfReader, dict]:
     payload_bytes = payload_path.read_bytes()
     if sha256(payload_bytes).hexdigest() != facts["sha256"]:
         raise ValueError(f"Saved notice payload changed: {entry['row_key']}")
+    original = entry["original"]
+    path = (run_dir / original["path"]).resolve()
+    if not path.is_relative_to((run_dir / "originals").resolve()):
+        raise ValueError(f"Original path is outside originals/: {entry['row_key']}")
+    content = path.read_bytes()
+    if sha256(content).hexdigest() != original["sha256"]:
+        raise ValueError(f"Original PDF hash changed: {entry['row_key']}")
+    reader = PdfReader(BytesIO(content))
+    if reader.is_encrypted or not reader.pages:
+        raise ValueError(
+            f"Original PDF must be readable and unencrypted: {entry['row_key']}"
+        )
+    if len(reader.pages) != original["pages"]:
+        raise ValueError(f"Original PDF page count changed: {entry['row_key']}")
+    return reader, payload_bytes
+
+
+def _validated_payload(entry: dict, payload_bytes: bytes) -> dict:
+    """Validate facts once per attempt; assembly rechecks their unchanged bytes."""
     payload = parse_json(payload_bytes, label="Saved notice payload")
     try:
         validate_render_payload(payload)
@@ -87,21 +106,7 @@ def _original_reader(entry: dict, run_dir: Path) -> tuple[PdfReader, dict]:
         raise ValueError(
             f"Saved payload does not belong to this source row: {entry['row_key']}"
         )
-    original = entry["original"]
-    path = (run_dir / original["path"]).resolve()
-    if not path.is_relative_to((run_dir / "originals").resolve()):
-        raise ValueError(f"Original path is outside originals/: {entry['row_key']}")
-    content = path.read_bytes()
-    if sha256(content).hexdigest() != original["sha256"]:
-        raise ValueError(f"Original PDF hash changed: {entry['row_key']}")
-    reader = PdfReader(BytesIO(content))
-    if reader.is_encrypted or not reader.pages:
-        raise ValueError(
-            f"Original PDF must be readable and unencrypted: {entry['row_key']}"
-        )
-    if len(reader.pages) != original["pages"]:
-        raise ValueError(f"Original PDF page count changed: {entry['row_key']}")
-    return reader, payload
+    return payload
 
 
 def _routes(
@@ -123,7 +128,8 @@ def _routes(
         raise ValueError("Withheld rows must be distinct source row keys from this run")
     evaluations = {}
     for entry in entries:
-        reader, payload = _original_reader(entry, run_dir)
+        reader, payload_bytes = _original_reader(entry, run_dir)
+        payload = _validated_payload(entry, payload_bytes)
         observations = deepcopy(entry["checks"])
         summary = entry.get("render_summary")
         try:

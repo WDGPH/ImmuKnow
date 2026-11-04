@@ -173,8 +173,11 @@ failures remain in JSON/HTML. The CSV is a view, not a second run record.
 
 `immuknow-rebundle` loads a saved run and review decisions, verifies every
 original hash, and uses the same assembly function as generation. It neither
-reads current source/templates nor repeats encryption. It copies original pages
-without adding marks or pages; rebundling needs no Typst executable or fonts.
+reads current source/templates nor repeats encryption. It validates saved facts
+and their source-row binding once per attempt. Before copying pages, assembly
+rereads the facts and originals and checks their paths and saved hashes again.
+Changed files stop replacement. It copies original pages without adding marks
+or pages; rebundling needs no Typst executable or fonts.
 
 Assembly prepares PDFs and their CSV sidecars in `bundles.next` before replacing
 `bundles`. Each bundle artifact records its sidecar path, hash and row count.
