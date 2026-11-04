@@ -21,10 +21,12 @@ uv run immuknow ./immuknow/examples/clients.csv \
   --templates ./my-project/templates --config ./my-project/config --output ./runs
 ```
 
-`immuknow/examples/clients.csv` contains fictional clients for trying the pipeline.
-Template supplies the corresponding sample assignments. The installed Core package
-also exposes the CSV through `immuknow.resources.example_clients_path()`; copy it
-to a project before editing.
+[The example CSV](https://github.com/WDGPH/ImmuKnow/blob/main/immuknow/examples/clients.csv)
+contains fictional clients for trying the pipeline. Its histories and forecasts
+are illustrative; they are not vaccination schedules or clinical assessments.
+Template supplies matching sample assignments and can run them with
+`uv run python scripts/run.py --sample`. The installed Core package also exposes
+the CSV through `immuknow.resources.example_clients_path()`; copy it before editing.
 
 A run selects notices in one of two ways: pass `--notice-assignments` with
 one `template` filename per client, or pass one

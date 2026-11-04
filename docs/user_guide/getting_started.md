@@ -15,10 +15,12 @@ uv run immuknow ./immuknow/examples/clients.csv \
   --templates ./my-project/templates --config ./my-project/config --output ./runs
 ```
 
-`immuknow/examples/clients.csv` contains fictional clients for trying the pipeline.
-Template supplies the corresponding sample assignments. The installed Core package
-also exposes the CSV through `immuknow.resources.example_clients_path()`; copy it
-to a project before editing. These fictional histories are dated through
+[The example CSV](https://github.com/WDGPH/ImmuKnow/blob/main/immuknow/examples/clients.csv)
+contains fictional clients for trying the pipeline. Its histories and forecasts
+are illustrative; they are not vaccination schedules or clinical assessments.
+Template supplies matching sample assignments and can run them with
+`uv run python scripts/run.py --sample`. The installed Core package also exposes
+the CSV through `immuknow.resources.example_clients_path()`; copy it before editing. These fictional histories are dated through
 January 15, 2026. Your project’s configured dates determine ages and notice
 applicability; Studio uses fixed dates for its previews.
 
