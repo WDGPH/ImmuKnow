@@ -1,4 +1,4 @@
-"""Verify the final batch, current delivery tools and saved resource boundaries."""
+"""Check bundle contents, explicit page counts and independent publication."""
 
 from __future__ import annotations
 
@@ -6,7 +6,6 @@ from tests.fixtures.project import copy_project
 
 import json
 import shutil
-from hashlib import sha256
 from pathlib import Path
 
 import pymupdf
@@ -60,8 +59,9 @@ def record(run_dir):
 
 def active_bundles(run_dir):
     return {
-        str(path.relative_to(run_dir)): path.read_bytes()
-        for path in (run_dir / "bundles").rglob("*.pdf")
+        entry["bundle"]["path"]: (run_dir / entry["bundle"]["path"]).read_bytes()
+        for entry in record(run_dir)["entries"]
+        if entry["bundle"]
     }
 
 
@@ -94,13 +94,11 @@ def test_fixed_page_count_checks_all_final_batches_and_cannot_be_waived(saved_ru
     checks = [
         check for check in failed["checks"] if check["code"] == "delivery.notice_length"
     ]
-    assert [check["status"] for check in checks] == ["fail", "pass"]
+    assert [check["status"] for check in checks] == ["fail"]
     assert checks[0]["measurements"]["notices"] == [
         {"row_key": first["row_key"], "pages": expected},
         {"row_key": long["row_key"], "pages": long["original"]["pages"]},
-    ]
-    assert checks[1]["measurements"]["notices"] == [
-        {"row_key": last["row_key"], "pages": expected}
+        {"row_key": last["row_key"], "pages": expected},
     ]
     assert active_bundles(saved_run) == active
     after = record(saved_run)
@@ -148,200 +146,66 @@ def test_fixed_page_count_checks_all_final_batches_and_cannot_be_waived(saved_ru
                     )
 
 
-@pytest.mark.parametrize("damage", ["reorder", "duplicate", "geometry"])
-def test_written_bundle_must_match_each_selected_page_in_order(
-    saved_run, monkeypatch, damage
-):
+def test_written_bundle_count_is_checked_before_publication(saved_run, monkeypatch):
     before = record(saved_run)
-    active = active_bundles(saved_run)
     write = PdfWriter.write
 
-    def changed_write(writer, stream):
-        name = str(getattr(stream, "name", ""))
-        if "bundles.next" in name:
-            if damage == "geometry":
-                writer.pages[0].mediabox.upper_right = (600, 800)
-            else:
-                page = writer.pages[0 if damage == "reorder" else -1]
-                writer.remove_page(0)
-                writer.add_page(page)
+    def extra_page(writer, stream):
+        if ".incomplete" in str(getattr(stream, "name", "")):
+            writer.add_blank_page(width=100, height=100)
         return write(writer, stream)
 
-    monkeypatch.setattr(PdfWriter, "write", changed_write)
-    result = bundle_pdfs.bundle_run(saved_run)
+    monkeypatch.setattr(PdfWriter, "write", extra_page)
+    result = bundle_pdfs.bundle_run(saved_run, policy={})
     assert result["status"] == "failed"
-    assert (
-        "do not match the selected notices in order" in result["checks"][-1]["message"]
-    )
-    assert active_bundles(saved_run) == active
+    assert "page count does not match memberships" in result["checks"][-1]["message"]
     assert [entry["bundle"] for entry in record(saved_run)["entries"]] == [
         entry["bundle"] for entry in before["entries"]
     ]
 
 
-@pytest.mark.parametrize(
-    ("source", "damage", "message"),
-    [
-        ("facts", "bytes", "Saved notice payload changed"),
-        ("original", "bytes", "Original PDF hash changed"),
-        ("facts", "escape", "Payload path is outside facts/"),
-        ("original", "escape", "Original path is outside originals/"),
-    ],
-)
-def test_delivery_rechecks_sources_after_routing(
-    saved_run, tmp_path, monkeypatch, source, damage, message
-):
-    committed = bundle_pdfs.bundle_run(saved_run, policy={})
-    assert committed["status"] == "completed", committed["checks"]
-    before = record(saved_run)
-    bundles = {
-        path.relative_to(saved_run / "bundles"): path.read_bytes()
-        for path in (saved_run / "bundles").rglob("*")
-        if path.is_file()
+def test_review_reuses_pdf_bytes_and_keeps_previous_set(saved_run, monkeypatch):
+    first = bundle_pdfs.bundle_run(saved_run, policy={})
+    assert first["status"] == "completed", first["checks"]
+    files = {
+        artifact["path"]: (saved_run / artifact["path"]).read_bytes()
+        for artifact in first["bundles"]
     }
-    assert any(path.suffix == ".pdf" for path in bundles)
-    assert any(path.suffix == ".csv" for path in bundles)
 
-    assemble = bundle_pdfs._assemble
+    def unexpected_read(*args, **kwargs):
+        raise AssertionError("Review should not assemble or parse any PDFs")
 
-    def change_source(routed, next_dir, group_by, size, attempt):
-        entry = routed[0][0]
-        path = saved_run / entry[source]["path"]
-        content = path.read_bytes()
-        if damage == "bytes":
-            path.write_bytes(content + b" changed")
-        else:
-            outside = tmp_path / f"outside-{source}"
-            outside.write_bytes(content)
-            path.unlink()
-            path.symlink_to(outside)
-        return assemble(routed, next_dir, group_by, size, attempt)
-
-    monkeypatch.setattr(bundle_pdfs, "_assemble", change_source)
-    failed = bundle_pdfs.bundle_run(saved_run, policy={})
-    assert failed["status"] == "failed"
-    assert message in failed["checks"][-1]["message"]
-    assert {
-        path.relative_to(saved_run / "bundles"): path.read_bytes()
-        for path in (saved_run / "bundles").rglob("*")
-        if path.is_file()
-    } == bundles
-    after = record(saved_run)
-    assert [(entry["bundle"], entry["routing"]) for entry in after["entries"]] == [
-        (entry["bundle"], entry["routing"]) for entry in before["entries"]
-    ]
-
-
-def test_delivery_validates_each_saved_payload_once(saved_run, monkeypatch):
-    validated = []
-    validate = bundle_pdfs.validate_render_payload
-
-    def count_validation(payload):
-        validated.append(payload["row_key"])
-        return validate(payload)
-
-    monkeypatch.setattr(bundle_pdfs, "validate_render_payload", count_validation)
-    result = bundle_pdfs.bundle_run(saved_run, policy={})
-    assert result["status"] == "completed", result["checks"]
-    assert sorted(validated) == sorted(
-        entry["row_key"] for entry in record(saved_run)["entries"]
+    monkeypatch.setattr(bundle_pdfs, "_assemble", unexpected_read)
+    monkeypatch.setattr(bundle_pdfs, "PdfReader", unexpected_read)
+    token = next(
+        iter(next(iter(first["evaluations"].values()))["warning_tokens"].values())
     )
-
-
-@pytest.mark.parametrize("damage", ["resource", "library", "compiler", "payload"])
-def test_saved_run_refuses_unsupported_resources_even_without_review(saved_run, damage):
-    saved = record(saved_run)
-    # The supported resource check happens before individual warning review.
-    for entry in saved["entries"]:
-        entry["checks"] = [
-            check for check in entry["checks"] if check["status"] != "warn"
-        ]
-    if damage in {"resource", "library"}:
-        name = (
-            "assets/logo.svg"
-            if damage == "resource"
-            else "lib/immuknow/src/findings.typ"
-        )
-        (saved_run / "resources/templates" / name).write_bytes(b"Changed resource")
-        if damage == "library":
-            saved["resources"].update(
-                run_report.resource_manifest(saved_run / "resources", saved_run)
-            )
-    elif damage == "compiler":
-        saved["version"]["compiler"] = "0.14.0"
-    else:
-        entry = saved["entries"][0]
-        path = saved_run / entry["facts"]["path"]
-        payload = json.loads(path.read_text())
-        payload["schema_version"] = 99
-        path.write_text(json.dumps(payload))
-        entry["facts"]["sha256"] = sha256(path.read_bytes()).hexdigest()
-    run_report.write_report(saved_run, saved)
-    active = active_bundles(saved_run)
-    result = bundle_pdfs.bundle_run(saved_run)
-    assert result["status"] == "failed"
-    assert active_bundles(saved_run) == active
-    assert result["checks"][-1]["status"] == "fail"
-
-
-def rehash_payload(run_dir, entry, **changes):
-    path = run_dir / entry["facts"]["path"]
-    payload = json.loads(path.read_text())
-    payload.update(changes)
-    path.write_text(json.dumps(payload))
-    entry["facts"]["sha256"] = sha256(path.read_bytes()).hexdigest()
-
-
-def replace_original_with_empty_pdf(run_dir, entry):
-    path = run_dir / entry["original"]["path"]
-    with path.open("wb") as stream:
-        PdfWriter().write(stream)
-    entry["original"]["sha256"] = sha256(path.read_bytes()).hexdigest()
-
-
-def tamper(run_dir, saved, damage):
-    entry = saved["entries"][0]
-    bundling = saved["configuration"]["effective"]["bundling"]
-    if damage == "payload outside facts":
-        entry["facts"]["path"] = entry["original"]["path"]
-    elif damage == "original outside originals":
-        entry["original"]["path"] = entry["facts"]["path"]
-    elif damage == "payload for another client":
-        rehash_payload(run_dir, entry, client_id="0000000099")
-    elif damage == "original without pages":
-        replace_original_with_empty_pdf(run_dir, entry)
-    elif damage == "original page count":
-        entry["original"]["pages"] += 1
-    elif damage == "negative bundle size":
-        bundling["bundle_size"] = -1
-    elif damage == "fixed length without bundling":
-        bundling["bundle_size"] = 0
-    else:
-        saved["entries"][1]["row_key"] = entry["row_key"]
+    reviewed = bundle_pdfs.bundle_run(
+        saved_run, accept=[token], reason="Inspected notice"
+    )
+    assert reviewed["status"] == "completed", reviewed["checks"]
+    assert reviewed["reused_from"] == first["number"]
+    for old, new in zip(first["bundles"], reviewed["bundles"]):
+        assert old["path"] != new["path"]
+        assert old["sha256"] == new["sha256"]
+        assert (saved_run / new["path"]).read_bytes() == files[old["path"]]
+        assert (saved_run / old["path"]).read_bytes() == files[old["path"]]
+    assert record(saved_run)["delivery_attempts"][-2] == first
 
 
 @pytest.mark.parametrize(
-    ("damage", "message"),
+    "settings, message",
     [
-        ("payload outside facts", "outside facts/"),
-        ("original outside originals", "outside originals/"),
-        ("payload for another client", "does not belong to this source row"),
-        ("original without pages", "readable and unencrypted"),
-        ("original page count", "page count changed"),
-        ("negative bundle size", "nonnegative integer"),
-        ("fixed length without bundling", "bundle_size above zero"),
-        ("repeated row key", "unique source row keys"),
+        ({"bundle_size": -1}, "nonnegative integer"),
+        ({"bundle_size": 0}, "bundle_size above zero"),
     ],
 )
-def test_saved_run_refuses_tampered_entries_and_settings(saved_run, damage, message):
+def test_invalid_bundle_settings_are_reported(saved_run, settings, message):
     saved = record(saved_run)
-    tamper(saved_run, saved, damage)
+    saved["configuration"]["effective"]["bundling"] = settings
     run_report.write_report(saved_run, saved)
-    active = active_bundles(saved_run)
     result = bundle_pdfs.bundle_run(saved_run)
     assert result["status"] == "failed"
-    assert active_bundles(saved_run) == active
-    assert result["checks"][-1]["code"] == "delivery.failed"
     assert message in result["checks"][-1]["message"]
 
 

@@ -3,14 +3,12 @@
 import csv
 import json
 
-from pypdf import PdfReader, PdfWriter
+from pypdf import PdfWriter
 
 from immuknow import bundle_pdfs
 
 
-def test_combined_grouping_keeps_distinct_values_and_splits_large_groups(
-    tmp_path, monkeypatch
-):
+def test_combined_grouping_keeps_distinct_values_and_splits_large_groups(tmp_path):
     choices = [
         ("A", "en", 1),
         ("A", "en", 1),
@@ -31,22 +29,20 @@ def test_combined_grouping_keeps_distinct_values_and_splits_large_groups(
             "path": path,
             "facts": {"prepared": {"board": {"id": board, "name": board}}},
             "assignment": {"language": language},
-            "original": {"pages": pages},
+            "original": {"pages": pages, "path": path.name},
         }
         routed.append((entry, {"destination": "review" if number == 1 else "delivery"}))
-    monkeypatch.setattr(
-        bundle_pdfs, "_original_reader", lambda entry, _: (PdfReader(entry["path"]), {})
-    )
     next_dir = tmp_path / "next"
     next_dir.mkdir()
     attempt = {
+        "directory": "bundles/test",
         "bundles": [],
         "memberships": {},
         "notice_length": {"enabled": False},
         "checks": [],
     }
     bundle_pdfs._assemble(
-        routed, next_dir, ("board", "language", "page_count"), 2, attempt
+        routed, next_dir, ("board", "language", "page_count"), 2, attempt, tmp_path
     )
     assert len(attempt["bundles"]) == 5
     assert {key for bundle in attempt["bundles"] for key in bundle["row_keys"]} == {
@@ -119,13 +115,13 @@ def test_findings_preserve_result_tokens_and_bundle_page_offsets(tmp_path):
             "row-1": {
                 "results": [
                     {
-                        "code": "layout.test",
+                        "code": "content.multiple_links",
                         "stage": "render",
                         "status": "pass",
                         "message": "ok",
                     },
                     {
-                        "code": "layout.test",
+                        "code": "content.multiple_links",
                         "stage": "render",
                         "status": "warn",
                         "message": "first",
@@ -133,15 +129,15 @@ def test_findings_preserve_result_tokens_and_bundle_page_offsets(tmp_path):
                         "measurements": {"width": 10},
                     },
                     {
-                        "code": "layout.test",
+                        "code": "content.multiple_links",
                         "stage": "render",
                         "status": "warn",
                         "message": "second",
                     },
                 ],
                 "warning_tokens": {
-                    "layout.test:2": "accepted",
-                    "layout.test:3": "unaccepted",
+                    "content.multiple_links:1": "accepted",
+                    "content.multiple_links:2": "unaccepted",
                 },
             },
             "row-2": {"results": [], "warning_tokens": {}},

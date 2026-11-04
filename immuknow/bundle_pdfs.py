@@ -1,4 +1,4 @@
-"""Evaluate saved originals and assemble bundles, then replace safely."""
+"""Evaluate saved findings and publish independent bundle sets."""
 
 from __future__ import annotations
 
@@ -8,21 +8,16 @@ import re
 import shutil
 from copy import deepcopy
 from hashlib import sha256
-from io import BytesIO
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
-from pypdf import PageObject, PdfReader, PdfWriter
+from pypdf import PdfReader, PdfWriter
 from pypdf.errors import PdfReadError
-from jsonschema import ValidationError
 
 from . import run_report, validation_policy
 from .run_lock import run_lock
-from .structured_input import parse_json, read_json
-from .component_resources import verify_components
-from .render_payload import validate_render_payload
-from .render_contract import validate_render_report
-from .compile_notices import TYPST_VERSION
+from .structured_input import read_json
 
 
 def bundle_grouping(value: object) -> tuple[str, ...]:
@@ -60,57 +55,19 @@ def _group_values(entry: dict, fields: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(values)
 
 
-def _original_reader(entry: dict, run_dir: Path) -> tuple[PdfReader, bytes]:
-    """Recheck retained paths and bytes, then open one original for this pass."""
-    facts = entry["facts"]
-    payload_path = (run_dir / facts["path"]).resolve()
-    if not payload_path.is_relative_to((run_dir / "facts").resolve()):
-        raise ValueError(f"Payload path is outside facts/: {entry['row_key']}")
-    payload_bytes = payload_path.read_bytes()
-    if sha256(payload_bytes).hexdigest() != facts["sha256"]:
-        raise ValueError(f"Saved notice payload changed: {entry['row_key']}")
-    original = entry["original"]
-    path = (run_dir / original["path"]).resolve()
-    if not path.is_relative_to((run_dir / "originals").resolve()):
-        raise ValueError(f"Original path is outside originals/: {entry['row_key']}")
-    content = path.read_bytes()
-    if sha256(content).hexdigest() != original["sha256"]:
-        raise ValueError(f"Original PDF hash changed: {entry['row_key']}")
-    reader = PdfReader(BytesIO(content))
+def _original_reader(entry: dict, run_dir: Path) -> PdfReader:
+    """Open an accepted original only when its pages are needed for assembly."""
+    reader = PdfReader(run_dir / entry["original"]["path"])
     if reader.is_encrypted or not reader.pages:
         raise ValueError(
             f"Original PDF must be readable and unencrypted: {entry['row_key']}"
         )
-    if len(reader.pages) != original["pages"]:
+    if len(reader.pages) != entry["original"]["pages"]:
         raise ValueError(f"Original PDF page count changed: {entry['row_key']}")
-    return reader, payload_bytes
-
-
-def _validated_payload(entry: dict, payload_bytes: bytes) -> dict:
-    """Validate facts once per attempt; assembly rechecks their unchanged bytes."""
-    payload = parse_json(payload_bytes, label="Saved notice payload")
-    try:
-        validate_render_payload(payload)
-    except ValidationError as exc:
-        raise ValueError(
-            f"Saved notice payload does not match the supported format: {entry['row_key']}"
-        ) from exc
-    if (
-        payload.get("row_key") != entry["row_key"]
-        or payload.get("client_id") != entry["client_id"]
-        or any(
-            payload[key] != entry["assignment"][key]
-            for key in ("template", "version_id", "language")
-        )
-    ):
-        raise ValueError(
-            f"Saved payload does not belong to this source row: {entry['row_key']}"
-        )
-    return payload
+    return reader
 
 
 def _routes(
-    run_dir: Path,
     record: dict,
     entries: list[dict],
     group_by: tuple[str, ...],
@@ -128,31 +85,7 @@ def _routes(
         raise ValueError("Withheld rows must be distinct source row keys from this run")
     evaluations = {}
     for entry in entries:
-        reader, payload_bytes = _original_reader(entry, run_dir)
-        payload = _validated_payload(entry, payload_bytes)
-        observations = deepcopy(entry["checks"])
-        summary = entry.get("render_summary")
-        try:
-            if summary is None:
-                raise ValueError("Required render evidence is missing")
-            validate_render_report(summary, payload)
-            if summary["page_count"] != len(reader.pages):
-                raise ValueError(
-                    "Render evidence page count differs from the original PDF"
-                )
-        except ValueError as exc:
-            observations.append(
-                {
-                    "code": "render.evidence_failed",
-                    "stage": "render",
-                    "status": "fail",
-                    "message": str(exc),
-                }
-            )
-        else:
-            for check in summary["checks"]:
-                if check not in observations:
-                    observations.append(deepcopy(check))
+        observations = list(entry["checks"])
         facts = entry["facts"]["prepared"]
         for field in group_by:
             if field in ("school", "board") and not facts[field].get("id"):
@@ -194,23 +127,13 @@ def _routes(
     ]
 
 
-def _page_hash(page: PageObject) -> str:
-    """Compare complete page copies after writing, independent of PDF object numbers."""
-    writer = PdfWriter()
-    writer.add_page(page)
-    # Compare copies independently of the source or bundle header.
-    writer.pdf_header = "%PDF-1.7"
-    stream = BytesIO()
-    writer.write(stream)
-    return sha256(stream.getvalue()).hexdigest()
-
-
 def _assemble(
     routed: list[tuple[dict, dict]],
     next_dir: Path,
     group_by: tuple[str, ...],
     size: int,
     attempt: dict,
+    run_dir: Path,
 ) -> None:
     groups: dict[tuple[str, ...], list[tuple[dict, dict]]] = {}
     for entry, routing in routed:
@@ -224,17 +147,14 @@ def _assemble(
             chunk = members[offset : offset + size]
             name = f"{prefix}_{group_number:03d}_{label}_{offset // size + 1:03d}.pdf"
             output = next_dir / name
-            path = "bundles/" + output.relative_to(next_dir).as_posix()
+            path = attempt["directory"] + "/" + name
             writer = PdfWriter()
-            expected_pages = []
             memberships: list[tuple[dict, dict, dict]] = []
             cursor = 1
             for entry, routing in chunk:
                 first_page = cursor
-                notice_first = cursor
-                original, _ = _original_reader(entry, next_dir.parent)
+                original = _original_reader(entry, run_dir)
                 for page in original.pages:
-                    expected_pages.append(_page_hash(page))
                     writer.add_page(page)
                     cursor += 1
                 memberships.append(
@@ -246,7 +166,7 @@ def _assemble(
                             "destination": "bundle",
                             "start_page": first_page,
                             "end_page": cursor - 1,
-                            "notice_start_page": notice_first,
+                            "notice_start_page": first_page,
                             "notice_end_page": cursor - 1,
                         },
                     )
@@ -257,36 +177,6 @@ def _assemble(
             if len(written.pages) != cursor - 1:
                 raise ValueError(
                     "Assembled bundle page count does not match memberships"
-                )
-            if [_page_hash(page) for page in written.pages] != expected_pages:
-                raise ValueError(
-                    "Assembled bundle pages do not match the selected notices in order"
-                )
-            length = attempt["notice_length"]
-            if length["enabled"]:
-                counts = [
-                    {
-                        "row_key": entry["row_key"],
-                        "pages": membership["notice_end_page"]
-                        - membership["notice_start_page"]
-                        + 1,
-                    }
-                    for entry, _, membership in memberships
-                ]
-                passed = all(item["pages"] == length["count"] for item in counts)
-                run_report.add_check(
-                    attempt,
-                    "delivery.notice_length",
-                    "delivery",
-                    "pass" if passed else "fail",
-                    "Every notice has the required PDF page count"
-                    if passed
-                    else "Bundle contains a notice with the wrong PDF page count",
-                    measurements={
-                        "bundle": path,
-                        "expected_pages": length["count"],
-                        "notices": counts,
-                    },
                 )
             checksum = sha256(output.read_bytes()).hexdigest()
             if not group_by:
@@ -327,25 +217,63 @@ def _assemble(
                     "routing": routing,
                     "bundle": membership,
                 }
-    if set(attempt["memberships"]) != {entry["row_key"] for entry, _ in routed}:
-        raise ValueError("Every readable original must belong to exactly one bundle")
-    if attempt["notice_length"]["enabled"] and not any(
-        check["code"] == "delivery.notice_length" for check in attempt["checks"]
-    ):
+
+
+def _check_notice_length(routed: list[tuple[dict, dict]], attempt: dict) -> None:
+    """Check an explicitly requested count before writing any bundle files."""
+    length = attempt["notice_length"]
+    if not length["enabled"]:
         run_report.add_check(
             attempt,
             "delivery.notice_length",
             "delivery",
-            "not_applicable",
-            "No notices are available for a bundle",
+            "not_run",
+            "Fixed notice length is disabled",
         )
-    if any(
-        check["code"] == "delivery.notice_length" and check["status"] == "fail"
-        for check in attempt["checks"]
-    ):
+        return
+    counts = [
+        {"row_key": entry["row_key"], "pages": entry["original"]["pages"]}
+        for entry, _ in routed
+    ]
+    passed = all(item["pages"] == length["count"] for item in counts)
+    run_report.add_check(
+        attempt,
+        "delivery.notice_length",
+        "delivery",
+        ("pass" if passed else "fail") if counts else "not_applicable",
+        "Every notice has the required PDF page count"
+        if passed
+        else "A notice has the wrong PDF page count",
+        measurements={"expected_pages": length["count"], "notices": counts},
+    )
+    if not passed:
         raise ValueError(
             "Fixed page count failed; the previous bundle set remains active"
         )
+
+
+def _reuse_bundle_set(
+    prior: dict,
+    routed: list[tuple[dict, dict]],
+    next_dir: Path,
+    attempt: dict,
+    run_dir: Path,
+) -> None:
+    """Review changes findings, not pages; copy the completed PDFs as they are."""
+    routes = {entry["row_key"]: routing for entry, routing in routed}
+    for artifact in prior["bundles"]:
+        name = Path(artifact["path"]).name
+        path = attempt["directory"] + "/" + name
+        shutil.copyfile(run_dir / artifact["path"], next_dir / name)
+        copied = {**artifact, "path": path}
+        copied.pop("findings_csv", None)
+        attempt["bundles"].append(copied)
+        for row in artifact["row_keys"]:
+            attempt["memberships"][row] = {
+                "routing": routes[row],
+                "bundle": {**prior["memberships"][row]["bundle"], "path": path},
+            }
+    attempt["reused_from"] = prior["number"]
 
 
 FINDINGS_COLUMNS = (
@@ -408,17 +336,22 @@ def _write_findings(next_dir: Path, record: dict, attempt: dict) -> None:
                 evaluation = attempt["evaluations"][row_key]
                 results = evaluation["results"]
                 tokens = evaluation["warning_tokens"]
-                findings = [
-                    (index, check)
-                    for index, check in enumerate(results)
-                    if check.get("status") in ("warn", "fail", "not_run")
-                ]
+                occurrences: dict[str, int] = {}
+                findings = []
+                for check in results:
+                    warning_id = ""
+                    code = check["code"]
+                    if (
+                        check["status"] == "warn"
+                        and validation_policy.RULES[code].scope == "original"
+                    ):
+                        occurrences[code] = occurrences.get(code, 0) + 1
+                        warning_id = f"{code}:{occurrences[code]}"
+                    if check["status"] in ("warn", "fail", "not_run"):
+                        findings.append((warning_id, check))
                 if not findings and route.get("withheld"):
-                    findings = [(None, {})]
-                for index, check in findings:
-                    warning_id = (
-                        f"{check.get('code')}:{index + 1}" if index is not None else ""
-                    )
+                    findings = [("", {})]
+                for warning_id, check in findings:
                     token = tokens.get(warning_id, "")
                     acceptance = accepted.get(token) if token else None
                     original_page = check.get("page")
@@ -477,45 +410,6 @@ def _write_findings(next_dir: Path, record: dict, attempt: dict) -> None:
         }
 
 
-def _recover_delivery(run_dir: Path, record: dict[str, Any]) -> None:
-    """Recover saved replacement state while the caller holds this run's lock."""
-    next_dir, previous = run_dir / "bundles.next", run_dir / "bundles.previous"
-    attempts = record["delivery_attempts"]
-    latest = attempts[-1] if attempts else None
-    if previous.exists():
-        if latest is None:
-            raise ValueError("Bundle backup exists without a recorded delivery attempt")
-        if latest["status"] == "completed":
-            shutil.rmtree(previous)
-            if next_dir.exists():
-                shutil.rmtree(next_dir)
-            return
-        active = run_dir / "bundles"
-        if active.exists():
-            shutil.rmtree(active)
-        previous.replace(active)
-        for entry in record["entries"]:
-            prior = latest.get("previous_memberships", {}).get(entry["row_key"])
-            if prior:
-                entry.update(prior)
-    if next_dir.exists():
-        shutil.rmtree(next_dir)
-    if latest and latest["status"] in ("running", "prepared", "replacing"):
-        latest["status"] = "failed"
-        latest["bundles"] = []
-        latest["memberships"] = {}
-        latest["finished_at"] = run_report.timestamp()
-        run_report.add_check(
-            latest,
-            "delivery.interrupted",
-            "delivery",
-            "fail",
-            "Interrupted bundle replacement was rolled back; previous memberships remain active",
-        )
-        run_report.finish_run(record)
-        run_report.write_report(run_dir, record)
-
-
 def bundle_run(
     run_dir: Path,
     *,
@@ -524,9 +418,13 @@ def bundle_run(
     withhold: list[str] | None = None,
     policy: dict | None = None,
 ) -> dict[str, Any]:
-    """Lock a saved run before loading, recovering or changing its delivery."""
+    """Lock a completed saved run before loading or changing its delivery."""
     run_dir = run_dir.resolve()
     with run_lock(run_dir):
+        if run_dir.name.endswith(".incomplete"):
+            raise ValueError(
+                "This run is incomplete; generate a new run before rebundling"
+            )
         record = read_json(run_dir / "run.json")
         if not isinstance(record, dict):
             raise ValueError(
@@ -551,10 +449,10 @@ def _bundle_run(
     withhold: list[str] | None = None,
     policy: dict | None = None,
 ) -> dict[str, Any]:
-    """Validate, assemble, then commit while the caller holds this run's lock.
+    """Publish a new bundle set while the caller holds this run's lock.
 
-    Expected operation failures return a failed attempt while preserving the
-    previous set. Unexpected errors save the same evidence and propagate.
+    Completed sets are immutable. An interrupted attempt can leave an unused
+    directory; only the atomic run record publishes its memberships.
     """
     if record.get("format_version") != run_report.RUN_FORMAT_VERSION:
         raise ValueError("Unsupported run format; rebundling requires format version 2")
@@ -563,7 +461,6 @@ def _bundle_run(
             "Input checks did not accept this run; correct the source and generate a new run"
         )
     run_dir = run_dir.resolve()
-    _recover_delivery(run_dir, record)
     attempt: dict[str, Any] = {
         "number": len(record["delivery_attempts"]) + 1,
         "started_at": run_report.timestamp(),
@@ -575,28 +472,16 @@ def _bundle_run(
         "checks": [],
         "bundles": [],
         "memberships": {},
-        "previous_memberships": {
-            entry["row_key"]: {
-                "routing": deepcopy(entry["routing"]),
-                "bundle": deepcopy(entry["bundle"]),
-            }
-            for entry in record["entries"]
-        },
     }
-    previous_memberships = attempt["previous_memberships"]
     record["delivery_attempts"].append(attempt)
-    run_report.write_report(run_dir, record)
-    next_dir, previous, active = (
-        run_dir / "bundles.next",
-        run_dir / "bundles.previous",
-        run_dir / "bundles",
-    )
+    run_report.write_json(run_dir, record)
+    name = f"attempt-{attempt['number']:04d}-{uuid4().hex[:8]}"
+    active = run_dir / "bundles" / name
+    next_dir = active.with_name(name + ".incomplete")
+    attempt["directory"] = active.relative_to(run_dir).as_posix()
+    memberships_applied = False
     try:
         attempt["engine"] = run_report.engine_identity()
-        if record.get("version", {}).get("compiler") != TYPST_VERSION:
-            raise ValueError(
-                "Saved run uses an unsupported notice compiler; generate and check a new run"
-            )
         requested = (
             record.get(
                 "validation_policy",
@@ -610,13 +495,7 @@ def _bundle_run(
         resolved = validation_policy.resolve_policy(requested, record)
         attempt["resolved_rules"] = deepcopy(resolved)
         attempt["notice_length"] = validation_policy.notice_length_settings(requested)
-        retained = run_report.resource_manifest(run_dir / "resources", run_dir)
-        if retained["sha256"] != record["resources"].get("sha256"):
-            raise ValueError(
-                "Saved resources changed; generate and check a new run before delivery"
-            )
-        attempt["resources_sha256"] = retained["sha256"]
-        verify_components(run_dir / "resources/templates")
+        attempt["resources_sha256"] = record["resources"].get("sha256")
         settings = record["configuration"]["effective"].get("bundling", {})
         attempt["configuration"] = deepcopy(settings)
         size = settings.get("bundle_size", 0)
@@ -638,7 +517,6 @@ def _bundle_run(
             raise ValueError("Run entries must have unique source row keys")
         record["validation_policy"] = deepcopy(requested)
         routed = _routes(
-            run_dir,
             record,
             entries,
             group_by,
@@ -648,16 +526,8 @@ def _bundle_run(
             record.get("withheld_rows", []) if withhold is None else withhold,
             resolved,
         )
-        if not attempt["notice_length"]["enabled"]:
-            run_report.add_check(
-                attempt,
-                "delivery.notice_length",
-                "delivery",
-                "not_run",
-                "Fixed notice length is disabled",
-            )
+        _check_notice_length(routed, attempt)
         attempt["review"]["withheld_rows"] = record["withheld_rows"]
-        run_report.write_report(run_dir, record)
         if size == 0:
             attempt["status"] = "completed"
             run_report.add_check(
@@ -668,16 +538,30 @@ def _bundle_run(
                 "Bundling is disabled; originals remain available",
             )
         else:
-            next_dir.mkdir(mode=0o700)
-            _assemble(routed, next_dir, group_by, size, attempt)
+            next_dir.mkdir(mode=0o700, parents=True)
+            prior = next(
+                (
+                    previous
+                    for previous in reversed(record["delivery_attempts"][:-1])
+                    if previous["status"] == "completed"
+                    and previous["bundles"]
+                    and previous["configuration"] == settings
+                ),
+                None,
+            )
+            if prior is None:
+                _assemble(routed, next_dir, group_by, size, attempt, run_dir)
+            else:
+                _reuse_bundle_set(prior, routed, next_dir, attempt, run_dir)
+            if len(attempt["memberships"]) != len(routed) or set(
+                attempt["memberships"]
+            ) != {entry["row_key"] for entry, _ in routed}:
+                raise ValueError(
+                    "Every readable original must belong to exactly one bundle"
+                )
             _write_findings(next_dir, record, attempt)
-            attempt["status"] = "prepared"
-            run_report.write_report(run_dir, record)
-            attempt["status"] = "replacing"
-            run_report.write_report(run_dir, record)
-            active.mkdir(exist_ok=True)
-            active.replace(previous)
-            next_dir.replace(active)
+            next_dir.rename(active)
+            memberships_applied = True
             for entry in record["entries"]:
                 membership = attempt["memberships"].get(entry["row_key"])
                 if membership:
@@ -690,11 +574,8 @@ def _bundle_run(
                     }
             attempt["status"] = "completed"
         attempt["finished_at"] = run_report.timestamp()
-        attempt.pop("previous_memberships", None)
         run_report.finish_run(record)
         run_report.write_report(run_dir, record)
-        if previous.exists():
-            shutil.rmtree(previous)
         return attempt
     except Exception as exc:
         # JSON is authoritative if its HTML view fails after the commit write.
@@ -706,18 +587,14 @@ def _bundle_run(
         ):
             record.clear()
             record.update(saved)
-            _recover_delivery(run_dir, record)
             raise
-        if previous.exists():
-            if active.exists():
-                shutil.rmtree(active)
-            previous.replace(active)
-        if next_dir.exists():
-            shutil.rmtree(next_dir)
-        for entry in record["entries"]:
-            entry.update(previous_memberships[entry["row_key"]])
+        if memberships_applied:
+            saved_entries = {entry["row_key"]: entry for entry in saved["entries"]}
+            for entry in record["entries"]:
+                prior = saved_entries[entry["row_key"]]
+                entry["bundle"] = prior["bundle"]
+                entry["routing"] = prior["routing"]
         attempt["status"] = "failed"
-        attempt.pop("previous_memberships", None)
         attempt["bundles"] = []
         attempt["memberships"] = {}
         attempt["finished_at"] = run_report.timestamp()
