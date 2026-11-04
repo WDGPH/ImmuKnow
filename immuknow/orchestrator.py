@@ -143,7 +143,7 @@ Each run keeps its own originals, run.json and report.html under --output.
         "--workers",
         type=_positive_workers,
         default=1,
-        help="Concurrent notice renders (default: 1).",
+        help="Concurrent notice renders and encryption workers (default: 1).",
     )
     parser.add_argument(
         "--no-progress", action="store_true", help="Suppress terminal progress output."
@@ -537,6 +537,7 @@ def run_pipeline(
                             raise outcome.error
                     except (
                         OSError,
+                        ValueError,
                         subprocess.CalledProcessError,
                         PdfReadError,
                     ) as exc:
@@ -631,19 +632,21 @@ def run_pipeline(
                     with StageProgress(
                         "Encryption", len(requested_pairs), stream=progress_stream
                     ) as stage:
-                        for client, job in requested_pairs:
+
+                        def incorporate_encryption(
+                            client: ClientRecord,
+                            destination: Path,
+                            details: dict[str, str | int] | None,
+                            error: Exception | None,
+                        ) -> None:
                             entry = by_row[client.sequence]
                             failed = False
                             try:
-                                destination = (
-                                    run_dir / "encrypted" / f"{entry['row_key']}.pdf"
-                                )
-                                encryption_details = encrypt_notices.encrypt_notice(
-                                    client, job.pdf, destination, config["encryption"]
-                                )
+                                if error is not None:
+                                    raise error
                                 entry["encryption"].update(
                                     status="completed",
-                                    method=encryption_details,
+                                    method=details,
                                     **run_report.artifact_record(destination, run_dir),
                                 )
                             except (OSError, ValueError, PdfReadError) as exc:
@@ -658,7 +661,23 @@ def run_pipeline(
                                 )
                             finally:
                                 checkpoint.advance()
-                                stage.advance(failed=failed)
+                                stage.advance(
+                                    failed=failed or sys.exc_info()[0] is not None
+                                )
+
+                        tasks = (
+                            (
+                                client,
+                                job.pdf,
+                                run_dir
+                                / "encrypted"
+                                / f"{by_row[client.sequence]['row_key']}.pdf",
+                            )
+                            for client, job in requested_pairs
+                        )
+                        encrypt_notices.encrypt_many(
+                            tasks, config["encryption"], workers, incorporate_encryption
+                        )
                     run_report.write_report(run_dir, record)
                 with StageProgress("Delivery", stream=progress_stream):
                     bundle_pdfs._bundle_run(run_dir, record)
@@ -716,10 +735,10 @@ def _render_notice(
     timeouts: compile_notices.CompilerTimeouts,
     concurrent: bool,
 ) -> _RenderOutcome:
-    """Compile and evaluate one independent notice without touching the report."""
+    """Compile one notice and return its placed findings without changing run state."""
     options = {"jobs": 1} if concurrent else {}
     try:
-        diagnostics = compile_notices.compile_render_job(
+        diagnostics, summary, evidence_error = compile_notices.compile_render_job(
             job, typst_bin, timeout=timeouts.compile, **options
         )
     except BaseException as exc:
@@ -728,28 +747,18 @@ def _render_notice(
             (),
             None,
             exc,
-            isinstance(exc, (OSError, subprocess.CalledProcessError)),
-        )
-    try:
-        summary = compile_notices.evaluate_render_job(
-            job, typst_bin, timeout=timeouts.evidence, **options
-        )
-        return _RenderOutcome(True, tuple(diagnostics), summary, None, True)
-    except BaseException as exc:
-        return _RenderOutcome(
-            True,
-            tuple(diagnostics),
-            None,
-            exc,
             isinstance(
-                exc,
-                (
-                    OSError,
-                    ValueError,
-                    subprocess.CalledProcessError,
-                ),
+                exc, (OSError, ValueError, PdfReadError, subprocess.CalledProcessError)
             ),
         )
+    return _RenderOutcome(
+        True,
+        tuple(diagnostics),
+        summary,
+        evidence_error,
+        evidence_error is None
+        or isinstance(evidence_error, (OSError, ValueError, PdfReadError)),
+    )
 
 
 def _record_source_rows(frame: pd.DataFrame, record: dict[str, Any]) -> None:

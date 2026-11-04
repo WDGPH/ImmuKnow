@@ -9,9 +9,7 @@ from pathlib import Path
 
 import pytest
 import yaml
-from pypdf import PdfReader
 
-from immuknow import bundle_pdfs, run_report
 from immuknow.compile_notices import CompilerTimeoutError
 from immuknow.orchestrator import run_pipeline
 from tests.integration.test_run_accounting import prepare_inputs
@@ -36,7 +34,6 @@ def sleeping_compiler(tmp_path: Path, operation: str) -> Path:
         "selected_row = any('row-000001' in arg for arg in args)\n"
         "stall = (operation == 'version' and args == ['--version']) or (\n"
         "    operation == 'compile' and args[0] == 'compile' and selected_row\n"
-        ") or (operation == 'evidence' and args[0] == 'eval' and selected_row\n"
         ")\n"
         "if stall:\n"
         f"    Path({str(tmp_path / 'stalled-operation')!r}).write_text(operation)\n"
@@ -82,8 +79,8 @@ def test_version_timeout_preserves_failed_setup(tmp_path, monkeypatch):
     assert "version probe" in record["checks"][-1]["message"]
 
 
-@pytest.mark.parametrize("operation", ["compile", "evidence"])
-def test_row_timeout_continues_independent_rows(tmp_path, monkeypatch, operation):
+def test_row_timeout_continues_independent_rows(tmp_path, monkeypatch):
+    operation = "compile"
     source, config, templates, _ = prepare_inputs(tmp_path)
     set_deadline(config, operation)
     monkeypatch.setenv("TYPST_BIN", str(sleeping_compiler(tmp_path, operation)))
@@ -103,26 +100,7 @@ def test_row_timeout_continues_independent_rows(tmp_path, monkeypatch, operation
     assert limits[operation] == 5
     assert (tmp_path / "stalled-operation").read_text() == operation
     assert limits["version"] == 10
-    if operation == "compile":
-        assert first["original"]["status"] == "failed"
-        assert first["bundle"] is None
-        assert not (record_path.parent / "originals/row-000001.pdf").exists()
-    else:
-        assert first["original"]["status"] == "completed"
-        original = record_path.parent / first["original"]["path"]
-        original_bytes = original.read_bytes()
-        assert PdfReader(original).pages
-        assert first["routing"]["destination"] == "review"
-        # A failure alone must remain held, when the operator clears withholding.
-        first["checks"] = [
-            check for check in first["checks"] if check["status"] != "warn"
-        ]
-        run_report.write_report(record_path.parent, record)
-        attempt = bundle_pdfs.bundle_run(record_path.parent, withhold=[])
-        record = json.loads(record_path.read_text())
-        first = record["entries"][0]
-        assert attempt["status"] == "completed"
-        assert first["routing"]["destination"] == "review"
-        assert first["routing"]["reason"] == "Failed checks"
-        assert "render.evidence_failed" in first["routing"]["failed_checks"]
-        assert original.read_bytes() == original_bytes
+    assert first["original"]["status"] == "failed"
+    assert first["bundle"] is None
+    assert not (record_path.parent / "originals/row-000001.pdf").exists()
+    assert not list((record_path.parent / "work").rglob("compiled.pdf"))

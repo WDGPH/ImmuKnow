@@ -46,7 +46,6 @@ def test_concurrent_rendering_preserves_native_outputs_and_row_association(
 ):
     serial = run_inputs(tmp_path / "serial", 1)
     original_compile = compile_notices.compile_render_job
-    original_evaluate = compile_notices.evaluate_render_job
     second_finished = Event()
     active_lock = Lock()
     active = 0
@@ -63,21 +62,16 @@ def test_concurrent_rendering_preserves_native_outputs_and_row_association(
             # Force source row 2 to complete first, regardless of preparation order.
             if job.sequence == "row-000001":
                 assert second_finished.wait(30)
-            return original_compile(job, *args, **kwargs)
+            result = original_compile(job, *args, **kwargs)
+            completed.append(job.sequence)
+            if job.sequence == "row-000002":
+                second_finished.set()
+            return result
         finally:
             with active_lock:
                 active -= 1
 
-    def evaluate_job(job, *args, **kwargs):
-        assert kwargs["jobs"] == 1
-        result = original_evaluate(job, *args, **kwargs)
-        completed.append(job.sequence)
-        if job.sequence == "row-000002":
-            second_finished.set()
-        return result
-
     monkeypatch.setattr(compile_notices, "compile_render_job", compile_job)
-    monkeypatch.setattr(compile_notices, "evaluate_render_job", evaluate_job)
     concurrent = run_inputs(tmp_path / "concurrent", 2)
     assert completed == ["row-000002", "row-000001"]
     assert maximum == 2
@@ -109,23 +103,19 @@ def test_concurrent_expected_failure_retains_other_row(
     tmp_path, monkeypatch, operation
 ):
     original_compile = compile_notices.compile_render_job
-    original_evaluate = compile_notices.evaluate_render_job
 
     def compile_job(job, *args, **kwargs):
         if operation == "compile" and job.sequence == "row-000001":
             raise OSError("deliberate compilation failure")
-        return original_compile(job, *args, **kwargs)
-
-    def evaluate_job(job, *args, **kwargs):
+        diagnostics, summary, error = original_compile(job, *args, **kwargs)
         if job.sequence == "row-000001":
             if operation == "evidence":
-                raise ValueError("deliberate evidence failure")
+                return diagnostics, None, ValueError("deliberate evidence failure")
             if operation == "evidence-oserror":
-                raise OSError("deliberate evidence read failure")
-        return original_evaluate(job, *args, **kwargs)
+                return diagnostics, None, OSError("deliberate evidence read failure")
+        return diagnostics, summary, error
 
     monkeypatch.setattr(compile_notices, "compile_render_job", compile_job)
-    monkeypatch.setattr(compile_notices, "evaluate_render_job", evaluate_job)
     record_path = run_inputs(tmp_path, 2)
     record = json.loads(record_path.read_text())
     first, second = record["entries"]
@@ -186,8 +176,9 @@ def test_cli_rejects_invalid_worker_count_before_running(tmp_path, workers):
     assert not list(tmp_path.glob("*/run.json"))
 
 
+@pytest.mark.parametrize("failure_stage", ["compilation", "evidence"])
 def test_unexpected_worker_failure_drains_active_work_and_saves_accounting(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, failure_stage
 ):
     original_compile = compile_notices.compile_render_job
     other_started = Event()
@@ -195,7 +186,11 @@ def test_unexpected_worker_failure_drains_active_work_and_saves_accounting(
     def compile_job(job, *args, **kwargs):
         if job.sequence == "row-000001":
             assert other_started.wait(30)
-            raise RuntimeError("deliberate unexpected worker failure")
+            error = RuntimeError("deliberate unexpected worker failure")
+            if failure_stage == "evidence":
+                diagnostics, _, _ = original_compile(job, *args, **kwargs)
+                return diagnostics, None, error
+            raise error
         other_started.set()
         return original_compile(job, *args, **kwargs)
 
@@ -206,7 +201,11 @@ def test_unexpected_worker_failure_drains_active_work_and_saves_accounting(
     record = json.loads(record_path.read_text())
     first, second = record["entries"]
     assert record["status"] == "completed_with_failures"
-    assert first["original"]["status"] == "failed"
+    assert first["original"]["status"] == (
+        "completed" if failure_stage == "evidence" else "failed"
+    )
+    if failure_stage == "evidence":
+        assert any(c["code"] == "render.evidence_failed" for c in first["checks"])
     assert second["original"]["status"] == "completed"
     assert second["render_summary"]
     assert not record["delivery_attempts"]
@@ -222,7 +221,6 @@ from immuknow import compile_notices, orchestrator
 marker, source, config, templates, assignments, runs = map(Path, sys.argv[1:])
 started = Event()
 compile_job = compile_notices.compile_render_job
-evaluate_job = compile_notices.evaluate_render_job
 class Executor(ThreadPoolExecutor):
     def shutdown(self, *args, **kwargs):
         marker.with_suffix(".draining").touch()
@@ -231,16 +229,13 @@ def compile_one(job, *args, **kwargs):
     if job.sequence == "row-000001":
         started.set()
         sys.stdin.readline()
-    return compile_job(job, *args, **kwargs)
-def evaluate_one(job, *args, **kwargs):
-    result = evaluate_job(job, *args, **kwargs)
+    result = compile_job(job, *args, **kwargs)
     if job.sequence == "row-000002":
         assert started.wait(30)
         marker.touch()
     return result
 orchestrator.ThreadPoolExecutor = Executor
 compile_notices.compile_render_job = compile_one
-compile_notices.evaluate_render_job = evaluate_one
 try:
     orchestrator.run_pipeline(source, runs, config_dir=config, template_dir=templates,
                               notice_assignments=assignments, workers=2)

@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
+from multiprocessing import get_context
+from collections.abc import Callable, Iterable
+from pypdf.errors import PdfReadError
 
 from pypdf import PdfReader, PdfWriter
 from pypdf.errors import DependencyError
@@ -49,9 +53,7 @@ def encrypt_notice(
 
     reader = PdfReader(source)
     writer = PdfWriter()
-    writer.append(reader)
-    if reader.metadata:
-        writer.add_metadata(reader.metadata)
+    writer.clone_document_from_reader(reader)
     try:
         writer.encrypt(
             user_password=password, owner_password=password, algorithm="AES-256"
@@ -96,3 +98,96 @@ def encrypt_notice(
         return {"algorithm": "AES-256", "revision": 6, "key_bits": 256}
     finally:
         partial.unlink(missing_ok=True)
+
+
+def encrypt_many(
+    tasks: Iterable[tuple[ClientRecord, Path, Path]],
+    settings: dict,
+    workers: int,
+    incorporate: Callable[[ClientRecord, Path, dict | None, Exception | None], None],
+) -> None:
+    """Encrypt bounded work and incorporate submitted outcomes before returning."""
+
+    def reduced(client: ClientRecord) -> ClientRecord:
+        return ClientRecord(
+            sequence=client.sequence,
+            client_id=client.client_id,
+            language=client.language,
+            person=client.person,
+            school=client.school,
+            board=client.board,
+            contact=client.contact,
+            overdue_diseases=[],
+            overdue_agents=[],
+            metadata={},
+        )
+
+    expected = (OSError, ValueError, PdfReadError)
+    if workers == 1:
+        for client, source, destination in tasks:
+            try:
+                result = encrypt_notice(client, source, destination, settings)
+            except expected as exc:
+                incorporate(client, destination, None, exc)
+            else:
+                incorporate(client, destination, result, None)
+        return
+
+    iterator = iter(tasks)
+    pending = {}
+    failure: BaseException | None = None
+    executor = ProcessPoolExecutor(max_workers=workers, mp_context=get_context("spawn"))
+
+    def submit_one() -> bool:
+        try:
+            client, source, destination = next(iterator)
+        except StopIteration:
+            return False
+        future = executor.submit(
+            encrypt_notice, reduced(client), source, destination, settings
+        )
+        pending[future] = (client, destination)
+        return True
+
+    def collect(future) -> None:
+        nonlocal failure
+        client, destination = pending.pop(future)
+        try:
+            result = future.result()
+        except expected as exc:
+            try:
+                incorporate(client, destination, None, exc)
+            except BaseException as callback_error:
+                if failure is None:
+                    failure = callback_error
+        except BaseException as exc:
+            if failure is None:
+                failure = exc
+        else:
+            try:
+                incorporate(client, destination, result, None)
+            except BaseException as exc:
+                if failure is None:
+                    failure = exc
+
+    try:
+        for _ in range(workers):
+            if not submit_one():
+                break
+        while pending and failure is None:
+            completed, _ = wait(pending, return_when=FIRST_COMPLETED)
+            for future in completed:
+                collect(future)
+            if failure is None:
+                for _ in range(len(completed)):
+                    if not submit_one():
+                        break
+    except BaseException as exc:
+        failure = failure or exc
+    finally:
+        # Wait for every submitted job before the run lock can be released.
+        executor.shutdown(wait=True)
+        for future in list(pending):
+            collect(future)
+    if failure is not None:
+        raise failure

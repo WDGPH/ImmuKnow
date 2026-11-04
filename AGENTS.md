@@ -77,7 +77,9 @@ PDF readability, hash and page count without extracting text or rechecking link
 destinations. Saved-run delivery validates the retained report and source binding.
 
 Use validated `compile_notices.CompilerTimeouts` for every native Typst operation.
-Preserve row continuation, readable originals after evidence timeouts and
+Compile each notice once and collect its placed Typst report from that compilation.
+Remove temporary evidence data before publishing any notice PDF. Preserve row
+continuation, sanitized readable originals when report validation fails, and
 committed bundles after failed replacement. Failed original checks require review;
 eligibility is metadata. Bundle all readable originals using configured grouping and size, with a findings CSV per
 bundle. Review state and operator holds do not split bundles or omit pages.

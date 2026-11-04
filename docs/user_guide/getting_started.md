@@ -196,13 +196,14 @@ The command shows rendering and encryption progress on standard error, followed
 by delivery activity. Redirected output uses concise stage summaries. Use
 `--no-progress` to suppress progress messages.
 
-Rendering runs one notice at a time by default. To render multiple notices at
-once, pass a positive worker count, for example `--workers 4`. Choose a count
-that suits the available CPU and memory. Encryption and delivery run after
-rendering and remain serial. The run log records stage durations to help assess
+Rendering and individual encryption run one notice at a time by default.
+Pass a positive worker count, for example `--workers 4`, to process independent
+notices concurrently in each stage. Choose a count that suits the available
+CPU and memory. Encryption runs after rendering using the same worker count;
+bundling remains serial. The run log records stage durations to help assess
 performance for your cohort. An interrupted run stops submitting notices, waits
-for active work, and saves its results before releasing the run. Delivery does
-not start after an interruption during rendering.
+for active work, and saves its results before releasing the run. Bundling does
+not start after an interruption during rendering or encryption.
 
 ## Run output
 

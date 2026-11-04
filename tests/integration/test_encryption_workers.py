@@ -1,0 +1,229 @@
+"""Encryption workers publish verified copies and report independent failures."""
+
+import json
+import os
+import signal
+import subprocess
+import sys
+import time
+from dataclasses import replace
+from pathlib import Path
+
+import pytest
+
+from pypdf import PdfReader, PdfWriter
+from pypdf.generic import BooleanObject, DictionaryObject, NameObject, TextStringObject
+
+from immuknow import run_report
+from immuknow.client_placeholders import CLIENT_PLACEHOLDERS, build_client_context
+from immuknow.encrypt_notices import encrypt_many
+from immuknow.orchestrator import run_pipeline
+from immuknow.run_lock import run_lock
+from tests.integration.test_run_accounting import prepare_inputs
+from tests.fixtures.sample_input import create_test_client_record
+
+pytestmark = pytest.mark.integration
+
+
+def test_spawned_encryption_continues_after_bad_source(tmp_path: Path) -> None:
+    source = tmp_path / "original.pdf"
+    writer = PdfWriter()
+    writer.add_blank_page(width=120, height=160)
+    writer.write(source)
+    before = source.read_bytes()
+    client = create_test_client_record()
+    outputs = [tmp_path / f"encrypted-{i}.pdf" for i in range(3)]
+    tasks = [
+        (client, source, outputs[0]),
+        (client, tmp_path / "missing.pdf", outputs[1]),
+        (client, source, outputs[2]),
+    ]
+    outcomes = []
+    encrypt_many(
+        tasks,
+        {"password": {"template": "{date_of_birth_iso_compact}"}},
+        2,
+        lambda client, destination, details, error: outcomes.append(
+            (destination, details, error)
+        ),
+    )
+    assert len(outcomes) == 3
+    assert {path for path, details, error in outcomes if error is None} == {
+        outputs[0],
+        outputs[2],
+    }
+    assert {path for path, details, error in outcomes if error is not None} == {
+        outputs[1]
+    }
+    assert source.read_bytes() == before
+    password = client.person["date_of_birth_iso"].replace("-", "")
+    for output in (outputs[0], outputs[2]):
+        reader = PdfReader(output)
+        assert (
+            reader.is_encrypted and not reader.decrypt("") and reader.decrypt(password)
+        )
+        assert len(reader.pages) == 1
+    assert not outputs[1].exists()
+
+
+def test_spawned_workers_support_non_dob_password_facts_and_missing_dob(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source.pdf"
+    writer = PdfWriter()
+    writer.add_blank_page(width=120, height=160)
+    writer.write(source)
+    client = create_test_client_record()
+    context = build_client_context(client)
+    fields = sorted(
+        CLIENT_PLACEHOLDERS - {"date_of_birth_iso", "date_of_birth_iso_compact"}
+    )
+    assert all(context[field] for field in fields)
+    template = "|".join("{" + field + "}" for field in fields)
+    missing = replace(client, person={**client.person, "date_of_birth_iso": ""})
+    results = []
+    encrypt_many(
+        [
+            (client, source, tmp_path / "valid.pdf"),
+            (missing, source, tmp_path / "missing.pdf"),
+        ],
+        {"password": {"template": template + "|{date_of_birth_iso}"}},
+        2,
+        lambda client, destination, details, error: results.append(
+            (destination, error)
+        ),
+    )
+    assert (
+        next(error for path, error in results if path.name == "missing.pdf") is not None
+    )
+    assert not (tmp_path / "missing.pdf").exists()
+    reader = PdfReader(tmp_path / "valid.pdf")
+    assert reader.decrypt(
+        "|".join(context[field] for field in fields)
+        + "|"
+        + context["date_of_birth_iso"]
+    )
+
+
+def test_encrypted_copy_preserves_document_metadata_and_attachments(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source.pdf"
+    writer = PdfWriter()
+    writer.add_blank_page(width=120, height=160)
+    writer.add_metadata({"/Title": "Fixture title"})
+    writer.add_attachment("details.txt", b"fixture attachment")
+    writer._root_object[NameObject("/MarkInfo")] = DictionaryObject(
+        {
+            NameObject("/Marked"): BooleanObject(True),
+        }
+    )
+    writer._root_object[NameObject("/Lang")] = TextStringObject("fr-CA")
+    writer.write(source)
+    original = source.read_bytes()
+    client = create_test_client_record()
+    output = tmp_path / "encrypted.pdf"
+    results = []
+    encrypt_many(
+        [(client, source, output)],
+        {"password": {"template": "test-password"}},
+        2,
+        lambda *result: results.append(result),
+    )
+    assert results[0][-1] is None
+    encrypted = PdfReader(output)
+    assert encrypted.decrypt("test-password")
+    assert encrypted.metadata is not None
+    assert encrypted.metadata.title == "Fixture title"
+    assert encrypted.attachments["details.txt"] == [b"fixture attachment"]
+    assert encrypted.root_object["/Lang"] == "fr-CA"
+    assert encrypted.root_object["/MarkInfo"]["/Marked"]
+    assert source.read_bytes() == original
+
+
+@pytest.mark.parametrize("workers", [1, 2])
+def test_coordinator_records_artifact_errors_and_continues(
+    tmp_path, monkeypatch, workers
+):
+    source, config, templates, _ = prepare_inputs(tmp_path)
+    artifact = run_report.artifact_record
+    advance = run_report._OutcomeCheckpoint.advance
+    coordinator = os.getpid()
+    calls = []
+
+    def fail_one(path, run_dir):
+        if path.name == "row-000001.pdf" and path.parent.name == "encrypted":
+            raise OSError("Cannot record encrypted artifact")
+        return artifact(path, run_dir)
+
+    def checkpoint(self):
+        calls.append(os.getpid())
+        return advance(self)
+
+    monkeypatch.setattr(run_report, "artifact_record", fail_one)
+    monkeypatch.setattr(run_report._OutcomeCheckpoint, "advance", checkpoint)
+    saved = run_pipeline(
+        source,
+        tmp_path / "runs",
+        config_dir=config,
+        notice_template=templates / "overdue_agents_v1.en.typ",
+        workers=workers,
+    )
+    first, second = json.loads(saved.read_text())["entries"]
+    assert first["encryption"]["status"] == "failed"
+    assert any(
+        check["code"] == "encryption.failed"
+        and "Cannot record encrypted artifact" in check["message"]
+        for check in first["checks"]
+    )
+    assert second["encryption"]["status"] == "completed"
+    assert (saved.parent / second["encryption"]["path"]).exists()
+    assert len(calls) >= 4 and set(calls) == {coordinator}
+
+
+def test_sigint_waits_for_spawned_workers_before_releasing_lock(tmp_path: Path) -> None:
+    script = tmp_path / "interrupt.py"
+    script.write_text("""
+import sys, time
+from pathlib import Path
+from immuknow import encrypt_notices
+from immuknow.run_lock import run_lock
+from tests.fixtures.sample_input import create_test_client_record
+
+work = Path(sys.argv[1])
+def slow(client, source, destination, settings):
+    (work / (destination.name + ".started")).write_text("started")
+    time.sleep(1.5)
+    destination.write_text("finished")
+    return {}
+encrypt_notices.encrypt_notice = slow
+
+if __name__ == "__main__":
+    tasks = [(create_test_client_record(), work / str(i), work / (str(i) + ".out")) for i in range(8)]
+    with run_lock(work):
+        try:
+            encrypt_notices.encrypt_many(tasks, {}, 2, lambda *args: None)
+        except KeyboardInterrupt:
+            (work / "returned").write_text("done")
+""")
+    env = dict(os.environ, PYTHONPATH=str(Path(__file__).resolve().parents[2]))
+    process = subprocess.Popen([sys.executable, str(script), str(tmp_path)], env=env)
+    try:
+        deadline = time.monotonic() + 20
+        while not list(tmp_path.glob("*.started")) and time.monotonic() < deadline:
+            assert process.poll() is None
+            time.sleep(0.05)
+        assert list(tmp_path.glob("*.started"))
+        process.send_signal(signal.SIGINT)
+        assert process.wait(timeout=20) == 0
+        assert (tmp_path / "returned").exists()
+        with run_lock(tmp_path):
+            snapshot = {p.name: p.read_bytes() for p in tmp_path.glob("*.out")}
+            assert snapshot
+            time.sleep(0.5)
+            assert {p.name: p.read_bytes() for p in tmp_path.glob("*.out")} == snapshot
+        assert len(list(tmp_path.glob("*.started"))) <= 2
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait()

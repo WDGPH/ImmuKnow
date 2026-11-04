@@ -1,19 +1,30 @@
 """Compile explicit render jobs with pinned Typst and a bounded file root.
 
-Each command passes a JSON file reference rather than personal details. A PDF is
-published only after its compilation succeeds. The orchestrator inspects each actual result before
-recording it and proceeding to delivery; metadata extraction never erases a useful PDF.
+Each notice compiles once with its placed report. Internal evidence is removed
+before PDF publication; invalid reports retain a sanitized readable original.
+The orchestrator records the actual PDF and findings before delivery.
 """
 
 from __future__ import annotations
 
 import os
+from io import BytesIO
 import re
 import subprocess
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
+
+from pypdf import PdfReader, PdfWriter
+from pypdf.errors import PdfReadError
+from pypdf.generic import (
+    ArrayObject,
+    DictionaryObject,
+    IndirectObject,
+    StreamObject,
+    TextStringObject,
+)
 
 from .data_models import CheckResult, ClientRecord, RenderJob
 from .structured_input import parse_json, read_json
@@ -28,7 +39,6 @@ class CompilerTimeouts:
 
     version: float = 10
     compile: float = 120
-    evidence: float = 120
 
     @classmethod
     def from_config(cls, settings: Any) -> CompilerTimeouts:
@@ -36,7 +46,7 @@ class CompilerTimeouts:
         defaults = asdict(cls())
         if not isinstance(settings, dict) or set(settings) - defaults.keys():
             raise ValueError(
-                "typst.timeouts_seconds must contain only version, compile and evidence"
+                "typst.timeouts_seconds must contain only version and compile"
             )
         resolved = defaults | settings
         for operation, value in resolved.items():
@@ -143,7 +153,7 @@ def compiler_warnings(stderr: str) -> list[CheckResult]:
 
 
 def compiler_options(job: RenderJob) -> list[str]:
-    """PDF compilation and evidence evaluation use the same project inputs."""
+    """Freeze project inputs and identity for one notice compilation."""
     options = [
         "--root",
         str(job.workspace),
@@ -161,92 +171,164 @@ def compiler_options(job: RenderJob) -> list[str]:
     return options
 
 
+EVIDENCE_ATTACHMENT = "immuknow-evidence.json"
+
+
+def _strip_evidence(content: bytes) -> tuple[bytes, list[bytes], bool]:
+    """Remove evidence from the reader before cloning any reachable PDF objects."""
+    reader = PdfReader(BytesIO(content), strict=True)
+    names = reader.root_object.get("/Names")
+    if names is not None:
+        names = names.get_object()
+        if not isinstance(names, DictionaryObject):
+            raise ValueError("PDF attachment name tree is invalid")
+        embedded = names.get("/EmbeddedFiles")
+        if embedded is not None:
+            embedded = embedded.get_object()
+            if not isinstance(embedded, DictionaryObject) or "/Kids" in embedded:
+                raise ValueError("PDF attachment name tree is unsupported")
+            entries = embedded.get("/Names", ArrayObject()).get_object()
+            if not isinstance(entries, ArrayObject) or len(entries) % 2:
+                raise ValueError("PDF attachment name tree is invalid")
+            for index in range(0, len(entries), 2):
+                if not isinstance(
+                    entries[index].get_object(), TextStringObject
+                ) or not isinstance(entries[index + 1].get_object(), DictionaryObject):
+                    raise ValueError("PDF attachment name tree is invalid")
+    reserved = [
+        item for item in reader.attachment_list if item.name == EVIDENCE_ATTACHMENT
+    ]
+    payloads: list[bytes] = []
+    unreadable = False
+    specs = {id(item.pdf_object) for item in reserved}
+    for item in reserved:
+        try:
+            payloads.append(item.content)
+        except (ValueError, KeyError, PdfReadError):
+            unreadable = True
+        files = item.pdf_object.get("/EF")
+        if files is None:
+            raise ValueError("PDF evidence attachment is invalid")
+        files = files.get_object()
+        if not isinstance(files, DictionaryObject) or not files:
+            raise ValueError("PDF evidence attachment is invalid")
+        for value in files.values():
+            stream = value.get_object()
+            if not isinstance(stream, StreamObject):
+                raise ValueError("PDF evidence stream is invalid")
+            stream.set_data(b"")
+        item.delete()
+
+    # A file specification may also be associated with a page or structure
+    # element via /AF. Scrub all associated references, including aliases.
+    visited: set[int] = set()
+
+    def remove_associations(value: Any) -> None:
+        if isinstance(value, IndirectObject):
+            value = value.get_object()
+        if (
+            not isinstance(value, (DictionaryObject, ArrayObject))
+            or id(value) in visited
+        ):
+            return
+        visited.add(id(value))
+        if isinstance(value, DictionaryObject):
+            if (
+                "/EF" in value
+                and any(value.get(key) == EVIDENCE_ATTACHMENT for key in ("/F", "/UF"))
+                and id(value) not in specs
+            ):
+                raise ValueError("PDF contains unlisted render evidence")
+            associated = value.get("/AF")
+            if associated is not None:
+                associated = associated.get_object()
+                if not isinstance(associated, ArrayObject):
+                    raise ValueError("PDF associated files are invalid")
+                associated[:] = [
+                    ref for ref in associated if id(ref.get_object()) not in specs
+                ]
+            for child in list(value.values()):
+                remove_associations(child)
+        else:
+            for child in value:
+                remove_associations(child)
+
+    remove_associations(reader.root_object)
+    if "/Info" in reader.trailer:
+        remove_associations(reader.trailer.raw_get("/Info"))
+    writer = PdfWriter()
+    writer.clone_document_from_reader(reader)
+    output = BytesIO()
+    writer.write(output)
+    return output.getvalue(), payloads, unreadable
+
+
 def compile_render_job(
     job: RenderJob,
     typst_bin: str,
     *,
     timeout: float = CompilerTimeouts.compile,
     jobs: int | None = None,
-) -> list[CheckResult]:
-    """Publish one PDF after successful compilation, retaining compiler warnings.
-
-    Failures carry full stdout/stderr in CalledProcessError. Evidence extraction
-    is separate so its failure cannot erase a successfully compiled notice.
-    """
+) -> tuple[list[CheckResult], dict[str, Any] | None, Exception | None]:
+    """Compile once, publish only sanitized PDF bytes, and validate placed evidence."""
     job.pdf.parent.mkdir(parents=True, exist_ok=True)
     job.pdf.unlink(missing_ok=True)
-    partial = job.pdf.with_suffix(".partial.pdf")
-    partial.unlink(missing_ok=True)
-    command = [
-        typst_bin,
-        "compile",
-        *compiler_options(job),
-        *(["--jobs", str(jobs)] if jobs is not None else []),
-        str(job.template),
-        str(partial),
-    ]
-    try:
-        result = run_typst(command, timeout=timeout, operation="notice compilation")
-        partial.replace(job.pdf)
-    finally:
-        partial.unlink(missing_ok=True)
-    return compiler_warnings(result.stderr)
-
-
-def evaluate_render_job(
-    job: RenderJob,
-    typst_bin: str,
-    *,
-    timeout: float = CompilerTimeouts.evidence,
-    jobs: int | None = None,
-) -> dict[str, Any]:
-    """Read the required placed summary without interpreting component rules.
-
-    This repeats layout on the same staged resources, font options, trusted
-    identity and creation timestamp used for the PDF. A missing or malformed
-    report raises while leaving the PDF available for review.
-    """
-    result = run_typst(
-        [
+    work = job.workspace / "work"
+    work.mkdir(parents=True, exist_ok=True)
+    with TemporaryDirectory(prefix="render-", dir=work) as temporary:
+        directory = Path(temporary)
+        wrapper = directory / "entry.typ"
+        wrapper.write_text(
+            '#include sys.inputs.at("immuknow-template-path")\n'
+            "#context {\n"
+            "  let reports = query(<immuknow-report>).map(it => it.value)\n"
+            f'  pdf.attach("/{EVIDENCE_ATTACHMENT}", bytes(json.encode(reports)), mime-type: "application/json")\n'
+            "}\n",
+            encoding="utf-8",
+        )
+        raw_pdf = directory / "compiled.pdf"
+        command = [
             typst_bin,
-            "eval",
+            "compile",
             *compiler_options(job),
+            "--input",
+            "immuknow-template-path=/"
+            + job.template.relative_to(job.workspace).as_posix(),
             *(["--jobs", str(jobs)] if jobs is not None else []),
-            "--in",
-            str(job.template),
-            "query(<immuknow-report>).map(it => it.value)",
-            "--format",
-            "json",
-        ],
-        timeout=timeout,
-        operation="evidence evaluation",
-    )
+            str(wrapper),
+            str(raw_pdf),
+        ]
+        result = run_typst(command, timeout=timeout, operation="notice compilation")
+        sanitized, payloads, unreadable = _strip_evidence(raw_pdf.read_bytes())
+        partial = directory / "sanitized.pdf"
+        partial.write_bytes(sanitized)
+        partial.replace(job.pdf)
+    diagnostics = compiler_warnings(result.stderr)
     try:
-        summaries = parse_json(result.stdout)
-    except ValueError as exc:
-        raise ValueError("Compiler returned unreadable render evidence") from exc
-    if not isinstance(summaries, list) or len(summaries) != 1:
-        raise ValueError("Expected exactly one immuknow-report document summary")
-    summary = summaries[0]
-    notice = read_json(job.data)
-    expected = {
-        "row_key": job.sequence,
-        "template": job.template.name,
-        "client_id": job.client_id,
-        "version_id": job.version_id,
-        "language": job.language,
-    }
-    if not isinstance(notice, dict) or any(
-        notice.get(key) != value for key, value in expected.items()
-    ):
-        raise ValueError("Prepared notice does not match the selected render job")
-    validate_render_report(summary, notice)
-    checks = summary["checks"]
-    # Layout may issue a warning during either evaluation. Store each instance once.
-    for warning in compiler_warnings(result.stderr):
-        if warning.to_dict() not in checks:
-            checks.append(warning.to_dict())
-    return summary
+        if unreadable or len(payloads) != 1:
+            raise ValueError("Expected exactly one readable render evidence attachment")
+        summaries = parse_json(payloads[0], label="Render evidence")
+        if not isinstance(summaries, list) or len(summaries) != 1:
+            raise ValueError("Expected exactly one immuknow-report document summary")
+        summary = summaries[0]
+        notice = read_json(job.data)
+        expected = {
+            "row_key": job.sequence,
+            "template": job.template.name,
+            "client_id": job.client_id,
+            "version_id": job.version_id,
+            "language": job.language,
+        }
+        if not isinstance(notice, dict) or any(
+            notice.get(key) != value for key, value in expected.items()
+        ):
+            raise ValueError("Prepared notice does not match the selected render job")
+        validate_render_report(summary, notice)
+        return diagnostics, summary, None
+    except Exception as exc:
+        # The sanitized original is already published; preserve that outcome even
+        # if evidence validation raises an unexpected error.
+        return diagnostics, None, exc
 
 
 def check_expected_notices(

@@ -87,7 +87,6 @@ typst:
   timeouts_seconds:
     version: 10
     compile: 120
-    evidence: 120
 ```
 
 Each value must be a number of seconds above zero and at most 86400 (one day).
@@ -98,8 +97,9 @@ are saved in `run.json`. Saved-run rebundling does not invoke Typst.
 
 A version-probe timeout stops setup and preserves the source/run record. A
 notice compilation timeout fails that row, removes incomplete PDF output and
-allows independent rows to continue. An evidence timeout retains the readable
-original with failed checking, which prevents delivery.
+allows independent rows to continue. The same compilation produces the PDF and
+its Typst findings. Missing or invalid findings retain a sanitized readable
+original marked for review. A PDF that cannot be safely sanitized is not published.
 Inspect the recorded operation and template before increasing its limit.
 
 ### School validation

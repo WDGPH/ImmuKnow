@@ -112,10 +112,18 @@ does not distribute or stage a font set. All native compiler operations use priv
 block package downloads before making a connection. Dependencies must be stored
 inside the authored project and imported by relative paths, as in Studio.
 
-Native compilation and `typst eval --in` use the same payload, project resources,
-font discovery and creation timestamp. One `<immuknow-report>` summary supplies identity,
-actual pages, component presence, checks, measurements and QR destinations.
-The entry's `render_summary` retains that report.
+Each notice uses one native compilation with its payload, project resources,
+font discovery and frozen creation timestamp. A generated entry file includes
+the authored template and attaches its settled `<immuknow-report>` summary to
+the temporary PDF using [Typst's attachment API](https://typst.app/docs/reference/pdf/attach/).
+The summary supplies identity, actual pages, component presence, checks,
+measurements and QR destinations. Python reads it and removes its attachment,
+associated-file references and data streams before cloning and publishing the
+notice. Published originals, encrypted copies and bundles contain no internal
+report attachment or its data. Other authored attachments and PDF document
+structure are retained. If safe removal fails, no notice PDF is published.
+The entry's `render_summary` retains validated evidence in `run.json`. Missing
+or invalid evidence leaves a sanitized readable original with a failed check.
 The version 2 report schema is supplied at
 `typst/report-v2.json`. It owns render check names, component
 names and field types. Native and browser validators use it and the same
@@ -184,10 +192,14 @@ before propagating. Unexpected programming errors also save partial evidence
 and remain diagnosable. An unwritable output path raises directly without
 claiming a report exists.
 
-Rendering can use a bounded pool for notice compilation and evidence evaluation;
-PDF inspection and report updates remain in the coordinator. Typst's internal
-jobs are limited when multiple notices render concurrently. Encryption and
-delivery follow rendering serially. Progress and worker options are described
+Rendering uses bounded independent notice compilations; PDF inspection and
+report updates remain in the coordinator. Typst's internal jobs are limited
+when multiple notices render concurrently. Individual encryption follows
+rendering and uses the same worker count: one runs serially, while higher counts
+use a bounded pool of spawned processes with only password-context client facts.
+Workers publish verified copies; the coordinator incorporates outcomes and
+checkpoints. Failure or interruption stops submission and drains submitted work
+before releasing the run lock. Bundle assembly follows encryption serially. Progress and worker options are described
 in [getting started](../user_guide/getting_started.md#render-progress-and-workers)
 and the [Python interface](api.md).
 

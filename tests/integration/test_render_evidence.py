@@ -4,11 +4,13 @@ import json
 import subprocess
 from copy import deepcopy
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 import pymupdf
 import zxingcpp
-from pypdf import PdfReader
+from pypdf import PdfReader, PdfWriter
+from pypdf.generic import DictionaryObject, StreamObject
 
 from immuknow import bundle_pdfs, compile_notices, run_report
 from immuknow.orchestrator import run_pipeline
@@ -427,8 +429,15 @@ def test_invalid_evidence_keeps_original_and_independent_row(
 
     def changed_report(command, **options):
         result = run_typst(command, **options)
-        if command[1] == "eval" and any("row-000001" in part for part in command):
-            reports = json.loads(result.stdout)
+        if command[1] == "compile" and any("row-000001" in part for part in command):
+            raw_pdf = Path(command[-1])
+            reader = PdfReader(raw_pdf)
+            attachment = next(
+                item
+                for item in reader.attachment_list
+                if item.name == compile_notices.EVIDENCE_ATTACHMENT
+            )
+            reports = json.loads(attachment.content)
             report = reports[0]
             if damage == "row":
                 report["identity"]["row_key"] = "row-000002"
@@ -440,7 +449,14 @@ def test_invalid_evidence_keeps_original_and_independent_row(
                 report["measurements"]["history"][0]["row_key"] = "row-000002"
             else:
                 report["components"]["unknown"] = True
-            result.stdout = json.dumps(reports)
+            embedded = attachment.pdf_object["/EF"]
+            assert isinstance(embedded, DictionaryObject)
+            stream = embedded["/F"].get_object()
+            assert isinstance(stream, StreamObject)
+            stream.set_data(json.dumps(reports).encode("utf-8"))
+            writer = PdfWriter()
+            writer.clone_document_from_reader(reader)
+            writer.write(raw_pdf)
         return result
 
     monkeypatch.setattr(compile_notices, "run_typst", changed_report)

@@ -33,10 +33,26 @@ Expected row failures are recorded while independent rows continue. The CLI
 uses the same workflow and returns nonzero for failed rows or delivery steps.
 Previous runs are retained.
 
-Pass `workers` as a positive integer to render notices concurrently. The default
-is `1`, which renders serially. Encryption and delivery remain serial. Progress output is disabled
-by default for Python calls; pass a writable text stream as `progress_stream`
-to receive it. Stage durations are recorded in the run log.
+Pass `workers` as a positive integer to render and encrypt independent notices
+concurrently. The default is `1`, which keeps both stages serial. Encryption
+starts after rendering and uses spawned processes when `workers` exceeds one;
+bundling remains serial. Progress output is disabled by default for Python calls;
+pass a writable text stream as `progress_stream` to receive it. Stage durations
+are recorded in the run log.
+
+In a script using concurrent encryption, put the pipeline call inside the
+[Python multiprocessing main guard](https://docs.python.org/3.14/library/multiprocessing.html#safe-importing-of-main-module)
+so child processes can import the script without starting another run:
+
+```python
+if __name__ == "__main__":
+    record_path = run_pipeline(
+        Path("clients.csv"),
+        Path("runs"),
+        notice_template=Path("my-phu/overdue_diseases_v1.en.typ"),
+        workers=4,
+    )
+```
 
 The run freezes source bytes, selected resources and compiler inputs. Raw source
 values, normalized facts, assignments, placed findings and original/delivery

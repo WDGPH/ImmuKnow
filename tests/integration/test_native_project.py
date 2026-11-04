@@ -14,7 +14,7 @@ import pytest
 import yaml
 from pypdf import PdfReader
 
-from immuknow.compile_notices import compile_render_job, evaluate_render_job
+from immuknow.compile_notices import compile_render_job
 from immuknow.generate_notices import prepare_render_jobs
 from tests.fixtures.sample_input import create_test_client_record
 
@@ -41,8 +41,13 @@ def prepare_case(
 
 
 def compile_case(job):
-    assert not compile_render_job(job, os.environ.get("TYPST_BIN", "typst"))
-    report = evaluate_render_job(job, os.environ.get("TYPST_BIN", "typst"))
+    warnings, report, error = compile_render_job(
+        job, os.environ.get("TYPST_BIN", "typst")
+    )
+    assert not warnings
+    if error is not None:
+        raise error
+    assert report is not None
     reader = PdfReader(job.pdf)
     assert report["page_count"] == len(reader.pages)
     return report, reader

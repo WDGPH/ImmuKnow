@@ -31,7 +31,9 @@ def test_native_deadlines_require_finite_positive_seconds(value):
         validate_config({"typst": {"timeouts_seconds": {"compile": value}}})
 
 
-@pytest.mark.parametrize("settings", [None, [], {"compille": 10}, {"review": 10}])
+@pytest.mark.parametrize(
+    "settings", [None, [], {"compille": 10}, {"review": 10}, {"evidence": 10}]
+)
 def test_native_deadlines_reject_malformed_or_unknown_settings(settings):
     with pytest.raises(ValueError, match="typst.timeouts_seconds"):
         validate_config({"typst": {"timeouts_seconds": settings}})
