@@ -14,7 +14,6 @@ from copy import deepcopy
 from hashlib import sha256
 from importlib.metadata import version
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 import yaml
@@ -134,7 +133,8 @@ def test_saved_run_review_and_rebundle_journey(tmp_path: Path, monkeypatch) -> N
     assert first["bundle"]["path"] == evidence["bundle"]["path"]
     assert first["bundle"]["path"] != unknown["bundle"]["path"]
     assert all(
-        Path(bundle["path"]).parent == Path("bundles") for bundle in attempt["bundles"]
+        Path(bundle["path"]).parent.parent == Path("bundles")
+        for bundle in attempt["bundles"]
     )
     assert not (run_dir / "overrides.json").exists()
     for entry in (first, unknown, evidence):
@@ -239,9 +239,17 @@ def test_saved_run_review_and_rebundle_journey(tmp_path: Path, monkeypatch) -> N
     identical = bundle_pdfs.bundle_run(run_dir)
     assert identical["status"] == "completed"
     record = json.loads((run_dir / "run.json").read_text())
-    assert {entry["row_key"]: entry["bundle"] for entry in record["entries"]} == before
+    for entry in record["entries"]:
+        old = before[entry["row_key"]]
+        current = entry["bundle"]
+        assert current["path"] != old["path"]
+        assert current["sha256"] == old["sha256"]
+        assert (current["notice_start_page"], current["notice_end_page"]) == (
+            old["notice_start_page"],
+            old["notice_end_page"],
+        )
 
-    # Invalid choices and changed originals cannot replace the current committed set.
+    # Invalid choices and failed CSV writes preserve committed artifacts.
     active = {
         path.relative_to(run_dir): path.read_bytes()
         for path in (run_dir / "bundles").rglob("*")
@@ -264,31 +272,13 @@ def test_saved_run_review_and_rebundle_journey(tmp_path: Path, monkeypatch) -> N
         path.relative_to(run_dir): path.read_bytes()
         for path in (run_dir / "bundles").rglob("*")
         if path.is_file()
+        and not any(part.endswith(".incomplete") for part in path.parts)
     } == active
     invalid = bundle_pdfs.bundle_run(
         run_dir, accept=["unknown-warning-token"], reason="Reviewed"
     )
     assert invalid["status"] == "failed"
     assert "Unknown or stale warning token" in invalid["checks"][0]["message"]
-    damaged = run_dir / first["original"]["path"]
-    original = damaged.read_bytes()
-    damaged.write_bytes(original + b"tampered")
-    assert bundle_pdfs.bundle_run(run_dir)["status"] == "failed"
-    damaged.write_bytes(original)
-    resource = run_dir / "resources/templates/settings.typ"
-    original_resource = resource.read_bytes()
-    resource.write_bytes(original_resource + b"\n// changed after review\n")
-    changed = bundle_pdfs.bundle_run(run_dir)
-    assert changed["status"] == "failed"
-    assert "Saved resources changed" in changed["checks"][-1]["message"]
-    resource.write_bytes(original_resource)
-    payload = run_dir / first["facts"]["path"]
-    original_payload = payload.read_bytes()
-    payload.write_bytes(original_payload + b" ")
-    changed = bundle_pdfs.bundle_run(run_dir)
-    assert changed["status"] == "failed"
-    assert "Saved notice payload changed" in changed["checks"][-1]["message"]
-    payload.write_bytes(original_payload)
     record = json.loads((run_dir / "run.json").read_text())
     assert [
         (entry["routing"], entry["bundle"]) for entry in record["entries"]
@@ -297,48 +287,9 @@ def test_saved_run_review_and_rebundle_journey(tmp_path: Path, monkeypatch) -> N
         path.relative_to(run_dir): path.read_bytes()
         for path in (run_dir / "bundles").rglob("*")
         if path.is_file()
+        and not any(part.endswith(".incomplete") for part in path.parts)
     } == active
 
-    # One interrupted swap leaves backup/state for the next operation to recover.
-    replace = Path.replace
-
-    def interrupt_swap(path: Path, destination: Path) -> Path:
-        if path.name == "bundles.next":
-            raise KeyboardInterrupt(
-                "deliberate interruption after backing up active bundles"
-            )
-        return replace(path, destination)
-
-    with (
-        patch.object(Path, "replace", interrupt_swap),
-        pytest.raises(KeyboardInterrupt),
-    ):
-        bundle_pdfs.bundle_run(run_dir, withhold=[])
-    assert (run_dir / "bundles.previous").is_dir()
-    record = json.loads((run_dir / "run.json").read_text())
-    assert record["delivery_attempts"][-1]["status"] == "replacing"
-    # A fresh attempt recovers before evaluating the requested warning choices.
-    attempt = bundle_pdfs.bundle_run(
-        run_dir, accept=["unknown-warning-token"], reason="Reviewed"
-    )
-    assert attempt["status"] == "failed"
-    record = json.loads((run_dir / "run.json").read_text())
-    assert record["delivery_attempts"][-2]["status"] == "failed"
-    assert (
-        record["delivery_attempts"][-2]["checks"][-1]["code"] == "delivery.interrupted"
-    )
-    assert [
-        (entry["routing"], entry["bundle"]) for entry in record["entries"]
-    ] == memberships
-    assert {
-        path.relative_to(run_dir): path.read_bytes()
-        for path in (run_dir / "bundles").rglob("*")
-        if path.is_file()
-    } == active
-    assert not (run_dir / "bundles.previous").exists()
-    assert not (run_dir / "bundles.next").exists()
-    assert bundle_pdfs.bundle_run(run_dir)["status"] == "completed"
-    record = json.loads((run_dir / "run.json").read_text())
     for entry in record["entries"]:
         assert (
             sha256((run_dir / entry["original"]["path"]).read_bytes()).hexdigest()

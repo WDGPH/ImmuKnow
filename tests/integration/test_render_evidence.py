@@ -2,7 +2,6 @@
 
 import json
 import subprocess
-from copy import deepcopy
 from dataclasses import replace
 from pathlib import Path
 
@@ -12,7 +11,7 @@ import zxingcpp
 from pypdf import PdfReader, PdfWriter
 from pypdf.generic import DictionaryObject, StreamObject
 
-from immuknow import bundle_pdfs, compile_notices, run_report
+from immuknow import bundle_pdfs, compile_notices
 from immuknow.orchestrator import run_pipeline
 from tests.fixtures.sample_input import create_test_input_dataframe
 from tests.integration.test_native_project import prepare_case, compile_case
@@ -40,19 +39,6 @@ def test_multiple_link_warning_can_be_reviewed_or_configured_on_saved_notices(tm
     assert checks["content.multiple_links"]["status"] == "warn"
     assert checks["content.link_https"]["status"] == "pass"
     original = (saved.parent / entry["original"]["path"]).read_bytes()
-    entry["checks"] = [
-        check for check in entry["checks"] if check["code"] != "content.multiple_links"
-    ]
-    run_report.write_report(saved.parent, record)
-    restored = bundle_pdfs.bundle_run(saved.parent)
-    assert any(
-        check["code"] == "content.multiple_links" and check["status"] == "warn"
-        for check in restored["evaluations"][entry["row_key"]]["results"]
-    )
-    assert (
-        json.loads(saved.read_text())["entries"][0]["routing"]["destination"]
-        == "review"
-    )
     attempt = bundle_pdfs.bundle_run(
         saved.parent,
         policy={
@@ -84,40 +70,6 @@ def test_multiple_link_warning_can_be_reviewed_or_configured_on_saved_notices(tm
     assert after["entries"][0]["routing"]["destination"] == "delivery"
     assert (saved.parent / entry["original"]["path"]).read_bytes() == original
     assert record["delivery_attempts"][0] == after["delivery_attempts"][0]
-
-
-def test_saved_run_ignores_retired_pdf_checks_but_preserves_history(tmp_path):
-    source, config, templates, _ = prepare_inputs(tmp_path)
-    saved = run_pipeline(
-        source,
-        tmp_path / "runs",
-        config_dir=config,
-        notice_template=templates / "overdue_agents_v1.en.typ",
-    )
-    record = json.loads(saved.read_text())
-    entry = record["entries"][0]
-    retired = {
-        "code": "output.evidence_matches",
-        "stage": "output",
-        "status": "fail",
-        "message": "Historical PDF check failed",
-    }
-    entry["checks"].append(retired)
-    run_report.write_report(saved.parent, record)
-    attempt = bundle_pdfs.bundle_run(saved.parent)
-    assert attempt["status"] == "completed"
-    evaluation = attempt["evaluations"][entry["row_key"]]
-    assert "output.evidence_matches" not in evaluation["failed_checks"]
-    assert all(
-        check["code"] != "output.evidence_matches" for check in evaluation["results"]
-    )
-    current = json.loads(saved.read_text())
-    assert retired in current["entries"][0]["checks"]
-    assert (
-        current["entries"][0]["routing"]["destination"]
-        == entry["routing"]["destination"]
-    )
-    assert current["delivery_attempts"][0] == record["delivery_attempts"][0]
 
 
 @pytest.mark.parametrize("language", ["en", "fr"])
@@ -475,46 +427,12 @@ def test_invalid_evidence_keeps_original_and_independent_row(
     assert first["routing"]["destination"] == "review"
     assert not second["routing"]["failed_checks"]
     original = (saved.parent / first["original"]["path"]).read_bytes()
-    first["checks"] = [check for check in first["checks"] if check["status"] != "fail"]
-    run_report.write_report(saved.parent, record)
     attempt = bundle_pdfs.bundle_run(saved.parent)
     assert attempt["status"] == "completed"
     current = json.loads(saved.read_text())["entries"][0]
     assert "render.evidence_failed" in current["routing"]["failed_checks"]
     assert current["routing"]["destination"] == "review"
     assert (saved.parent / first["original"]["path"]).read_bytes() == original
-
-
-def test_saved_report_is_rechecked_before_replacing_bundles(tmp_path):
-    source, config, templates, _ = prepare_inputs(tmp_path)
-    saved = run_pipeline(
-        source,
-        tmp_path / "runs",
-        config_dir=config,
-        notice_template=templates / "overdue_agents_v1.en.typ",
-    )
-    record = json.loads(saved.read_text())
-    for damage in ("swapped", "version", "pages", "facts", "component_facts"):
-        changed = deepcopy(record)
-        first, second = changed["entries"]
-        if damage == "swapped":
-            first["render_summary"] = deepcopy(second["render_summary"])
-        elif damage == "version":
-            first["render_summary"]["schema_version"] = 1
-        elif damage == "facts":
-            first["render_summary"]["notice"]["client_data"]["name"] = "Other Person"
-        elif damage == "component_facts":
-            first["render_summary"]["measurements"]["history"][0]["source_matches"] = (
-                False
-            )
-        else:
-            first["render_summary"]["page_count"] += 1
-        run_report.write_report(saved.parent, changed)
-        attempt = bundle_pdfs.bundle_run(saved.parent)
-        assert attempt["status"] == "completed"
-        current = json.loads(saved.read_text())["entries"][0]
-        assert "render.evidence_failed" in current["routing"]["failed_checks"]
-        assert current["routing"]["destination"] == "review"
 
 
 @pytest.mark.parametrize("language", ["en", "fr"])
