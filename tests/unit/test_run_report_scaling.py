@@ -209,3 +209,56 @@ def test_large_report_only_links_bundles_from_latest_completed_attempt(tmp_path)
     index = (tmp_path / "report.html").read_text()
     assert 'href="bundles/stale.pdf"' not in index
     assert 'href="bundles/prepared.pdf"' in index
+
+
+@pytest.mark.parametrize("count", [1, 1000])
+def test_report_links_active_findings_after_failed_or_disabled_attempt(tmp_path, count):
+    record = sample_record(count)
+    record["delivery_attempts"] = [
+        {
+            "number": 1,
+            "status": "completed",
+            "checks": [],
+            "bundles": [
+                {
+                    "path": "bundles/active.pdf",
+                    "findings_csv": {"path": "bundles/active.csv"},
+                }
+            ],
+        },
+        {
+            "number": 2,
+            "status": "failed",
+            "checks": [],
+            "bundles": [
+                {
+                    "path": "bundles/staged.pdf",
+                    "findings_csv": {"path": "bundles/staged.csv"},
+                }
+            ],
+        },
+        {
+            "number": 3,
+            "status": "completed",
+            "configuration": {"bundle_size": 0},
+            "checks": [],
+            "bundles": [],
+        },
+    ]
+    run_report.write_report(tmp_path, record)
+    html = (tmp_path / "report.html").read_text()
+    assert 'href="bundles/active.csv"' in html
+    assert 'href="bundles/staged.csv"' not in html
+
+    record["delivery_attempts"] = [
+        *record["delivery_attempts"],
+        {
+            "number": 4,
+            "status": "completed",
+            "configuration": {"bundle_size": 10},
+            "checks": [],
+            "bundles": [],
+        },
+    ]
+    run_report.write_report(tmp_path, record)
+    assert 'href="bundles/active.csv"' not in (tmp_path / "report.html").read_text()

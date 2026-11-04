@@ -78,7 +78,9 @@ destinations. Saved-run delivery validates the retained report and source bindin
 
 Use validated `compile_notices.CompilerTimeouts` for every native Typst operation.
 Preserve row continuation, readable originals after evidence timeouts and
-committed bundles after review timeouts. Failed original checks route to review.
+committed bundles after failed replacement. Failed original checks require review;
+eligibility is metadata. Bundle all readable originals using configured grouping and size, with a findings CSV per
+bundle. Review state and operator holds do not split bundles or omit pages.
 Warning acceptance in `validation_policy.py` is tied to the run, row, PDF,
 evidence and rules; provide no blanket waiver or force-delivery path.
 Encryption uses a separate copy with AES-256 revision 6. Verify settings and
@@ -89,7 +91,7 @@ hold it across delivery, recovery and writes. New runs hold it through the final
 report. Do not add a global lock that blocks independent runs. Fixed notice
 length is an explicit PDF page count: add no blank pages or per-client waivers.
 Read bundles back and compare every page with its selected source before
-replacement. Record delivery code, resources and review tools on every attempt,
+replacement. Record delivery code, resources and output hashes on every attempt,
 retaining earlier attempts.
 
 ## Working method

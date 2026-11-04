@@ -245,6 +245,32 @@ def _preview(value: Any) -> Any:
     return value
 
 
+def _findings_links(record: dict[str, Any]) -> str:
+    """Link the CSV sidecars in the active completed bundle set."""
+    active = next(
+        (
+            attempt
+            for attempt in reversed(record["delivery_attempts"])
+            if attempt["status"] == "completed"
+            and attempt.get("configuration", {}).get("bundle_size", 1) != 0
+        ),
+        None,
+    )
+    if active is None:
+        return ""
+    links = []
+    for bundle in active.get("bundles", []):
+        artifact = bundle.get("findings_csv")
+        if artifact:
+            path = artifact["path"]
+            links.append(
+                f'<li><a href="{escape(path, quote=True)}">{escape(Path(path).name)}</a></li>'
+            )
+    return (
+        "<h2>Bundle findings CSVs</h2><ul>" + "".join(links) + "</ul>" if links else ""
+    )
+
+
 def _write_large_report(run_dir: Path, record: dict[str, Any]) -> None:
     entries = record["entries"]
     counts = Counter(entry["original"]["status"] for entry in entries)
@@ -256,6 +282,7 @@ def _write_large_report(run_dir: Path, record: dict[str, Any]) -> None:
         f"<p>{escape(record['status'])} · {len(entries)} source rows · {counts['completed']} original PDFs · {counts['failed']} failed notices</p>",
         '<p>Client information in this report and its linked files is sensitive. <a href="run.json">Complete run record</a></p>',
         '<p>After inspecting a PDF, accept a warning with <code>immuknow-rebundle RUN --accept-warning TOKEN --reason "Your review reason"</code>.</p>',
+        _findings_links(record),
         "<h2>Run checks</h2>",
         _checks_html([_preview(check) for check in record["checks"]]),
         "<h2>Notice pages</h2><ul>",
@@ -339,6 +366,7 @@ def render_html(record: dict[str, Any]) -> str:
         f"<p>{escape(record['status'])} · {len(record['entries'])} source rows · {counts['completed']} original PDFs · {counts['failed']} failed notices</p>",
         "<p>Client information in this report and its linked files is sensitive.</p>",
         '<p>After inspecting a PDF, accept a warning with <code>immuknow-rebundle RUN --accept-warning TOKEN --reason "Your review reason"</code>.</p>',
+        _findings_links(record),
         "<h2>Run checks</h2>",
         _checks_html(record["checks"]),
     ]

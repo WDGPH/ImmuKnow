@@ -48,13 +48,14 @@ The [PDF validation guide](https://docs.phiz.ca/immuknow/latest/user_guide/pdf_v
 describes output measurements. Run findings and output accounting are recorded
 in the authoritative `run.json`.
 
-### Group delivery bundles
+### Group bundles
 
-Bundles support review and help organize printed notices for handling. Group by
-board, language or page count to suit your process, including separating longer
-notices that need hand folding. Review bundles include review sheets; delivery
-bundles contain original notice pages. Encrypted PDFs remain separate individual
-outputs. See [PDF checks and review](https://docs.phiz.ca/immuknow/latest/user_guide/pdf_validation/#bundle-contents).
+Bundles organize all readable notices for review and printing. Group by board,
+language or page count to suit your process, including separating longer notices
+that need hand folding. Each PDF contains unchanged original notice pages and
+has a matching findings CSV beside it. Review status does not change grouping or
+omit pages. Encrypted PDFs remain separate individual outputs. See
+[bundle contents](https://docs.phiz.ca/immuknow/latest/user_guide/pdf_validation/#bundle-contents).
 
 Set `bundle_size` to the maximum number of notices in a bundle, or `0` to
 leave bundling off. Use `group_by` to keep notices with the same school ID, board ID,
@@ -71,16 +72,15 @@ the assigned notice, and `page_count` is the number of pages in the original
 PDF. `school` and `board` use the source IDs, not the names. Use any combination
 of `school`, `board`, `language`, and `page_count`, with each field appearing
 once; a single field can also be written without brackets. Use `null`, `size`,
-or an empty list to group all delivery notices together. Each group is split into
+or an empty list to group all readable notices together. Each group is split into
 bundles of at most `bundle_size` notices. A missing selected school or board ID
-produces a warning; when eligible for delivery, it is grouped under Unknown. Notices
-needing review stay in review bundles. Grouping by page count does not add pages
+produces a warning and groups that notice under Unknown. Grouping by page count does not add pages
 or set a fixed notice length.
 
 ### Native compiler deadlines
 
 Each native Typst operation has a wall-clock deadline. Defaults allow longer
-notice layout than compiler discovery and small review sheets:
+notice layout than compiler discovery:
 
 ```yaml
 typst:
@@ -88,20 +88,18 @@ typst:
     version: 10
     compile: 120
     evidence: 120
-    review: 60
 ```
 
 Each value must be a number of seconds above zero and at most 86400 (one day).
 Fractional seconds are accepted. Unknown operation names, strings, booleans,
 null and nonfinite values are rejected. Omitted operations use the defaults
 defined by `CompilerTimeouts` in `immuknow/compile_notices.py`. Resolved values
-are saved in `run.json`; saved-run review uses those values as well.
+are saved in `run.json`. Saved-run rebundling does not invoke Typst.
 
 A version-probe timeout stops setup and preserves the source/run record. A
 notice compilation timeout fails that row, removes incomplete PDF output and
 allows independent rows to continue. An evidence timeout retains the readable
-original with failed checking, which prevents delivery. A review timeout fails
-the delivery attempt and leaves the previous committed bundle set intact.
+original with failed checking, which prevents delivery.
 Inspect the recorded operation and template before increasing its limit.
 
 ### School validation
@@ -119,7 +117,7 @@ warns; an exact name/ID match passes.
 
 The lookup reads `school_name`, which may include ` - FACILITY ID`. It does not
 replace the source name or the separate `school_id` and `board_id` fields.
-Missing source IDs stay blank. See [delivery grouping](#group-delivery-bundles)
+Missing source IDs stay blank. See [bundle grouping](#group-bundles)
 for how missing IDs are handled. When school validation is disabled, no lookup
 result is claimed.
 Relative reference paths are resolved from the selected configuration directory.

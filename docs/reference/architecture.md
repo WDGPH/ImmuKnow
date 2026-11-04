@@ -17,7 +17,7 @@ runs/<run-id>/
   facts/          # exact saved notice payloads
   resources/      # input and template/config snapshots
   encrypted/      # optional individual encrypted copies
-  bundles/        # one active delivery/ and review/ result
+  bundles/        # one grouped PDF set, with a findings CSV per PDF
   logs/run.log
   work/           # disposable preparation/compiler/assembly files
 ```
@@ -95,8 +95,7 @@ Each entry has `row_key`, `source`, `client_id`, `assignment`, `facts`, `checks`
 beside normalized prepared facts and the saved payload. Assignments retain
 passive experiment labels. Original and encrypted artifacts record relative
 paths and full SHA-256 hashes; originals also record actual page counts. Bundle
-membership records actual start/end pages and the bundle's hash, with separate
-review-sheet and notice page spans.
+membership records actual notice start/end pages and the bundle's hash.
 
 Checks use the shared `CheckResult` shape: `code`, `stage`, `status`, `message`,
 and optional `component`, `page`, and `measurements`. Status is `pass`, `warn`,
@@ -150,23 +149,28 @@ values to produce an empty password.
 Each delivery attempt retains typed evaluation snapshots and individual warning
 tokens. The top-level `warning_acceptances` binds operator reasons to exact
 run/row/PDF/evidence/rule identities; `withheld_rows` separately keeps selected
-originals in review. Original failures always block; warnings require individual
-acceptance. Encryption failure affects its separate copy. See the
+originals marked for review. Original failures prevent eligibility; warnings
+require individual acceptance. Encryption failure affects its separate copy. See the
 [PDF review contract](../user_guide/pdf_validation.md) for the operator workflow.
-Review bundles group by client count, with findings preceding each marked copy.
-[Delivery grouping](../user_guide/configuration.md#group-delivery-bundles) can combine
-school, board, language and page count.
-Every readable original appears once in the active set, and failed rendering
-creates no membership.
+All readable originals share one physical bundle set using the configured
+[grouping](../user_guide/configuration.md#group-bundles) and notice count per
+bundle. Eligibility never separates or omits notices from that set. Failed
+rendering creates no membership. Entry `routing.destination` retains `review`
+or `delivery` as eligibility metadata; new bundle artifacts and memberships use
+`destination: bundle`. Earlier attempts retain their original fields and values.
+
+Each PDF has a matching CSV sidecar derived from its member evaluations and
+actual page spans, recorded as `findings_csv` on that bundle artifact. Unbundled
+failures remain in JSON/HTML. The CSV is a view, not a second run record.
 
 `immuknow-rebundle` loads a saved run and review decisions, verifies every
 original hash, and uses the same assembly function as generation. It neither
-reads current source/templates nor repeats encryption. Review sheets and stamps
-use fixed application templates and available system fonts. The red mark occupies an added
-outer band, preserving all original content at its original scale.
+reads current source/templates nor repeats encryption. It copies original pages
+without adding marks or pages; rebundling needs no Typst executable or fonts.
 
-Assembly prepares `bundles.next` before replacing `bundles`. The previous set
-stays in `bundles.previous` until the successful attempt and memberships are
+Assembly prepares PDFs and their CSV sidecars in `bundles.next` before replacing
+`bundles`. Each bundle artifact records its sidecar path, hash and row count.
+The previous set stays in `bundles.previous` until the successful attempt and memberships are
 saved. Attempt statuses in `run.json` support recovery after an interrupted
 replacement; no second journal is maintained. Stale warning tokens, changed
 originals and failed assembly preserve the previous committed set. Successful

@@ -1,4 +1,4 @@
-"""Reevaluate saved originals and rebuild eligible delivery/review bundles."""
+"""Reevaluate saved originals and rebuild grouped bundles with findings CSVs."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from . import bundle_pdfs, validation_policy
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Rebuild delivery and review bundles from a saved run",
+        description="Rebuild grouped bundles and findings CSVs from a saved run",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         allow_abbrev=False,
         epilog="""
@@ -20,16 +20,19 @@ attempt's evaluation has a token bound to that run, row, PDF, evidence and rules
 Accept individual warnings using those exact tokens:
   immuknow-rebundle ./runs/<run-id> --accept-warning <token> --reason "Reviewed layout"
 Repeat --accept-warning for each warning reviewed. Acceptance remains in run.json
-and applies only while the evidence is unchanged. Failures always block their
-affected artifact; accepting a warning cannot waive them. Unknown or stale tokens
+and applies only while the evidence is unchanged. Failed original checks prevent
+eligibility; accepting a warning cannot waive them. Unknown or stale tokens
 are refused. No blanket warning allowance or force-delivery choice exists.
 
 Use --withhold row-000001 (repeatable) to replace the set of withheld originals;
 --clear-withheld clears that set. Omitting both retains the prior selection.
-Withholding is separate from warning acceptance. Missing external identifiers
+Withholding marks review status; it does not exclude pages from bundles.
+It is separate from warning acceptance. Missing external identifiers
 never require name matching: review is bound to the immutable source row.
 
-Delivery uses original PDFs; review adds findings sheets and marks to copies.
+All readable originals share one bundle set using the saved grouping and size.
+Each PDF has a matching findings CSV with review status and page references.
+Successful assembly does not mean every notice is eligible for delivery.
 The previous bundle set survives a failed replacement. This command does not
 reread source data, recompile notices or rerun encryption. Only run format 2 is
 supported. Exit status describes this attempt; earlier failures remain recorded.
@@ -56,7 +59,7 @@ supported. Exit status describes this attempt; earlier failures remain recorded.
         "--withhold",
         action="append",
         metavar="ROW_KEY",
-        help="Replace the list of withheld rows (repeat for each row to keep withheld)",
+        help="Mark rows as held for review; all remain in bundles (repeatable)",
     )
     withholding.add_argument(
         "--clear-withheld",

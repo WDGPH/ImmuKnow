@@ -4,12 +4,15 @@ from __future__ import annotations
 
 from tests.fixtures.project import copy_project
 
+import csv
 import json
+import os
 import shutil
 import subprocess
 import sys
 from copy import deepcopy
 from hashlib import sha256
+from importlib.metadata import version
 from pathlib import Path
 from unittest.mock import patch
 
@@ -27,7 +30,7 @@ ROOT = Path(__file__).resolve().parents[2]
 pytestmark = pytest.mark.integration
 
 
-def test_saved_run_review_and_rebundle_journey(tmp_path: Path) -> None:
+def test_saved_run_review_and_rebundle_journey(tmp_path: Path, monkeypatch) -> None:
     config = tmp_path / "config"
     templates = tmp_path / "templates"
     shutil.copytree(ROOT / "immuknow/config", config)
@@ -64,7 +67,7 @@ def test_saved_run_review_and_rebundle_journey(tmp_path: Path) -> None:
                 "code": "render.evidence_failed",
                 "stage": "render",
                 "status": "fail",
-                "message": "Required summary unavailable",
+                "message": '=Required, "summary"\nunavailable',
             },
         ]
     )
@@ -110,10 +113,15 @@ def test_saved_run_review_and_rebundle_journey(tmp_path: Path) -> None:
         ]["warning_tokens"].items()
         if code.startswith("content.multiple_links:")
     ]
+    monkeypatch.setenv("TYPST_BIN", str(tmp_path / "missing-typst"))
     attempt = bundle_pdfs.bundle_run(
         run_dir, accept=link_tokens, reason="Reviewed the first notice's contact links"
     )
+    prior_attempt = deepcopy(record["delivery_attempts"][-1])
     record = json.loads((run_dir / "run.json").read_text())
+    assert record["delivery_attempts"][-2] == prior_attempt
+    assert attempt["engine"]["pdf_library_version"] == version("pypdf")
+    assert attempt["engine"]["code"]
     first, unknown, evidence = record["entries"]
     assert attempt["status"] == "completed", attempt["checks"]
     assert [entry["routing"]["destination"] for entry in record["entries"]] == [
@@ -122,35 +130,61 @@ def test_saved_run_review_and_rebundle_journey(tmp_path: Path) -> None:
         "review",
     ]
     assert len(attempt["bundles"]) == 2
-    review_bundle = next(
-        bundle for bundle in attempt["bundles"] if bundle["destination"] == "review"
+    assert all(bundle["destination"] == "bundle" for bundle in attempt["bundles"])
+    assert first["bundle"]["path"] == evidence["bundle"]["path"]
+    assert first["bundle"]["path"] != unknown["bundle"]["path"]
+    assert all(
+        Path(bundle["path"]).parent == Path("bundles") for bundle in attempt["bundles"]
     )
-    assert review_bundle["row_keys"] == [unknown["row_key"], evidence["row_key"]]
     assert not (run_dir / "overrides.json").exists()
-    review = PdfReader(run_dir / review_bundle["path"])
-    for entry in (unknown, evidence):
+    for entry in (first, unknown, evidence):
         membership = entry["bundle"]
-        sheet_text = " ".join(
-            review.pages[index - 1].extract_text()
-            for index in range(
-                membership["sheet_start_page"], membership["sheet_end_page"] + 1
-            )
-        )
-        for check in entry["checks"]:
-            if check["status"] in ("warn", "fail"):
-                assert check["code"] in sheet_text
-        assert "immuknow-rebundle" in sheet_text
-        for index in range(
-            membership["notice_start_page"], membership["notice_end_page"] + 1
-        ):
-            assert "REVIEW" in review.pages[index - 1].extract_text()
-            assert (
-                float(review.pages[index - 1].mediabox.height)
-                == 792 + bundle_pdfs.REVIEW_BAND_PT
-            )
-    assert "REVIEW" not in " ".join(
-        page.extract_text()
-        for page in PdfReader(run_dir / first["bundle"]["path"]).pages
+        bundled = PdfReader(run_dir / membership["path"])
+        original = PdfReader(run_dir / entry["original"]["path"])
+        pages = bundled.pages[
+            membership["notice_start_page"] - 1 : membership["notice_end_page"]
+        ]
+        assert len(pages) == len(original.pages)
+        for actual, source_page in zip(pages, original.pages, strict=True):
+            assert actual.mediabox == source_page.mediabox
+            assert actual.extract_text() == source_page.extract_text()
+
+            def links(page):
+                return [
+                    str(ref.get_object().get("/A", {}).get("/URI", ""))
+                    for ref in page.get("/Annots", [])
+                ]
+
+            assert links(actual) == links(source_page)
+    artifact = next(
+        bundle
+        for bundle in attempt["bundles"]
+        if evidence["row_key"] in bundle["row_keys"]
+    )
+    csv_path = run_dir / artifact["findings_csv"]["path"]
+    assert csv_path == (run_dir / artifact["path"]).with_suffix(".csv")
+    with csv_path.open(newline="") as stream:
+        findings = list(csv.DictReader(stream))
+    failure = next(
+        row
+        for row in findings
+        if row["row_key"] == evidence["row_key"]
+        and row["code"] == "render.evidence_failed"
+    )
+    assert failure["effective_status"] == "fail"
+    assert failure["message"] == '\'=Required, "summary"\nunavailable'
+    assert failure["bundle_path"] == evidence["bundle"]["path"]
+    assert int(failure["notice_start_page"]) == evidence["bundle"]["notice_start_page"]
+    assert (
+        artifact["findings_csv"]["sha256"] == sha256(csv_path.read_bytes()).hexdigest()
+    )
+    assert artifact["findings_csv"]["rows"] == len(findings)
+    assert {row["row_key"] for row in findings} <= set(artifact["row_keys"])
+    assert any(
+        row["row_key"] == first["row_key"]
+        and row["code"] == "content.multiple_links"
+        and row["warning_accepted"] == "true"
+        for row in findings
     )
     findings_before = deepcopy([entry["checks"] for entry in record["entries"]])
 
@@ -180,6 +214,7 @@ def test_saved_run_review_and_rebundle_journey(tmp_path: Path) -> None:
         ],
         capture_output=True,
         text=True,
+        env={**os.environ, "TYPST_BIN": str(tmp_path / "missing-typst")},
     )
     assert result.returncode == 0, result.stdout + result.stderr
     record = json.loads((run_dir / "run.json").read_text())
@@ -196,7 +231,7 @@ def test_saved_run_review_and_rebundle_journey(tmp_path: Path) -> None:
     assert "Unknown" in next(
         bundle["group_name"]
         for bundle in record["delivery_attempts"][-1]["bundles"]
-        if bundle["destination"] == "delivery"
+        if unknown["row_key"] in bundle["row_keys"]
     )
     before = {
         entry["row_key"]: deepcopy(entry["bundle"]) for entry in record["entries"]
@@ -209,11 +244,27 @@ def test_saved_run_review_and_rebundle_journey(tmp_path: Path) -> None:
     # Invalid choices and changed originals cannot replace the current committed set.
     active = {
         path.relative_to(run_dir): path.read_bytes()
-        for path in (run_dir / "bundles").rglob("*.pdf")
+        for path in (run_dir / "bundles").rglob("*")
+        if path.is_file()
     }
     memberships = deepcopy(
         [(entry["routing"], entry["bundle"]) for entry in record["entries"]]
     )
+
+    def fail_csv(*args, **kwargs):
+        raise OSError("CSV write failed")
+
+    with monkeypatch.context() as failure:
+        failure.setattr(bundle_pdfs, "_write_findings", fail_csv)
+        failed_csv = bundle_pdfs.bundle_run(run_dir)
+    assert failed_csv["status"] == "failed"
+    assert failed_csv["bundles"] == []
+    assert "CSV write failed" in failed_csv["checks"][-1]["message"]
+    assert {
+        path.relative_to(run_dir): path.read_bytes()
+        for path in (run_dir / "bundles").rglob("*")
+        if path.is_file()
+    } == active
     invalid = bundle_pdfs.bundle_run(
         run_dir, accept=["unknown-warning-token"], reason="Reviewed"
     )
@@ -244,7 +295,8 @@ def test_saved_run_review_and_rebundle_journey(tmp_path: Path) -> None:
     ] == memberships
     assert {
         path.relative_to(run_dir): path.read_bytes()
-        for path in (run_dir / "bundles").rglob("*.pdf")
+        for path in (run_dir / "bundles").rglob("*")
+        if path.is_file()
     } == active
 
     # One interrupted swap leaves backup/state for the next operation to recover.
@@ -280,7 +332,8 @@ def test_saved_run_review_and_rebundle_journey(tmp_path: Path) -> None:
     ] == memberships
     assert {
         path.relative_to(run_dir): path.read_bytes()
-        for path in (run_dir / "bundles").rglob("*.pdf")
+        for path in (run_dir / "bundles").rglob("*")
+        if path.is_file()
     } == active
     assert not (run_dir / "bundles.previous").exists()
     assert not (run_dir / "bundles.next").exists()

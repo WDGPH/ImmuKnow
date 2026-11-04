@@ -80,8 +80,6 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
             "typst/lib.typ",
             "typst/src/findings.typ",
             "typst/vendor/codetastic/LICENSE",
-            "review_templates/review_sheet.typ",
-            "review_templates/review_stamp.typ",
         ):
             assert f"immuknow/{resource}" in names
         assert not any(name.startswith("immuknow/templates/") for name in names)
@@ -397,20 +395,21 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
         )
         review_membership = first["bundle"]
         review_pages = PdfReader(run_dir / review_membership["path"]).pages
-        assert "source.address_incomplete" in " ".join(
-            page.extract_text()
-            for page in review_pages[
-                review_membership["sheet_start_page"] - 1 : review_membership[
-                    "sheet_end_page"
-                ]
-            ]
-        )
-        for page in review_pages[
+        original_pages = PdfReader(run_dir / first["original"]["path"]).pages
+        selected = review_pages[
             review_membership["notice_start_page"] - 1 : review_membership[
                 "notice_end_page"
             ]
-        ]:
-            assert "REVIEW" in page.extract_text()
+        ]
+        assert [page.extract_text() for page in selected] == [
+            page.extract_text() for page in original_pages
+        ]
+        sidecar = next(
+            bundle["findings_csv"]["path"]
+            for bundle in record["delivery_attempts"][-1]["bundles"]
+            if first["row_key"] in bundle["row_keys"]
+        )
+        assert "source.address_incomplete" in (run_dir / sidecar).read_text()
         originals = {
             entry["row_key"]: entry["original"].copy() for entry in record["entries"]
         }
@@ -471,8 +470,6 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
             check for check in delivered["checks"] if check["status"] == "warn"
         ] == warning_checks
         membership = delivered["bundle"]
-        assert membership["sheet_start_page"] is None
-        assert membership["sheet_end_page"] is None
         delivered_pages = PdfReader(run_dir / membership["path"]).pages[
             membership["notice_start_page"] - 1 : membership["notice_end_page"]
         ]

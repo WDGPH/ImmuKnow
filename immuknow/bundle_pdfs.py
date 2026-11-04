@@ -1,20 +1,18 @@
-"""Route saved originals into delivery or annotated review, then replace safely."""
+"""Evaluate saved originals and assemble bundles, then replace safely."""
 
 from __future__ import annotations
 
+import csv
 import json
-import os
 import re
 import shutil
-import subprocess
 from copy import deepcopy
 from hashlib import sha256
-from importlib.resources import files
 from io import BytesIO
 from pathlib import Path
 from typing import Any
 
-from pypdf import PageObject, PdfReader, PdfWriter, Transformation
+from pypdf import PageObject, PdfReader, PdfWriter
 from pypdf.errors import PdfReadError
 from jsonschema import ValidationError
 
@@ -24,15 +22,7 @@ from .structured_input import parse_json, read_json
 from .component_resources import verify_components
 from .render_payload import validate_render_payload
 from .render_contract import validate_render_report
-from .compile_notices import (
-    CompilerTimeouts,
-    TYPST_VERSION,
-    check_compiler,
-    compiler_warnings,
-    run_typst,
-)
-
-REVIEW_BAND_PT = 18
+from .compile_notices import TYPST_VERSION
 
 
 def bundle_grouping(value: object) -> tuple[str, ...]:
@@ -198,177 +188,11 @@ def _routes(
     ]
 
 
-def _compile_review(
-    template: Path,
-    destination: Path,
-    inputs: dict[str, str],
-    work: Path,
-    record: dict,
-    attempt: dict,
-) -> None:
-    settings = record["configuration"]["effective"]
-    review_tools = attempt["review_tools"]
-    typst_bin = review_tools["compiler"]["path"]
-    timestamp = settings.get("creation_timestamp")
-    if type(timestamp) is not int:
-        raise ValueError("Saved run is missing its frozen creation timestamp")
-    command = [
-        typst_bin,
-        "compile",
-        "--root",
-        str(work),
-        "--creation-timestamp",
-        str(timestamp),
-    ]
-    for key, value in inputs.items():
-        command.extend(["--input", f"{key}={value}"])
-    command.extend([str(template), str(destination)])
-    timeouts = CompilerTimeouts.from_config(
-        settings.get("typst", {}).get("timeouts_seconds", {})
-    )
-    result = run_typst(command, timeout=timeouts.review, operation="review compilation")
-    for warning in compiler_warnings(result.stderr):
-        check = warning.to_dict()
-        if check not in attempt["checks"]:
-            attempt["checks"].append(check)
-
-
-def _prepare_review(work: Path, record: dict, attempt: dict) -> None:
-    """Copy and identify the review templates and executable actually used."""
-    settings = record["configuration"]["effective"]
-    requested = os.environ.get(
-        "TYPST_BIN", settings.get("typst", {}).get("bin", "typst")
-    )
-    tools = {"compiler": {"requested": requested}, "templates": []}
-    attempt["review_tools"] = tools
-    for name in ("review_sheet.typ", "review_stamp.typ"):
-        shutil.copyfile(
-            Path(str(files("immuknow").joinpath("review_templates").joinpath(name))),
-            work / name,
-        )
-        tools["templates"].append(run_report.artifact_record(work / name, work))
-    executable = shutil.which(requested)
-    if executable is None:
-        raise ValueError(f"Typst executable not found: {requested}")
-    executable_path = Path(executable).resolve()
-    tools["compiler"].update(
-        path=str(executable_path),
-        sha256=sha256(executable_path.read_bytes()).hexdigest(),
-    )
-    run_report.write_report(work.parent.parent, record)
-    timeouts = CompilerTimeouts.from_config(
-        settings.get("typst", {}).get("timeouts_seconds", {})
-    )
-    try:
-        tools["compiler"]["version_output"] = check_compiler(
-            str(executable_path), timeout=timeouts.version
-        )
-    except RuntimeError as exc:
-        raise ValueError(str(exc)) from exc
-    run_report.write_report(work.parent.parent, record)
-
-
-def _measurement_text(measurements: dict) -> str:
-    """Show actual warning measurements in millimetres; retain precision in JSON."""
-    lines = []
-    for key, value in measurements.items():
-        if type(value) in (int, float) and key.endswith("_pt"):
-            key = key[:-3] + " (mm)"
-            value = f"{value * 25.4 / 72:.1f}"
-        elif type(value) in (int, float) and key.endswith("_mm"):
-            key = key[:-3] + " (mm)"
-            value = f"{value:.1f}"
-        elif type(value) is float:
-            value = f"{value:.1f}"
-        elif isinstance(value, (dict, list)):
-            value = json.dumps(value, ensure_ascii=False)
-        lines.append(f"{key.replace('_', ' ')}: {value}")
-    return "\n".join(lines)
-
-
-def _review_sheet(entry: dict, work: Path, record: dict, attempt: dict) -> PdfReader:
-    facts = entry["facts"]["prepared"]
-    findings = []
-    for check in attempt["evaluations"][entry["row_key"]]["results"]:
-        if check["status"] not in ("warn", "fail", "not_run"):
-            continue
-        findings.append(
-            {
-                "code": check["code"],
-                "status": check["status"],
-                "message": check["message"],
-                "location": " · ".join(
-                    filter(
-                        None,
-                        [
-                            check["stage"],
-                            check.get("component", ""),
-                            f"original page {check['page']}"
-                            if check.get("page")
-                            else "",
-                        ],
-                    )
-                ),
-                "measurements": _measurement_text(check["measurements"])
-                if check.get("measurements")
-                else "",
-            }
-        )
-    payload = {
-        "client_id": entry["client_id"] or "Missing",
-        "row_key": entry["row_key"],
-        "template": entry["assignment"].get("template", "Unknown"),
-        "school": facts["school"].get("name", "") or "Unknown",
-        "board": facts["board"].get("name", "") or "Unknown",
-        "findings": findings,
-        "measurements": f"Original PDF pages: {entry['original']['pages']}. Full checks and layout measurements remain in report.html.",
-        "warning_tokens": attempt["evaluations"][entry["row_key"]]["warning_tokens"],
-    }
-    data = work / f"{entry['row_key']}.json"
-    data.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
-    output = work / f"{entry['row_key']}-sheet.pdf"
-    _compile_review(
-        work / "review_sheet.typ", output, {"data": data.name}, work, record, attempt
-    )
-    return PdfReader(output)
-
-
-def _review_page(
-    page: PageObject, work: Path, record: dict, attempt: dict, stamps: dict
-) -> PageObject:
-    # Normalize rotation only on a writer-owned copy; originals stay unchanged.
-    if page.rotation:
-        copied = PdfWriter()
-        page = copied.add_page(page)
-        page.transfer_rotation_to_content()
-    crop = page.cropbox
-    width, height = float(crop.width), float(crop.height)
-    dimensions = (width, height)
-    if dimensions not in stamps:
-        output = work / f"stamp-{len(stamps) + 1:03d}.pdf"
-        _compile_review(
-            work / "review_stamp.typ",
-            output,
-            {"page-width": str(width), "page-height": str(height + REVIEW_BAND_PT)},
-            work,
-            record,
-            attempt,
-        )
-        stamps[dimensions] = PdfReader(output).pages[0]
-    reviewed = PageObject.create_blank_page(width=width, height=height + REVIEW_BAND_PT)
-    reviewed.merge_transformed_page(
-        page, Transformation().translate(-float(crop.left), -float(crop.bottom))
-    )
-    reviewed.merge_page(stamps[dimensions])
-    return reviewed
-
-
 def _page_hash(page: PageObject) -> str:
     """Compare complete page copies after writing, independent of PDF object numbers."""
     writer = PdfWriter()
     writer.add_page(page)
-    # A new review page has no source header; a read-back page inherits the
-    # bundle header. Keep this comparison copy's header independent of either.
+    # Compare copies independently of the source or bundle header.
     writer.pdf_header = "%PDF-1.7"
     stream = BytesIO()
     writer.write(stream)
@@ -378,37 +202,22 @@ def _page_hash(page: PageObject) -> str:
 def _assemble(
     routed: list[tuple[dict, dict]],
     next_dir: Path,
-    work: Path,
     group_by: tuple[str, ...],
     size: int,
-    record: dict,
     attempt: dict,
 ) -> None:
-    groups: dict[tuple[str, tuple[str, ...]], list[tuple[dict, dict]]] = {}
+    groups: dict[tuple[str, ...], list[tuple[dict, dict]]] = {}
     for entry, routing in routed:
-        values = (
-            _group_values(entry, group_by)
-            if routing["destination"] == "delivery"
-            else ()
-        )
-        groups.setdefault((routing["destination"], values), []).append((entry, routing))
-    review_needed = any(destination == "review" for destination, _ in groups)
-    if review_needed:
-        _prepare_review(work, record, attempt)
-    stamps: dict = {}
-    for group_number, ((destination, values), members) in enumerate(
-        sorted(groups.items()), 1
-    ):
-        directory = next_dir / destination
-        directory.mkdir(exist_ok=True)
+        groups.setdefault(_group_values(entry, group_by), []).append((entry, routing))
+    for group_number, (values, members) in enumerate(sorted(groups.items()), 1):
         label = (
             re.sub(r"[^A-Za-z0-9]+", "_", "_".join(values)).strip("_")[:60] or "unknown"
         )
         prefix = "_".join(group_by) or "size"
         for offset in range(0, len(members), size):
             chunk = members[offset : offset + size]
-            name = f"{prefix if destination == 'delivery' else 'review'}_{group_number:03d}_{label}_{offset // size + 1:03d}.pdf"
-            output = directory / name
+            name = f"{prefix}_{group_number:03d}_{label}_{offset // size + 1:03d}.pdf"
+            output = next_dir / name
             path = "bundles/" + output.relative_to(next_dir).as_posix()
             writer = PdfWriter()
             expected_pages = []
@@ -416,25 +225,11 @@ def _assemble(
             cursor = 1
             for entry, routing in chunk:
                 first_page = cursor
-                sheet_first, sheet_last = None, None
-                if destination == "review":
-                    sheet = _review_sheet(entry, work, record, attempt)
-                    sheet_first = cursor
-                    for page in sheet.pages:
-                        expected_pages.append(_page_hash(page))
-                        writer.add_page(page)
-                        cursor += 1
-                    sheet_last = cursor - 1
                 notice_first = cursor
                 original, _ = _original_reader(entry, next_dir.parent)
                 for page in original.pages:
-                    selected_page = (
-                        _review_page(page, work, record, attempt, stamps)
-                        if destination == "review"
-                        else page
-                    )
-                    expected_pages.append(_page_hash(selected_page))
-                    writer.add_page(selected_page)
+                    expected_pages.append(_page_hash(page))
+                    writer.add_page(page)
                     cursor += 1
                 memberships.append(
                     (
@@ -442,11 +237,9 @@ def _assemble(
                         routing,
                         {
                             "path": path,
-                            "destination": destination,
+                            "destination": "bundle",
                             "start_page": first_page,
                             "end_page": cursor - 1,
-                            "sheet_start_page": sheet_first,
-                            "sheet_end_page": sheet_last,
                             "notice_start_page": notice_first,
                             "notice_end_page": cursor - 1,
                         },
@@ -464,7 +257,7 @@ def _assemble(
                     "Assembled bundle pages do not match the selected notices in order"
                 )
             length = attempt["notice_length"]
-            if destination == "delivery" and length["enabled"]:
+            if length["enabled"]:
                 counts = [
                     {
                         "row_key": entry["row_key"],
@@ -482,7 +275,7 @@ def _assemble(
                     "pass" if passed else "fail",
                     "Every notice has the required PDF page count"
                     if passed
-                    else "Delivery batch contains a notice with the wrong PDF page count",
+                    else "Bundle contains a notice with the wrong PDF page count",
                     measurements={
                         "bundle": path,
                         "expected_pages": length["count"],
@@ -490,9 +283,7 @@ def _assemble(
                     },
                 )
             checksum = sha256(output.read_bytes()).hexdigest()
-            if destination == "review":
-                group_name = "Review"
-            elif not group_by:
+            if not group_by:
                 group_name = "All clients"
             else:
                 names = []
@@ -513,10 +304,10 @@ def _assemble(
                 "path": path,
                 "sha256": checksum,
                 "pages": cursor - 1,
-                "destination": destination,
+                "destination": "bundle",
                 "group_by": (group_by[0] if len(group_by) == 1 else list(group_by))
-                if destination == "delivery" and group_by
-                else ("size" if destination == "delivery" else "review"),
+                if group_by
+                else "size",
                 "group_id": (values[0] or None)
                 if len(values) == 1
                 else (list(values) if values else None),
@@ -540,7 +331,7 @@ def _assemble(
             "delivery.notice_length",
             "delivery",
             "not_applicable",
-            "No notices are eligible for a delivery batch",
+            "No notices are available for a bundle",
         )
     if any(
         check["code"] == "delivery.notice_length" and check["status"] == "fail"
@@ -549,6 +340,135 @@ def _assemble(
         raise ValueError(
             "Fixed page count failed; the previous bundle set remains active"
         )
+
+
+FINDINGS_COLUMNS = (
+    "run_id",
+    "attempt",
+    "row_key",
+    "client_id",
+    "template",
+    "version_id",
+    "language",
+    "eligibility",
+    "eligibility_reason",
+    "withheld",
+    "bundle_path",
+    "notice_start_page",
+    "notice_end_page",
+    "original_page",
+    "bundle_page",
+    "stage",
+    "component",
+    "code",
+    "effective_status",
+    "message",
+    "measurements_json",
+    "warning_token",
+    "warning_accepted",
+    "acceptance_reason",
+)
+
+
+def _spreadsheet_cell(value: Any) -> Any:
+    """Keep text inert when a CSV is opened by spreadsheet software."""
+    if not isinstance(value, str):
+        return value
+    stripped = value.lstrip()
+    leading = value[: len(value) - len(stripped)]
+    if any(char in leading for char in "\t\r\n") or stripped.startswith(
+        ("=", "+", "-", "@")
+    ):
+        return "'" + value
+    return value
+
+
+def _write_findings(next_dir: Path, record: dict, attempt: dict) -> None:
+    """Write a derived, filterable view beside the staged bundle PDFs."""
+    accepted = {item["token"]: item for item in record.get("warning_acceptances", [])}
+    entries = {entry["row_key"]: entry for entry in record["entries"]}
+    for artifact in attempt["bundles"]:
+        relative = Path(artifact["path"]).with_suffix(".csv")
+        path = next_dir / relative.name
+        count = 0
+        with path.open("w", encoding="utf-8", newline="") as stream:
+            writer = csv.DictWriter(stream, fieldnames=FINDINGS_COLUMNS)
+            writer.writeheader()
+            for row_key in artifact["row_keys"]:
+                entry = entries[row_key]
+                member = attempt["memberships"][row_key]
+                bundle = member["bundle"]
+                route = member["routing"]
+                evaluation = attempt["evaluations"][row_key]
+                results = evaluation["results"]
+                tokens = evaluation["warning_tokens"]
+                findings = [
+                    (index, check)
+                    for index, check in enumerate(results)
+                    if check.get("status") in ("warn", "fail", "not_run")
+                ]
+                if not findings and route.get("withheld"):
+                    findings = [(None, {})]
+                for index, check in findings:
+                    warning_id = (
+                        f"{check.get('code')}:{index + 1}" if index is not None else ""
+                    )
+                    token = tokens.get(warning_id, "")
+                    acceptance = accepted.get(token) if token else None
+                    original_page = check.get("page")
+                    notice_start = bundle.get("notice_start_page")
+                    bundle_page = (
+                        notice_start + original_page - 1
+                        if type(original_page) is int
+                        and notice_start is not None
+                        and 1 <= original_page <= entry["original"].get("pages", 0)
+                        else ""
+                    )
+                    row = {
+                        "run_id": record["run_id"],
+                        "attempt": attempt["number"],
+                        "row_key": row_key,
+                        "client_id": entry.get("client_id", ""),
+                        **{
+                            key: entry["assignment"].get(key, "")
+                            for key in ("template", "version_id", "language")
+                        },
+                        "eligibility": route["destination"],
+                        "eligibility_reason": route["reason"],
+                        "withheld": "true" if route.get("withheld") else "false",
+                        "bundle_path": bundle.get("path", ""),
+                        "notice_start_page": bundle.get("notice_start_page", ""),
+                        "notice_end_page": bundle.get("notice_end_page", ""),
+                        "original_page": original_page
+                        if original_page is not None
+                        else "",
+                        "bundle_page": bundle_page,
+                        "stage": check.get("stage", ""),
+                        "component": check.get("component", ""),
+                        "code": check.get("code", ""),
+                        "effective_status": check.get("status", ""),
+                        "message": check.get("message", ""),
+                        "measurements_json": json.dumps(
+                            check["measurements"], ensure_ascii=False
+                        )
+                        if "measurements" in check
+                        else "",
+                        "warning_token": token,
+                        "warning_accepted": ("true" if acceptance else "false")
+                        if token
+                        else "",
+                        "acceptance_reason": acceptance["reason"] if acceptance else "",
+                    }
+                    writer.writerow(
+                        {key: _spreadsheet_cell(value) for key, value in row.items()}
+                    )
+                    count += 1
+
+        artifact["findings_csv"] = {
+            "path": relative.as_posix(),
+            "sha256": sha256(path.read_bytes()).hexdigest(),
+            "rows": count,
+        }
 
 
 def _recover_delivery(run_dir: Path, record: dict[str, Any]) -> None:
@@ -667,7 +587,6 @@ def _bundle_run(
     )
     try:
         attempt["engine"] = run_report.engine_identity()
-        attempt["review_tools"] = None
         if record.get("version", {}).get("compiler") != TYPST_VERSION:
             raise ValueError(
                 "Saved run uses an unsupported notice compiler; generate and check a new run"
@@ -743,12 +662,9 @@ def _bundle_run(
                 "Bundling is disabled; originals remain available",
             )
         else:
-            work = run_dir / "work" / "delivery"
-            if work.exists():
-                shutil.rmtree(work)
-            work.mkdir(parents=True, mode=0o700)
             next_dir.mkdir(mode=0o700)
-            _assemble(routed, next_dir, work, group_by, size, record, attempt)
+            _assemble(routed, next_dir, group_by, size, attempt)
+            _write_findings(next_dir, record, attempt)
             attempt["status"] = "prepared"
             run_report.write_report(run_dir, record)
             attempt["status"] = "replacing"
@@ -800,13 +716,9 @@ def _bundle_run(
         attempt["memberships"] = {}
         attempt["finished_at"] = run_report.timestamp()
         detail = str(exc)
-        if isinstance(exc, subprocess.CalledProcessError) and exc.stderr:
-            detail += "\n" + exc.stderr
         run_report.add_check(attempt, "delivery.failed", "delivery", "fail", detail)
         run_report.finish_run(record)
         run_report.write_report(run_dir, record)
-        if isinstance(
-            exc, (OSError, ValueError, PdfReadError, subprocess.CalledProcessError)
-        ):
+        if isinstance(exc, (OSError, ValueError, PdfReadError)):
             return attempt
         raise

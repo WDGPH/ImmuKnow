@@ -218,7 +218,7 @@ runs/<run-id>/
   facts/          # saved notice payloads
   resources/      # source and template/configuration snapshots
   encrypted/      # optional individual encrypted copies
-  bundles/        # one active delivery/ and review/ result
+  bundles/        # one grouped PDF set, with a findings CSV per PDF
   logs/
   work/           # disposable compiler and assembly files
 ```
@@ -250,17 +250,19 @@ success. The [workflow guide](../reference/architecture.md) defines run accounti
 
 ## Review and release notices
 
-Failed checks and unaccepted warnings keep a readable original in review.
-Review copies have a findings sheet and a red REVIEW mark; delivery copies come
-from unchanged originals. Inspect the original and the latest evaluation, then
-accept individual warning tokens with a reason:
+All readable originals appear in one bundle set using the configured grouping
+and size, with a matching findings CSV per PDF. Failed checks, unaccepted
+warnings and operator holds are recorded as review status in the CSV and report.
+Inspect the original and the latest evaluation, then accept individual warning
+tokens with a reason:
 
 ```bash
 uv run immuknow-rebundle ./runs/<run-id> --accept-warning <token> --reason "Reviewed original"
 ```
 
 The [PDF review guide](pdf_validation.md) owns warning acceptance, withholding
-and invalidation rules. No choice can force delivery past failed checks.
+and invalidation rules. Acceptance changes eligibility, not bundle membership;
+failed checks cannot be marked eligible.
 
 Rebundling verifies the saved original hashes and does not reread source data or
 authored templates, recompile notices, or rerun encryption. A failed attempt

@@ -91,7 +91,7 @@ its evidence.
 ## Development
 
 The wheel contains the shared Typst library under `typst/`, schemas, reference
-configuration and internal review layouts. Starter projects live in Template.
+configuration. Starter projects live in Template.
 Core tests use small unbranded fixtures outside the distribution. Native
 compilation uses system fonts and saves the project resources it uses. A relocated custom project keeps its own Settings, translations,
 assets and library. Python supplies normalized facts; display choices and

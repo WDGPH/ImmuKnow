@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import shutil
 import sys
-from copy import deepcopy
 from pathlib import Path
 
 import pytest
@@ -37,9 +36,7 @@ def sleeping_compiler(tmp_path: Path, operation: str) -> Path:
         "selected_row = any('row-000001' in arg for arg in args)\n"
         "stall = (operation == 'version' and args == ['--version']) or (\n"
         "    operation == 'compile' and args[0] == 'compile' and selected_row\n"
-        ") or (operation == 'evidence' and args[0] == 'eval' and selected_row) or (\n"
-        "    operation in ('review_sheet', 'review_stamp') and args[0] == 'compile'\n"
-        "    and any(Path(arg).name == operation + '.typ' for arg in args)\n"
+        ") or (operation == 'evidence' and args[0] == 'eval' and selected_row\n"
         ")\n"
         "if stall:\n"
         f"    Path({str(tmp_path / 'stalled-operation')!r}).write_text(operation)\n"
@@ -129,45 +126,3 @@ def test_row_timeout_continues_independent_rows(tmp_path, monkeypatch, operation
         assert first["routing"]["reason"] == "Failed checks"
         assert "render.evidence_failed" in first["routing"]["failed_checks"]
         assert original.read_bytes() == original_bytes
-
-
-@pytest.mark.parametrize("operation", ["version", "review_sheet", "review_stamp"])
-def test_review_timeout_preserves_committed_bundles(tmp_path, monkeypatch, operation):
-    source, config, templates, _ = prepare_inputs(tmp_path)
-    record_path = run_pipeline(
-        source,
-        tmp_path / "runs",
-        config_dir=config,
-        notice_template=templates / "overdue_agents_v1.en.typ",
-    )
-    run_dir = record_path.parent
-    record = json.loads(record_path.read_text())
-    active = {
-        path.name: path.read_bytes() for path in (run_dir / "bundles").rglob("*.pdf")
-    }
-    memberships = deepcopy(
-        [(entry["routing"], entry["bundle"]) for entry in record["entries"]]
-    )
-    record["configuration"]["effective"]["typst"]["timeouts_seconds"][
-        "version" if operation == "version" else "review"
-    ] = VERSION_DEADLINE if operation == "version" else 5
-    monkeypatch.setenv("TYPST_BIN", str(sleeping_compiler(tmp_path, operation)))
-    run_report.write_report(run_dir, record)
-    attempt = bundle_pdfs.bundle_run(
-        run_dir,
-        withhold=[entry["row_key"] for entry in record["entries"]],
-    )
-    record = json.loads(record_path.read_text())
-    assert attempt["status"] == "failed"
-    assert (tmp_path / "stalled-operation").read_text() == operation
-    assert "deadline" in attempt["checks"][-1]["message"]
-    assert [
-        (entry["routing"], entry["bundle"]) for entry in record["entries"]
-    ] == memberships
-    assert {
-        path.name: path.read_bytes() for path in (run_dir / "bundles").rglob("*.pdf")
-    } == active
-    assert not (run_dir / "bundles.next").exists()
-    assert not (run_dir / "bundles.previous").exists()
-    saved = json.loads(record_path.read_text())
-    assert saved["delivery_attempts"][-1]["status"] == "failed"

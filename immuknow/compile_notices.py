@@ -29,7 +29,6 @@ class CompilerTimeouts:
     version: float = 10
     compile: float = 120
     evidence: float = 120
-    review: float = 60
 
     @classmethod
     def from_config(cls, settings: Any) -> CompilerTimeouts:
@@ -37,7 +36,7 @@ class CompilerTimeouts:
         defaults = asdict(cls())
         if not isinstance(settings, dict) or set(settings) - defaults.keys():
             raise ValueError(
-                "typst.timeouts_seconds must contain only version, compile, evidence and review"
+                "typst.timeouts_seconds must contain only version, compile and evidence"
             )
         resolved = defaults | settings
         for operation, value in resolved.items():
