@@ -9,10 +9,9 @@
 
 Install Python 3.11 or later, [uv](https://docs.astral.sh/uv/),
 and Typst 0.15.1.
-Start with a project from [ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template)
-or a Studio project download. Core supplies the engine and shared library;
-it includes no starter letters, Settings, example branding or project translations.
-The commands below assume that project is in `./my-project`. From a Core checkout:
+Core supplies the engine and shared library. To try the full example cohort,
+put a checkout of [ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template)
+in `./my-project`. From a Core checkout:
 
 ```bash
 uv sync
@@ -27,6 +26,8 @@ are illustrative; they are not vaccination schedules or clinical assessments.
 Template supplies matching sample assignments and can run them with
 `uv run python scripts/run.py --sample`. The installed Core package also exposes
 the CSV through `immuknow.resources.example_clients_path()`; copy it before editing.
+For a Studio download, run `uv run python scripts/run.py --sample` from the
+extracted project to use its selected example and assignments.
 
 A run selects notices in one of two ways: pass `--notice-assignments` with
 one `template` filename per client, or pass one

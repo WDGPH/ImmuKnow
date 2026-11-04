@@ -3,10 +3,9 @@
 Install Python 3.11 or later, [uv](https://docs.astral.sh/uv/), and
 [Typst 0.15.1](https://typst.app/docs/changelog/0.15.1/). Put `typst`
 on `PATH`, set `TYPST_BIN`, or configure `typst.bin` in
-`parameters.yaml`. Obtain a starter project from
-[ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template) or download a
-project from Studio. Core contains no starter letters. With the project in
-`./my-project`, run from a Core checkout:
+`parameters.yaml`. To try the full example cohort, put a checkout of
+[ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template) in `./my-project`.
+Core contains no starter letters. From a Core checkout:
 
 ```bash
 uv sync
@@ -20,9 +19,19 @@ contains fictional clients for trying the pipeline. Its histories and forecasts
 are illustrative; they are not vaccination schedules or clinical assessments.
 Template supplies matching sample assignments and can run them with
 `uv run python scripts/run.py --sample`. The installed Core package also exposes
-the CSV through `immuknow.resources.example_clients_path()`; copy it before editing. These fictional histories are dated through
-January 15, 2026. Your project’s configured dates determine ages and notice
-applicability; Studio uses fixed dates for its previews.
+the CSV through `immuknow.resources.example_clients_path()`; copy it before
+editing. The examples describe facts as of January 15, 2026. Your project’s
+configured dates determine ages and notice applicability; Studio uses fixed dates
+for its previews.
+
+For a Studio download, run `uv run python scripts/run.py --sample` from the
+extracted project to use its selected example and assignments.
+
+Core maintains this one CSV so native projects and Studio previews use the same
+fictional people. Edit their facts in Core; Template selects starter notices for
+its sample, while Studio supplies preview descriptions and builds preview JSON.
+These public examples support notice design and trying the workflow. Separate test
+fixtures exercise engine and project behavior; see the [testing guide](../developer_guide/testing.md).
 
 An installed package provides `immuknow` and its resources without a checkout.
 
