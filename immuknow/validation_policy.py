@@ -1,4 +1,4 @@
-"""Evaluate saved findings and bind individual warning acceptance to exact evidence.
+"""Evaluate saved findings and bind individual warning acceptance to the applicable rule.
 
 Observations stay in entry ``checks``. Every delivery attempt stores a separate
 evaluation; accepting a warning never changes either its observation or result.
@@ -394,8 +394,6 @@ class Evaluation:
     run_id: str
     row_key: str
     pdf_sha256: str
-    evidence_sha256: str
-    rules_sha256: str
     settings: dict[str, dict[str, Any]]
     observations: list[dict[str, Any]]
     results: list[dict[str, Any]]
@@ -414,8 +412,6 @@ class WarningAcceptance:
     run_id: str
     row_key: str
     pdf_sha256: str
-    evidence_sha256: str
-    rules_sha256: str
     warning_code: str
     warning_id: str
     reason: str
@@ -496,28 +492,13 @@ def evaluate_original(
                         "Required PDF evidence is missing or incomplete; generate and check a new notice.",
                     ).to_dict()
                 )
-    rules_hash = fingerprint({"definitions": policy_snapshot(), "settings": settings})
-    evidence_hash = fingerprint(
-        {
-            "run_id": record["run_id"],
-            "row_key": entry["row_key"],
-            "original": entry["original"],
-            "source": entry["source"],
-            "facts": entry["facts"],
-            "assignment": entry["assignment"],
-            "resources": record["resources"],
-            "input": record["input"].get("sha256"),
-            "rules": rules_hash,
-            "observations": observations,
-            "render_summary": entry.get("render_summary"),
-            "results": results,
-        }
-    )
-    warnings = {
-        f"{result['code']}:{index + 1}": result["code"]
-        for index, result in enumerate(results)
-        if result["status"] == "warn" and RULES[result["code"]].scope == "original"
-    }
+    occurrences: dict[str, int] = {}
+    warnings: dict[str, str] = {}
+    for result in results:
+        code = result["code"]
+        if result["status"] == "warn" and RULES[code].scope == "original":
+            occurrences[code] = occurrences.get(code, 0) + 1
+            warnings[f"{code}:{occurrences[code]}"] = code
     failures = sorted(
         {
             result["code"]
@@ -529,16 +510,20 @@ def evaluate_original(
         record["run_id"],
         entry["row_key"],
         entry["original"]["sha256"],
-        evidence_hash,
-        rules_hash,
         deepcopy(settings),
         deepcopy(observations),
         results,
         {
-            code: fingerprint(
-                {"evidence": evidence_hash, "warning_set": warnings, "code": code}
+            warning_id: fingerprint(
+                {
+                    "run_id": record["run_id"],
+                    "row_key": entry["row_key"],
+                    "warning_id": warning_id,
+                    "rule_setting": settings.get(code),
+                    "policy_version": POLICY_VERSION,
+                }
             )
-            for code in warnings
+            for warning_id, code in warnings.items()
         },
         failures,
     )
@@ -576,8 +561,6 @@ def accept_warnings(
                     evaluation.run_id,
                     evaluation.row_key,
                     evaluation.pdf_sha256,
-                    evaluation.evidence_sha256,
-                    evaluation.rules_sha256,
                     code.rsplit(":", 1)[0],
                     code,
                     reason.strip(),
@@ -595,15 +578,7 @@ def accept_warnings(
 
 def route_original(record: dict, evaluation: Evaluation, *, withheld: bool) -> dict:
     """Make new and saved-run delivery use the same failure-aware decision."""
-    accepted = {
-        item["token"]
-        for item in record.get("warning_acceptances", [])
-        if item["run_id"] == evaluation.run_id
-        and item["row_key"] == evaluation.row_key
-        and item["pdf_sha256"] == evaluation.pdf_sha256
-        and item["evidence_sha256"] == evaluation.evidence_sha256
-        and item["rules_sha256"] == evaluation.rules_sha256
-    }
+    accepted = {item["token"] for item in record.get("warning_acceptances", [])}
     unresolved = [
         code
         for code, token in evaluation.warning_tokens.items()
@@ -629,6 +604,5 @@ def route_original(record: dict, evaluation: Evaluation, *, withheld: bool) -> d
             for code, token in evaluation.warning_tokens.items()
             if token in accepted
         ],
-        "evaluation_sha256": evaluation.evidence_sha256,
         "withheld": withheld,
     }
