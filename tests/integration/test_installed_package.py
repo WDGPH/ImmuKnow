@@ -452,7 +452,12 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
         assert {
             path.relative_to(run_dir).as_posix()
             for path in (run_dir / "bundles").rglob("*.pdf")
-        } == {bundle["path"] for bundle in attempt["bundles"]}
+        } == {
+            bundle["path"]
+            for completed in rebundled["delivery_attempts"]
+            for bundle in completed["bundles"]
+        }
+        assert attempt["reused_from"] == record["delivery_attempts"][-1]["number"]
         for entry in rebundled["entries"]:
             assert entry["original"] == originals[entry["row_key"]]
             assert entry["encryption"] == encryptions[entry["row_key"]]

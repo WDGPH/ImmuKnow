@@ -336,7 +336,6 @@ def run_pipeline(
                 (staged_config / "parameters.yaml").write_text(
                     yaml.safe_dump(saved_config), encoding="utf-8"
                 )
-                verify_components(template_dir)
                 shutil.copytree(template_dir, staged_templates)
                 verify_components(staged_templates)
                 catalog = load_catalog(staged_config)
