@@ -27,9 +27,9 @@ Give each shared contract one maintained owner:
 
 | Project | Owns the explanation of |
 | --- | --- |
-| ImmuKnow Core | Native inputs, fictional example clients, notice selection, rendering resources, validation, saved runs and delivery |
+| ImmuKnow Core | Native inputs, notice selection, rendering resources, validation, saved runs and delivery |
 | ImmuKnow Studio | Browser editing, previews, and project import and download |
-| ImmuKnow Template | Starter letters, Settings, display translations, example branding, project configuration, local setup, helper commands and starter tests |
+| ImmuKnow Template | Fictional example clients, starter letters, Settings, display translations, example branding, project configuration, local setup, helper commands and starter tests |
 
 Link to the owning guide for details. Include enough context and commands for a
 reader to complete the current task without reconstructing it across
@@ -37,15 +37,15 @@ repositories. A short handoff summary is useful; competing specifications of
 validation or delivery are not.
 
 Core ships no starter project. Template maintains the authored starters; Studio
-consumes verified pinned project resources and presents Core’s fictional clients.
+consumes verified pinned project resources and presents Template’s fictional clients.
 Core owns the shared library, schemas and rendering/validation behavior.
 Its small unbranded test projects are fixtures, not supported starter notices.
 
 Keep names readers must recognize exact: commands, flags, paths, API names,
 schema fields, check codes and status values. Explain what they mean rather
 than replacing them with approximate synonyms. A template is a source file; a
-notice is the document it produces. Core's fictional clients supply Studio previews and can be included as sample inputs
-in a downloaded project. Distinguish warnings, failed checks,
+notice is the document it produces. Template’s fictional clients supply Studio
+previews and can be included as sample inputs in a downloaded project. Distinguish warnings, failed checks,
 failed output steps and runs that stop before producing notices.
 
 An error should explain what failed and, when known, what the person can do

@@ -16,11 +16,6 @@ def resource_root() -> Path:
     return Path(str(files("immuknow")))
 
 
-def example_clients_path() -> Path:
-    """Locate the fictional client CSV; copy it before making changes."""
-    return resource_root() / "examples/clients.csv"
-
-
 def typst_library_root() -> Path:
     """Locate the engine's shared library; copy it to a project's lib/immuknow/."""
     return resource_root() / "typst"

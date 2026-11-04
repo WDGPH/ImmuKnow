@@ -107,8 +107,8 @@ uv run --locked --group docs mkdocs serve --dev-addr 0.0.0.0:8000
 
 Payload and report schemas define the rendering contract. Core's validation
 cases live in `tests/fixtures/render-contract.json`; Studio maintains its own
-copy of useful contract cases. Core checks the shared fictional client data; Studio
-checks its preview scenarios and Template checks its sample assignments.
+copy of useful contract cases. Template checks its fictional clients and sample
+assignments; Studio checks its previews. Core uses independent test fixtures.
 
 Native build tests compare source bytes before and after packaging, rebuild a
 source archive without Git or Studio, and verify native file hashes. The

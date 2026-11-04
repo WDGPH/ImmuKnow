@@ -42,12 +42,9 @@ prose, display choices, QR construction and component findings.
 ## Resources for authoring tools
 
 `immuknow.resources.resource_root()` returns the installed package directory.
-The supported resource directories are `typst/`, `config/`, `schemas/` and `examples/`.
+The supported resource directories are `typst/`, `config/` and `schemas/`.
 Treat them as read-only and copy files before customization. Resources are
 included in wheels and source distributions; no source checkout is needed.
-
-`immuknow.resources.example_clients_path()` returns the fictional native CSV
-shared with Studio and Template. Copy it before editing.
 
 `immuknow.resources.typst_library_root()` returns the shared Typst library
 directory. Copy it intact to a project’s `templates/lib/immuknow/`. Starter

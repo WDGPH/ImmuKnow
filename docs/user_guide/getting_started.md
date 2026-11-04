@@ -2,46 +2,38 @@
 
 Install Python 3.11 or later, [uv](https://docs.astral.sh/uv/), and
 [Typst 0.15.1](https://typst.app/docs/changelog/0.15.1/). Put `typst`
-on `PATH`, set `TYPST_BIN`, or configure `typst.bin` in
-`parameters.yaml`. To try the full example cohort, put a checkout of
-[ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template) in `./my-project`.
-Core contains no starter letters. Prepare the shared library from the Template
-project directory:
+on `PATH`, set `TYPST_BIN`, or configure `typst.bin` in `parameters.yaml`.
+Start with [ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template),
+or download a Studio project with **Include fictional client data** enabled.
+From that project directory, run the fictional sample:
 
 ```bash
-cd ./my-project
 uv sync --locked
-uv run python scripts/sync_lib.py
-cd ..
+uv run python scripts/run.py --sample
 ```
 
-Then run from the Core checkout:
+Template maintains the example clients and sample assignments. Studio uses the
+same fictional people for previews and can include a selected example in a
+project download. Their histories and forecasts are illustrative; they are not
+vaccination schedules or clinical assessments. Follow the [Template guide](https://github.com/WDGPH/ImmuKnow-Template)
+for setup and sample options. The examples describe facts as of January 15, 2026;
+project dates determine ages and notice applicability.
+
+Keeping one CSV in Template lets native projects and browser previews use the
+same people. Template owns their facts and sample notice assignments; Studio
+supplies preview descriptions and builds preview JSON. Public examples help
+people design notices and try the workflow. Independent test fixtures exercise
+engine and project behavior; see the [testing guide](../developer_guide/testing.md).
+
+To run Core directly from a checkout, first prepare a Template project using its
+setup guide. With that project in `./my-project`:
 
 ```bash
 uv sync
-uv run immuknow ./immuknow/examples/clients.csv \
+uv run immuknow ./my-project/input/sample/sample_students.csv \
   --notice-assignments ./my-project/input/sample/sample_assignments.json \
   --templates ./my-project/templates --config ./my-project/config --output ./runs
 ```
-
-[The example CSV](https://github.com/WDGPH/ImmuKnow/blob/main/immuknow/examples/clients.csv)
-contains fictional clients for trying the pipeline. Its histories and forecasts
-are illustrative; they are not vaccination schedules or clinical assessments.
-Template supplies matching sample assignments. From the Template project
-directory, run `uv run python scripts/run.py --sample` to use them. The installed Core package also exposes
-the CSV through `immuknow.resources.example_clients_path()`; copy it before
-editing. The examples describe facts as of January 15, 2026. Your project’s
-configured dates determine ages and notice applicability; Studio uses fixed dates
-for its previews.
-
-For a Studio download, run `uv run python scripts/run.py --sample` from the
-extracted project to use its selected example and assignments.
-
-Core maintains this one CSV so native projects and Studio previews use the same
-fictional people. Edit their facts in Core; Template selects starter notices for
-its sample, while Studio supplies preview descriptions and builds preview JSON.
-These public examples support notice design and trying the workflow. Separate test
-fixtures exercise engine and project behavior; see the [testing guide](../developer_guide/testing.md).
 
 An installed package provides `immuknow` and its resources without a checkout.
 
