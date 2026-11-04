@@ -53,6 +53,33 @@ def test_periodic_snapshots_write_json_only_by_count_or_elapsed_time(
     assert (tmp_path / "report.html").read_text() == "unchanged"
 
 
+def test_slow_snapshots_lengthen_interval_but_outcome_limit_still_saves(
+    tmp_path, monkeypatch
+):
+    now = [0.0]
+    durations = iter([8.0, 0.1, 0.1])
+    saved = []
+    monkeypatch.setattr(run_report, "perf_counter", lambda: now[0])
+
+    def write_json(*args):
+        saved.append(now[0])
+        now[0] += next(durations)
+
+    monkeypatch.setattr(run_report, "write_json", write_json)
+    checkpoint = run_report._OutcomeCheckpoint(tmp_path, sample_record(1))
+    now[0] = 30
+    checkpoint.advance()
+    now[0] = 68
+    checkpoint.advance()
+    assert saved == [30]
+    for _ in range(999):
+        checkpoint.advance()
+    assert saved == [30, 68]
+    now[0] = 98.2
+    checkpoint.advance()
+    assert saved == [30, 68, 98.2]
+
+
 def test_large_report_pages_include_all_rows_and_escape_links_and_warning_tokens(
     tmp_path,
 ):
@@ -117,6 +144,45 @@ def test_failed_streamed_snapshot_preserves_previous_record(tmp_path):
     record["status"] = "updated"
     run_report.write_json(tmp_path, record)
     assert json.loads((tmp_path / "run.json").read_text()) == record
+
+
+def test_chunked_record_matches_standard_json_with_policies_and_prior_attempts(
+    tmp_path,
+):
+    record = sample_record(2)
+    record["entries"][0]["source"] = {"name": 'Adèle · "quoted"\n😀'}
+    policy = {"rules": {}, "clients": [{"selector": {"row_key": "row-000001"}}]}
+    record["configuration"] = {"effective": {"validation": policy}}
+    record["validation_policy"] = policy
+    record["warning_acceptances"] = [{"token": "é<token>", "reason": "Reviewed"}]
+    record["withheld_rows"] = ["row-000002"]
+    record["delivery_attempts"] = [
+        {
+            "number": number,
+            "rule_settings": policy,
+            "review": {"accepted_tokens": ["é<token>"], "withheld_rows": []},
+            "evaluations": {"row-000001": {"results": [], "score": 1.25}},
+            "resolved_rules": {"row-000001": {}},
+            "memberships": {"row-000001": {"bundle": None}},
+            "previous_memberships": {"row-000001": {}},
+            "bundles": [{"row_keys": ["row-000001"]}],
+        }
+        for number in (1, 2)
+    ]
+    expected = json.dumps(record, ensure_ascii=False, separators=(",", ":"))
+    run_report.write_json(tmp_path, record)
+    assert (tmp_path / "run.json").read_text() == expected
+    assert json.loads(expected) == record
+
+
+def test_invalid_split_mapping_key_preserves_previous_json(tmp_path):
+    record = sample_record(1)
+    run_report.write_json(tmp_path, record)
+    previous = (tmp_path / "run.json").read_bytes()
+    record[123] = "invalid field name"
+    with pytest.raises(TypeError, match="field names must be strings"):
+        run_report.write_json(tmp_path, record)
+    assert (tmp_path / "run.json").read_bytes() == previous
 
 
 def test_large_report_only_links_bundles_from_latest_completed_attempt(tmp_path):

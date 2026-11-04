@@ -227,7 +227,8 @@ Open the printed `report.html` path to inspect every row, including failed and
 incomplete rows. For more than 1,000 rows, follow its links to pages of 100
 notices. The complete source values and run details are in `run.json`. During
 rendering and encryption the JSON record is checkpointed after 1,000 outcomes
-or at the first outcome after 30 seconds; the HTML view is updated at workflow
+or periodically at the next outcome. The time interval starts at 30 seconds and
+increases for slow snapshots; the HTML view is updated at workflow
 boundaries. Progress counts incorporated outcomes, which may not yet be saved.
 An abrupt stop can leave recent outcomes after the last checkpoint unrecorded;
 PDFs created after it are not automatically adopted for delivery. Original source row keys remain stable when

@@ -16,7 +16,7 @@ from importlib.metadata import version
 from importlib.resources import files
 from pathlib import Path
 from time import perf_counter
-from typing import Any
+from typing import Any, TextIO
 
 from .data_models import CheckResult, CheckStatus
 
@@ -113,13 +113,78 @@ class _OutcomeCheckpoint:
         self.record = record
         self.pending = 0
         self.last_saved = perf_counter()
+        self.interval = 30.0
 
     def advance(self) -> None:
         self.pending += 1
-        if self.pending >= 1000 or perf_counter() - self.last_saved >= 30:
+        if self.pending >= 1000 or perf_counter() - self.last_saved >= self.interval:
+            started = perf_counter()
             write_json(self.run_dir, self.record)
+            finished = perf_counter()
+            self.interval = max(30.0, 10 * (finished - started))
             self.pending = 0
-            self.last_saved = perf_counter()
+            self.last_saved = finished
+
+
+def _write_record_chunks(stream: TextIO, record: dict[str, Any]) -> None:
+    """Encode large run collections one entry or row value at a time."""
+    encoder = json.JSONEncoder(ensure_ascii=False, separators=(",", ":"))
+    attempt = ("delivery_attempts", "*")
+    policies = (
+        ("validation_policy",),
+        ("configuration", "effective", "validation"),
+        attempt + ("rule_settings",),
+    )
+    dict_paths = {
+        (),
+        ("configuration",),
+        ("configuration", "effective"),
+        *policies,
+        attempt,
+        attempt + ("review",),
+        *(
+            attempt + (key,)
+            for key in (
+                "evaluations",
+                "resolved_rules",
+                "memberships",
+                "previous_memberships",
+            )
+        ),
+    }
+    list_paths = {
+        ("entries",),
+        ("delivery_attempts",),
+        ("warning_acceptances",),
+        ("withheld_rows",),
+        attempt + ("bundles",),
+        attempt + ("review", "accepted_tokens"),
+        attempt + ("review", "withheld_rows"),
+        *(p + ("clients",) for p in policies),
+    }
+
+    def write(value: Any, path: tuple[str, ...]) -> None:
+        if path in dict_paths and isinstance(value, dict):
+            stream.write("{")
+            for index, (key, item) in enumerate(value.items()):
+                if not isinstance(key, str):
+                    raise TypeError("Run record field names must be strings")
+                if index:
+                    stream.write(",")
+                stream.write(encoder.encode(key) + ":")
+                write(item, path + (key,))
+            stream.write("}")
+        elif path in list_paths and isinstance(value, list):
+            stream.write("[")
+            for index, item in enumerate(value):
+                if index:
+                    stream.write(",")
+                write(item, path + ("*",))
+            stream.write("]")
+        else:
+            stream.write(encoder.encode(value))
+
+    write(record, ())
 
 
 def write_json(run_dir: Path, record: dict[str, Any]) -> Path:
@@ -131,7 +196,7 @@ def write_json(run_dir: Path, record: dict[str, Any]) -> Path:
         descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
             os.chmod(temporary, 0o600)
-            json.dump(record, stream, ensure_ascii=False, indent=2)
+            _write_record_chunks(stream, record)
         temporary.replace(path)
         return path
     finally:

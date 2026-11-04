@@ -61,10 +61,20 @@ changes the assigned template based on language or clinical facts.
 
 ## One authoritative record
 
-`run_report.py` writes format version 2. During rendering and encryption, it
-checkpoints `run.json` after 1,000 incorporated outcomes or when 30 seconds have
-elapsed at the next outcome, whichever comes first. Workflow boundaries and
-handled failures write the record and its HTML view. Abrupt termination can lose
+`run_report.py` writes format version 2 as compact UTF-8 JSON. It encodes notices
+and row-keyed delivery evidence in chunks, preserving the complete record. An
+individual entry, bundle or aggregate check can still require a large chunk;
+the pipeline and saved-run reader retain the whole cohort in memory. New growing
+collections need corresponding streaming paths in the writer.
+
+During rendering and encryption, the writer checkpoints `run.json` after 1,000
+incorporated outcomes or at the next outcome after a time interval, whichever
+comes first. Each stage starts with a 30-second
+interval. After a JSON write, the interval is the greater of 30 seconds and ten
+times that write's duration, measured from its completion. Slow snapshots thus
+lengthen the time trigger; the outcome trigger can still cause earlier writes.
+Neither checkpoint latency nor overhead has a strict time bound. Workflow
+boundaries and handled failures write the record and its HTML view. Abrupt termination can lose
 outcomes since the last checkpoint; elapsed time is not a guarantee while a
 single operation is still running. Each file is replaced atomically, and JSON is
 authoritative if writing its HTML view is interrupted. There is no
