@@ -122,3 +122,53 @@ def test_cli_interrupt_returns_130_without_a_traceback(monkeypatch, capsys):
     monkeypatch.setattr(orchestrator, "run_pipeline", interrupt)
     assert orchestrator.main() == 130
     assert capsys.readouterr().err == "Run interrupted\n"
+
+
+def test_assignment_findings_keep_row_and_client_association():
+    from immuknow.assignment_manifest import AssignmentFinding, ReconciliationResult
+
+    entries: list[dict] = [
+        {"row_key": "row-000001", "client_id": "shared", "checks": []},
+        {"row_key": "row-000002", "client_id": "shared", "checks": []},
+        {"row_key": "row-000003", "client_id": "other", "checks": []},
+    ]
+    record = {"entries": entries, "checks": []}
+    findings = [
+        AssignmentFinding("row", "shared", None, "row warning", "row-000002", "warn"),
+        AssignmentFinding("client", "shared", None, "client warning", status="warn"),
+        AssignmentFinding("missing", "absent", None, "run warning", status="warn"),
+    ]
+    orchestrator._record_assignment_findings(
+        record, ReconciliationResult({}, {}, findings)
+    )
+    assert [[check["code"] for check in entry["checks"]] for entry in entries] == [
+        ["assignment.client"],
+        ["assignment.row", "assignment.client"],
+        [],
+    ]
+    assert [check["code"] for check in record["checks"]] == ["assignment.missing"]
+
+
+def test_prepared_facts_preserve_serialized_evidence_without_nested_copies():
+    from dataclasses import asdict
+
+    from immuknow.data_models import ClientRecord
+
+    client = ClientRecord(
+        sequence="row-000001",
+        client_id="1234567890",
+        language="en",
+        person={"name": "Example"},
+        school={"name": "School"},
+        board={},
+        contact={},
+        overdue_diseases=[{"disease": "example", "dose": 2}],
+        overdue_agents=["agent"],
+        metadata={},
+        history=[{"agent": "agent", "validity": "Valid"}],
+    )
+    prepared = orchestrator._prepared_facts(client)
+    assert json.loads(json.dumps(prepared)) == json.loads(json.dumps(asdict(client)))
+    assert prepared["person"] is client.person
+    assert prepared["history"] is client.history
+    assert prepared["overdue_diseases"] is client.overdue_diseases

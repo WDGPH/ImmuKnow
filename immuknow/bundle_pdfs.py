@@ -205,13 +205,20 @@ def _routes(
     }
     validation_policy.accept_warnings(record, evaluations, accept, reason)
     record["withheld_rows"] = list(withheld)
+    withheld_set = set(withheld)
+    acceptances_by_row: dict[str, list[dict]] = {}
+    for acceptance in record.get("warning_acceptances", []):
+        acceptances_by_row.setdefault(acceptance["row_key"], []).append(acceptance)
     return [
         (
             entry,
             validation_policy.route_original(
-                record,
+                {
+                    **record,
+                    "warning_acceptances": acceptances_by_row.get(entry["row_key"], []),
+                },
                 evaluations[entry["row_key"]],
-                withheld=entry["row_key"] in withheld,
+                withheld=entry["row_key"] in withheld_set,
             ),
         )
         for entry in entries

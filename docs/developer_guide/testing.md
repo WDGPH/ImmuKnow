@@ -130,3 +130,25 @@ also checks representative encrypted notices in Chromium's ordinary PDF viewer.
 Inspect representative English/French PDFs after presentation or compiler/font
 changes: include long names, addresses and histories, QR links, signatures,
 envelope windows and the one-page suspension order.
+
+## Profiling a cohort
+
+Use fictional inputs and a copied Template project. Record the Core and Template
+revisions, input mix, worker count, encryption and routing settings, Typst and
+Python versions, and machine CPU and memory limits. Start with an unprofiled run
+and use its log for stage timings. On Linux, for example:
+
+```bash
+/usr/bin/time -v uv run --locked immuknow fictional.csv \
+  --notice-assignments assignments.json --templates project/templates \
+  --config project/config --output benchmark-runs --workers 4
+```
+
+For Python function costs, run the same arguments under `uv run --locked python
+-m cProfile -o /tmp/immuknow.prof -m immuknow.orchestrator`. Profiling changes
+timings, and Python profiles do not measure work inside Typst. Process-tree
+sampling helps account for compiler CPU and memory. Compare an unprofiled run,
+include clean and review-heavy notices, and measure output size and checkpoint
+time as the cohort grows. Treat synthetic mixes and projections as scenarios,
+not production capacity guarantees. Profiling output can contain client-linked
+information and should use fictional data.

@@ -1,8 +1,10 @@
 # PDF checks, review and rebundling
 
-Open a run's `report.html` to inspect its source rows, selected notices, findings
-and actual output results. `run.json` is the authoritative record. Findings do
-not disappear when a delivery choice changes.
+Open a run's `report.html` to inspect its rows, findings and actual output
+results. For runs over 1,000 rows, follow links to the notice pages; selected
+notices, full source values and run details are in `run.json`. Some large run or
+attempt check details are shortened in the HTML view. `run.json` is the
+authoritative record. Findings do not disappear when a delivery choice changes.
 
 Python checks the actual original PDF's readability, page count, hash and
 client ID, displayed birth date and school, and mailing name and address inside

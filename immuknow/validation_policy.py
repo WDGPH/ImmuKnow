@@ -357,22 +357,24 @@ def resolve_policy(policy: dict, record: dict) -> dict[str, dict[str, dict[str, 
 
     for settings in resolved.values():
         apply(settings, policy.get("rules", {}), "run")
+    entries_by_client: dict[str | None, list[str]] = {}
+    for entry in record["entries"]:
+        entries_by_client.setdefault(entry.get("client_id"), []).append(
+            entry["row_key"]
+        )
     selected = set()
     for client in policy.get("clients", []):
         selector = client["selector"]
         if "scheme" in selector:
-            matches = [
-                entry["row_key"]
-                for entry in record["entries"]
-                if entry.get("client_id") == selector["value"]
-            ]
+            matches = entries_by_client.get(selector["value"], [])
         else:
-            matches = [
-                key
-                for key in resolved
-                if key == selector["row_key"]
+            key = selector["row_key"]
+            matches = (
+                [key]
+                if key in resolved
                 and record["input"].get("sha256") == selector["input_sha256"]
-            ]
+                else []
+            )
         if len(matches) != 1:
             raise ValueError("Validation selector must match exactly one source row")
         key = matches[0]
@@ -601,9 +603,11 @@ def accept_warnings(
             )
         )
     existing = record.setdefault("warning_acceptances", [])
+    existing_tokens = {item["token"] for item in existing}
     for acceptance in pending:
-        if not any(item["token"] == acceptance["token"] for item in existing):
+        if acceptance["token"] not in existing_tokens:
             existing.append(acceptance)
+            existing_tokens.add(acceptance["token"])
 
 
 def route_original(record: dict, evaluation: Evaluation, *, withheld: bool) -> dict:

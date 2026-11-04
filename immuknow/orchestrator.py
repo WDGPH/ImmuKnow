@@ -17,7 +17,7 @@ from typing import Any, TextIO
 import yaml
 import pandas as pd
 from pypdf.errors import PdfReadError
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields
 from contextlib import contextmanager
 from collections.abc import Generator
 from datetime import datetime, timezone
@@ -52,6 +52,18 @@ from . import (
 
 DEFAULT_OUTPUT_DIR = Path.cwd() / "runs"
 DEFAULT_CONFIG_DIR = Path(str(files("immuknow").joinpath("config")))
+
+
+_CLIENT_FACT_FIELDS = tuple(field.name for field in fields(ClientRecord))
+
+
+def _prepared_facts(client: ClientRecord) -> dict[str, Any]:
+    """Expose prepared fields without copying their read-only nested values.
+
+    Rendering, encryption, and reporting treat these shared values as immutable;
+    independently produced render evidence remains owned by its own record fields.
+    """
+    return {name: getattr(client, name) for name in _CLIENT_FACT_FIELDS}
 
 
 def _positive_workers(value: str) -> int:
@@ -382,8 +394,10 @@ def run_pipeline(
                     manifest,
                     selected_notice,
                 )
+                del source_frame, manifest
                 print_preflight_summary(reconciliation)
                 _record_assignment_findings(record, reconciliation)
+                del reconciliation
                 for warning in prepared_result.warnings:
                     run_report.add_check(
                         record,
@@ -402,7 +416,7 @@ def run_pipeline(
                     )
                 for client in clients:
                     entry = by_row[client.sequence]
-                    entry["facts"] = {"prepared": asdict(client)}
+                    entry["facts"] = {"prepared": _prepared_facts(client)}
                     entry["checks"].extend(
                         check.to_dict()
                         for check in prepared_result.row_checks[client.sequence]
@@ -413,6 +427,7 @@ def run_pipeline(
                             language=client.language,
                             template=f"{client.version_id}.{client.language}.typ",
                         )
+                del prepared_result
                 failed_rows = [
                     entry["row_key"]
                     for entry in record["entries"]
@@ -449,6 +464,8 @@ def run_pipeline(
                     entry["assignment"]["sha256"] = sha256(
                         job.template.read_bytes()
                     ).hexdigest()
+                run_report.write_report(run_dir, record)
+                checkpoint = run_report._OutcomeCheckpoint(run_dir, record)
 
                 def incorporate(
                     client: ClientRecord,
@@ -525,7 +542,7 @@ def run_pipeline(
                         )
                         failed = True
                     finally:
-                        run_report.write_report(run_dir, record)
+                        checkpoint.advance()
                         stage.advance(failed=failed or sys.exc_info()[0] is not None)
                     if outcome.error is not None and not outcome.expected:
                         raise outcome.error
@@ -583,6 +600,7 @@ def run_pipeline(
                                     failure = exc
                     if failure is not None:
                         raise failure
+                run_report.write_report(run_dir, record)
 
                 # Preserve input order for encryption and delivery, regardless of completion order.
                 successful_pairs = [
@@ -596,6 +614,7 @@ def run_pipeline(
                     if by_row[client.sequence]["encryption"]["requested"]
                 ]
                 if requested_pairs:
+                    checkpoint = run_report._OutcomeCheckpoint(run_dir, record)
                     with StageProgress(
                         "Encryption", len(requested_pairs), stream=progress_stream
                     ) as stage:
@@ -625,8 +644,9 @@ def run_pipeline(
                                     str(exc),
                                 )
                             finally:
-                                run_report.write_report(run_dir, record)
+                                checkpoint.advance()
                                 stage.advance(failed=failed)
+                    run_report.write_report(run_dir, record)
                 with StageProgress("Delivery", stream=progress_stream):
                     bundle_pdfs._bundle_run(run_dir, record)
                 output_directory.cleanup_output(run_dir, config)
@@ -741,19 +761,16 @@ def _record_source_rows(frame: pd.DataFrame, record: dict[str, Any]) -> None:
 def _record_assignment_findings(
     record: dict[str, Any], reconciliation: ReconciliationResult
 ) -> None:
+    by_row: dict[str, list[dict[str, Any]]] = {}
+    by_client: dict[str, list[dict[str, Any]]] = {}
+    for entry in record["entries"]:
+        by_row.setdefault(entry["row_key"], []).append(entry)
+        by_client.setdefault(entry["client_id"], []).append(entry)
     for finding in reconciliation.findings:
         targets = (
-            [
-                entry
-                for entry in record["entries"]
-                if entry["row_key"] == finding.row_key
-            ]
+            by_row.get(finding.row_key, [])
             if finding.row_key
-            else [
-                entry
-                for entry in record["entries"]
-                if entry["client_id"] == finding.client_id
-            ]
+            else by_client.get(finding.client_id, [])
         )
         for target in targets or [record]:
             run_report.add_check(

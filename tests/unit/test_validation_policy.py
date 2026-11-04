@@ -500,3 +500,55 @@ def test_repeated_warning_token_is_refused():
     with pytest.raises(ValueError, match="only once"):
         accept_warnings(record, {entry["row_key"]: evaluation}, tokens * 2, "Reviewed")
     assert record["warning_acceptances"] == []
+
+
+def test_multiple_row_selectors_and_repeated_acceptance_preserve_association():
+    record, first = evidence()
+    first["client_id"] = "0000000001"
+    second = deepcopy(first)
+    second.update(row_key="row-000002", client_id="0000000002")
+    record["entries"].append(second)
+    rules = {"layout.signature_page": {"enabled": False, "reason": "Reviewed"}}
+    settings = validation_policy.resolve_policy(
+        {
+            "clients": [
+                {
+                    "selector": {"scheme": "panorama", "value": "0000000001"},
+                    "rules": rules,
+                },
+                {
+                    "selector": {
+                        "input_sha256": record["input"]["sha256"],
+                        "row_key": second["row_key"],
+                    },
+                    "rules": rules,
+                },
+            ]
+        },
+        record,
+    )
+    assert all(
+        not item["layout.signature_page"]["enabled"] for item in settings.values()
+    )
+    evaluations = {
+        entry["row_key"]: evaluate_original(record, entry, entry["checks"])
+        for entry in record["entries"]
+    }
+    tokens = [
+        token
+        for evaluation in evaluations.values()
+        for token in evaluation.warning_tokens.values()
+    ]
+    accept_warnings(record, evaluations, tokens, "Reviewed")
+    accept_warnings(record, evaluations, tokens, "Reviewed again")
+    assert len(record["warning_acceptances"]) == 2
+    assert all(
+        route_original(record, evaluation, withheld=False)["destination"] == "delivery"
+        for evaluation in evaluations.values()
+    )
+    assert (
+        route_original(record, evaluations[second["row_key"]], withheld=True)[
+            "destination"
+        ]
+        == "review"
+    )

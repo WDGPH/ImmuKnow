@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class StageProgress:
-    """Count saved outcomes; use a terminal bar or two plain stage summaries.
+    """Count incorporated outcomes; use a terminal bar or two plain stage summaries.
 
     A missing stream disables presentation while retaining stage timings in the
     run log. Output errors disable presentation without affecting notice work.
@@ -41,7 +41,7 @@ class StageProgress:
         return self
 
     def advance(self, failed: bool = False) -> None:
-        """Count one terminal outcome after the coordinator saves its checkpoint."""
+        """Count one terminal outcome after the coordinator incorporates it."""
         self.completed += 1
         self.failed += int(failed)
         self.refresh()

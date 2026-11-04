@@ -61,9 +61,13 @@ changes the assigned template based on language or clinical facts.
 
 ## One authoritative record
 
-`run_report.py` writes format version 2. It replaces `run.json` and `report.html`
-atomically as individual files after completed responsibilities and on exit.
-JSON is authoritative if writing its HTML view is interrupted. There is no
+`run_report.py` writes format version 2. During rendering and encryption, it
+checkpoints `run.json` after 1,000 incorporated outcomes or when 30 seconds have
+elapsed at the next outcome, whichever comes first. Workflow boundaries and
+handled failures write the record and its HTML view. Abrupt termination can lose
+outcomes since the last checkpoint; elapsed time is not a guarantee while a
+single operation is still running. Each file is replaced atomically, and JSON is
+authoritative if writing its HTML view is interrupted. There is no
 separate mutable assignment, validation, compilation or completion manifest.
 Immutable font/build manifests describe resources; they do not duplicate run state.
 
@@ -87,7 +91,10 @@ review-sheet and notice page spans.
 Checks use the shared `CheckResult` shape: `code`, `stage`, `status`, `message`,
 and optional `component`, `page`, and `measurements`. Status is `pass`, `warn`,
 `fail`, `not_applicable`, or `not_run`. Every finding remains accessible in the
-HTML report, which escapes source text and links to actual outputs.
+HTML report, which escapes source text and links to actual outputs. For more
+than 1,000 rows, `report.html` indexes pages of 100 notices. Full source values,
+facts, and attempt details remain in `run.json`; large run and attempt check
+details may be shortened in the HTML view.
 
 Resources include per-file full hashes and one fingerprint of the staged file
 manifest, including supporting templates, translations and assets.
