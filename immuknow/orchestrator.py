@@ -23,6 +23,7 @@ from collections.abc import Generator
 from datetime import datetime, timezone
 from importlib.resources import files
 from pathlib import Path
+from uuid import uuid4
 from .assignment_manifest import (
     ReconciliationResult,
     load_manifest,
@@ -238,9 +239,10 @@ def run_pipeline(
             generate_notices.reject_overlap(source, output_dir)
 
     # Start the record before loading shared inputs so setup errors have evidence.
-    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f")
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f") + "-" + uuid4().hex
     run_dir = output_directory.prepare_run_directory(output_dir, run_id)
-    with run_lock(run_dir):
+    final_dir = output_dir / run_id
+    with output_directory.publish_run_directory(run_dir, run_id), run_lock(run_dir):
         build = current_build_info()
         record: dict[str, Any] = {
             "format_version": run_report.RUN_FORMAT_VERSION,
@@ -448,8 +450,8 @@ def run_pipeline(
                     )
                     run_report.finish_run(record)
                     result = run_report.write_report(run_dir, record)
-                    print(f"Input file rejected. Report: {run_dir / 'report.html'}")
-                    return result
+                    print(f"Input file rejected. Report: {final_dir / 'report.html'}")
+                    return final_dir / result.name
                 setup_complete = True
                 run_report.write_report(run_dir, record)
 
@@ -689,9 +691,9 @@ def run_pipeline(
                     for entry in record["entries"]
                 )
                 print(
-                    f"Run {record['status']}: {produced}/{len(record['entries'])} original PDFs. {run_dir / 'report.html'}"
+                    f"Run {record['status']}: {produced}/{len(record['entries'])} original PDFs. {final_dir / 'report.html'}"
                 )
-                return result
+                return final_dir / result.name
             except BaseException as exc:
                 record["resources"] = {
                     **record["resources"],
