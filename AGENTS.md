@@ -33,7 +33,7 @@ Keep dependencies inside the authored project. Preserve `run_typst` package-path
 isolation and its download block, including for computed imports.
 
 Require the complete, unchanged project `lib/immuknow/` tree, independently of
-project-declared hashes. Check it during staging, delivery and Studio
+project-declared hashes. Check it during staging and Studio
 compilation/import/export/draft loading. Custom helpers belong outside that tree.
 Use `report-v2.json` for report fields, components and render rules. Native and
 browser validators share contract cases; verify page/range bounds and source-row
@@ -74,27 +74,35 @@ settings and wrong types. Render checks use placed Typst metadata. Missing
 evidence retains a readable PDF with a failed mandatory evidence check.
 Typst owns notice content and layout validation. Native output handling records
 PDF readability, hash and page count without extracting text or rechecking link
-destinations. Saved-run delivery validates the retained report and source binding.
+destinations. Validate the report and source binding when the compiler returns it.
+Saved-run delivery trusts accepted findings and CLI-owned artifacts; manual edits
+to saved runs are unsupported. Do not repeat facts/report validation or rescan
+original/resource hashes during delivery.
 
 Use validated `compile_notices.CompilerTimeouts` for every native Typst operation.
 Compile each notice once and collect its placed Typst report from that compilation.
 Remove temporary evidence data before publishing any notice PDF. Preserve row
 continuation, sanitized readable originals when report validation fails, and
-committed bundles after failed replacement. Failed original checks require review;
+published bundles after failed later attempts. Failed original checks require review;
 eligibility is metadata. Bundle all readable originals using configured grouping and size, with a findings CSV per
 bundle. Review state and operator holds do not split bundles or omit pages.
-Warning acceptance in `validation_policy.py` is tied to the run, row, PDF,
-evidence and rules; provide no blanket waiver or force-delivery path.
+Warning acceptance in `validation_policy.py` identifies the run, row, warning
+occurrence and its effective rule setting; provide no blanket waiver or force-delivery path.
 Encryption uses a separate copy with AES-256 revision 6. Verify settings and
 password access, preserving originals and existing copies on failure.
 
 Acquire the per-run operating-system lock before reading a saved record, and
-hold it across delivery, recovery and writes. New runs hold it through the final
-report. Do not add a global lock that blocks independent runs. Fixed notice
-length is an explicit PDF page count: add no blank pages or per-client waivers.
-Read bundles back and compare every page with its selected source before
-replacement. Record delivery code, resources and output hashes on every attempt,
-retaining earlier attempts.
+hold it across delivery and writes. New runs hold it through the final report,
+then close logs and locks before publishing their directory. Do not add a global
+lock that blocks independent runs. Fixed notice length is an explicit PDF page
+count: add no blank pages or per-client waivers. Open new bundles and check their
+page counts; test page preservation in regression tests rather than comparing
+every page during delivery. Write each run and bundle attempt in a unique
+`.incomplete` directory and remove the suffix only after writing finishes.
+Completed attempts keep their own PDF/CSV sets. Publish memberships with an
+atomic `run.json` write after the directory rename. Leave interrupted directories
+alone; add no backup, rollback or automatic recovery machinery. Record delivery
+code and output hashes, referring to the original saved resource identity.
 
 ## Working method
 

@@ -5,9 +5,15 @@ Read its main workflow from top to bottom: preserve inputs, prepare clients and
 assignments, render independent notices, check completed PDFs, encrypt if
 requested, bundle usable notices, then finish the report.
 
-Each invocation creates a new directory under `--output`. Earlier runs are
-preserved. Input, configuration and template paths must be outside that output
-tree. Installed package files are never changed.
+Each invocation creates a new directory under `--output`, initially named
+`<run-id>.incomplete`. After the operation finishes and its files close, the
+directory is renamed to `<run-id>`. A finished run can contain rejected input,
+warnings or failed notices; inspect its report for the outcome. An interruption
+or an exception that stops the operation leaves `.incomplete` and any saved
+partial evidence. These runs cannot be rebundled; start a new run.
+
+Earlier runs are preserved. Input, configuration and template paths must be
+outside the output tree. Installed package files are never changed.
 
 ```text
 runs/<run-id>/
@@ -17,7 +23,8 @@ runs/<run-id>/
   facts/          # exact saved notice payloads
   resources/      # input and template/config snapshots
   encrypted/      # optional individual encrypted copies
-  bundles/        # one grouped PDF set, with a findings CSV per PDF
+  bundles/
+    attempt-*/    # a complete PDF/CSV set for each successful attempt
   logs/run.log
   work/           # disposable preparation/compiler/assembly files
 ```
@@ -134,10 +141,11 @@ prepared source, records the PDF hash and readability, and checks page-count
 agreement. It does not extract PDF text or inspect link destinations. Compiler
 warnings remain findings; missing or malformed summary evidence fails a mandatory
 check and keeps the readable PDF in review.
-Saved-run delivery rechecks retained reports before assembly and includes their
-findings when reevaluating rules. Removing findings from the entry's list cannot
-erase failed or missing report evidence. Each evaluation still binds the report,
-PDF, facts, source row, resources and effective rules to its warning decisions.
+Once accepted, the saved facts, reports, originals and resources belong to the
+CLI and remain unchanged. Saved-run delivery uses the recorded findings and
+applies current review rules. It does not repeat report validation, read facts
+files or scan saved resource hashes. Editing saved files manually is outside the
+supported workflow. Correct the input or template and generate a new run.
 
 Passwords and expanded password values are never recorded. Encryption password
 settings remain in memory and are omitted from both saved effective settings
@@ -155,8 +163,8 @@ values to produce an empty password.
 
 `validation_policy` evaluates saved observations separately from review decisions.
 Each delivery attempt retains typed evaluation snapshots and individual warning
-tokens. The top-level `warning_acceptances` binds operator reasons to exact
-run/row/PDF/evidence/rule identities; `withheld_rows` separately keeps selected
+tokens. The top-level `warning_acceptances` binds operator reasons to the
+run, row, individual warning and its effective rule setting; `withheld_rows` separately keeps selected
 originals marked for review. Original failures prevent eligibility; warnings
 require individual acceptance. Encryption failure affects its separate copy. See the
 [PDF review contract](../user_guide/pdf_validation.md) for the operator workflow.
@@ -171,22 +179,24 @@ Each PDF has a matching CSV sidecar derived from its member evaluations and
 actual page spans, recorded as `findings_csv` on that bundle artifact. Unbundled
 failures remain in JSON/HTML. The CSV is a view, not a second run record.
 
-`immuknow-rebundle` loads a saved run and review decisions, verifies every
-original hash, and uses the same assembly function as generation. It neither
-reads current source/templates nor repeats encryption. It validates saved facts
-and their source-row binding once per attempt. Before copying pages, assembly
-rereads the facts and originals and checks their paths and saved hashes again.
-Changed files stop replacement. It copies original pages without adding marks
-or pages; rebundling needs no Typst executable or fonts.
+`immuknow-rebundle` loads a saved run and applies current review decisions.
+It needs neither the source project nor Typst, fonts or encryption passwords.
+Assembly opens each original once, copies its pages and records the resulting
+page ranges. Completed new bundles are reopened to check their page counts.
+Page preservation is covered by regression tests; delivery does not serialize
+and compare every source and written page.
 
-Assembly prepares PDFs and their CSV sidecars in `bundles.next` before replacing
-`bundles`. Each bundle artifact records its sidecar path, hash and row count.
-The previous set stays in `bundles.previous` until the successful attempt and memberships are
-saved. Attempt statuses in `run.json` support recovery after an interrupted
-replacement; no second journal is maintained. Stale warning tokens, changed
-originals and failed assembly preserve the previous committed set. Successful
-replacement removes stale membership in the former destination. Prior attempts
-remain audit facts, and rebundle exit status describes the current attempt.
+Each bundle attempt writes PDFs and CSVs in its own
+`bundles/attempt-<number>-<id>.incomplete` directory. Once the set is finished,
+the directory loses its suffix. An atomic `run.json` save then records the
+completed attempt and new memberships. Each artifact records its sidecar path,
+hash and row count. Previous complete directories remain untouched.
+
+An interruption can leave an `.incomplete` directory, or a finished directory
+that the record never adopted. Later commands leave these directories alone
+and choose a new name. The last published memberships remain active. There is
+no backup swap or restoration step. JSON remains authoritative if writing its
+HTML view fails. Rebundle exit status describes the current attempt.
 
 Overall status is `completed`, `completed_with_warnings`,
 `completed_with_failures`, or `failed_setup`. Warnings return CLI exit 0;

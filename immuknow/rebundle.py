@@ -16,11 +16,11 @@ def parse_args() -> argparse.Namespace:
         allow_abbrev=False,
         epilog="""
 Inspect report.html and the original PDF first. Each warning in the latest
-attempt's evaluation has a token bound to that run, row, PDF, evidence and rules.
+attempt's evaluation has a token for that run, row, warning and rule setting.
 Accept individual warnings using those exact tokens:
   immuknow-rebundle ./runs/<run-id> --accept-warning <token> --reason "Reviewed layout"
 Repeat --accept-warning for each warning reviewed. Acceptance remains in run.json
-and applies only while the evidence is unchanged. Failed original checks prevent
+and applies while that warning and its rule setting remain the same. Failed checks prevent
 eligibility; accepting a warning cannot waive them. Unknown or stale tokens
 are refused. No blanket warning allowance or force-delivery choice exists.
 
@@ -33,7 +33,8 @@ never require name matching: review is bound to the immutable source row.
 All readable originals share one bundle set using the saved grouping and size.
 Each PDF has a matching findings CSV with review status and page references.
 Successful assembly does not mean every notice is eligible for delivery.
-The previous bundle set survives a failed replacement. This command does not
+Each new PDF/CSV set has its own directory; previous complete sets remain.
+The CLI owns saved artifacts; manual edits are unsupported. This command does not
 reread source data, recompile notices or rerun encryption. Only run format 2 is
 supported. Exit status describes this attempt; earlier failures remain recorded.
 """,

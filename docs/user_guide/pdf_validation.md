@@ -16,9 +16,8 @@ compilation cannot produce a selected notice. There is no default fixed page cou
 
 Reports retain the notice data used for layout. It must match the prepared input,
 and each placed personal-content helper must use that same data. This catches
-changed facts even when row and client IDs are unchanged. Saved-run delivery
-validates the retained report and source binding again before applying its
-findings. Python does not extract PDF text or independently check its link
+changed facts even when row and client IDs are unchanged. That check happens
+when the notice is produced. Later review uses the accepted findings. Python does not extract PDF text or independently check its link
 destinations. Use the supplied helpers so the Typst report includes their checks.
 
 The supplied link and QR helpers warn when a web link lacks HTTPS or a host, or
@@ -64,11 +63,12 @@ immuknow-rebundle ./runs/<run-id> \
 
 Repeat `--accept-warning` for each warning reviewed. A nonempty reason is
 required. Decisions are retained in `warning_acceptances` with the run, source
-row, original PDF hash, evidence hash, rule identity and acceptance time. A
-changed PDF, source binding, resource, observation, warning set or rule definition
-invalidates the affected acceptance. A stale token is refused, and an earlier
-acceptance remains visible without releasing changed evidence. Unknown or
-incomplete mandatory evidence requires renewed checking and a new run.
+row, individual warning, reason and acceptance time. A token also identifies
+the warning's effective rule setting and the review policy version. Changing
+that rule setting requires renewed acceptance; changing an unrelated rule or
+adding an operator hold preserves the decision. A token from another run or
+row is refused. Original PDFs and their findings remain unchanged: correct the
+input or template and generate a new run when a notice needs changing.
 
 To replace the set of rows kept in review independently of findings, use
 `--withhold row-000001` (repeat for additional rows). Use `--clear-withheld`
@@ -160,10 +160,11 @@ findings; measurement limits are authored in the templates and require a new run
 
 ## Bundle contents
 
-Before replacing the active set, ImmuKnow opens every written bundle and compares
-each page with its selected original page, including its content and resources.
-Missing, duplicated, changed or reordered pages fail the attempt even when the
-total page count is unchanged.
+ImmuKnow opens completed new bundles and checks their page counts. It records
+which notices were copied and where their pages begin and end. Page copying is
+covered by regression tests; routine runs do not compare every written page
+with its source. A same-count page substitution would therefore not be detected
+by this final check.
 
 Every readable original appears once in the configured bundle set. Choose
 [grouping](configuration.md#group-bundles) by school, board, notice language,
@@ -191,8 +192,8 @@ has a CSV containing only column headers. Rows without a usable original cannot
 appear in a bundle CSV; their failures remain in `report.html` and `run.json`.
 The latter remains the complete, authoritative record.
 
-PDFs and their CSVs are replaced together after a successful attempt. A failed
-replacement preserves the previous set. Text cells that could be interpreted
+Each successful attempt has its own directory containing the PDFs and matching
+CSVs. Earlier complete sets remain available when a later attempt fails. Text cells that could be interpreted
 as spreadsheet formulas are prefixed with an apostrophe in the export;
 original values remain unchanged in `run.json`. Treat CSVs as sensitive client
 information, like the PDFs and HTML report.
@@ -244,35 +245,40 @@ To reevaluate and rebuild using already recorded acceptances:
 immuknow-rebundle ./runs/<run-id>
 ```
 
-Rebundling reads the saved record and original PDFs, checks every original hash
-and page count, verifies retained payload bindings and resource hashes, and assembles
-a complete replacement set with a findings CSV per bundle. Source CSV and authored template
-directories can be moved or removed. Typst and installed fonts are not needed for
-rebundling. Notices are not recompiled, facts are not prepared again, and
-encryption is not rerun.
+Rebundling uses the saved findings, original PDFs and grouping settings to
+produce a new PDF/CSV set. Source CSV and authored template directories can be
+moved or removed. Typst, installed fonts and encryption passwords are not needed.
+The CLI trusts its completed originals, facts, reports and resource snapshots;
+manually changing these files is unsupported. Saved hashes identify the files
+originally produced and are not repeatedly checked for outside edits.
 
 Each attempt records the application code and data format files it uses, along
 with the Python and pypdf versions, saved resources and output hashes.
 Earlier attempt records stay unchanged.
-Unsupported saved data or compiler versions and changed saved resources are
-refused before bundle assembly.
+Only supported run formats can be loaded. The compiler version used to create
+a notice does not prevent copying its completed PDF pages.
 
 Accepting warnings updates eligibility; bundle grouping still follows the saved
 configuration. Warnings and earlier delivery attempts remain in `run.json`.
 
 Only one process can change a run at a time. Rebundling locks the run before
-reading its record and keeps it locked through recovery and replacement. A
+reading its record and keeps it locked through the final save. A
 second attempt stops with “This run is in use”; unrelated runs can proceed.
 New runs use the same protection through their final report write. The operating
 system releases the lock when a process exits, including after an interruption.
 Do not delete `.run.lock` to bypass a busy run.
 
-Invalid choices, missing or changed originals, and failed assembly leave the
-previous committed bundle set and memberships active. Interrupted replacement
-is detected through the saved attempt status and the fixed `bundles.next` and
-`bundles.previous` directories. The next invocation restores the previous set
-before beginning a new attempt, or removes the backup when JSON already records
-a completed replacement. There is no separate transaction manifest.
+Each new set starts in `bundles/attempt-<number>-<id>.incomplete`. The suffix is
+removed after the PDF/CSV set is written, and the run record then points to it.
+A failed attempt leaves the previous published set active. Interrupted folders
+are left alone; another attempt uses a new name. The report links the last
+published set even when a later attempt fails. Only sets recorded as completed
+in `run.json` are active outputs.
+
+An initial run whose directory still ends in `.incomplete` cannot be rebundled.
+Inspect its partial report, correct the cause and start a new run. Completed and
+abandoned output directories can be managed as whole folders; there is no
+automatic resumption or cleanup of interrupted attempts.
 
 The command's exit status describes the current rebundling attempt. A successful
 new attempt returns 0 even when earlier failures remain in the run's audit

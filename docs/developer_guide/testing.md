@@ -11,7 +11,7 @@ checks should protect a distinct boundary, not meet a test-count or coverage quo
 
 | Project | What its tests protect |
 | --- | --- |
-| Core | Native input and validation rules, notice output, delivery and recovery, installed distribution, and supported Python versions. |
+| Core | Native input and validation rules, notice output, publication, installed distribution, and supported Python versions. |
 | [Studio](https://github.com/WDGPH/ImmuKnow-Studio/blob/main/docs/development.md) | Browser editing, UI, drafts, archives, and the browser-to-native project handoff. |
 | [Template](https://github.com/WDGPH/ImmuKnow-Template/blob/main/README.md) | Local helper commands and paths, the client-data guard, shared-library integration, starter wording and layout, and one sample run through Core. It does not reimplement Core's input or output validation. |
 
@@ -101,7 +101,7 @@ uv run --locked --group docs mkdocs serve --dev-addr 0.0.0.0:8000
 | Input preparation | Original row identity, complete histories, disease mappings, source warnings, ambiguous assignments and malformed configuration | `tests/unit/`, `test_pipeline_contracts.py`, `test_input_rejection.py` |
 | Typst presentation | Placed findings, English/French wording, client details, QR destinations, continuation and suspension layout | `test_typst_package.py`, `test_native_project.py`, `test_render_evidence.py` |
 | Native runs | Both selectors, independent failures, setup failures, retained facts and authoritative run records | `test_run_accounting.py`, `test_native_deadlines.py`, `tests/e2e/` |
-| Delivery | Encryption, warning review, page identity, fixed page counts, saved-run recovery and process locks | `test_delivery_checks.py`, `test_encrypted_pdfs.py`, `test_saved_run_delivery.py`, `test_run_lock.py` |
+| Delivery | Encryption, warning review, page preservation, fixed page counts, interrupted publication and process locks | `test_delivery_checks.py`, `test_encrypted_pdfs.py`, `test_saved_run_delivery.py`, `test_run_lock.py` |
 | Installed distribution | Relocated wheel, public resource access, provenance and operation without checkout imports or browser tooling | `test_installed_package.py`, `test_native_build.py` |
 
 Payload and report schemas define the rendering contract. Core's validation
@@ -119,10 +119,13 @@ network access. Component tests reject changed, missing, extra, renamed and
 linked library files even if project-declared hashes have been rewritten.
 
 Failed applicable checks retain useful originals for diagnosis and prevent
-release. Individual warning acceptance is tied to the run, row, original PDF,
-evidence and effective rules. An accepted warning cannot release a failed batch.
-Saved-run tests cover concurrent attempts, interrupted replacement, retained
-bundles and earlier decisions. Encryption tests verify AES-256 revision 6 with
+delivery eligibility. Individual warning acceptance identifies the run, row,
+warning occurrence and its effective rule setting. An accepted warning cannot
+waive a failed check. Saved-run tests cover concurrent attempts, interrupted
+publication, retained bundles and earlier decisions. Bundle regression tests
+check copied pages, links and geometry; routine delivery only checks readability,
+page counts and membership. Tests do not require detection of unsupported manual
+edits to completed run files. Encryption tests verify AES-256 revision 6 with
 independent PDF readers and preserve originals. Studio's separate browser suite
 also checks representative encrypted notices in Chromium's ordinary PDF viewer.
 

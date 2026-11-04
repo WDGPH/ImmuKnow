@@ -31,7 +31,10 @@ The filename `<version>.<language>.typ` supplies the selected identity, with
 setup failures save a `failed_setup` record before propagating an exception.
 Expected row failures are recorded while independent rows continue. The CLI
 uses the same workflow and returns nonzero for failed rows or delivery steps.
-Previous runs are retained.
+Previous runs are retained. While running, the directory ends in `.incomplete`;
+a normal return follows its rename to the final path. An exception leaves the
+suffix and any saved partial report. See [run output](../user_guide/getting_started.md#run-output)
+for completion and failure meanings.
 
 Pass `workers` as a positive integer to render and encrypt independent notices
 concurrently. The default is `1`, which keeps both stages serial. Encryption

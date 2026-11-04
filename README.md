@@ -50,7 +50,8 @@ for the catalog, custom directories and selection rules.
 
 Each run has its own directory beneath `--output`, with original PDFs,
 optional individual encryption, bundles, saved facts/resources, `run.json`, and
-a readable `report.html`. Every source row has an entry, including failed notices.
+a readable `report.html`. A directory ending in `.incomplete` has not finished;
+completed runs drop that suffix. Every source row has an entry, including failed notices.
 Recoverable source, assignment, and layout findings retain a PDF where possible;
 independent notices continue after a failed render. Warnings return CLI exit 0;
 failed entries or output steps return nonzero. See

@@ -208,7 +208,8 @@ not start after an interruption during rendering or encryption.
 ## Run output
 
 Each invocation creates its own directory beneath `--output` and preserves
-previous runs:
+previous runs. Its name ends in `.incomplete` while the operation is running.
+When writing finishes, the suffix is removed:
 
 ```text
 runs/<run-id>/
@@ -219,7 +220,8 @@ runs/<run-id>/
   facts/          # saved notice payloads
   resources/      # source and template/configuration snapshots
   encrypted/      # optional individual encrypted copies
-  bundles/        # one grouped PDF set, with a findings CSV per PDF
+  bundles/
+    attempt-*/    # complete grouped PDFs and matching findings CSVs
   logs/
   work/           # disposable compiler and assembly files
 ```
@@ -238,6 +240,11 @@ encrypted copies or bundles. Shared configuration or file-reading failures
 produce `failed_setup`. After input is accepted, template errors retain
 independent clients' successful outputs; a run with individual failures is
 `completed_with_failures`. Warnings alone return exit 0; failures return nonzero.
+
+A finished directory can contain warnings, failed notices or rejected input;
+read the report to learn the outcome. An interrupted operation keeps its
+`.incomplete` suffix and saved partial report. Start a new run after correcting
+the cause; incomplete initial runs cannot be rebundled.
 
 The report records actual original hashes and page counts, encryption outcomes,
 and bundle membership and page ranges. Encryption does not delete originals.
@@ -265,7 +272,8 @@ The [PDF review guide](pdf_validation.md) owns warning acceptance, withholding
 and invalidation rules. Acceptance changes eligibility, not bundle membership;
 failed checks cannot be marked eligible.
 
-Rebundling verifies the saved original hashes and does not reread source data or
-authored templates, recompile notices, or rerun encryption. A failed attempt
-keeps the previous active set. See [review and PDF findings](pdf_validation.md)
-for override examples, page ranges and recovery behavior.
+Rebundling uses accepted findings and CLI-owned originals. It does not reread
+source data or authored templates, recompile notices, or rerun encryption.
+Each complete PDF/CSV set has its own directory; a failed attempt keeps the
+previous active set. See [review and PDF findings](pdf_validation.md) for rule
+changes, page ranges and interrupted attempts.
