@@ -7,9 +7,9 @@ for documentation, application messages, code, comments and docstrings.
 
 ## Project responsibilities
 
-Core owns native inputs, validation, notice selection, shared rendering resources,
-saved runs and delivery. Studio owns browser editing, builds, fonts and fictional
-preview clients. Template owns starter letters, Settings, display translations,
+Core owns native inputs, fictional example clients, validation, notice selection,
+shared rendering resources, saved runs and delivery. Studio owns browser editing,
+builds, fonts and preview presentation. Template owns starter letters, Settings, display translations,
 example branding, project configuration, local setup and helper commands. Core
 ships no starter letters; use small unbranded fixtures for engine tests. Template
 owns starter wording and page-count tests. Update the owning guide and link to it

@@ -1,6 +1,7 @@
 """Source rows, normalized administrations and explicit assignments remain inspectable."""
 
 import csv
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -301,7 +302,7 @@ def test_formulation_marker_replaces_a_suffix_only():
 
 
 def test_repository_sample_passes_preparation_with_the_packaged_reference(tmp_path):
-    source = Path(__file__).resolve().parents[2] / "input/sample_students.csv"
+    source = preprocess.CONFIG_DIR.parent / "examples/clients.csv"
     result, _ = preprocess.prepare_clients(
         preprocess.read_input(source),
         tmp_path,
@@ -317,6 +318,34 @@ def test_repository_sample_passes_preparation_with_the_packaged_reference(tmp_pa
         for checks in result.row_checks.values()
         for check in checks
     )
+
+
+def test_example_clients_have_consistent_dates_and_known_agents():
+    frame = preprocess.read_input(preprocess.CONFIG_DIR.parent / "examples/clients.csv")
+    reference = json.loads(
+        (preprocess.CONFIG_DIR / "vaccine_reference.json").read_text()
+    )
+    assert frame["client_id"].is_unique
+    for row in frame.to_dict(orient="records"):
+        assert all(
+            row[field]
+            for field in (
+                "client_id",
+                "first_name",
+                "last_name",
+                "date_of_birth",
+                "street_address_line_1",
+                "city",
+                "province",
+                "postal_code",
+            )
+        )
+        parsed = preprocess.parse_history(row["imms_given"])
+        assert not parsed.issues
+        for dose in parsed.doses:
+            assert row["date_of_birth"] <= dose["date_given"] <= "2026-01-15"
+            assert dose["vaccine"] in reference
+            assert dose["validity"] in ("valid", "invalid")
 
 
 @pytest.mark.unit

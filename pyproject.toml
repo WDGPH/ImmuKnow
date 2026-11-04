@@ -9,6 +9,7 @@ packages = ["immuknow"]
 immuknow = [
     "build.json",
     "schemas/*.json",
+    "examples/*.csv",
     "config/*.json",
     "config/*.yaml",
     "typst/*",

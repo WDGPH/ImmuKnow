@@ -16,20 +16,22 @@ The commands below assume that project is in `./my-project`. From a Core checkou
 
 ```bash
 uv sync
-uv run immuknow ./input/sample_students.csv \
-  --notice-assignments ./input/sample_assignments.json \
+uv run immuknow ./immuknow/examples/clients.csv \
+  --notice-assignments ./my-project/input/sample/sample_assignments.json \
   --templates ./my-project/templates --config ./my-project/config --output ./runs
 ```
 
-`input/sample_students.csv` and `input/sample_assignments.json` contain
-synthetic data for trying the pipeline; they describe no real clients.
+`immuknow/examples/clients.csv` contains fictional clients for trying the pipeline.
+Template supplies the corresponding sample assignments. The installed Core package
+also exposes the CSV through `immuknow.resources.example_clients_path()`; copy it
+to a project before editing.
 
 A run selects notices in one of two ways: pass `--notice-assignments` with
 one `template` filename per client, or pass one
 `--template PATH` for the whole cohort:
 
 ```bash
-uv run immuknow ./input/sample_students.csv \
+uv run immuknow ./immuknow/examples/clients.csv \
   --template ./my-project/templates/overdue_diseases_v1.en.typ \
   --config ./my-project/config --output ./runs
 ```

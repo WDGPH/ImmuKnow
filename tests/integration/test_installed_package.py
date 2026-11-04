@@ -76,6 +76,7 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
         for resource in (
             "build.json",
             "schemas/input_schema.json",
+            "examples/clients.csv",
             "schemas/rendering-v1.json",
             "typst/lib.typ",
             "typst/src/findings.typ",
@@ -133,6 +134,10 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
         assert "requires-dist: pillow" not in metadata
         assert "requires-dist: qrcode" not in metadata
     with tarfile.open(next(distributions.glob("*.tar.gz"))) as archive:
+        assert any(
+            name.endswith("/immuknow/examples/clients.csv")
+            for name in archive.getnames()
+        )
         assert not any(
             name.endswith((".ttf", ".otf", ".woff", ".woff2"))
             for name in archive.getnames()
@@ -184,10 +189,12 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
             str(python),
             "-c",
             "from hashlib import sha256; "
-            "from immuknow.resources import resource_root, rendering_build_info; "
+            "from immuknow.resources import resource_root, rendering_build_info, example_clients_path; "
             "p = resource_root(); b = rendering_build_info(); "
             "assert not (p / 'templates').exists(); assert (p / 'typst/lib.typ').is_file(); "
             "assert (p / 'config/parameters.yaml').is_file(); "
+            "assert example_clients_path() == p / 'examples/clients.csv'; "
+            "assert example_clients_path().is_file(); "
             "assert b['rendering_schema_version'] == 1; "
             "assert b['core_source_revision']; "
             "assert all(sha256((p / f['path']).read_bytes()).hexdigest() == "

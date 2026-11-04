@@ -10,13 +10,17 @@ project from Studio. Core contains no starter letters. With the project in
 
 ```bash
 uv sync
-uv run immuknow ./input/sample_students.csv \
-  --notice-assignments ./input/sample_assignments.json \
+uv run immuknow ./immuknow/examples/clients.csv \
+  --notice-assignments ./my-project/input/sample/sample_assignments.json \
   --templates ./my-project/templates --config ./my-project/config --output ./runs
 ```
 
-`input/sample_students.csv` and `input/sample_assignments.json` contain
-synthetic data for trying the pipeline; they describe no real clients.
+`immuknow/examples/clients.csv` contains fictional clients for trying the pipeline.
+Template supplies the corresponding sample assignments. The installed Core package
+also exposes the CSV through `immuknow.resources.example_clients_path()`; copy it
+to a project before editing. These fictional histories are dated through
+January 15, 2026. Your project’s configured dates determine ages and notice
+applicability; Studio uses fixed dates for its previews.
 
 An installed package provides `immuknow` and its resources without a checkout.
 
