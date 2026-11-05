@@ -22,6 +22,9 @@ def main() -> None:
     ]["channel"]
     destination = root / "immuknow/typst/vendor/qr/qr.wasm"
     cargo_home = Path(os.environ.get("CARGO_HOME", Path.home() / ".cargo")).resolve()
+    sysroot = subprocess.check_output(
+        ["rustc", "+" + toolchain, "--print", "sysroot"], text=True
+    ).strip()
     with tempfile.TemporaryDirectory(prefix="immuknow-qr-build-") as temporary:
         target = Path(temporary)
         environment = dict(os.environ)
@@ -33,6 +36,7 @@ def main() -> None:
                 (root, "/immuknow"),
                 (cargo_home, "/cargo"),
                 (target, "/target"),
+                (sysroot, "/rust-toolchain"),
             )
         )
         subprocess.run(
