@@ -60,7 +60,7 @@ pub struct School {
     pub enabled: bool,
     pub reference_file: Option<String>,
     pub target_phu: String,
-    pub column_prefix: String,
+    pub column_prefix: Option<String>,
 }
 #[derive(Deserialize, Serialize, Default)]
 #[serde(deny_unknown_fields, default)]
@@ -121,6 +121,10 @@ pub fn config(path: &Path) -> Result<Config> {
     ensure!(
         !c.pipeline.after_run.remove_artifacts,
         "pipeline.after_run.remove_artifacts is retired; remove the run directory manually when appropriate"
+    );
+    ensure!(
+        c.school_validation.column_prefix.is_none(),
+        "school_validation.column_prefix is retired; native findings use fixed measurement names"
     );
     if c.school_validation.enabled {
         ensure!(

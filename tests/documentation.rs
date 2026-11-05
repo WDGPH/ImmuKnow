@@ -31,29 +31,26 @@ fn local_documentation_links_and_cli_commands() {
     }
     let mut files = vec![root.join("README.md")];
     markdown_files(&root.join("docs"), &mut files);
-    let all_docs = files
-        .iter()
-        .map(|file| fs::read_to_string(file).unwrap())
-        .collect::<Vec<_>>()
-        .join("\n");
     let schema: serde_json::Value = serde_json::from_slice(
         &fs::read(root.join("resources/schemas/input_schema.json")).unwrap(),
     )
     .unwrap();
-    for name in ["client_id", "first_name", "last_name", "date_of_birth"] {
-        assert!(
-            schema["fields"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .any(|f| f["name"] == name),
-            "missing schema field {name}"
-        );
-        assert!(
-            all_docs.contains(name),
-            "documentation missing input field {name}"
-        );
-    }
+    let fields = schema["fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|field| field["name"].as_str().unwrap().to_owned())
+        .collect::<std::collections::BTreeSet<_>>();
+    let reference = fs::read_to_string(root.join("docs/user_guide/input_schema.md")).unwrap();
+    let documented = reference
+        .lines()
+        .filter(|line| line.starts_with("| `"))
+        .map(|line| line.split('`').nth(1).unwrap().to_owned())
+        .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(
+        fields, documented,
+        "CSV field reference differs from the shipped schema"
+    );
     let publishing_config = fs::read_to_string(root.join("mkdocs.yml")).unwrap();
     for file in files {
         let source = fs::read_to_string(&file).unwrap();

@@ -167,6 +167,9 @@ pub fn apply(record: &mut Value, config: &Config, resources: &Path) -> Result<()
                 }
             }
         }
+        if entry["encryption"]["status"] == "failed" {
+            checks.push(json!({"code":"encryption.failed","stage":"encryption","status":"fail","message":entry["encryption"]["error"].as_str().unwrap_or("Requested encrypted copy was not produced")}));
+        }
         entry["effective_checks"] = json!(checks);
     }
     Ok(())

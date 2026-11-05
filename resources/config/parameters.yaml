@@ -5,7 +5,6 @@ school_validation:
   enabled: false
   reference_file: school_reference.json
   target_phu: Wellington-Dufferin-Guelph Public Health
-  column_prefix: school_
 date_as_of: '2025-08-31'
 date_of_delivery: '2025-04-08'
 encryption:

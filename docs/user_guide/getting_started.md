@@ -29,7 +29,7 @@ The [configuration guide](configuration.md) describes the manifest and reference
 
 See the [CSV field reference](input_schema.md) for required columns. Text is retained as text, including leading zeros. CSV may use comma, semicolon, tab or pipe delimiters. Automatic decoding tries UTF-8 (with an optional BOM), Windows-1252, then Latin-1. To specify one, pass `--input-encoding utf-8-sig`, `cp1252` or `latin-1`. Control characters, repeated or malformed headers, and rows with a different number of fields are rejected.
 
-A blank or incomplete source value can produce a finding while retaining the row. Invalid history, duplicate nonblank client IDs, missing or ambiguous assignments, and forecasted agents that do not cover overdue diseases reject the cohort before rendering. `intended_reader` may be blank, `student`, or `guardian`; other values require correction. Source rows are retained with stable row keys before preparation.
+A blank or incomplete source value can produce a finding while retaining the row. Invalid history, duplicate nonblank client IDs, missing or ambiguous assignments, and forecasted agents that do not cover overdue diseases reject the cohort before rendering. `intended_reader` may be blank, `student`, or `guardian`; other values require correction. Source rows are retained with stable row keys before preparation. If malformed CSV structure prevents row parsing, the raw `source.csv` is retained with the rejection reason.
 
 ## Vaccine names in history
 
@@ -46,3 +46,10 @@ Blank history and `-;` or `-  -;` mean no history. Agent names match the selecte
 A new run is held in an `.incomplete` directory until it finishes. It retains the source CSV, configuration and resource copies, prepared facts, original PDFs, `run.json`, `report.html`, and numbered bundle directories. Warnings remain eligible for delivery by default; failed checks route readable PDFs to review bundles. A run with failures exits nonzero; warnings alone exit successfully. See [PDF review](pdf_validation.md) for withholding and rebuilding bundles.
 
 Use `immuknow prepare` with the same CSV, selector, config and optional encoding to write versioned facts and checks to standard output without rendering PDFs. See the [API reference](../reference/api.md).
+
+## Intended reader
+
+Set the optional `intended_reader` column to `student` or `guardian`. A blank
+value uses the age default: student at 16 or older, guardian under 16. Unknown
+age without an explicit reader uses neutral wording. Other values reject the
+input. Supply the intended mailing destination in the address columns.

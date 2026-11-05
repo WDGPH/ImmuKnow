@@ -16,7 +16,6 @@ Pass the directory containing these files with `--config`. Export the supplied s
 | `school_validation.enabled` | Compare source school names and facility IDs with the selected PHU reference. |
 | `school_validation.reference_file` | Reference path, absolute or relative to the selected config directory. An omitted, null or blank value selects the packaged reference. |
 | `school_validation.target_phu` | Exact PHU key in the reference; required when school validation is enabled. |
-| `school_validation.column_prefix` | Prefix for school matching fields. |
 | `validation.rules` | Run-wide settings for adjustable validation rules. |
 | `validation.clients` | Optional rules scoped to an explicitly selected source row. |
 | `validation.notice_length` | Optional fixed delivery notice length, in pages. |
@@ -72,3 +71,5 @@ The catalog has `schema_version: 1` and `versions` entries with `kind` (`overdue
 Each forecasted agent maps to one or more diseases. After disease normalization, forecasted agents must cover every supplied overdue disease; missing coverage rejects the cohort, while extra coverage or unmapped agents warns. Invalid dose suffixes warn and retain the disease without a dose number. Original source strings are retained.
 
 History entries use exact agent names from `vaccine_reference.json`. Every source fragment is parsed before any display exclusions. A placed history table fails for an unknown agent unless its own `ignore-agents` option excludes it; no mapping check is needed for an omitted table. Formulation markers affect display names only. See [CSV input](https://docs.phiz.ca/immuknow/latest/user_guide/input_schema/) and [template authoring](https://docs.phiz.ca/immuknow/latest/user_guide/phu_templates/).
+
+The former `school_validation.column_prefix` option is retired; native school findings use fixed measurement names. Remove that option from older project configuration.

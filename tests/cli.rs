@@ -666,6 +666,20 @@ fn missing_password_fact_fails_one_copy_and_later_rows_continue() {
     );
     assert_eq!(rows[0]["encryption"]["status"], "failed");
     assert_eq!(rows[0]["routing"], "review");
+    let review_csv =
+        run.join(Path::new(rows[0]["bundle"]["path"].as_str().unwrap()).with_extension("csv"));
+    let findings = csv::Reader::from_path(review_csv)
+        .unwrap()
+        .deserialize::<std::collections::BTreeMap<String, String>>()
+        .map(Result::unwrap)
+        .collect::<Vec<_>>();
+    assert!(
+        findings
+            .iter()
+            .any(|finding| finding["check_code"] == "encryption.failed"
+                && finding["status"] == "fail"
+                && finding["message"].contains("password facts"))
+    );
     assert_eq!(rows[1]["original"]["status"], "completed");
     assert_eq!(rows[1]["encryption"]["status"], "completed");
     let encrypted = run.join(rows[1]["encryption"]["path"].as_str().unwrap());

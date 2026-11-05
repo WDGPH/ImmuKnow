@@ -20,3 +20,23 @@ plugins/qr/build.sh --check
 ```
 
 `plugins/qr/build.sh` without `--check` rebuilds the vendored artifact. Build a release archive containing the executable and license with `scripts/build-native.sh`; an optional first argument selects its output directory. Each project should test its own behavior and handoffs rather than duplicate another project's complete test suite.
+
+## Measure the complete command
+
+Build once, then time the installed executable against a fictional cohort and
+its explicit assignment manifest. Keep the same project resources, fonts,
+configuration and input mix when comparing implementations:
+
+```sh
+cargo build --release --locked
+time target/release/immuknow run /path/to/fictional/clients.csv \
+  --notice-assignments /path/to/fictional/assignments.json \
+  --templates /path/to/project/templates --config /path/to/project/config \
+  --output /path/to/new-runs
+```
+
+Measure process startup through final reporting. Verify the saved status,
+notice count, encrypted copies and delivery memberships before interpreting a
+runtime. One observed run does not establish capacity for other input mixes.
+Native CI uploads a Linux release archive after the build and tests pass;
+it does not run the 1,000-client timing experiment.
