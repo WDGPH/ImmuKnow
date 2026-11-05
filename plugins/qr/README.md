@@ -21,13 +21,19 @@ depend on whether its source is installed.
 Core's normal test matrix does not build Rust. Keep the upstream and Rust
 licence notices beside the artifact when updating dependencies.
 
-The plugin accepts UTF-8 destination bytes and one error-correction letter
-(`l`, `m`, `q`, `h`). It emits the matrix width as one byte followed by one
-byte per cell in row order (`0` light, `1` dark). Non-ASCII text includes
+Both plugin exports accept UTF-8 destination bytes and one error-correction letter
+(`l`, `m`, `q`, `h`). `encode` emits the matrix width as one byte followed by one
+byte per cell in row order (`0` light, `1` dark). `encode_runs` emits the width
+followed by three-byte horizontal dark runs: row, start column, exclusive end
+column. Widths and coordinates fit in one byte for all 40 QR versions.
+Non-ASCII text includes
 UTF-8 ECI 26. The encoder chooses the smallest fitting version and the best
 mask; it never silently increases the requested error-correction level.
 Errors return fixed descriptions without including the destination.
 
+Square modules with square corners and no centre image use the compact runs;
+Typst draws one filled curve without expanding a cell matrix or structural grid.
+Other styles and centre images retain the matrix-based drawing path.
 URL construction, links, findings and visual styling remain in Typst. Test
 changes at that boundary: independently decode native and browser outputs,
 including Unicode, correction levels and styled symbols. The shared testing

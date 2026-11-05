@@ -1,5 +1,5 @@
-#import "qr-encode.typ": encode-qr
-#import "qr-style.typ": draw-qr
+#import "qr-encode.typ": encode-qr, encode-runs
+#import "qr-style.typ": draw-qr, draw-runs
 #import "findings.typ": component
 
 // Use the supplied link, a fixed URL, or a function that builds a URL for this notice.
@@ -34,10 +34,17 @@
   let ecl = if error-correction == auto { if logo == none { "l" } else { "h" } } else { error-correction }
   assert(logo == none or ecl == "h", message: "QR centre images require error-correction: h (or auto)")
   component("qr", notice: notice, url: destination)
-  let field = encode-qr(destination, ecl)
-  let quiet = 4
-  link(destination, box(draw-qr(field, width / (field.len() + 2 * quiet), quiet,
-    background, foreground, module-shape: module-shape, corner-style: corner-style,
-    logo: picture, logo-size: logo-size, logo-padding: logo-padding, logo-mask: mask,
-  )))
+  if module-shape == "square" and corner-style == "square" and picture == none {
+    let raw = encode-runs(destination, ecl)
+    let n = raw.at(0)
+    let runs = array(raw.slice(1)).chunks(3)
+    link(destination, box(draw-runs(runs, n, width / (n + 8), 4, background, foreground)))
+  } else {
+    let field = encode-qr(destination, ecl)
+    let quiet = 4
+    link(destination, box(draw-qr(field, width / (field.len() + 2 * quiet), quiet,
+      background, foreground, module-shape: module-shape, corner-style: corner-style,
+      logo: picture, logo-size: logo-size, logo-padding: logo-padding, logo-mask: mask,
+    )))
+  }
 }

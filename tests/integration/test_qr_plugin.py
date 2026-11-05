@@ -20,8 +20,9 @@ pytestmark = pytest.mark.integration
     "correction,capacity", [("l", 17), ("m", 14), ("q", 11), ("h", 7)]
 )
 @pytest.mark.parametrize("overflow", [False, True])
+@pytest.mark.parametrize("encoding", ["encode", "encode_runs"])
 def test_utf8_eci_accounts_for_capacity_and_decodes(
-    tmp_path: Path, correction: str, capacity: int, overflow: bool
+    tmp_path: Path, correction: str, capacity: int, overflow: bool, encoding: str
 ) -> None:
     # Version 1 byte capacities have four spare header bits. ECI 26 consumes
     # those bits plus one byte; the next byte must select version 2.
@@ -30,7 +31,7 @@ def test_utf8_eci_accounts_for_capacity_and_decodes(
     source = tmp_path / "probe.typ"
     source.write_text(
         '#let encoder = plugin("qr.wasm")\n'
-        '#metadata(array(encoder.encode(bytes(sys.inputs.at("text")), '
+        f'#metadata(array(encoder.{encoding}(bytes(sys.inputs.at("text")), '
         'bytes(sys.inputs.at("correction"))))) <matrix>\n'
     )
     result = subprocess.run(
@@ -56,6 +57,13 @@ def test_utf8_eci_accounts_for_capacity_and_decodes(
     encoded = json.loads(result.stdout)
     size, cells = encoded[0], encoded[1:]
     assert size == (25 if overflow else 21)
+    if encoding == "encode_runs":
+        runs = cells
+        assert len(runs) % 3 == 0
+        cells = [0] * (size * size)
+        for row, start, end in zip(runs[::3], runs[1::3], runs[2::3]):
+            assert 0 <= row < size and 0 <= start < end <= size
+            cells[row * size + start : row * size + end] = [1] * (end - start)
     assert len(cells) == size * size
     scale = 6
     width = (size + 8) * scale
@@ -84,14 +92,15 @@ def test_utf8_eci_accounts_for_capacity_and_decodes(
     "correction,suffix",
     [("l", "Éloïse"), ("m", "Алексей"), ("q", "李明"), ("h", "😀"), ("l", "e\u0301")],
 )
+@pytest.mark.parametrize("style", ["square", "rounded"])
 def test_styled_pdf_preserves_unicode_destination_and_requested_correction(
-    tmp_path: Path, correction: str, suffix: str
+    tmp_path: Path, correction: str, suffix: str, style: str
 ) -> None:
     url = "https://example.org/" + suffix
     report, _ = compile_package(
         tmp_path,
         f"#immuknow.qr-code(notice, url: {json.dumps(url, ensure_ascii=False)}, "
-        f'error-correction: "{correction}", module-shape: "rounded", corner-style: "rounded")',
+        f'error-correction: "{correction}", module-shape: "{style}", corner-style: "{style}")',
     )
     assert report["qr_urls"] == [url]
     with pymupdf.open(tmp_path / "notice.pdf") as document:

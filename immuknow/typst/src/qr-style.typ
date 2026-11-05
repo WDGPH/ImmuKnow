@@ -28,6 +28,26 @@
   field
 }
 
+// Fill touching default modules together using horizontal runs prepared in Rust.
+#let draw-runs(runs, n, unit, quiet, bg, fg) = {
+  let total = (n + 2 * quiet) * unit
+  box(width: total, height: total, baseline: quiet * unit, {
+    place(top + left, rect(width: total, height: total, fill: bg, stroke: none))
+    let squares = ()
+    for (row, start, end) in runs {
+      let x = (start + quiet) * unit
+      let y = (row + quiet) * unit
+      let right = (end + quiet) * unit
+      let bottom = (row + quiet + 1) * unit
+      squares += (
+        curve.move((x, y)), curve.line((right, y)),
+        curve.line((right, bottom)), curve.line((x, bottom)), curve.close(),
+      )
+    }
+    place(top + left, curve(..squares, fill: fg, stroke: none, fill-rule: "non-zero"))
+  })
+}
+
 // Style only data cells; retain timing, alignment, format and version information.
 #let draw-qr(field, unit, quiet, bg, fg, module-shape: "square", corner-style: "square", logo: none, logo-size: 30%, logo-padding: 0.3mm, logo-mask: none) = {
   let n = field.len()
