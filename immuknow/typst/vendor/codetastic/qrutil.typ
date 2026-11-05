@@ -571,9 +571,7 @@
 /// >>> qrutil.gf-add(2, 1) == 3
 /// >>> qrutil.gf-add(2, 3) == 1
 /// >>> qrutil.gf-add(55, 87) == 96
-#let gf-add(a, b) = {
-  return mod2(a+b) + bit(a,b,2) + bit(a,b,4) + bit(a,b,8) + bit(a,b,16) + bit(a,b,32) + bit(a,b,64) + bit(a,b,128)
-}
+#let gf-add(a, b) = a.bit-xor(b)
 
 /// >>> qrutil.gf-mul(0, 255) == 0
 /// >>> qrutil.gf-mul(255, 0) == 0
