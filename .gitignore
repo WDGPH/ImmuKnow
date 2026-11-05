@@ -24,3 +24,7 @@ phu_templates/
 .gitmodules
 
 .venv/
+/plugins/qr/target/
+/experiments/rust-pipeline/target/
+
+/experiments/rust-pipeline/pdf-backend-probe/target/

@@ -1,5 +1,7 @@
 include uv.lock
 include scripts/build-native.py
+graft plugins/qr
+prune plugins/qr/target
 graft immuknow
 prune tests
 global-exclude *.py[cod]
