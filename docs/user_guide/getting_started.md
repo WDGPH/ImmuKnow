@@ -190,31 +190,61 @@ clients from later output checks. See [configuration](configuration.md)
 for assignment and eligibility rules and [template authoring](phu_templates.md)
 for the native JSON contract.
 
+## Render progress and workers
+
+The command shows rendering and encryption progress on standard error, followed
+by delivery activity. Redirected output uses concise stage summaries. Use
+`--no-progress` to suppress progress messages.
+
+Rendering and individual encryption run one notice at a time by default.
+Pass a positive worker count, for example `--workers 4`, to process independent
+notices concurrently in each stage. Choose a count that suits the available
+CPU and memory. Encryption runs after rendering using the same worker count;
+bundling remains serial. The run log records stage durations to help assess
+performance for your cohort. An interrupted run stops submitting notices, waits
+for active work, and saves its results before releasing the run. Bundling does
+not start after an interruption during rendering or encryption.
+
 ## Run output
 
 Each invocation creates its own directory beneath `--output` and preserves
-previous runs:
+previous runs. Its name ends in `.incomplete` while the operation is running.
+When writing finishes, the suffix is removed:
 
 ```text
 runs/<run-id>/
   run.json        # authoritative source rows, findings and output results
   report.html     # readable report with links to actual PDFs
+  report-*.html   # notice pages for runs of 1,000 or more rows
   originals/      # retained, unchanged compiled notices
   facts/          # saved notice payloads
   resources/      # source and template/configuration snapshots
   encrypted/      # optional individual encrypted copies
-  bundles/        # one active delivery/ and review/ result
+  bundles/
+    attempt-*/    # complete grouped PDFs and matching findings CSVs
   logs/
   work/           # disposable compiler and assembly files
 ```
 
 Open the printed `report.html` path to inspect every row, including failed and
-incomplete rows. Original source row keys remain stable when
+incomplete rows. For 1,000 or more rows, follow its links to pages of 100
+notices. The complete source values and run details are in `run.json`. During
+rendering and encryption the JSON record is checkpointed after 1,000 outcomes
+or periodically at the next outcome. The time interval starts at 30 seconds and
+increases for slow snapshots; the HTML view is updated at workflow
+boundaries. Progress counts incorporated outcomes, which may not yet be saved.
+An abrupt stop can leave recent outcomes after the last checkpoint unrecorded;
+PDFs created after it are not automatically adopted for delivery. Original source row keys remain stable when
 notices are sorted. Input failures produce `rejected_input` and no notices,
 encrypted copies or bundles. Shared configuration or file-reading failures
 produce `failed_setup`. After input is accepted, template errors retain
 independent clients' successful outputs; a run with individual failures is
 `completed_with_failures`. Warnings alone return exit 0; failures return nonzero.
+
+A finished directory can contain warnings, failed notices or rejected input;
+read the report to learn the outcome. An interrupted operation keeps its
+`.incomplete` suffix and saved partial report. Start a new run after correcting
+the cause; incomplete initial runs cannot be rebundled.
 
 The report records actual original hashes and page counts, encryption outcomes,
 and bundle membership and page ranges. Encryption does not delete originals.
@@ -228,19 +258,22 @@ success. The [workflow guide](../reference/architecture.md) defines run accounti
 
 ## Review and release notices
 
-Failed checks and unaccepted warnings keep a readable original in review.
-Review copies have a findings sheet and a red REVIEW mark; delivery copies come
-from unchanged originals. Inspect the original and the latest evaluation, then
-accept individual warning tokens with a reason:
+All readable originals appear in one bundle set using the configured grouping
+and size, with a matching findings CSV per PDF. Failed checks, unaccepted
+warnings and operator holds are recorded as review status in the CSV and report.
+Inspect the original and the latest evaluation, then accept individual warning
+tokens with a reason:
 
 ```bash
 uv run immuknow-rebundle ./runs/<run-id> --accept-warning <token> --reason "Reviewed original"
 ```
 
 The [PDF review guide](pdf_validation.md) owns warning acceptance, withholding
-and invalidation rules. No choice can force delivery past failed checks.
+and invalidation rules. Acceptance changes eligibility, not bundle membership;
+failed checks cannot be marked eligible.
 
-Rebundling verifies the saved original hashes and does not reread source data or
-authored templates, recompile notices, or rerun encryption. A failed attempt
-keeps the previous active set. See [review and PDF findings](pdf_validation.md)
-for override examples, page ranges and recovery behavior.
+Rebundling uses accepted findings and CLI-owned originals. It does not reread
+source data or authored templates, recompile notices, or rerun encryption.
+Each complete PDF/CSV set has its own directory; a failed attempt keeps the
+previous active set. See [review and PDF findings](pdf_validation.md) for rule
+changes, page ranges and interrupted attempts.

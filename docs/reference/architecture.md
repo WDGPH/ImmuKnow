@@ -5,9 +5,15 @@ Read its main workflow from top to bottom: preserve inputs, prepare clients and
 assignments, render independent notices, check completed PDFs, encrypt if
 requested, bundle usable notices, then finish the report.
 
-Each invocation creates a new directory under `--output`. Earlier runs are
-preserved. Input, configuration and template paths must be outside that output
-tree. Installed package files are never changed.
+Each invocation creates a new directory under `--output`, initially named
+`<run-id>.incomplete`. After the operation finishes and its files close, the
+directory is renamed to `<run-id>`. A finished run can contain rejected input,
+warnings or failed notices; inspect its report for the outcome. An interruption
+or an exception that stops the operation leaves `.incomplete` and any saved
+partial evidence. These runs cannot be rebundled; start a new run.
+
+Earlier runs are preserved. Input, configuration and template paths must be
+outside the output tree. Installed package files are never changed.
 
 ```text
 runs/<run-id>/
@@ -17,15 +23,15 @@ runs/<run-id>/
   facts/          # exact saved notice payloads
   resources/      # input and template/config snapshots
   encrypted/      # optional individual encrypted copies
-  bundles/        # one active delivery/ and review/ result
+  bundles/
+    attempt-*/    # a complete PDF/CSV set for each successful attempt
   logs/run.log
   work/           # disposable preparation/compiler/assembly files
 ```
 
 The existing `pipeline.after_run.remove_artifacts` setting removes only `work/`.
-Facts, originals, reports and resource snapshots survive cleanup. Settings that
-previously cleared all output or deleted unencrypted originals no longer do so.
-Manual deletion of an entire run removes it.
+Facts, originals, reports and resource snapshots survive cleanup. Manual
+deletion of an entire run removes it.
 
 ## Source identity and preparation
 
@@ -62,9 +68,23 @@ changes the assigned template based on language or clinical facts.
 
 ## One authoritative record
 
-`run_report.py` writes format version 2. It replaces `run.json` and `report.html`
-atomically as individual files after completed responsibilities and on exit.
-JSON is authoritative if writing its HTML view is interrupted. There is no
+`run_report.py` writes format version 2 as compact UTF-8 JSON. It encodes notices
+and row-keyed delivery evidence in chunks, preserving the complete record. An
+individual entry, bundle or aggregate check can still require a large chunk;
+the pipeline and saved-run reader retain the whole cohort in memory. New growing
+collections need corresponding streaming paths in the writer.
+
+During rendering and encryption, the writer checkpoints `run.json` after 1,000
+incorporated outcomes or at the next outcome after a time interval, whichever
+comes first. Each stage starts with a 30-second
+interval. After a JSON write, the interval is the greater of 30 seconds and ten
+times that write's duration, measured from its completion. Slow snapshots thus
+lengthen the time trigger; the outcome trigger can still cause earlier writes.
+Neither checkpoint latency nor overhead has a strict time bound. Workflow
+boundaries and handled failures write the record and its HTML view. Abrupt termination can lose
+outcomes since the last checkpoint; elapsed time is not a guarantee while a
+single operation is still running. Each file is replaced atomically, and JSON is
+authoritative if writing its HTML view is interrupted. There is no
 separate mutable assignment, validation, compilation or completion manifest.
 Immutable font/build manifests describe resources; they do not duplicate run state.
 
@@ -82,13 +102,15 @@ Each entry has `row_key`, `source`, `client_id`, `assignment`, `facts`, `checks`
 beside normalized prepared facts and the saved payload. Assignments retain
 passive experiment labels. Original and encrypted artifacts record relative
 paths and full SHA-256 hashes; originals also record actual page counts. Bundle
-membership records actual start/end pages and the bundle's hash, with separate
-review-sheet and notice page spans.
+membership records actual notice start/end pages and the bundle's hash.
 
 Checks use the shared `CheckResult` shape: `code`, `stage`, `status`, `message`,
 and optional `component`, `page`, and `measurements`. Status is `pass`, `warn`,
-`fail`, `not_applicable`, or `not_run`. Every finding remains accessible in the
-HTML report, which escapes source text and links to actual outputs.
+`fail`, `not_applicable`, or `not_run`. The HTML report escapes source text and
+links to actual outputs. For 1,000 or more rows, `report.html` indexes pages of
+100 notices with their findings and latest evaluations. Full source values,
+facts, and attempt details remain in `run.json`; large run and attempt check
+details may be shortened in the HTML view.
 
 Resources include per-file full hashes and one fingerprint of the staged file
 manifest, including supporting templates, translations and assets.
@@ -97,23 +119,33 @@ does not distribute or stage a font set. All native compiler operations use priv
 block package downloads before making a connection. Dependencies must be stored
 inside the authored project and imported by relative paths, as in Studio.
 
-Native compilation and `typst eval --in` use the same payload, project resources,
-font discovery and creation timestamp. One `<immuknow-report>` summary supplies identity,
-actual pages, component presence, checks, measurements and QR destinations.
-The entry's `render_summary` retains that report.
+Each notice uses one native compilation with its payload, project resources,
+font discovery and frozen creation timestamp. A generated entry file includes
+the authored template and attaches its settled `<immuknow-report>` summary to
+the temporary PDF using [Typst's attachment API](https://typst.app/docs/reference/pdf/attach/).
+The summary supplies identity, actual pages, component presence, checks,
+measurements and QR destinations. Python reads it and removes its attachment,
+associated-file references and data streams before cloning and publishing the
+notice. Published originals, encrypted copies and bundles contain no internal
+report attachment or its data. Other authored attachments and PDF document
+structure are retained. If safe removal fails, no notice PDF is published.
+The entry's `render_summary` retains validated evidence in `run.json`. Missing
+or invalid evidence leaves a sanitized readable original with a failed check.
 The version 2 report schema is supplied at
 `typst/report-v2.json`. It owns render check names, component
 names and field types. Native and browser validators use it and the same
 valid/invalid examples. They also check source row and filename association,
 page bounds, page order and agreement between component presence and findings.
-Python verifies PDF readability, personal text in the measured client and address
-areas, hash and page count against that evidence. It does not repeat Typst geometry rules. Compiler
+Typst owns content and layout findings. Python validates the report against the
+prepared source, records the PDF hash and readability, and checks page-count
+agreement. It does not extract PDF text or inspect link destinations. Compiler
 warnings remain findings; missing or malformed summary evidence fails a mandatory
 check and keeps the readable PDF in review.
-Saved-run delivery rechecks retained reports before assembly and includes their
-findings when reevaluating rules. Removing findings from the entry's list cannot
-erase failed or missing report evidence. Each evaluation still binds the report,
-PDF, facts, source row, resources and effective rules to its warning decisions.
+Once accepted, the saved facts, reports, originals and resources belong to the
+CLI and remain unchanged. Saved-run delivery uses the recorded findings and
+applies current review rules. It does not repeat report validation, read facts
+files or scan saved resource hashes. Editing saved files manually is outside the
+supported workflow. Correct the input or template and generate a new run.
 
 Passwords and expanded password values are never recorded. Encryption password
 settings remain in memory and are omitted from both saved effective settings
@@ -131,30 +163,48 @@ values to produce an empty password.
 
 `validation_policy` evaluates saved observations separately from review decisions.
 Each delivery attempt retains typed evaluation snapshots and individual warning
-tokens. The top-level `warning_acceptances` binds operator reasons to exact
-run/row/PDF/evidence/rule identities; `withheld_rows` separately keeps selected
-originals in review. Original failures always block; warnings require individual
-acceptance. Encryption failure affects its separate copy. See the
+tokens. The top-level `warning_acceptances` binds operator reasons to the
+run, row, individual warning and its effective rule setting; `withheld_rows` separately keeps selected
+originals marked for review. Original failures prevent eligibility; warnings
+require individual acceptance. Encryption failure affects its separate copy. See the
 [PDF review contract](../user_guide/pdf_validation.md) for the operator workflow.
-Review bundles group by client count, with findings preceding each marked copy.
-[Delivery grouping](../user_guide/configuration.md#group-delivery-bundles) can combine
-school, board, language and page count.
-Every readable original appears once in the active set, and failed rendering
-creates no membership.
+All readable originals share one physical bundle set using the configured
+[grouping](../user_guide/configuration.md#group-bundles) and notice count per
+bundle. Eligibility never separates or omits notices from that set. Failed
+rendering creates no membership. Entry `routing.destination` retains `review`
+or `delivery` as eligibility metadata; new bundle artifacts and memberships use
+`destination: bundle`. Earlier attempts retain their original fields and values.
 
-`immuknow-rebundle` loads a saved run and review decisions, verifies every
-original hash, and uses the same assembly function as generation. It neither
-reads current source/templates nor repeats encryption. Review sheets and stamps
-use fixed application templates and available system fonts. The red mark occupies an added
-outer band, preserving all original content at its original scale.
+Each PDF has a matching CSV sidecar derived from its member evaluations and
+actual page spans, recorded as `findings_csv` on that bundle artifact. Unbundled
+failures remain in JSON/HTML. The CSV is a view, not a second run record.
 
-Assembly prepares `bundles.next` before replacing `bundles`. The previous set
-stays in `bundles.previous` until the successful attempt and memberships are
-saved. Attempt statuses in `run.json` support recovery after an interrupted
-replacement; no second journal is maintained. Stale warning tokens, changed
-originals and failed assembly preserve the previous committed set. Successful
-replacement removes stale membership in the former destination. Prior attempts
-remain audit facts, and rebundle exit status describes the current attempt.
+`immuknow-rebundle` loads a saved run and applies current review decisions.
+It needs neither the source project nor Typst, fonts or encryption passwords.
+Initial assembly opens each original once, copies its pages and records the
+resulting page ranges. Newly assembled bundles are reopened to check their page
+counts. Assembly and individual encryption use pikepdf's compiled qpdf engine;
+pypdf independently reads the resulting PDFs for output checks. Run and attempt
+engine records include both PDF library versions and the qpdf version.
+Review choices change the findings, not the pages: a later attempt with
+the same grouping settings copies the completed PDF files into its new directory
+and writes updated CSVs. It does not parse or reassemble those PDFs. The requested
+notice length is still checked against the original page counts.
+
+Page preservation is covered by regression tests; delivery does not serialize
+and compare every source and written page.
+
+Each bundle attempt writes PDFs and CSVs in its own
+`bundles/attempt-<number>-<id>.incomplete` directory. Once the set is finished,
+the directory loses its suffix. An atomic `run.json` save then records the
+completed attempt and new memberships. Each artifact records its sidecar path,
+hash and row count. Previous complete directories remain untouched.
+
+An interruption can leave an `.incomplete` directory, or a finished directory
+that the record never adopted. Later commands leave these directories alone
+and choose a new name. The last published memberships remain active. There is
+no backup swap or restoration step. JSON remains authoritative if writing its
+HTML view fails. Rebundle exit status describes the current attempt.
 
 Overall status is `completed`, `completed_with_warnings`,
 `completed_with_failures`, or `failed_setup`. Warnings return CLI exit 0;
@@ -163,7 +213,18 @@ before propagating. Unexpected programming errors also save partial evidence
 and remain diagnosable. An unwritable output path raises directly without
 claiming a report exists.
 
-Run logging uses an application handler that is removed on exit; caller logging
-is preserved. Client-linked facts, diagnostics, saved resources and originals
-are sensitive run output and belong outside Git. The
+Rendering uses bounded independent notice compilations; PDF inspection and
+report updates remain in the coordinator. Typst's internal jobs are limited
+when multiple notices render concurrently. Individual encryption follows
+rendering and uses the same worker count: one runs serially, while higher counts
+use a bounded pool of spawned processes with only password-context client facts.
+Workers publish verified copies; the coordinator incorporates outcomes and
+checkpoints. Failure or interruption stops submission and drains submitted work
+before releasing the run lock. Bundle assembly follows encryption serially. Progress and worker options are described
+in [getting started](../user_guide/getting_started.md#render-progress-and-workers)
+and the [Python interface](api.md).
+
+Run logging records stage and report checkpoint durations and uses an application handler that is
+removed on exit; caller logging is preserved. Client-linked facts, diagnostics,
+saved resources and originals are sensitive run output and belong outside Git. The
 [template guide](../user_guide/phu_templates.md) owns the rendered JSON contract.

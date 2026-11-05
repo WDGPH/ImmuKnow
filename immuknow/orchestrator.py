@@ -8,28 +8,32 @@ import sys
 import os
 import shutil
 import subprocess
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from copy import deepcopy
 from hashlib import sha256
 from importlib.metadata import version
-from typing import Any
+from typing import Any, TextIO
 
 import yaml
 import pandas as pd
 from pypdf.errors import PdfReadError
-from dataclasses import asdict
+from dataclasses import asdict, dataclass, fields
 from contextlib import contextmanager
 from collections.abc import Generator
 from datetime import datetime, timezone
 from importlib.resources import files
 from pathlib import Path
+from uuid import uuid4
 from .assignment_manifest import (
     ReconciliationResult,
     load_manifest,
     print_preflight_summary,
 )
+from .data_models import CheckResult, ClientRecord, RenderJob
 from .load_config import parse_config
 from .component_resources import verify_components
 from .run_lock import run_lock
+from .progress import StageProgress
 from .build_info import current_build_info
 from . import run_report, validation_policy
 from .version_notices import load_catalog, template_identity
@@ -49,6 +53,28 @@ from . import (
 
 DEFAULT_OUTPUT_DIR = Path.cwd() / "runs"
 DEFAULT_CONFIG_DIR = Path(str(files("immuknow").joinpath("config")))
+
+
+_CLIENT_FACT_FIELDS = tuple(field.name for field in fields(ClientRecord))
+
+
+def _prepared_facts(client: ClientRecord) -> dict[str, Any]:
+    """Expose prepared fields without copying their read-only nested values.
+
+    Rendering, encryption, and reporting treat these shared values as immutable;
+    independently produced render evidence remains owned by its own record fields.
+    """
+    return {name: getattr(client, name) for name in _CLIENT_FACT_FIELDS}
+
+
+def _positive_workers(value: str) -> int:
+    try:
+        number = int(value)
+        if number > 0:
+            return number
+    except ValueError:
+        pass
+    raise argparse.ArgumentTypeError("workers must be a positive integer")
 
 
 def parse_args() -> argparse.Namespace:
@@ -114,6 +140,15 @@ Each run keeps its own originals, run.json and report.html under --output.
         dest="template_dir",
         help="Required template project directory for --notice-assignments.",
     )
+    parser.add_argument(
+        "--workers",
+        type=_positive_workers,
+        default=1,
+        help="Concurrent notice renders and encryption workers (default: 1).",
+    )
+    parser.add_argument(
+        "--no-progress", action="store_true", help="Suppress terminal progress output."
+    )
     selection = parser.add_mutually_exclusive_group(required=True)
     selection.add_argument(
         "--notice-assignments",
@@ -152,7 +187,7 @@ def run_logging(log_path: Path) -> Generator[None]:
         logger.info("Run started")
         yield
         logger.info("Run completed")
-    except Exception:
+    except BaseException:
         logger.exception("Run failed")
         raise
     finally:
@@ -170,6 +205,8 @@ def run_pipeline(
     config_dir: Path = DEFAULT_CONFIG_DIR,
     template_dir: Path | None = None,
     input_encoding: str | None = None,
+    workers: int = 1,
+    progress_stream: TextIO | None = None,
 ) -> Path:
     """Run a cohort, retain independent results, and return its authoritative record.
 
@@ -178,6 +215,8 @@ def run_pipeline(
     per-notice errors are recorded and the remaining notices continue. The CLI
     returns nonzero for a record containing failed entries or delivery steps.
     """
+    if type(workers) is not int or workers < 1:
+        raise ValueError("workers must be a positive integer")
     if (notice_assignments is None) == (notice_template is None):
         raise ValueError("Choose exactly one of notice_assignments or notice_template")
     if notice_template is not None and template_dir is not None:
@@ -200,9 +239,10 @@ def run_pipeline(
             generate_notices.reject_overlap(source, output_dir)
 
     # Start the record before loading shared inputs so setup errors have evidence.
-    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f")
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f") + "-" + uuid4().hex
     run_dir = output_directory.prepare_run_directory(output_dir, run_id)
-    with run_lock(run_dir):
+    final_dir = output_dir / run_id
+    with output_directory.publish_run_directory(run_dir, run_id), run_lock(run_dir):
         build = current_build_info()
         record: dict[str, Any] = {
             "format_version": run_report.RUN_FORMAT_VERSION,
@@ -298,7 +338,6 @@ def run_pipeline(
                 )
                 verify_components(template_dir)
                 shutil.copytree(template_dir, staged_templates)
-                verify_components(staged_templates)
                 catalog = load_catalog(staged_config)
                 manifest = {}
                 if notice_assignments:
@@ -356,8 +395,10 @@ def run_pipeline(
                     manifest,
                     selected_notice,
                 )
+                del source_frame, manifest
                 print_preflight_summary(reconciliation)
                 _record_assignment_findings(record, reconciliation)
+                del reconciliation
                 for warning in prepared_result.warnings:
                     run_report.add_check(
                         record,
@@ -376,7 +417,7 @@ def run_pipeline(
                     )
                 for client in clients:
                     entry = by_row[client.sequence]
-                    entry["facts"] = {"prepared": asdict(client)}
+                    entry["facts"] = {"prepared": _prepared_facts(client)}
                     entry["checks"].extend(
                         check.to_dict()
                         for check in prepared_result.row_checks[client.sequence]
@@ -387,6 +428,7 @@ def run_pipeline(
                             language=client.language,
                             template=f"{client.version_id}.{client.language}.typ",
                         )
+                del prepared_result
                 failed_rows = [
                     entry["row_key"]
                     for entry in record["entries"]
@@ -407,8 +449,8 @@ def run_pipeline(
                     )
                     run_report.finish_run(record)
                     result = run_report.write_report(run_dir, record)
-                    print(f"Input file rejected. Report: {run_dir / 'report.html'}")
-                    return result
+                    print(f"Input file rejected. Report: {final_dir / 'report.html'}")
+                    return final_dir / result.name
                 setup_complete = True
                 run_report.write_report(run_dir, record)
 
@@ -416,59 +458,87 @@ def run_pipeline(
                 # failures, not source warnings to turn into plausible-looking notices.
                 jobs = generate_notices.prepare_render_jobs(clients, run_dir, config)
                 compile_notices.check_expected_notices(clients, jobs)
-                successful_clients, successful_jobs = [], []
+                successful: dict[str, tuple[ClientRecord, RenderJob]] = {}
                 for client, job in zip(clients, jobs):
                     entry = by_row[client.sequence]
                     entry["facts"].update(run_report.artifact_record(job.data, run_dir))
                     entry["assignment"]["sha256"] = sha256(
                         job.template.read_bytes()
                     ).hexdigest()
-                    summary = None
+                run_report.write_report(run_dir, record)
+                checkpoint = run_report._OutcomeCheckpoint(run_dir, record)
+
+                def incorporate(
+                    client: ClientRecord,
+                    job: RenderJob,
+                    outcome: _RenderOutcome,
+                    stage: StageProgress,
+                ) -> None:
+                    entry = by_row[client.sequence]
+                    failed = False
                     try:
-                        diagnostics = compile_notices.compile_render_job(
-                            job, typst_bin, timeout=timeouts.compile
-                        )
-                        entry["checks"].extend(check.to_dict() for check in diagnostics)
-                        run_report.add_check(
-                            entry,
-                            "rendering.completed",
-                            "render",
-                            "pass",
-                            "Original PDF produced",
-                        )
-                        try:
-                            summary = compile_notices.evaluate_render_job(
-                                job, typst_bin, timeout=timeouts.evidence
-                            )
-                            entry["render_summary"] = summary
-                            for check in summary["checks"]:
-                                if check not in entry["checks"]:
-                                    entry["checks"].append(check)
-                        except (
-                            ValueError,
-                            subprocess.CalledProcessError,
-                            compile_notices.CompilerTimeoutError,
-                        ) as exc:
-                            detail = (
-                                exc.stderr
-                                if isinstance(exc, subprocess.CalledProcessError)
-                                else str(exc)
+                        if outcome.compiled:
+                            entry["checks"].extend(
+                                check.to_dict() for check in outcome.diagnostics
                             )
                             run_report.add_check(
                                 entry,
-                                "render.evidence_failed",
+                                "rendering.completed",
                                 "render",
-                                "fail",
-                                str(detail),
+                                "pass",
+                                "Original PDF produced",
                             )
-                        entry["original"], pdf_checks = validate_pdfs.inspect_notice(
-                            job, run_dir, summary
-                        )
-                        entry["checks"].extend(check.to_dict() for check in pdf_checks)
-                        successful_clients.append(client)
-                        successful_jobs.append(job)
+                            if outcome.summary is not None:
+                                entry["render_summary"] = outcome.summary
+                                for check in outcome.summary["checks"]:
+                                    if check not in entry["checks"]:
+                                        entry["checks"].append(check)
+                            if outcome.error is not None or outcome.summary is None:
+                                detail = (
+                                    outcome.error.stderr
+                                    if isinstance(
+                                        outcome.error, subprocess.CalledProcessError
+                                    )
+                                    else str(
+                                        outcome.error
+                                        or "Required render evidence is missing"
+                                    )
+                                )
+                                run_report.add_check(
+                                    entry,
+                                    "render.evidence_failed",
+                                    "render",
+                                    "fail",
+                                    str(detail),
+                                )
+                                failed = True
+                            entry["original"], pdf_checks = (
+                                validate_pdfs.inspect_notice(job, run_dir)
+                            )
+                            entry["checks"].extend(
+                                check.to_dict() for check in pdf_checks
+                            )
+                            if (
+                                outcome.summary is not None
+                                and outcome.summary["page_count"]
+                                != entry["original"]["pages"]
+                            ):
+                                run_report.add_check(
+                                    entry,
+                                    "render.evidence_failed",
+                                    "render",
+                                    "fail",
+                                    "Render evidence page count differs from the original PDF.",
+                                )
+                            failed = failed or any(
+                                check["status"] == "fail" for check in entry["checks"]
+                            )
+                            successful[client.sequence] = (client, job)
+                        elif outcome.error is not None:
+                            raise outcome.error
                     except (
                         OSError,
+                        ValueError,
                         subprocess.CalledProcessError,
                         PdfReadError,
                     ) as exc:
@@ -482,35 +552,136 @@ def run_pipeline(
                         run_report.add_check(
                             entry, "rendering.failed", "render", "fail", detail
                         )
-                        logging.getLogger("immuknow").exception(
-                            "Notice %s failed", entry["row_key"]
+                        logging.getLogger("immuknow").error(
+                            "Notice %s failed: %s", entry["row_key"], detail
                         )
+                        failed = True
                     finally:
-                        run_report.write_report(run_dir, record)
+                        checkpoint.advance()
+                        stage.advance(failed=failed or sys.exc_info()[0] is not None)
+                    if outcome.error is not None and not outcome.expected:
+                        raise outcome.error
 
-                # Encryption is separate from originals and reports each actual result.
-                for client, job in zip(successful_clients, successful_jobs):
-                    entry = by_row[client.sequence]
-                    if not entry["encryption"]["requested"]:
-                        continue
+                with StageProgress(
+                    "Rendering", len(jobs), stream=progress_stream
+                ) as stage:
+                    executor = ThreadPoolExecutor(max_workers=workers)
+                    pending = {}
+                    iterator = iter(zip(clients, jobs))
+                    failure = None
                     try:
-                        destination = run_dir / "encrypted" / f"{entry['row_key']}.pdf"
-                        encryption_details = encrypt_notices.encrypt_notice(
-                            client, job.pdf, destination, config["encryption"]
-                        )
-                        entry["encryption"].update(
-                            status="completed",
-                            method=encryption_details,
-                            **run_report.artifact_record(destination, run_dir),
-                        )
-                    except (OSError, ValueError, PdfReadError) as exc:
-                        entry["encryption"]["status"] = "failed"
-                        run_report.add_check(
-                            entry, "encryption.failed", "delivery", "fail", str(exc)
-                        )
+
+                        def submit_next() -> None:
+                            item = next(iterator, None)
+                            if item is not None:
+                                client, job = item
+                                future = executor.submit(
+                                    _render_notice,
+                                    job,
+                                    typst_bin,
+                                    timeouts,
+                                    workers > 1,
+                                )
+                                pending[future] = (client, job)
+
+                        for _ in range(min(workers, len(jobs))):
+                            submit_next()
+                        while pending:
+                            done, _ = wait(
+                                pending, timeout=0.25, return_when=FIRST_COMPLETED
+                            )
+                            if not done:
+                                stage.refresh()
+                                continue
+                            for future in done:
+                                client, job = pending.pop(future)
+                                incorporate(client, job, future.result(), stage)
+                            for _ in done:
+                                submit_next()
+                    except BaseException as exc:
+                        failure = exc
+                        for future in pending:
+                            future.cancel()
                     finally:
-                        run_report.write_report(run_dir, record)
-                bundle_pdfs._bundle_run(run_dir, record)
+                        # Keep the lock and account for every active compiler before leaving.
+                        executor.shutdown(wait=True, cancel_futures=True)
+                        for future, (client, job) in pending.items():
+                            if future.cancelled():
+                                continue
+                            try:
+                                incorporate(client, job, future.result(), stage)
+                            except BaseException as exc:
+                                if failure is None:
+                                    failure = exc
+                    if failure is not None:
+                        raise failure
+                run_report.write_report(run_dir, record)
+
+                # Preserve input order for encryption and delivery, regardless of completion order.
+                successful_pairs = [
+                    successful[client.sequence]
+                    for client in clients
+                    if client.sequence in successful
+                ]
+                requested_pairs = [
+                    (client, job)
+                    for client, job in successful_pairs
+                    if by_row[client.sequence]["encryption"]["requested"]
+                ]
+                if requested_pairs:
+                    checkpoint = run_report._OutcomeCheckpoint(run_dir, record)
+                    with StageProgress(
+                        "Encryption", len(requested_pairs), stream=progress_stream
+                    ) as stage:
+
+                        def incorporate_encryption(
+                            client: ClientRecord,
+                            destination: Path,
+                            details: dict[str, str | int] | None,
+                            error: Exception | None,
+                        ) -> None:
+                            entry = by_row[client.sequence]
+                            failed = False
+                            try:
+                                if error is not None:
+                                    raise error
+                                entry["encryption"].update(
+                                    status="completed",
+                                    method=details,
+                                    **run_report.artifact_record(destination, run_dir),
+                                )
+                            except (OSError, ValueError, PdfReadError) as exc:
+                                failed = True
+                                entry["encryption"]["status"] = "failed"
+                                run_report.add_check(
+                                    entry,
+                                    "encryption.failed",
+                                    "delivery",
+                                    "fail",
+                                    str(exc),
+                                )
+                            finally:
+                                checkpoint.advance()
+                                stage.advance(
+                                    failed=failed or sys.exc_info()[0] is not None
+                                )
+
+                        tasks = (
+                            (
+                                client,
+                                job.pdf,
+                                run_dir
+                                / "encrypted"
+                                / f"{by_row[client.sequence]['row_key']}.pdf",
+                            )
+                            for client, job in requested_pairs
+                        )
+                        encrypt_notices.encrypt_many(
+                            tasks, config["encryption"], workers, incorporate_encryption
+                        )
+                    run_report.write_report(run_dir, record)
+                with StageProgress("Delivery", stream=progress_stream):
+                    bundle_pdfs._bundle_run(run_dir, record)
                 output_directory.cleanup_output(run_dir, config)
                 run_report.finish_run(record)
                 result = run_report.write_report(run_dir, record)
@@ -519,10 +690,10 @@ def run_pipeline(
                     for entry in record["entries"]
                 )
                 print(
-                    f"Run {record['status']}: {produced}/{len(record['entries'])} original PDFs. {run_dir / 'report.html'}"
+                    f"Run {record['status']}: {produced}/{len(record['entries'])} original PDFs. {final_dir / 'report.html'}"
                 )
-                return result
-            except Exception as exc:
+                return final_dir / result.name
+            except BaseException as exc:
                 record["resources"] = {
                     **record["resources"],
                     **run_report.resource_manifest(run_dir / "resources", run_dir),
@@ -532,7 +703,9 @@ def run_pipeline(
                     "run.failed",
                     "execution" if setup_complete else "setup",
                     "fail",
-                    str(exc),
+                    "Run interrupted"
+                    if isinstance(exc, KeyboardInterrupt)
+                    else str(exc),
                 )
                 for entry in record["entries"]:
                     if entry["original"]["status"] == "not_run":
@@ -546,6 +719,47 @@ def run_pipeline(
                     file=sys.stderr,
                 )
                 raise
+
+
+@dataclass(frozen=True)
+class _RenderOutcome:
+    compiled: bool
+    diagnostics: tuple[CheckResult, ...]
+    summary: dict[str, Any] | None
+    error: BaseException | None
+    expected: bool
+
+
+def _render_notice(
+    job: RenderJob,
+    typst_bin: str,
+    timeouts: compile_notices.CompilerTimeouts,
+    concurrent: bool,
+) -> _RenderOutcome:
+    """Compile one notice and return its placed findings without changing run state."""
+    options = {"jobs": 1} if concurrent else {}
+    try:
+        diagnostics, summary, evidence_error = compile_notices.compile_render_job(
+            job, typst_bin, timeout=timeouts.compile, **options
+        )
+    except BaseException as exc:
+        return _RenderOutcome(
+            False,
+            (),
+            None,
+            exc,
+            isinstance(
+                exc, (OSError, ValueError, PdfReadError, subprocess.CalledProcessError)
+            ),
+        )
+    return _RenderOutcome(
+        True,
+        tuple(diagnostics),
+        summary,
+        evidence_error,
+        evidence_error is None
+        or isinstance(evidence_error, (OSError, ValueError, PdfReadError)),
+    )
 
 
 def _record_source_rows(frame: pd.DataFrame, record: dict[str, Any]) -> None:
@@ -570,19 +784,16 @@ def _record_source_rows(frame: pd.DataFrame, record: dict[str, Any]) -> None:
 def _record_assignment_findings(
     record: dict[str, Any], reconciliation: ReconciliationResult
 ) -> None:
+    by_row: dict[str, list[dict[str, Any]]] = {}
+    by_client: dict[str, list[dict[str, Any]]] = {}
+    for entry in record["entries"]:
+        by_row.setdefault(entry["row_key"], []).append(entry)
+        by_client.setdefault(entry["client_id"], []).append(entry)
     for finding in reconciliation.findings:
         targets = (
-            [
-                entry
-                for entry in record["entries"]
-                if entry["row_key"] == finding.row_key
-            ]
+            by_row.get(finding.row_key, [])
             if finding.row_key
-            else [
-                entry
-                for entry in record["entries"]
-                if entry["client_id"] == finding.client_id
-            ]
+            else by_client.get(finding.client_id, [])
         )
         for target in targets or [record]:
             run_report.add_check(
@@ -606,6 +817,8 @@ def main() -> int:
             notice_assignments=args.notice_assignments,
             notice_template=args.notice_template,
             input_encoding=args.input_encoding,
+            workers=args.workers,
+            progress_stream=None if args.no_progress else sys.stderr,
         )
         record = json.loads(completed.read_text(encoding="utf-8"))
         return (
@@ -614,6 +827,9 @@ def main() -> int:
             in {"failed_setup", "rejected_input", "completed_with_failures"}
             else 0
         )
+    except KeyboardInterrupt:
+        print("Run interrupted", file=sys.stderr)
+        return 130
     except Exception as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1

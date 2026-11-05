@@ -14,8 +14,7 @@ immuknow = [
     "typst/*",
     "typst/src/*.typ",
     "typst/locales/*.json",
-    "typst/vendor/codetastic/*",
-    "review_templates/*.typ",
+    "typst/vendor/qr/*",
 ]
 
 [project]
@@ -29,6 +28,7 @@ dependencies = [
     "pypdf[crypto]>=6.21.2",
     "frictionless",
     "jsonschema>=4.26.0",
+    "pikepdf>=10.17.0",
 ]
 
 [dependency-groups]

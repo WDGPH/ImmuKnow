@@ -1,0 +1,266 @@
+"""Large reports stay reviewable while periodic snapshots retain JSON evidence."""
+
+import json
+import stat
+from pathlib import Path
+
+import pytest
+
+from immuknow import run_report
+
+
+def sample_record(count: int) -> dict:
+    entries = [
+        {
+            "row_key": f"row-{number:06d}",
+            "client_id": f"client-{number:06d}",
+            "original": {"status": "completed", "path": f"originals/{number}.pdf"},
+            "encryption": {},
+            "bundle": None,
+            "checks": [],
+        }
+        for number in range(1, count + 1)
+    ]
+    return {
+        "run_id": "run <unsafe>",
+        "status": "completed",
+        "input": {"accepted": True},
+        "checks": [],
+        "entries": entries,
+        "delivery_attempts": [],
+        "warning_acceptances": [],
+    }
+
+
+def test_periodic_snapshots_write_json_only_by_count_or_elapsed_time(
+    tmp_path, monkeypatch
+):
+    record = sample_record(1)
+    now = [0.0]
+    monkeypatch.setattr(run_report, "perf_counter", lambda: now[0])
+    (tmp_path / "report.html").write_text("unchanged")
+    checkpoint = run_report._OutcomeCheckpoint(tmp_path, record)
+    for _ in range(999):
+        checkpoint.advance()
+    assert not (tmp_path / "run.json").exists()
+    checkpoint.advance()
+    assert json.loads((tmp_path / "run.json").read_text()) == record
+    assert stat.S_IMODE((tmp_path / "run.json").stat().st_mode) == 0o600
+    record["status"] = "updated"
+    now[0] = 30
+    checkpoint.advance()
+    assert json.loads((tmp_path / "run.json").read_text())["status"] == "updated"
+    assert (tmp_path / "report.html").read_text() == "unchanged"
+
+
+def test_slow_snapshots_lengthen_interval_but_outcome_limit_still_saves(
+    tmp_path, monkeypatch
+):
+    now = [0.0]
+    durations = iter([8.0, 0.1, 0.1])
+    saved = []
+    monkeypatch.setattr(run_report, "perf_counter", lambda: now[0])
+
+    def write_json(*args):
+        saved.append(now[0])
+        now[0] += next(durations)
+
+    monkeypatch.setattr(run_report, "write_json", write_json)
+    checkpoint = run_report._OutcomeCheckpoint(tmp_path, sample_record(1))
+    now[0] = 30
+    checkpoint.advance()
+    now[0] = 68
+    checkpoint.advance()
+    assert saved == [30]
+    for _ in range(999):
+        checkpoint.advance()
+    assert saved == [30, 68]
+    now[0] = 98.2
+    checkpoint.advance()
+    assert saved == [30, 68, 98.2]
+
+
+def test_large_report_pages_include_all_rows_and_escape_links_and_warning_tokens(
+    tmp_path,
+):
+    record = sample_record(1000)
+    record["entries"][0]["client_id"] = "<unsafe>"
+    record["entries"][0]["original"]["path"] = 'originals/"unsafe.pdf'
+    record["checks"] = [
+        {
+            "status": "fail",
+            "code": "input.rejected",
+            "message": "bad",
+            "measurements": {"failed_rows": list(range(1000))},
+        }
+    ]
+    record["delivery_attempts"] = [
+        {
+            "number": 1,
+            "status": "completed",
+            "checks": [],
+            "bundles": [],
+            "evaluations": {
+                "row-000001": {
+                    "results": [],
+                    "warning_tokens": {"warn<id>": "token<unsafe>"},
+                }
+            },
+            "huge": "DO_NOT_EMBED_ATTEMPT",
+        }
+    ]
+    record["warning_acceptances"] = [{"token": "token<unsafe>"}]
+    run_report.write_report(tmp_path, record)
+    index = (tmp_path / "report.html").read_text()
+    pages = sorted(tmp_path.glob("report-*.html"))
+    assert len(pages) == 10
+    page_text = "\n".join(page.read_text() for page in pages)
+    assert all(page.name in index for page in pages)
+    assert all(
+        page_text.count(f"client-{number:06d}") == 1 for number in range(2, 1001)
+    )
+    assert (
+        "&lt;unsafe&gt;" in page_text
+        and 'href="originals/&quot;unsafe.pdf"' in page_text
+    )
+    assert "warn&lt;id&gt;" in page_text and "token&lt;unsafe&gt;" in page_text
+    assert "Accepted" in page_text
+    assert "DO_NOT_EMBED_ATTEMPT" not in index + page_text
+    assert "980 more; see run.json" in index
+    assert json.loads((tmp_path / "run.json").read_text()) == record
+    assert Path(tmp_path / "report-00010.html").exists()
+
+
+def test_failed_streamed_snapshot_preserves_previous_record(tmp_path):
+    record = sample_record(1)
+    run_report.write_json(tmp_path, record)
+    previous = (tmp_path / "run.json").read_bytes()
+    record["entries"][0]["unserializable"] = object()
+    with pytest.raises(TypeError):
+        run_report.write_json(tmp_path, record)
+    assert (tmp_path / "run.json").read_bytes() == previous
+    assert stat.S_IMODE((tmp_path / "run.json.tmp").stat().st_mode) == 0o600
+    del record["entries"][0]["unserializable"]
+    record["status"] = "updated"
+    run_report.write_json(tmp_path, record)
+    assert json.loads((tmp_path / "run.json").read_text()) == record
+
+
+def test_chunked_record_matches_standard_json_with_policies_and_prior_attempts(
+    tmp_path,
+):
+    record = sample_record(2)
+    record["entries"][0]["source"] = {"name": 'Adèle · "quoted"\n😀'}
+    policy = {"rules": {}, "clients": [{"selector": {"row_key": "row-000001"}}]}
+    record["configuration"] = {"effective": {"validation": policy}}
+    record["validation_policy"] = policy
+    record["warning_acceptances"] = [{"token": "é<token>", "reason": "Reviewed"}]
+    record["withheld_rows"] = ["row-000002"]
+    record["delivery_attempts"] = [
+        {
+            "number": number,
+            "rule_settings": policy,
+            "review": {"accepted_tokens": ["é<token>"], "withheld_rows": []},
+            "evaluations": {"row-000001": {"results": [], "score": 1.25}},
+            "resolved_rules": {"row-000001": {}},
+            "memberships": {"row-000001": {"bundle": None}},
+            "bundles": [{"row_keys": ["row-000001"]}],
+        }
+        for number in (1, 2)
+    ]
+    expected = json.dumps(record, ensure_ascii=False, separators=(",", ":"))
+    run_report.write_json(tmp_path, record)
+    assert (tmp_path / "run.json").read_text() == expected
+    assert json.loads(expected) == record
+
+
+def test_invalid_split_mapping_key_preserves_previous_json(tmp_path):
+    record = sample_record(1)
+    run_report.write_json(tmp_path, record)
+    previous = (tmp_path / "run.json").read_bytes()
+    record[123] = "invalid field name"
+    with pytest.raises(TypeError, match="field names must be strings"):
+        run_report.write_json(tmp_path, record)
+    assert (tmp_path / "run.json").read_bytes() == previous
+
+
+@pytest.mark.parametrize("count", [1, 1000])
+def test_report_links_last_published_bundles_after_failed_attempt(tmp_path, count):
+    record = sample_record(count)
+    old = {
+        "number": 1,
+        "status": "completed",
+        "checks": [],
+        "bundles": [{"path": "bundles/attempt-1/active.pdf"}],
+    }
+    newest = {
+        "number": 2,
+        "status": "failed",
+        "checks": [],
+        "bundles": [{"path": "bundles/attempt-2/prepared.pdf"}],
+    }
+    record["delivery_attempts"] = [old, newest]
+    run_report.write_report(tmp_path, record)
+    index = (tmp_path / "report.html").read_text()
+    assert 'href="bundles/attempt-1/active.pdf"' in index
+    assert 'href="bundles/attempt-2/prepared.pdf"' not in index
+    newest["status"] = "completed"
+    run_report.write_report(tmp_path, record)
+    index = (tmp_path / "report.html").read_text()
+    assert 'href="bundles/attempt-1/active.pdf"' not in index
+    assert 'href="bundles/attempt-2/prepared.pdf"' in index
+
+
+@pytest.mark.parametrize("count", [1, 1000])
+def test_report_links_active_findings_after_failed_or_disabled_attempt(tmp_path, count):
+    record = sample_record(count)
+    record["delivery_attempts"] = [
+        {
+            "number": 1,
+            "status": "completed",
+            "checks": [],
+            "bundles": [
+                {
+                    "path": "bundles/active.pdf",
+                    "findings_csv": {"path": "bundles/active.csv"},
+                }
+            ],
+        },
+        {
+            "number": 2,
+            "status": "failed",
+            "checks": [],
+            "bundles": [
+                {
+                    "path": "bundles/staged.pdf",
+                    "findings_csv": {"path": "bundles/staged.csv"},
+                }
+            ],
+        },
+        {
+            "number": 3,
+            "status": "completed",
+            "configuration": {"bundle_size": 0},
+            "checks": [],
+            "bundles": [],
+        },
+    ]
+    run_report.write_report(tmp_path, record)
+    html = (tmp_path / "report.html").read_text()
+    assert 'href="bundles/active.pdf"' in html
+    assert 'href="bundles/active.csv"' in html
+    assert 'href="bundles/staged.pdf"' not in html
+    assert 'href="bundles/staged.csv"' not in html
+
+    record["delivery_attempts"] = [
+        *record["delivery_attempts"],
+        {
+            "number": 4,
+            "status": "completed",
+            "configuration": {"bundle_size": 10},
+            "checks": [],
+            "bundles": [],
+        },
+    ]
+    run_report.write_report(tmp_path, record)
+    assert 'href="bundles/active.csv"' not in (tmp_path / "report.html").read_text()

@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import shutil
+from collections.abc import Generator
+from contextlib import contextmanager
 from pathlib import Path
 
 
 def prepare_run_directory(output_dir: Path, run_id: str) -> Path:
     """Never clear previous runs or installed resources."""
     output_dir.mkdir(parents=True, exist_ok=True)
-    run_dir = output_dir / run_id
+    if (output_dir / run_id).exists():
+        raise FileExistsError(f"Run already exists: {output_dir / run_id}")
+    run_dir = output_dir / f"{run_id}.incomplete"
     run_dir.mkdir(mode=0o700)
     for name in (
         "originals",
@@ -22,6 +26,16 @@ def prepare_run_directory(output_dir: Path, run_id: str) -> Path:
     ):
         (run_dir / name).mkdir(mode=0o700)
     return run_dir
+
+
+@contextmanager
+def publish_run_directory(run_dir: Path, run_id: str) -> Generator[None]:
+    """Publish only after the run and its open resources have closed."""
+    yield
+    destination = run_dir.parent / run_id
+    if destination.exists():
+        raise FileExistsError(f"Run already exists: {destination}")
+    run_dir.rename(destination)
 
 
 def cleanup_output(run_dir: Path, config: dict) -> None:

@@ -1,43 +1,24 @@
-"""Route saved originals into delivery or annotated review, then replace safely."""
+"""Evaluate saved findings and publish independent bundle sets."""
 
 from __future__ import annotations
 
+import csv
 import json
-import os
 import re
 import shutil
-import subprocess
 from copy import deepcopy
 from hashlib import sha256
-from importlib.resources import files
-from io import BytesIO
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
-from pypdf import PageObject, PdfReader, PdfWriter, Transformation
+import pikepdf
+from pypdf import PdfReader
 from pypdf.errors import PdfReadError
-from jsonschema import ValidationError
 
 from . import run_report, validation_policy
 from .run_lock import run_lock
-from .structured_input import parse_json, read_json
-from .component_resources import verify_components
-from .render_payload import validate_render_payload
-from .render_contract import validate_render_report
-from .validate_pdfs import (
-    check_client_identity,
-    check_pdf_evidence,
-    check_qr_destinations,
-)
-from .compile_notices import (
-    CompilerTimeouts,
-    TYPST_VERSION,
-    check_compiler,
-    compiler_warnings,
-    run_typst,
-)
-
-REVIEW_BAND_PT = 18
+from .structured_input import read_json
 
 
 def bundle_grouping(value: object) -> tuple[str, ...]:
@@ -75,59 +56,7 @@ def _group_values(entry: dict, fields: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(values)
 
 
-def _original_reader(entry: dict, run_dir: Path) -> PdfReader:
-    """Verify the retained payload binding and PDF bytes before any delivery use."""
-    facts = entry["facts"]
-    payload_path = (run_dir / facts["path"]).resolve()
-    if not payload_path.is_relative_to((run_dir / "facts").resolve()):
-        raise ValueError(f"Payload path is outside facts/: {entry['row_key']}")
-    payload_bytes = payload_path.read_bytes()
-    if sha256(payload_bytes).hexdigest() != facts["sha256"]:
-        raise ValueError(f"Saved notice payload changed: {entry['row_key']}")
-    payload = parse_json(payload_bytes, label="Saved notice payload")
-    try:
-        validate_render_payload(payload)
-    except ValidationError as exc:
-        raise ValueError(
-            f"Saved notice payload does not match the supported format: {entry['row_key']}"
-        ) from exc
-    if (
-        payload.get("row_key") != entry["row_key"]
-        or payload.get("client_id") != entry["client_id"]
-        or any(
-            payload[key] != entry["assignment"][key]
-            for key in ("template", "version_id", "language")
-        )
-    ):
-        raise ValueError(
-            f"Saved payload does not belong to this source row: {entry['row_key']}"
-        )
-    original = entry["original"]
-    path = (run_dir / original["path"]).resolve()
-    if not path.is_relative_to((run_dir / "originals").resolve()):
-        raise ValueError(f"Original path is outside originals/: {entry['row_key']}")
-    content = path.read_bytes()
-    if sha256(content).hexdigest() != original["sha256"]:
-        raise ValueError(f"Original PDF hash changed: {entry['row_key']}")
-    reader = PdfReader(BytesIO(content))
-    if reader.is_encrypted or not reader.pages:
-        raise ValueError(
-            f"Original PDF must be readable and unencrypted: {entry['row_key']}"
-        )
-    if len(reader.pages) != original["pages"]:
-        raise ValueError(f"Original PDF page count changed: {entry['row_key']}")
-    summary = entry.get("render_summary")
-    if summary is not None:
-        validate_render_report(summary, payload)
-        if summary["page_count"] != len(reader.pages):
-            raise ValueError(
-                f"Render evidence page count differs from the original: {entry['row_key']}"
-            )
-    return reader
-
-
 def _routes(
-    run_dir: Path,
     record: dict,
     entries: list[dict],
     group_by: tuple[str, ...],
@@ -145,45 +74,7 @@ def _routes(
         raise ValueError("Withheld rows must be distinct source row keys from this run")
     evaluations = {}
     for entry in entries:
-        reader = _original_reader(entry, run_dir)
-        observations = deepcopy(entry["checks"])
-        summary = entry.get("render_summary")
-        for current_check in check_pdf_evidence(
-            reader,
-            summary,
-            {
-                "row_key": entry["row_key"],
-                "client_id": entry["client_id"],
-                **{
-                    key: entry["assignment"][key]
-                    for key in ("template", "version_id", "language")
-                },
-            },
-        ):
-            current = current_check.to_dict()
-            if current not in observations:
-                observations.append(current)
-        client_check = check_client_identity(
-            reader, summary, entry["client_id"]
-        ).to_dict()
-        if client_check not in observations:
-            observations.append(client_check)
-        qr_check = check_qr_destinations(summary).to_dict()
-        if qr_check not in observations:
-            observations.append(qr_check)
-        if summary is None:
-            observations.append(
-                {
-                    "code": "render.evidence_failed",
-                    "stage": "render",
-                    "status": "fail",
-                    "message": "Required render evidence is missing; generate and check a new notice.",
-                }
-            )
-        else:
-            for check in summary["checks"]:
-                if check not in observations:
-                    observations.append(deepcopy(check))
+        observations = list(entry["checks"])
         facts = entry["facts"]["prepared"]
         for field in group_by:
             if field in ("school", "board") and not facts[field].get("id"):
@@ -205,314 +96,90 @@ def _routes(
     }
     validation_policy.accept_warnings(record, evaluations, accept, reason)
     record["withheld_rows"] = list(withheld)
+    withheld_set = set(withheld)
+    acceptances_by_row: dict[str, list[dict]] = {}
+    for acceptance in record.get("warning_acceptances", []):
+        acceptances_by_row.setdefault(acceptance["row_key"], []).append(acceptance)
     return [
         (
             entry,
             validation_policy.route_original(
-                record,
+                {
+                    **record,
+                    "warning_acceptances": acceptances_by_row.get(entry["row_key"], []),
+                },
                 evaluations[entry["row_key"]],
-                withheld=entry["row_key"] in withheld,
+                withheld=entry["row_key"] in withheld_set,
             ),
         )
         for entry in entries
     ]
 
 
-def _compile_review(
-    template: Path,
-    destination: Path,
-    inputs: dict[str, str],
-    work: Path,
-    record: dict,
-    attempt: dict,
-) -> None:
-    settings = record["configuration"]["effective"]
-    review_tools = attempt["review_tools"]
-    typst_bin = review_tools["compiler"]["path"]
-    timestamp = settings.get("creation_timestamp")
-    if type(timestamp) is not int:
-        raise ValueError("Saved run is missing its frozen creation timestamp")
-    command = [
-        typst_bin,
-        "compile",
-        "--root",
-        str(work),
-        "--creation-timestamp",
-        str(timestamp),
-    ]
-    for key, value in inputs.items():
-        command.extend(["--input", f"{key}={value}"])
-    command.extend([str(template), str(destination)])
-    timeouts = CompilerTimeouts.from_config(
-        settings.get("typst", {}).get("timeouts_seconds", {})
-    )
-    result = run_typst(command, timeout=timeouts.review, operation="review compilation")
-    for warning in compiler_warnings(result.stderr):
-        check = warning.to_dict()
-        if check not in attempt["checks"]:
-            attempt["checks"].append(check)
-
-
-def _prepare_review(work: Path, record: dict, attempt: dict) -> None:
-    """Copy and identify the review templates and executable actually used."""
-    settings = record["configuration"]["effective"]
-    requested = os.environ.get(
-        "TYPST_BIN", settings.get("typst", {}).get("bin", "typst")
-    )
-    tools = {"compiler": {"requested": requested}, "templates": []}
-    attempt["review_tools"] = tools
-    for name in ("review_sheet.typ", "review_stamp.typ"):
-        shutil.copyfile(
-            Path(str(files("immuknow").joinpath("review_templates").joinpath(name))),
-            work / name,
-        )
-        tools["templates"].append(run_report.artifact_record(work / name, work))
-    executable = shutil.which(requested)
-    if executable is None:
-        raise ValueError(f"Typst executable not found: {requested}")
-    executable_path = Path(executable).resolve()
-    tools["compiler"].update(
-        path=str(executable_path),
-        sha256=sha256(executable_path.read_bytes()).hexdigest(),
-    )
-    run_report.write_report(work.parent.parent, record)
-    timeouts = CompilerTimeouts.from_config(
-        settings.get("typst", {}).get("timeouts_seconds", {})
-    )
-    try:
-        tools["compiler"]["version_output"] = check_compiler(
-            str(executable_path), timeout=timeouts.version
-        )
-    except RuntimeError as exc:
-        raise ValueError(str(exc)) from exc
-    run_report.write_report(work.parent.parent, record)
-
-
-def _measurement_text(measurements: dict) -> str:
-    """Show actual warning measurements in millimetres; retain precision in JSON."""
-    lines = []
-    for key, value in measurements.items():
-        if type(value) in (int, float) and key.endswith("_pt"):
-            key = key[:-3] + " (mm)"
-            value = f"{value * 25.4 / 72:.1f}"
-        elif type(value) in (int, float) and key.endswith("_mm"):
-            key = key[:-3] + " (mm)"
-            value = f"{value:.1f}"
-        elif type(value) is float:
-            value = f"{value:.1f}"
-        elif isinstance(value, (dict, list)):
-            value = json.dumps(value, ensure_ascii=False)
-        lines.append(f"{key.replace('_', ' ')}: {value}")
-    return "\n".join(lines)
-
-
-def _review_sheet(entry: dict, work: Path, record: dict, attempt: dict) -> PdfReader:
-    facts = entry["facts"]["prepared"]
-    findings = []
-    for check in attempt["evaluations"][entry["row_key"]]["results"]:
-        if check["status"] not in ("warn", "fail", "not_run"):
-            continue
-        findings.append(
-            {
-                "code": check["code"],
-                "status": check["status"],
-                "message": check["message"],
-                "location": " · ".join(
-                    filter(
-                        None,
-                        [
-                            check["stage"],
-                            check.get("component", ""),
-                            f"original page {check['page']}"
-                            if check.get("page")
-                            else "",
-                        ],
-                    )
-                ),
-                "measurements": _measurement_text(check["measurements"])
-                if check.get("measurements")
-                else "",
-            }
-        )
-    payload = {
-        "client_id": entry["client_id"] or "Missing",
-        "row_key": entry["row_key"],
-        "template": entry["assignment"].get("template", "Unknown"),
-        "school": facts["school"].get("name", "") or "Unknown",
-        "board": facts["board"].get("name", "") or "Unknown",
-        "findings": findings,
-        "measurements": f"Original PDF pages: {entry['original']['pages']}. Full checks and layout measurements remain in report.html.",
-        "warning_tokens": attempt["evaluations"][entry["row_key"]]["warning_tokens"],
-    }
-    data = work / f"{entry['row_key']}.json"
-    data.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
-    output = work / f"{entry['row_key']}-sheet.pdf"
-    _compile_review(
-        work / "review_sheet.typ", output, {"data": data.name}, work, record, attempt
-    )
-    return PdfReader(output)
-
-
-def _review_page(
-    page: PageObject, work: Path, record: dict, attempt: dict, stamps: dict
-) -> PageObject:
-    # Normalize rotation only on a writer-owned copy; originals stay unchanged.
-    if page.rotation:
-        copied = PdfWriter()
-        page = copied.add_page(page)
-        page.transfer_rotation_to_content()
-    crop = page.cropbox
-    width, height = float(crop.width), float(crop.height)
-    dimensions = (width, height)
-    if dimensions not in stamps:
-        output = work / f"stamp-{len(stamps) + 1:03d}.pdf"
-        _compile_review(
-            work / "review_stamp.typ",
-            output,
-            {"page-width": str(width), "page-height": str(height + REVIEW_BAND_PT)},
-            work,
-            record,
-            attempt,
-        )
-        stamps[dimensions] = PdfReader(output).pages[0]
-    reviewed = PageObject.create_blank_page(width=width, height=height + REVIEW_BAND_PT)
-    reviewed.merge_transformed_page(
-        page, Transformation().translate(-float(crop.left), -float(crop.bottom))
-    )
-    reviewed.merge_page(stamps[dimensions])
-    return reviewed
-
-
-def _page_hash(page: PageObject) -> str:
-    """Compare complete page copies after writing, independent of PDF object numbers."""
-    writer = PdfWriter()
-    writer.add_page(page)
-    # A new review page has no source header; a read-back page inherits the
-    # bundle header. Keep this comparison copy's header independent of either.
-    writer.pdf_header = "%PDF-1.7"
-    stream = BytesIO()
-    writer.write(stream)
-    return sha256(stream.getvalue()).hexdigest()
-
-
 def _assemble(
     routed: list[tuple[dict, dict]],
     next_dir: Path,
-    work: Path,
     group_by: tuple[str, ...],
     size: int,
-    record: dict,
     attempt: dict,
+    run_dir: Path,
 ) -> None:
-    groups: dict[tuple[str, tuple[str, ...]], list[tuple[dict, dict]]] = {}
+    groups: dict[tuple[str, ...], list[tuple[dict, dict]]] = {}
     for entry, routing in routed:
-        values = (
-            _group_values(entry, group_by)
-            if routing["destination"] == "delivery"
-            else ()
-        )
-        groups.setdefault((routing["destination"], values), []).append((entry, routing))
-    review_needed = any(destination == "review" for destination, _ in groups)
-    if review_needed:
-        _prepare_review(work, record, attempt)
-    stamps: dict = {}
-    for group_number, ((destination, values), members) in enumerate(
-        sorted(groups.items()), 1
-    ):
-        directory = next_dir / destination
-        directory.mkdir(exist_ok=True)
+        groups.setdefault(_group_values(entry, group_by), []).append((entry, routing))
+    for group_number, (values, members) in enumerate(sorted(groups.items()), 1):
         label = (
             re.sub(r"[^A-Za-z0-9]+", "_", "_".join(values)).strip("_")[:60] or "unknown"
         )
         prefix = "_".join(group_by) or "size"
         for offset in range(0, len(members), size):
             chunk = members[offset : offset + size]
-            name = f"{prefix if destination == 'delivery' else 'review'}_{group_number:03d}_{label}_{offset // size + 1:03d}.pdf"
-            output = directory / name
-            path = "bundles/" + output.relative_to(next_dir).as_posix()
-            writer = PdfWriter()
-            expected_pages = []
+            name = f"{prefix}_{group_number:03d}_{label}_{offset // size + 1:03d}.pdf"
+            output = next_dir / name
+            path = attempt["directory"] + "/" + name
             memberships: list[tuple[dict, dict, dict]] = []
             cursor = 1
-            for entry, routing in chunk:
-                first_page = cursor
-                sheet_first, sheet_last = None, None
-                if destination == "review":
-                    sheet = _review_sheet(entry, work, record, attempt)
-                    sheet_first = cursor
-                    for page in sheet.pages:
-                        expected_pages.append(_page_hash(page))
-                        writer.add_page(page)
-                        cursor += 1
-                    sheet_last = cursor - 1
-                notice_first = cursor
-                original = _original_reader(entry, next_dir.parent)
-                for page in original.pages:
-                    selected_page = (
-                        _review_page(page, work, record, attempt, stamps)
-                        if destination == "review"
-                        else page
+            minimum_version = "1.3"
+            with pikepdf.Pdf.new() as writer:
+                for entry, routing in chunk:
+                    first_page = cursor
+                    with pikepdf.Pdf.open(
+                        run_dir / entry["original"]["path"]
+                    ) as original:
+                        if original.is_encrypted or not original.pages:
+                            raise ValueError(
+                                "Original PDF must be readable and unencrypted: "
+                                + entry["row_key"]
+                            )
+                        if len(original.pages) != entry["original"]["pages"]:
+                            raise ValueError(
+                                "Original PDF page count changed: " + entry["row_key"]
+                            )
+                        minimum_version = max(minimum_version, original.pdf_version)
+                        writer.add_pages_from(original)
+                        cursor += len(original.pages)
+                    memberships.append(
+                        (
+                            entry,
+                            routing,
+                            {
+                                "path": path,
+                                "destination": "bundle",
+                                "start_page": first_page,
+                                "end_page": cursor - 1,
+                                "notice_start_page": first_page,
+                                "notice_end_page": cursor - 1,
+                            },
+                        )
                     )
-                    expected_pages.append(_page_hash(selected_page))
-                    writer.add_page(selected_page)
-                    cursor += 1
-                memberships.append(
-                    (
-                        entry,
-                        routing,
-                        {
-                            "path": path,
-                            "destination": destination,
-                            "start_page": first_page,
-                            "end_page": cursor - 1,
-                            "sheet_start_page": sheet_first,
-                            "sheet_end_page": sheet_last,
-                            "notice_start_page": notice_first,
-                            "notice_end_page": cursor - 1,
-                        },
-                    )
-                )
-            with output.open("wb") as stream:
-                writer.write(stream)
+                writer.save(output, min_version=minimum_version)
             written = PdfReader(output)
             if len(written.pages) != cursor - 1:
                 raise ValueError(
                     "Assembled bundle page count does not match memberships"
                 )
-            if [_page_hash(page) for page in written.pages] != expected_pages:
-                raise ValueError(
-                    "Assembled bundle pages do not match the selected notices in order"
-                )
-            length = attempt["notice_length"]
-            if destination == "delivery" and length["enabled"]:
-                counts = [
-                    {
-                        "row_key": entry["row_key"],
-                        "pages": membership["notice_end_page"]
-                        - membership["notice_start_page"]
-                        + 1,
-                    }
-                    for entry, _, membership in memberships
-                ]
-                passed = all(item["pages"] == length["count"] for item in counts)
-                run_report.add_check(
-                    attempt,
-                    "delivery.notice_length",
-                    "delivery",
-                    "pass" if passed else "fail",
-                    "Every notice has the required PDF page count"
-                    if passed
-                    else "Delivery batch contains a notice with the wrong PDF page count",
-                    measurements={
-                        "bundle": path,
-                        "expected_pages": length["count"],
-                        "notices": counts,
-                    },
-                )
             checksum = sha256(output.read_bytes()).hexdigest()
-            if destination == "review":
-                group_name = "Review"
-            elif not group_by:
+            if not group_by:
                 group_name = "All clients"
             else:
                 names = []
@@ -533,10 +200,10 @@ def _assemble(
                 "path": path,
                 "sha256": checksum,
                 "pages": cursor - 1,
-                "destination": destination,
+                "destination": "bundle",
                 "group_by": (group_by[0] if len(group_by) == 1 else list(group_by))
-                if destination == "delivery" and group_by
-                else ("size" if destination == "delivery" else "review"),
+                if group_by
+                else "size",
                 "group_id": (values[0] or None)
                 if len(values) == 1
                 else (list(values) if values else None),
@@ -550,64 +217,197 @@ def _assemble(
                     "routing": routing,
                     "bundle": membership,
                 }
-    if set(attempt["memberships"]) != {entry["row_key"] for entry, _ in routed}:
-        raise ValueError("Every readable original must belong to exactly one bundle")
-    if attempt["notice_length"]["enabled"] and not any(
-        check["code"] == "delivery.notice_length" for check in attempt["checks"]
-    ):
+
+
+def _check_notice_length(routed: list[tuple[dict, dict]], attempt: dict) -> None:
+    """Check an explicitly requested count before writing any bundle files."""
+    length = attempt["notice_length"]
+    if not length["enabled"]:
         run_report.add_check(
             attempt,
             "delivery.notice_length",
             "delivery",
-            "not_applicable",
-            "No notices are eligible for a delivery batch",
+            "not_run",
+            "Fixed notice length is disabled",
         )
-    if any(
-        check["code"] == "delivery.notice_length" and check["status"] == "fail"
-        for check in attempt["checks"]
-    ):
+        return
+    counts = [
+        {"row_key": entry["row_key"], "pages": entry["original"]["pages"]}
+        for entry, _ in routed
+    ]
+    passed = all(item["pages"] == length["count"] for item in counts)
+    run_report.add_check(
+        attempt,
+        "delivery.notice_length",
+        "delivery",
+        ("pass" if passed else "fail") if counts else "not_applicable",
+        "Every notice has the required PDF page count"
+        if passed
+        else "A notice has the wrong PDF page count",
+        measurements={"expected_pages": length["count"], "notices": counts},
+    )
+    if not passed:
         raise ValueError(
             "Fixed page count failed; the previous bundle set remains active"
         )
 
 
-def _recover_delivery(run_dir: Path, record: dict[str, Any]) -> None:
-    """Recover saved replacement state while the caller holds this run's lock."""
-    next_dir, previous = run_dir / "bundles.next", run_dir / "bundles.previous"
-    attempts = record["delivery_attempts"]
-    latest = attempts[-1] if attempts else None
-    if previous.exists():
-        if latest is None:
-            raise ValueError("Bundle backup exists without a recorded delivery attempt")
-        if latest["status"] == "completed":
-            shutil.rmtree(previous)
-            if next_dir.exists():
-                shutil.rmtree(next_dir)
-            return
-        active = run_dir / "bundles"
-        if active.exists():
-            shutil.rmtree(active)
-        previous.replace(active)
-        for entry in record["entries"]:
-            prior = latest.get("previous_memberships", {}).get(entry["row_key"])
-            if prior:
-                entry.update(prior)
-    if next_dir.exists():
-        shutil.rmtree(next_dir)
-    if latest and latest["status"] in ("running", "prepared", "replacing"):
-        latest["status"] = "failed"
-        latest["bundles"] = []
-        latest["memberships"] = {}
-        latest["finished_at"] = run_report.timestamp()
-        run_report.add_check(
-            latest,
-            "delivery.interrupted",
-            "delivery",
-            "fail",
-            "Interrupted bundle replacement was rolled back; previous memberships remain active",
-        )
-        run_report.finish_run(record)
-        run_report.write_report(run_dir, record)
+def _reuse_bundle_set(
+    prior: dict,
+    routed: list[tuple[dict, dict]],
+    next_dir: Path,
+    attempt: dict,
+    run_dir: Path,
+) -> None:
+    """Review changes findings, not pages; copy the completed PDFs as they are."""
+    routes = {entry["row_key"]: routing for entry, routing in routed}
+    for artifact in prior["bundles"]:
+        name = Path(artifact["path"]).name
+        path = attempt["directory"] + "/" + name
+        shutil.copyfile(run_dir / artifact["path"], next_dir / name)
+        copied = {**artifact, "path": path}
+        copied.pop("findings_csv", None)
+        attempt["bundles"].append(copied)
+        for row in artifact["row_keys"]:
+            attempt["memberships"][row] = {
+                "routing": routes[row],
+                "bundle": {**prior["memberships"][row]["bundle"], "path": path},
+            }
+    attempt["reused_from"] = prior["number"]
+
+
+FINDINGS_COLUMNS = (
+    "run_id",
+    "attempt",
+    "row_key",
+    "client_id",
+    "template",
+    "version_id",
+    "language",
+    "eligibility",
+    "eligibility_reason",
+    "withheld",
+    "bundle_path",
+    "notice_start_page",
+    "notice_end_page",
+    "original_page",
+    "bundle_page",
+    "stage",
+    "component",
+    "code",
+    "effective_status",
+    "message",
+    "measurements_json",
+    "warning_token",
+    "warning_accepted",
+    "acceptance_reason",
+)
+
+
+def _spreadsheet_cell(value: Any) -> Any:
+    """Keep text inert when a CSV is opened by spreadsheet software."""
+    if not isinstance(value, str):
+        return value
+    stripped = value.lstrip()
+    leading = value[: len(value) - len(stripped)]
+    if any(char in leading for char in "\t\r\n") or stripped.startswith(
+        ("=", "+", "-", "@")
+    ):
+        return "'" + value
+    return value
+
+
+def _write_findings(next_dir: Path, record: dict, attempt: dict) -> None:
+    """Write a derived, filterable view beside the staged bundle PDFs."""
+    accepted = {item["token"]: item for item in record.get("warning_acceptances", [])}
+    entries = {entry["row_key"]: entry for entry in record["entries"]}
+    for artifact in attempt["bundles"]:
+        relative = Path(artifact["path"]).with_suffix(".csv")
+        path = next_dir / relative.name
+        count = 0
+        with path.open("w", encoding="utf-8", newline="") as stream:
+            writer = csv.DictWriter(stream, fieldnames=FINDINGS_COLUMNS)
+            writer.writeheader()
+            for row_key in artifact["row_keys"]:
+                entry = entries[row_key]
+                member = attempt["memberships"][row_key]
+                bundle = member["bundle"]
+                route = member["routing"]
+                evaluation = attempt["evaluations"][row_key]
+                results = evaluation["results"]
+                tokens = evaluation["warning_tokens"]
+                occurrences: dict[str, int] = {}
+                findings = []
+                for check in results:
+                    warning_id = ""
+                    code = check["code"]
+                    if (
+                        check["status"] == "warn"
+                        and validation_policy.RULES[code].scope == "original"
+                    ):
+                        occurrences[code] = occurrences.get(code, 0) + 1
+                        warning_id = f"{code}:{occurrences[code]}"
+                    if check["status"] in ("warn", "fail", "not_run"):
+                        findings.append((warning_id, check))
+                if not findings and route.get("withheld"):
+                    findings = [("", {})]
+                for warning_id, check in findings:
+                    token = tokens.get(warning_id, "")
+                    acceptance = accepted.get(token) if token else None
+                    original_page = check.get("page")
+                    notice_start = bundle.get("notice_start_page")
+                    bundle_page = (
+                        notice_start + original_page - 1
+                        if type(original_page) is int
+                        and notice_start is not None
+                        and 1 <= original_page <= entry["original"].get("pages", 0)
+                        else ""
+                    )
+                    row = {
+                        "run_id": record["run_id"],
+                        "attempt": attempt["number"],
+                        "row_key": row_key,
+                        "client_id": entry.get("client_id", ""),
+                        **{
+                            key: entry["assignment"].get(key, "")
+                            for key in ("template", "version_id", "language")
+                        },
+                        "eligibility": route["destination"],
+                        "eligibility_reason": route["reason"],
+                        "withheld": "true" if route.get("withheld") else "false",
+                        "bundle_path": bundle.get("path", ""),
+                        "notice_start_page": bundle.get("notice_start_page", ""),
+                        "notice_end_page": bundle.get("notice_end_page", ""),
+                        "original_page": original_page
+                        if original_page is not None
+                        else "",
+                        "bundle_page": bundle_page,
+                        "stage": check.get("stage", ""),
+                        "component": check.get("component", ""),
+                        "code": check.get("code", ""),
+                        "effective_status": check.get("status", ""),
+                        "message": check.get("message", ""),
+                        "measurements_json": json.dumps(
+                            check["measurements"], ensure_ascii=False
+                        )
+                        if "measurements" in check
+                        else "",
+                        "warning_token": token,
+                        "warning_accepted": ("true" if acceptance else "false")
+                        if token
+                        else "",
+                        "acceptance_reason": acceptance["reason"] if acceptance else "",
+                    }
+                    writer.writerow(
+                        {key: _spreadsheet_cell(value) for key, value in row.items()}
+                    )
+                    count += 1
+
+        artifact["findings_csv"] = {
+            "path": relative.as_posix(),
+            "sha256": sha256(path.read_bytes()).hexdigest(),
+            "rows": count,
+        }
 
 
 def bundle_run(
@@ -618,9 +418,13 @@ def bundle_run(
     withhold: list[str] | None = None,
     policy: dict | None = None,
 ) -> dict[str, Any]:
-    """Lock a saved run before loading, recovering or changing its delivery."""
+    """Lock a completed saved run before loading or changing its delivery."""
     run_dir = run_dir.resolve()
     with run_lock(run_dir):
+        if run_dir.name.endswith(".incomplete"):
+            raise ValueError(
+                "This run is incomplete; generate a new run before rebundling"
+            )
         record = read_json(run_dir / "run.json")
         if not isinstance(record, dict):
             raise ValueError(
@@ -645,10 +449,10 @@ def _bundle_run(
     withhold: list[str] | None = None,
     policy: dict | None = None,
 ) -> dict[str, Any]:
-    """Validate, assemble, then commit while the caller holds this run's lock.
+    """Publish a new bundle set while the caller holds this run's lock.
 
-    Expected operation failures return a failed attempt while preserving the
-    previous set. Unexpected errors save the same evidence and propagate.
+    Completed sets are immutable. An interrupted attempt can leave an unused
+    directory; only the atomic run record publishes its memberships.
     """
     if record.get("format_version") != run_report.RUN_FORMAT_VERSION:
         raise ValueError("Unsupported run format; rebundling requires format version 2")
@@ -657,7 +461,6 @@ def _bundle_run(
             "Input checks did not accept this run; correct the source and generate a new run"
         )
     run_dir = run_dir.resolve()
-    _recover_delivery(run_dir, record)
     attempt: dict[str, Any] = {
         "number": len(record["delivery_attempts"]) + 1,
         "started_at": run_report.timestamp(),
@@ -669,29 +472,16 @@ def _bundle_run(
         "checks": [],
         "bundles": [],
         "memberships": {},
-        "previous_memberships": {
-            entry["row_key"]: {
-                "routing": deepcopy(entry["routing"]),
-                "bundle": deepcopy(entry["bundle"]),
-            }
-            for entry in record["entries"]
-        },
     }
-    previous_memberships = attempt["previous_memberships"]
     record["delivery_attempts"].append(attempt)
-    run_report.write_report(run_dir, record)
-    next_dir, previous, active = (
-        run_dir / "bundles.next",
-        run_dir / "bundles.previous",
-        run_dir / "bundles",
-    )
+    run_report.write_json(run_dir, record)
+    name = f"attempt-{attempt['number']:04d}-{uuid4().hex[:8]}"
+    active = run_dir / "bundles" / name
+    next_dir = active.with_name(name + ".incomplete")
+    attempt["directory"] = active.relative_to(run_dir).as_posix()
+    memberships_applied = False
     try:
         attempt["engine"] = run_report.engine_identity()
-        attempt["review_tools"] = None
-        if record.get("version", {}).get("compiler") != TYPST_VERSION:
-            raise ValueError(
-                "Saved run uses an unsupported notice compiler; generate and check a new run"
-            )
         requested = (
             record.get(
                 "validation_policy",
@@ -705,13 +495,7 @@ def _bundle_run(
         resolved = validation_policy.resolve_policy(requested, record)
         attempt["resolved_rules"] = deepcopy(resolved)
         attempt["notice_length"] = validation_policy.notice_length_settings(requested)
-        retained = run_report.resource_manifest(run_dir / "resources", run_dir)
-        if retained["sha256"] != record["resources"].get("sha256"):
-            raise ValueError(
-                "Saved resources changed; generate and check a new run before delivery"
-            )
-        attempt["resources_sha256"] = retained["sha256"]
-        verify_components(run_dir / "resources/templates")
+        attempt["resources_sha256"] = record["resources"].get("sha256")
         settings = record["configuration"]["effective"].get("bundling", {})
         attempt["configuration"] = deepcopy(settings)
         size = settings.get("bundle_size", 0)
@@ -733,7 +517,6 @@ def _bundle_run(
             raise ValueError("Run entries must have unique source row keys")
         record["validation_policy"] = deepcopy(requested)
         routed = _routes(
-            run_dir,
             record,
             entries,
             group_by,
@@ -743,16 +526,8 @@ def _bundle_run(
             record.get("withheld_rows", []) if withhold is None else withhold,
             resolved,
         )
-        if not attempt["notice_length"]["enabled"]:
-            run_report.add_check(
-                attempt,
-                "delivery.notice_length",
-                "delivery",
-                "not_run",
-                "Fixed notice length is disabled",
-            )
+        _check_notice_length(routed, attempt)
         attempt["review"]["withheld_rows"] = record["withheld_rows"]
-        run_report.write_report(run_dir, record)
         if size == 0:
             attempt["status"] = "completed"
             run_report.add_check(
@@ -763,19 +538,30 @@ def _bundle_run(
                 "Bundling is disabled; originals remain available",
             )
         else:
-            work = run_dir / "work" / "delivery"
-            if work.exists():
-                shutil.rmtree(work)
-            work.mkdir(parents=True, mode=0o700)
-            next_dir.mkdir(mode=0o700)
-            _assemble(routed, next_dir, work, group_by, size, record, attempt)
-            attempt["status"] = "prepared"
-            run_report.write_report(run_dir, record)
-            attempt["status"] = "replacing"
-            run_report.write_report(run_dir, record)
-            active.mkdir(exist_ok=True)
-            active.replace(previous)
-            next_dir.replace(active)
+            next_dir.mkdir(mode=0o700, parents=True)
+            prior = next(
+                (
+                    previous
+                    for previous in reversed(record["delivery_attempts"][:-1])
+                    if previous["status"] == "completed"
+                    and previous["bundles"]
+                    and previous["configuration"] == settings
+                ),
+                None,
+            )
+            if prior is None:
+                _assemble(routed, next_dir, group_by, size, attempt, run_dir)
+            else:
+                _reuse_bundle_set(prior, routed, next_dir, attempt, run_dir)
+            if len(attempt["memberships"]) != len(routed) or set(
+                attempt["memberships"]
+            ) != {entry["row_key"] for entry, _ in routed}:
+                raise ValueError(
+                    "Every readable original must belong to exactly one bundle"
+                )
+            _write_findings(next_dir, record, attempt)
+            next_dir.rename(active)
+            memberships_applied = True
             for entry in record["entries"]:
                 membership = attempt["memberships"].get(entry["row_key"])
                 if membership:
@@ -788,11 +574,8 @@ def _bundle_run(
                     }
             attempt["status"] = "completed"
         attempt["finished_at"] = run_report.timestamp()
-        attempt.pop("previous_memberships", None)
         run_report.finish_run(record)
         run_report.write_report(run_dir, record)
-        if previous.exists():
-            shutil.rmtree(previous)
         return attempt
     except Exception as exc:
         # JSON is authoritative if its HTML view fails after the commit write.
@@ -804,29 +587,30 @@ def _bundle_run(
         ):
             record.clear()
             record.update(saved)
-            _recover_delivery(run_dir, record)
             raise
-        if previous.exists():
-            if active.exists():
-                shutil.rmtree(active)
-            previous.replace(active)
-        if next_dir.exists():
-            shutil.rmtree(next_dir)
-        for entry in record["entries"]:
-            entry.update(previous_memberships[entry["row_key"]])
+        if memberships_applied:
+            saved_entries = {entry["row_key"]: entry for entry in saved["entries"]}
+            for entry in record["entries"]:
+                prior = saved_entries[entry["row_key"]]
+                entry["bundle"] = prior["bundle"]
+                entry["routing"] = prior["routing"]
         attempt["status"] = "failed"
-        attempt.pop("previous_memberships", None)
         attempt["bundles"] = []
         attempt["memberships"] = {}
         attempt["finished_at"] = run_report.timestamp()
         detail = str(exc)
-        if isinstance(exc, subprocess.CalledProcessError) and exc.stderr:
-            detail += "\n" + exc.stderr
         run_report.add_check(attempt, "delivery.failed", "delivery", "fail", detail)
         run_report.finish_run(record)
         run_report.write_report(run_dir, record)
         if isinstance(
-            exc, (OSError, ValueError, PdfReadError, subprocess.CalledProcessError)
+            exc,
+            (
+                OSError,
+                ValueError,
+                PdfReadError,
+                pikepdf.PdfError,
+                pikepdf.PasswordError,
+            ),
         ):
             return attempt
         raise

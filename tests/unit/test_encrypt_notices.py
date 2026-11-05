@@ -3,9 +3,9 @@
 from pathlib import Path
 
 import pytest
+import pikepdf
 from pypdf import PdfReader, PdfWriter
 from pypdf.generic import DictionaryObject
-from pypdf.errors import DependencyError
 
 from immuknow.encrypt_notices import encrypt_notice
 from immuknow.load_config import validate_config
@@ -74,28 +74,38 @@ def test_encryption_verifies_password_and_preserves_original(tmp_path: Path) -> 
     assert not (tmp_path / "specifier.pdf").exists()
 
 
-@pytest.mark.parametrize("failure", ["backend", "algorithm", "password"])
+@pytest.mark.parametrize(
+    "failure", ["write", "algorithm", "password", "page_count", "encrypted_source"]
+)
 def test_encryption_failure_preserves_original_and_existing_copy(
     tmp_path, monkeypatch, failure
 ):
     original, encrypted = tmp_path / "original.pdf", tmp_path / "encrypted.pdf"
     writer = PdfWriter()
     writer.add_blank_page(width=612, height=792)
+    if failure == "encrypted_source":
+        writer.encrypt("source-password", algorithm="AES-256")
     writer.write(original)
     content = original.read_bytes()
     encrypted.write_bytes(b"previous encrypted copy")
-    encrypt = PdfWriter.encrypt
+    save = pikepdf.Pdf.save
 
     def unavailable(self, *args, **kwargs):
-        if failure == "backend":
-            raise DependencyError("backend missing")
+        if failure == "write":
+            Path(args[0]).write_bytes(b"partial output")
+            raise OSError("Cannot write encrypted output")
         if failure == "password":
             raise ValueError("private-test-password")
-        kwargs["algorithm"] = "RC4-128"
-        return encrypt(self, *args, **kwargs)
+        if failure == "algorithm":
+            kwargs["encryption"] = pikepdf.Encryption(
+                owner="private-test-password", user="private-test-password", R=4
+            )
+        if failure == "page_count":
+            self.add_blank_page()
+        return save(self, *args, **kwargs)
 
-    monkeypatch.setattr(PdfWriter, "encrypt", unavailable)
-    with pytest.raises(ValueError) as error:
+    monkeypatch.setattr(pikepdf.Pdf, "save", unavailable)
+    with pytest.raises((OSError, ValueError)) as error:
         encrypt_notice(
             create_test_client_record(),
             original,

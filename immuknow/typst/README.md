@@ -151,9 +151,14 @@ typst eval --in notice.typ 'query(<immuknow-report>).map(it => it.value)' \
   --format json --creation-timestamp 1780272000
 ```
 
-Bundled QR drawing code is derived from Codetastic; its licence and upstream
-provenance are in `vendor/codetastic/`. Local changes support styled drawing and
-UTF-8 text with an explicit encoding declaration and matching size calculation.
+QR encoding uses the bundled Rust/WebAssembly plugin in `vendor/qr/`, with
+its upstream licence notices. It includes an explicit UTF-8 encoding declaration
+for non-ASCII destinations. URL construction and styled drawing remain in Typst;
+default square symbols use horizontal runs prepared in Rust. Other styles and
+centre images use a cell matrix; structural marker geometry is derived from
+Codetastic. Plugin source and build
+instructions are in Core's `plugins/qr/`. Native use and Studio need no Rust
+installation or downloaded Typst packages.
 
 Bullet lists use `indent: 0.8cm` by default. Set `indent` on the overdue helper
 to change that list without changing later lists in the template.

@@ -74,9 +74,9 @@ def test_acceptance_releases_one_warning_without_mutating_observations():
 def test_mandatory_evidence_cannot_be_waived(status):
     record, entry = evidence()
     if status == "missing":
-        entry["checks"].pop(1)
+        entry["checks"].pop(0)
     else:
-        entry["checks"][1]["status"] = status
+        entry["checks"][0]["status"] = status
     evaluation = evaluate_original(record, entry, entry["checks"])
     accept_warnings(
         record,
@@ -85,37 +85,67 @@ def test_mandatory_evidence_cannot_be_waived(status):
         "Inspected signature",
     )
     assert route_original(record, evaluation, withheld=False)["destination"] == "review"
-    assert "output.evidence_matches" in evaluation.failed_checks
+    assert "output.readable" in evaluation.failed_checks
     assert all(not key.startswith("output.") for key in evaluation.warning_tokens)
 
 
-@pytest.mark.parametrize(
-    "change", ["pdf", "row", "run", "resources", "facts", "source", "warning"]
-)
-def test_changed_evidence_invalidates_prior_acceptance(change):
+@pytest.mark.parametrize("change", ["row", "run"])
+def test_changed_run_or_row_invalidates_prior_acceptance(change):
     record, entry = evidence()
     first = evaluate_original(record, entry, entry["checks"])
     tokens = list(first.warning_tokens.values())
     accept_warnings(record, {entry["row_key"]: first}, tokens, "Reviewed")
-    if change == "pdf":
-        entry["original"]["sha256"] = "e" * 64
-    elif change == "row":
+    if change == "row":
         entry["row_key"] = "row-000002"
-    elif change == "run":
-        record["run_id"] = "another-run"
-    elif change == "resources":
-        record["resources"]["sha256"] = "e" * 64
-    elif change == "facts":
-        entry["facts"]["sha256"] = "e" * 64
-    elif change == "source":
-        entry["source"]["row_number"] = 2
     else:
-        entry["checks"][-1]["page"] = 3
+        record["run_id"] = "another-run"
     current = evaluate_original(record, entry, entry["checks"])
     assert route_original(record, current, withheld=False)["destination"] == "review"
     with pytest.raises(ValueError, match="stale warning token"):
         accept_warnings(record, {entry["row_key"]: current}, tokens, "Reviewed")
-    assert len(record["warning_acceptances"]) == 1
+
+
+def test_unrelated_rule_change_keeps_warning_acceptance():
+    record, entry = evidence()
+    first = evaluate_original(record, entry, entry["checks"])
+    accept_warnings(
+        record,
+        {entry["row_key"]: first},
+        list(first.warning_tokens.values()),
+        "Reviewed",
+    )
+    policy = {
+        "rules": {
+            "layout.address_outside_window": {
+                "severity": "fail",
+                "reason": "Require address fit",
+            }
+        }
+    }
+    settings = validation_policy.resolve_policy(policy, record)[entry["row_key"]]
+    current = evaluate_original(record, entry, entry["checks"], settings)
+    assert current.warning_tokens == first.warning_tokens
+    assert route_original(record, current, withheld=False)["destination"] == "delivery"
+
+
+def test_changed_warning_rule_setting_invalidates_acceptance():
+    record, entry = evidence()
+    first = evaluate_original(record, entry, entry["checks"])
+    tokens = list(first.warning_tokens.values())
+    accept_warnings(record, {entry["row_key"]: first}, tokens, "Reviewed")
+    policy = {
+        "rules": {
+            "layout.signature_page": {
+                "severity": "warn",
+                "reason": "Updated review guidance",
+            }
+        }
+    }
+    settings = validation_policy.resolve_policy(policy, record)[entry["row_key"]]
+    current = evaluate_original(record, entry, entry["checks"], settings)
+    assert route_original(record, current, withheld=False)["destination"] == "review"
+    with pytest.raises(ValueError, match="stale warning token"):
+        accept_warnings(record, {entry["row_key"]: current}, tokens, "Reviewed")
 
 
 def test_same_rule_on_two_pages_requires_two_individual_acceptances():
@@ -172,7 +202,7 @@ def test_rule_revision_invalidates_acceptance_without_erasing_prior_evaluation(
         validation_policy, "POLICY_VERSION", validation_policy.POLICY_VERSION + 1
     )
     current = evaluate_original(record, entry, entry["checks"])
-    assert current.rules_sha256 != first.rules_sha256
+    assert current.warning_tokens != first.warning_tokens
     assert route_original(record, current, withheld=False)["destination"] == "review"
     assert first.to_dict() == before
     assert record["warning_acceptances"]
@@ -230,8 +260,6 @@ def test_encryption_failure_does_not_invalidate_print_original():
 @pytest.mark.parametrize(
     "code",
     [
-        "output.qr_destination",
-        "output.unrecorded_link",
         "content.link_https",
         "content.link_destination",
         "content.multiple_links",
@@ -336,8 +364,7 @@ def test_invalid_rule_changes_are_refused(change):
 @pytest.mark.parametrize(
     "code",
     [
-        "output.evidence_matches",
-        "output.client_identity",
+        "render.evidence_failed",
         "output.readable",
         "assignment.duplicate_client_id",
         "source.history_invalid",
@@ -347,6 +374,14 @@ def test_invalid_rule_changes_are_refused(change):
 )
 def test_integrity_and_unknown_rules_cannot_be_changed(code):
     with pytest.raises(ValueError, match="cannot be adjusted"):
+        validation_policy.validate_policy(
+            {"rules": {code: {"enabled": False, "reason": "Reviewed"}}}
+        )
+
+
+@pytest.mark.parametrize("code", ["output.qr_destination", "output.unrecorded_link"])
+def test_retired_pdf_rule_overrides_require_removal(code):
+    with pytest.raises(ValueError, match="(?i)retired.*remov"):
         validation_policy.validate_policy(
             {"rules": {code: {"enabled": False, "reason": "Reviewed"}}}
         )
@@ -500,3 +535,55 @@ def test_repeated_warning_token_is_refused():
     with pytest.raises(ValueError, match="only once"):
         accept_warnings(record, {entry["row_key"]: evaluation}, tokens * 2, "Reviewed")
     assert record["warning_acceptances"] == []
+
+
+def test_multiple_row_selectors_and_repeated_acceptance_preserve_association():
+    record, first = evidence()
+    first["client_id"] = "0000000001"
+    second = deepcopy(first)
+    second.update(row_key="row-000002", client_id="0000000002")
+    record["entries"].append(second)
+    rules = {"layout.signature_page": {"enabled": False, "reason": "Reviewed"}}
+    settings = validation_policy.resolve_policy(
+        {
+            "clients": [
+                {
+                    "selector": {"scheme": "panorama", "value": "0000000001"},
+                    "rules": rules,
+                },
+                {
+                    "selector": {
+                        "input_sha256": record["input"]["sha256"],
+                        "row_key": second["row_key"],
+                    },
+                    "rules": rules,
+                },
+            ]
+        },
+        record,
+    )
+    assert all(
+        not item["layout.signature_page"]["enabled"] for item in settings.values()
+    )
+    evaluations = {
+        entry["row_key"]: evaluate_original(record, entry, entry["checks"])
+        for entry in record["entries"]
+    }
+    tokens = [
+        token
+        for evaluation in evaluations.values()
+        for token in evaluation.warning_tokens.values()
+    ]
+    accept_warnings(record, evaluations, tokens, "Reviewed")
+    accept_warnings(record, evaluations, tokens, "Reviewed again")
+    assert len(record["warning_acceptances"]) == 2
+    assert all(
+        route_original(record, evaluation, withheld=False)["destination"] == "delivery"
+        for evaluation in evaluations.values()
+    )
+    assert (
+        route_original(record, evaluations[second["row_key"]], withheld=True)[
+            "destination"
+        ]
+        == "review"
+    )

@@ -2,18 +2,17 @@
 
 import json
 import subprocess
-from copy import deepcopy
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 import pymupdf
 import zxingcpp
 from pypdf import PdfReader, PdfWriter
-from pypdf.generic import DecodedStreamObject, NameObject, NullObject, TextStringObject
+from pypdf.generic import DictionaryObject, StreamObject
 
-from immuknow import bundle_pdfs, compile_notices, run_report
+from immuknow import bundle_pdfs, compile_notices
 from immuknow.orchestrator import run_pipeline
-from immuknow.validate_pdfs import inspect_notice
 from tests.fixtures.sample_input import create_test_input_dataframe
 from tests.integration.test_native_project import prepare_case, compile_case
 from tests.integration.test_run_accounting import prepare_inputs
@@ -103,8 +102,6 @@ def test_custom_labels_and_repeated_client_blocks_match_the_pdf(tmp_path, langua
         for c in summary["checks"]
         if c["code"] == "layout.envelope_window_missing"
     ] == ["pass"]
-    _, checks = inspect_notice(job, tmp_path, summary)
-    assert all(check.status in ("pass", "not_applicable") for check in checks)
 
 
 @pytest.mark.parametrize(
@@ -144,9 +141,6 @@ def test_unspecified_window_warns_without_claiming_a_fit(tmp_path, version, lang
         not any(key.startswith("window_") for key in area)
         for area in summary["measurements"]["address"]
     )
-    original, checks = inspect_notice(job, tmp_path, summary)
-    assert original["status"] == "completed"
-    assert all(c.status in ("pass", "not_applicable") for c in checks)
 
 
 @pytest.mark.parametrize(
@@ -197,101 +191,6 @@ def test_client_details_overlap_is_reported_from_the_placed_pdf(
         assert any(
             pymupdf.Rect(63, 120, 387, 201).intersects(rect) for rect in private_text
         ) == (spacing < 0)
-    original, checks = inspect_notice(job, tmp_path, summary)
-    assert original["status"] == "completed"
-    assert all(c.status in ("pass", "not_applicable") for c in checks)
-
-
-@pytest.mark.parametrize("replacement", ["", "9999999999", "00000000010"])
-def test_correct_id_elsewhere_cannot_hide_a_missing_or_wrong_client_block(
-    tmp_path, replacement
-):
-    job, _ = prepare_case(tmp_path)
-    job.template.write_text(
-        '#import "settings.typ": *\n#show: letter\n'
-        "#immuknow.client-block(notice)\n"
-        "#pagebreak()\n#immuknow.client-block(notice)"
-    )
-    summary, _ = compile_case(job)
-    area = summary["measurements"]["client"][0]
-    with pymupdf.open(job.pdf) as pdf:
-        page = pdf[0]
-        page.add_redact_annot(
-            pymupdf.Rect(
-                area["x_pt"] - 0.1,
-                area["y_pt"] - 0.1,
-                area["x_pt"] + area["width_pt"] + 0.1,
-                area["y_pt"] + area["height_pt"] + 0.1,
-            )
-        )
-        page.apply_redactions()
-        if replacement:
-            page.insert_text(
-                (area["x_pt"], area["y_pt"] + area["height_pt"]),
-                replacement,
-                fontsize=10,
-            )
-        page.insert_text((50, 500), "Client ID: " + job.client_id)
-        pdf.saveIncr()
-    original, checks = inspect_notice(job, tmp_path, summary)
-    assert original["status"] == "completed"
-    assert (
-        next(check for check in checks if check.code == "output.client_identity").status
-        == "fail"
-    )
-
-
-@pytest.mark.parametrize("field", ["name", "address", "postal_code"])
-def test_correct_address_elsewhere_cannot_hide_changed_mailing_details(tmp_path, field):
-    job, payload = prepare_case(tmp_path)
-    summary, _ = compile_case(job)
-    expected = payload["client_data"][field]
-    with pymupdf.open(job.pdf) as pdf:
-        page = pdf[0]
-        matches = page.search_for(expected)
-        assert matches
-        for rect in matches:
-            page.add_redact_annot(rect)
-        page.apply_redactions()
-        page.insert_text((50, 500), expected)
-        pdf.saveIncr()
-    original, checks = inspect_notice(job, tmp_path, summary)
-    assert original["status"] == "completed"
-    assert (
-        next(c for c in checks if c.code == "output.client_identity").status == "fail"
-    )
-
-
-@pytest.mark.parametrize("language", ["en", "fr"])
-@pytest.mark.parametrize("field", ["birth_date", "school"])
-def test_correct_details_elsewhere_cannot_hide_changed_client_details(
-    tmp_path, language, field
-):
-    job, payload = prepare_case(tmp_path, language=language)
-    payload["client_data"]["date_of_birth_iso"] = "2014-07-08"
-    job.data.write_text(json.dumps(payload))
-    summary, _ = compile_case(job)
-    _, checks = inspect_notice(job, tmp_path, summary)
-    assert all(c.status in ("pass", "not_applicable") for c in checks)
-    expected = (
-        ("July 8, 2014" if language == "en" else "8 juillet 2014")
-        if field == "birth_date"
-        else payload["client_data"]["school"]
-    )
-    with pymupdf.open(job.pdf) as pdf:
-        page = pdf[0]
-        matches = page.search_for(expected)
-        assert matches
-        for rect in matches:
-            page.add_redact_annot(rect)
-        page.apply_redactions()
-        page.insert_text((50, 500), expected)
-        pdf.saveIncr()
-    original, checks = inspect_notice(job, tmp_path, summary)
-    assert original["status"] == "completed"
-    assert (
-        next(c for c in checks if c.code == "output.client_identity").status == "fail"
-    )
 
 
 @pytest.mark.parametrize("language", ["en", "fr"])
@@ -305,10 +204,8 @@ def test_blank_or_hidden_client_details_match_the_pdf(tmp_path, language, show):
         '#import "settings.typ": *\n#show: letter\n'
         f"#immuknow.client-block(notice, show-birth-date: {str(show).lower()}, show-school: {str(show).lower()})"
     )
-    summary, reader = compile_case(job)
+    _, reader = compile_case(job)
     assert "School should not appear" not in reader.pages[0].extract_text()
-    _, checks = inspect_notice(job, tmp_path, summary)
-    assert all(c.status in ("pass", "not_applicable") for c in checks)
 
 
 def test_component_for_another_row_cannot_repeat_the_same_external_id(tmp_path):
@@ -388,88 +285,6 @@ def test_changing_both_the_report_and_components_cannot_replace_source_facts(tmp
     assert "Morgan Example" in PdfReader(job.pdf).pages[0].extract_text()
 
 
-@pytest.mark.parametrize("component", ["client", "address"])
-def test_saved_personal_area_is_checked_again_before_delivery(tmp_path, component):
-    source, config, templates, _ = prepare_inputs(tmp_path)
-    saved = run_pipeline(
-        source,
-        tmp_path / "runs",
-        config_dir=config,
-        notice_template=templates / "overdue_agents_v1.en.typ",
-    )
-    record = json.loads(saved.read_text())
-    first, _ = record["entries"]
-    assert not first["routing"]["failed_checks"]
-    first["render_summary"]["measurements"][component][0]["y_pt"] += 100
-    run_report.write_report(saved.parent, record)
-    attempt = bundle_pdfs.bundle_run(saved.parent)
-    assert attempt["status"] == "completed"
-    first, second = json.loads(saved.read_text())["entries"]
-    assert "output.client_identity" in first["routing"]["failed_checks"]
-    assert first["routing"]["destination"] == "review"
-    assert not second["routing"]["failed_checks"]
-
-
-def test_unreadable_text_on_a_page_without_a_client_block_still_fails(tmp_path):
-    job, _ = prepare_case(tmp_path)
-    summary, reader = compile_case(job)
-    assert len(reader.pages) == 2
-    assert all(area["page"] == 1 for area in summary["measurements"]["client"])
-    writer = PdfWriter(clone_from=reader)
-    contents = DecodedStreamObject()
-    contents.set_data(b"BT (unterminated")
-    writer.pages[1].replace_contents(contents.flate_encode())
-    writer.write(job.pdf)
-    original, checks = inspect_notice(job, tmp_path, summary)
-    assert original["status"] == "completed"
-    assert any(
-        check.status == "fail" and "PDF text" in check.message for check in checks
-    )
-
-
-@pytest.mark.parametrize(
-    "url,status",
-    [
-        ("https://example.org/update?name=%C3%89lodie#form", "pass"),
-        ("HTTP://localhost:8080/record", "pass"),
-        ("https://[2001:db8::1]:443/", "pass"),
-        ("https://xn--exmple-cua.org/", "pass"),
-        ("https://exämple.org/élève?name=Élodie&city=東京", "pass"),
-        ("https://example.org/record?mark=🙂", "pass"),
-        ("https:///record", "warn"),
-        ("example.org/record", "warn"),
-        ("https://example.org:99999/", "warn"),
-        ("https://example.org/a b", "warn"),
-        ("https://example.org/%zz", "warn"),
-        ("https://-example.org/", "warn"),
-        ("https://[not-an-address]/", "warn"),
-        ("javascript:alert(1)", "warn"),
-    ],
-)
-def test_qr_destination_quality_is_checked_without_discarding_the_pdf(
-    tmp_path, url, status
-):
-    job, _ = prepare_case(tmp_path)
-    job.template.write_text(
-        '#import "settings.typ": *\n#show: letter\n'
-        "#immuknow.client-block(notice)\n"
-        f"#immuknow.qr-code(notice, url: {json.dumps(url, ensure_ascii=False)})"
-    )
-    summary, _ = compile_case(job)
-    original, checks = inspect_notice(job, tmp_path, summary)
-    assert original["status"] == "completed"
-    assert (
-        next(c for c in checks if c.code == "output.evidence_matches").status == "pass"
-    )
-    assert next(c for c in checks if c.code == "output.qr_destination").status == status
-    with pymupdf.open(job.pdf) as pdf:
-        pixmap = pdf[0].get_pixmap(dpi=200, colorspace=pymupdf.csGRAY)
-        pixels = memoryview(pixmap.samples).cast("B", [pixmap.height, pixmap.width])
-        decoded = zxingcpp.read_barcodes(pixels)
-    assert [code.bytes for code in decoded] == [url.encode("utf-8")]
-    assert [code.text for code in decoded] == [url]
-
-
 @pytest.mark.parametrize(
     "level,capacity,version",
     [("l", 16, 1), ("m", 13, 1), ("q", 10, 1), ("h", 6, 1), ("l", 229, 9)],
@@ -506,7 +321,7 @@ def test_unicode_qr_chooses_a_size_that_fits_its_encoding(
         "tel:+18005550100",
     ],
 )
-def test_placed_links_match_pdf_destinations_without_a_qr_code(tmp_path, url):
+def test_placed_link_report_records_destinations_without_a_qr_code(tmp_path, url):
     job, _ = prepare_case(tmp_path)
     job.template.write_text(
         '#import "settings.typ": *\n#show: letter\n'
@@ -517,9 +332,6 @@ def test_placed_links_match_pdf_destinations_without_a_qr_code(tmp_path, url):
     summary, _ = compile_case(job)
     assert not summary["qr_urls"]
     assert summary["measurements"]["link"] == [{"page": 2, "url": url}] * 2
-    original, checks = inspect_notice(job, tmp_path, summary)
-    assert original["status"] == "completed"
-    assert all(c.status in ("pass", "not_applicable") for c in checks)
 
 
 @pytest.mark.parametrize("keep_together", [None, False, True])
@@ -541,8 +353,6 @@ def test_link_evidence_follows_an_automatic_page_break(tmp_path, keep_together):
     assert summary["measurements"]["link"] == [
         {"page": 2, "url": "https://example.org/record"}
     ]
-    _, checks = inspect_notice(job, tmp_path, summary)
-    assert all(c.status in ("pass", "not_applicable") for c in checks)
 
 
 def test_oversized_kept_link_records_a_reviewable_warning_in_native_evidence(tmp_path):
@@ -560,279 +370,6 @@ def test_oversized_kept_link_records_a_reviewable_warning_in_native_evidence(tmp
     assert "Read the record information" in " ".join(
         reader.pages[0].extract_text().split()
     )
-    original, inspected = inspect_notice(job, tmp_path, summary)
-    assert original["status"] == "completed"
-    assert all(check.status in ("pass", "not_applicable") for check in inspected)
-
-
-@pytest.mark.parametrize("damage", ["missing", "changed", "unreadable"])
-def test_a_link_on_another_page_cannot_hide_a_broken_link(tmp_path, damage):
-    job, _ = prepare_case(tmp_path)
-    job.template.write_text(
-        '#import "settings.typ": *\n#show: letter\n'
-        "#immuknow.client-block(notice)\n"
-        '#immuknow.link("https://example.org/record")[Read the record]\n'
-        '#pagebreak()\n#immuknow.link("https://example.org/record")[Read the record]'
-    )
-    summary, reader = compile_case(job)
-    assert [link["page"] for link in summary["measurements"]["link"]] == [1, 2]
-    writer = PdfWriter(clone_from=reader)
-    annotations = writer.pages[0].annotations
-    assert annotations
-    for reference in annotations:
-        annotation = reference.get_object()
-        if damage == "missing":
-            del annotation["/A"]
-        elif damage == "changed":
-            annotation["/A"][NameObject("/URI")] = TextStringObject(
-                "https://example.org/other"
-            )
-        else:
-            annotation["/A"][NameObject("/URI")] = NullObject()
-    writer.write(job.pdf)
-    original, checks = inspect_notice(job, tmp_path, summary)
-    assert original["status"] == "completed"
-    assert (
-        next(c for c in checks if c.code == "output.evidence_matches").status == "fail"
-    )
-
-
-def test_saved_delivery_rechecks_ordinary_link_destinations(tmp_path):
-    source, config, templates, _ = prepare_inputs(tmp_path)
-    saved = run_pipeline(
-        source,
-        tmp_path / "runs",
-        config_dir=config,
-        notice_template=templates / "overdue_agents_v1.en.typ",
-    )
-    record = json.loads(saved.read_text())
-    first = record["entries"][0]
-    assert not first["routing"]["failed_checks"]
-    first["render_summary"]["measurements"]["link"][0]["page"] = 2
-    run_report.write_report(saved.parent, record)
-    attempt = bundle_pdfs.bundle_run(saved.parent)
-    assert attempt["status"] == "completed"
-    first, second = json.loads(saved.read_text())["entries"]
-    assert "output.evidence_matches" in first["routing"]["failed_checks"]
-    assert first["routing"]["destination"] == "review"
-    assert not second["routing"]["failed_checks"]
-
-
-@pytest.mark.parametrize("recorded", [False, True])
-@pytest.mark.parametrize(
-    "url", ["https://example.org/extra", "https://exämple.org/élève"]
-)
-def test_link_destinations_outside_helpers_warn_even_without_a_qr(
-    tmp_path, recorded, url
-):
-    job, _ = prepare_case(tmp_path)
-    body = '#import "settings.typ": *\n#show: letter\n#immuknow.client-block(notice)\n'
-    if recorded:
-        body += '#immuknow.link("https://example.org/record")[Read the record]\n\n'
-    job.template.write_text(
-        body + f"#link({json.dumps(url, ensure_ascii=False)})[Extra information]"
-    )
-    summary, _ = compile_case(job)
-    assert not summary["qr_urls"]
-    original, checks = inspect_notice(job, tmp_path, summary)
-    assert original["status"] == "completed"
-    check = next(c for c in checks if c.code == "output.unrecorded_link")
-    assert check.status == "warn"
-    assert check.measurements == {
-        "checked_links": 2 if recorded else 1,
-        "unrecorded_links": 1,
-    }
-    assert (
-        next(c for c in checks if c.code == "output.evidence_matches").status == "pass"
-    )
-
-
-def test_a_recorded_link_can_continue_across_pages(tmp_path):
-    job, _ = prepare_case(tmp_path)
-    text = json.dumps("Read the record. " * 400)
-    job.template.write_text(
-        '#import "settings.typ": *\n#show: letter\n'
-        "#immuknow.client-block(notice)\n"
-        f'#immuknow.link("https://example.org/record")[#{text}]'
-    )
-    summary, reader = compile_case(job)
-    assert len(reader.pages) > 1
-    assert len(summary["measurements"]["link"]) == 1
-    _, checks = inspect_notice(job, tmp_path, summary)
-    assert all(c.status in ("pass", "not_applicable") for c in checks)
-    check = next(c for c in checks if c.code == "output.unrecorded_link")
-    assert check.measurements is not None
-    assert check.measurements["checked_links"] > 1
-
-
-def test_internal_page_links_do_not_need_external_link_evidence(tmp_path):
-    job, _ = prepare_case(tmp_path)
-    job.template.write_text(
-        '#import "settings.typ": *\n#show: letter\n'
-        "#immuknow.client-block(notice)\n"
-        "#link(<details>)[Read the details]\n#pagebreak()\n= Details <details>"
-    )
-    summary, _ = compile_case(job)
-    _, checks = inspect_notice(job, tmp_path, summary)
-    check = next(c for c in checks if c.code == "output.unrecorded_link")
-    assert check.status == "not_applicable"
-    assert check.measurements == {"checked_links": 0, "unrecorded_links": 0}
-    assert all(c.status in ("pass", "not_applicable") for c in checks)
-
-
-def test_saved_delivery_restores_a_deleted_unrecorded_link_warning(tmp_path):
-    source, config, templates, _ = prepare_inputs(tmp_path)
-    template = templates / "overdue_agents_v1.en.typ"
-    template.write_text(
-        template.read_text() + '\n#link("https://example.org/extra")[Extra information]'
-    )
-    saved = run_pipeline(
-        source,
-        tmp_path / "runs",
-        config_dir=config,
-        notice_template=template,
-    )
-    record = json.loads(saved.read_text())
-    first = record["entries"][0]
-    assert any(
-        c["code"] == "output.unrecorded_link" and c["status"] == "warn"
-        for c in first["checks"]
-    )
-    original = saved.parent / first["original"]["path"]
-    before = original.read_bytes()
-    first["checks"] = [
-        c for c in first["checks"] if c["code"] != "output.unrecorded_link"
-    ]
-    run_report.write_report(saved.parent, record)
-    attempt = bundle_pdfs.bundle_run(saved.parent)
-    results = attempt["evaluations"][first["row_key"]]["results"]
-    assert any(
-        c["code"] == "output.unrecorded_link" and c["status"] == "warn" for c in results
-    )
-    assert (
-        json.loads(saved.read_text())["entries"][0]["routing"]["destination"]
-        == "review"
-    )
-    assert original.read_bytes() == before
-
-
-def test_saved_delivery_restores_a_deleted_qr_destination_warning(tmp_path):
-    source, config, templates, _ = prepare_inputs(tmp_path)
-    settings = templates / "settings.typ"
-    settings.write_text(
-        settings.read_text().replace("https://example.org/update", "https:///update")
-    )
-    saved = run_pipeline(
-        source,
-        tmp_path / "runs",
-        config_dir=config,
-        notice_template=templates / "overdue_agents_v1.en.typ",
-    )
-    record = json.loads(saved.read_text())
-    first = record["entries"][0]
-    assert any(
-        c["code"] == "output.qr_destination" and c["status"] == "warn"
-        for c in first["checks"]
-    )
-    first["checks"] = [
-        c for c in first["checks"] if c["code"] != "output.qr_destination"
-    ]
-    run_report.write_report(saved.parent, record)
-    attempt = bundle_pdfs.bundle_run(saved.parent)
-    results = attempt["evaluations"][first["row_key"]]["results"]
-    assert any(
-        c["code"] == "output.qr_destination" and c["status"] == "warn" for c in results
-    )
-    assert (
-        json.loads(saved.read_text())["entries"][0]["routing"]["destination"]
-        == "review"
-    )
-
-
-@pytest.mark.parametrize("damage", ["missing", "other_client", "unreadable"])
-def test_qr_link_failure_keeps_original_and_is_rechecked_on_delivery(
-    tmp_path, monkeypatch, damage
-):
-    source, config, templates, _ = prepare_inputs(tmp_path)
-    compile_original = compile_notices.compile_render_job
-
-    def changed_pdf(job, *args, **kwargs):
-        warnings = compile_original(job, *args, **kwargs)
-        if job.sequence != "row-000001":
-            return warnings
-        writer = PdfWriter(clone_from=PdfReader(job.pdf))
-        changed = 0
-        for page in writer.pages:
-            for reference in page.annotations or []:
-                annotation = reference.get_object()
-                action = annotation.get("/A", {})
-                destination = action.get("/URI", "")
-                if job.client_id not in destination:
-                    continue
-                if damage == "missing":
-                    del annotation["/A"]
-                elif damage == "other_client":
-                    action[NameObject("/URI")] = TextStringObject(
-                        destination.replace(job.client_id, "0000000002")
-                    )
-                else:
-                    action[NameObject("/URI")] = NullObject()
-                changed += 1
-        assert changed
-        writer.write(job.pdf)
-        return warnings
-
-    monkeypatch.setattr(compile_notices, "compile_render_job", changed_pdf)
-    saved = run_pipeline(
-        source,
-        tmp_path / "runs",
-        config_dir=config,
-        notice_template=templates / "overdue_agents_v1.en.typ",
-    )
-    record = json.loads(saved.read_text())
-    first, second = record["entries"]
-    assert first["original"]["status"] == second["original"]["status"] == "completed"
-    assert first["render_summary"]["qr_urls"]
-    assert any(
-        check["code"] == "output.evidence_matches" and check["status"] == "fail"
-        for check in first["checks"]
-    )
-    assert first["routing"]["destination"] == "review"
-    assert not second["routing"]["failed_checks"]
-    original = saved.parent / first["original"]["path"]
-    before = original.read_bytes()
-    first["checks"] = [
-        check for check in first["checks"] if check["code"] != "output.evidence_matches"
-    ]
-    run_report.write_report(saved.parent, record)
-    attempt = bundle_pdfs.bundle_run(saved.parent)
-    assert attempt["status"] == "completed"
-    current = json.loads(saved.read_text())["entries"][0]
-    assert "output.evidence_matches" in current["routing"]["failed_checks"]
-    assert current["routing"]["destination"] == "review"
-    assert original.read_bytes() == before
-
-
-def test_saved_qr_destinations_cannot_be_swapped_between_clients(tmp_path):
-    source, config, templates, _ = prepare_inputs(tmp_path)
-    saved = run_pipeline(
-        source,
-        tmp_path / "runs",
-        config_dir=config,
-        notice_template=templates / "overdue_agents_v1.en.typ",
-    )
-    record = json.loads(saved.read_text())
-    first, second = record["entries"]
-    assert not first["routing"]["failed_checks"]
-    assert first["render_summary"]["qr_urls"] != second["render_summary"]["qr_urls"]
-    first["render_summary"]["qr_urls"] = second["render_summary"]["qr_urls"]
-    run_report.write_report(saved.parent, record)
-    attempt = bundle_pdfs.bundle_run(saved.parent)
-    assert attempt["status"] == "completed"
-    first, second = json.loads(saved.read_text())["entries"]
-    assert "output.evidence_matches" in first["routing"]["failed_checks"]
-    assert first["routing"]["destination"] == "review"
-    assert not second["routing"]["failed_checks"]
 
 
 @pytest.mark.parametrize("damage", ["row", "stage", "page", "component", "history_row"])
@@ -844,8 +381,15 @@ def test_invalid_evidence_keeps_original_and_independent_row(
 
     def changed_report(command, **options):
         result = run_typst(command, **options)
-        if command[1] == "eval" and any("row-000001" in part for part in command):
-            reports = json.loads(result.stdout)
+        if command[1] == "compile" and any("row-000001" in part for part in command):
+            raw_pdf = Path(command[-1])
+            reader = PdfReader(raw_pdf)
+            attachment = next(
+                item
+                for item in reader.attachment_list
+                if item.name == compile_notices.EVIDENCE_ATTACHMENT
+            )
+            reports = json.loads(attachment.content)
             report = reports[0]
             if damage == "row":
                 report["identity"]["row_key"] = "row-000002"
@@ -857,7 +401,14 @@ def test_invalid_evidence_keeps_original_and_independent_row(
                 report["measurements"]["history"][0]["row_key"] = "row-000002"
             else:
                 report["components"]["unknown"] = True
-            result.stdout = json.dumps(reports)
+            embedded = attachment.pdf_object["/EF"]
+            assert isinstance(embedded, DictionaryObject)
+            stream = embedded["/F"].get_object()
+            assert isinstance(stream, StreamObject)
+            stream.set_data(json.dumps(reports).encode("utf-8"))
+            writer = PdfWriter()
+            writer.clone_document_from_reader(reader)
+            writer.write(raw_pdf)
         return result
 
     monkeypatch.setattr(compile_notices, "run_typst", changed_report)
@@ -876,50 +427,12 @@ def test_invalid_evidence_keeps_original_and_independent_row(
     assert first["routing"]["destination"] == "review"
     assert not second["routing"]["failed_checks"]
     original = (saved.parent / first["original"]["path"]).read_bytes()
-    first["checks"] = [check for check in first["checks"] if check["status"] != "fail"]
-    run_report.write_report(saved.parent, record)
     attempt = bundle_pdfs.bundle_run(saved.parent)
     assert attempt["status"] == "completed"
     current = json.loads(saved.read_text())["entries"][0]
     assert "render.evidence_failed" in current["routing"]["failed_checks"]
     assert current["routing"]["destination"] == "review"
     assert (saved.parent / first["original"]["path"]).read_bytes() == original
-
-
-def test_saved_report_is_rechecked_before_replacing_bundles(tmp_path):
-    source, config, templates, _ = prepare_inputs(tmp_path)
-    saved = run_pipeline(
-        source,
-        tmp_path / "runs",
-        config_dir=config,
-        notice_template=templates / "overdue_agents_v1.en.typ",
-    )
-    record = json.loads(saved.read_text())
-    active = {
-        path: path.read_bytes() for path in (saved.parent / "bundles").rglob("*.pdf")
-    }
-    for damage in ("swapped", "version", "pages", "facts", "component_facts"):
-        changed = deepcopy(record)
-        first, second = changed["entries"]
-        if damage == "swapped":
-            first["render_summary"] = deepcopy(second["render_summary"])
-        elif damage == "version":
-            first["render_summary"]["schema_version"] = 1
-        elif damage == "facts":
-            first["render_summary"]["notice"]["client_data"]["name"] = "Other Person"
-        elif damage == "component_facts":
-            first["render_summary"]["measurements"]["history"][0]["source_matches"] = (
-                False
-            )
-        else:
-            first["render_summary"]["page_count"] += 1
-        run_report.write_report(saved.parent, changed)
-        attempt = bundle_pdfs.bundle_run(saved.parent)
-        assert attempt["status"] == "failed"
-        assert {
-            path: path.read_bytes()
-            for path in (saved.parent / "bundles").rglob("*.pdf")
-        } == active
 
 
 @pytest.mark.parametrize("language", ["en", "fr"])
@@ -997,8 +510,6 @@ def test_client_block_identifier_choices_keep_pdf_evidence(
             if language == "en"
             else "Identifiant d’immunisation de l’Ontario"
         ) in " ".join(text.split())
-    _, checks = inspect_notice(job, tmp_path, summary)
-    assert all(check.status in ("pass", "not_applicable") for check in checks)
 
 
 @pytest.mark.parametrize(
@@ -1026,8 +537,6 @@ def test_oiid_display_requires_cohort_availability_and_skips_missing_rows(
     displayed = bool(oiid) or missing != "none"
     assert ("Record key:" in text) == displayed
     assert summary["components"]["client"] == displayed
-    _, checks = inspect_notice(job, tmp_path, summary)
-    assert all(check.status in ("pass", "not_applicable") for check in checks)
 
 
 def test_changed_oiid_cannot_be_rendered_as_source_data(tmp_path):
@@ -1087,40 +596,6 @@ def test_native_oiid_availability_controls_rendering_for_the_complete_cohort(
         assert attempt["status"] == "completed"
 
 
-@pytest.mark.parametrize("address_only", [False, True])
-def test_personal_pdf_text_is_checked_even_when_client_id_is_hidden(
-    tmp_path, address_only
-):
-    job, payload = prepare_case(tmp_path)
-    payload.update(oiid="0000987654", oiid_coverage="all_present")
-    job.data.write_text(json.dumps(payload))
-    job.template.write_text(
-        '#import "settings.typ": *\n#show: letter\n'
-        f"#immuknow.client-block(notice, show-client-id: false, show-oiid: {str(not address_only).lower()}, "
-        f"show-birth-date: {str(not address_only).lower()}, show-school: {str(not address_only).lower()})"
-    )
-    summary, _ = compile_case(job)
-    area = summary["measurements"]["address" if address_only else "client"][0]
-    with pymupdf.open(job.pdf) as pdf:
-        page = pdf[0]
-        page.add_redact_annot(
-            pymupdf.Rect(
-                area["x_pt"] - 0.1,
-                area["y_pt"] - 0.1,
-                area["x_pt"] + area["width_pt"] + 0.1,
-                area["y_pt"] + area["height_pt"] + 0.1,
-            )
-        )
-        page.apply_redactions()
-        page.insert_text((50, 500), payload["oiid"])
-        pdf.saveIncr()
-    _, checks = inspect_notice(job, tmp_path, summary)
-    assert (
-        next(check for check in checks if check.code == "output.client_identity").status
-        == "fail"
-    )
-
-
 @pytest.mark.parametrize(
     "change",
     [
@@ -1167,8 +642,6 @@ def test_missing_oiid_presentation_keeps_source_facts_and_pdf_evidence(
     else:
         assert ("OIID: " + expected).strip() in text
         assert summary["measurements"]["client"][0]["text"] == "OIID: " + expected
-    _, checks = inspect_notice(job, tmp_path, summary)
-    assert all(check.status in ("pass", "not_applicable") for check in checks)
 
 
 def test_available_oiid_overrides_missing_placeholder(tmp_path):
@@ -1179,9 +652,7 @@ def test_available_oiid_overrides_missing_placeholder(tmp_path):
         '#import "settings.typ": *\n#show: letter\n'
         '#immuknow.client-block(notice, show-oiid: true, missing-oiid: "Unavailable")'
     )
-    summary, reader = compile_case(job)
+    _, reader = compile_case(job)
     text = reader.pages[0].extract_text()
     assert payload["oiid"] in text
     assert "Unavailable" not in text
-    _, checks = inspect_notice(job, tmp_path, summary)
-    assert all(check.status in ("pass", "not_applicable") for check in checks)

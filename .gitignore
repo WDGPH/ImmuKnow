@@ -24,3 +24,4 @@ phu_templates/
 .gitmodules
 
 .venv/
+/plugins/qr/target/

@@ -31,7 +31,31 @@ The filename `<version>.<language>.typ` supplies the selected identity, with
 setup failures save a `failed_setup` record before propagating an exception.
 Expected row failures are recorded while independent rows continue. The CLI
 uses the same workflow and returns nonzero for failed rows or delivery steps.
-Previous runs are retained.
+Previous runs are retained. While running, the directory ends in `.incomplete`;
+a normal return follows its rename to the final path. An exception leaves the
+suffix and any saved partial report. See [run output](../user_guide/getting_started.md#run-output)
+for completion and failure meanings.
+
+Pass `workers` as a positive integer to render and encrypt independent notices
+concurrently. The default is `1`, which keeps both stages serial. Encryption
+starts after rendering and uses spawned processes when `workers` exceeds one;
+bundling remains serial. Progress output is disabled by default for Python calls;
+pass a writable text stream as `progress_stream` to receive it. Stage durations
+are recorded in the run log.
+
+In a script using concurrent encryption, put the pipeline call inside the
+[Python multiprocessing main guard](https://docs.python.org/3.14/library/multiprocessing.html#safe-importing-of-main-module)
+so child processes can import the script without starting another run:
+
+```python
+if __name__ == "__main__":
+    record_path = run_pipeline(
+        Path("clients.csv"),
+        Path("runs"),
+        notice_template=Path("my-phu/overdue_diseases_v1.en.typ"),
+        workers=4,
+    )
+```
 
 The run freezes source bytes, selected resources and compiler inputs. Raw source
 values, normalized facts, assignments, placed findings and original/delivery

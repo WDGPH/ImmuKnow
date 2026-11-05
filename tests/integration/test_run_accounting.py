@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from tests.fixtures.project import copy_project
 
+import csv
 import json
 import shutil
 import subprocess
@@ -388,6 +389,14 @@ def test_broken_notice_retains_other_original_and_reports_partial_run(
     ]
     assert (record_path.parent / record["entries"][0]["original"]["path"]).is_file()
     assert record["entries"][1]["bundle"] is None
+    for bundle in record["delivery_attempts"][0]["bundles"]:
+        with (record_path.parent / bundle["findings_csv"]["path"]).open(
+            newline=""
+        ) as stream:
+            assert all(
+                row["row_key"] != record["entries"][1]["row_key"]
+                for row in csv.DictReader(stream)
+            )
     assert any(
         check["code"] == "rendering.failed" for check in record["entries"][1]["checks"]
     )
@@ -401,10 +410,6 @@ def test_broken_notice_retains_other_original_and_reports_partial_run(
     assert evidence_entry["routing"]["destination"] == "review"
     assert any(
         check["code"] == "render.evidence_failed" and check["status"] == "fail"
-        for check in evidence_entry["checks"]
-    )
-    assert any(
-        check["code"] == "output.evidence_matches" and check["status"] == "fail"
         for check in evidence_entry["checks"]
     )
     warning_entry = record["entries"][0]

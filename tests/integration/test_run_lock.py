@@ -1,4 +1,4 @@
-"""Competing processes must preserve saved decisions, bundles and recovery state."""
+"""Competing and interrupted processes preserve independently published outputs."""
 
 from __future__ import annotations
 
@@ -95,8 +95,9 @@ def read_record(run_dir):
 
 def bundles(run_dir):
     return {
-        str(path.relative_to(run_dir)): path.read_bytes()
-        for path in (run_dir / "bundles").rglob("*.pdf")
+        entry["bundle"]["path"]: (run_dir / entry["bundle"]["path"]).read_bytes()
+        for entry in read_record(run_dir)["entries"]
+        if entry["bundle"]
     }
 
 
@@ -106,14 +107,14 @@ from pathlib import Path
 from unittest.mock import patch
 from immuknow import bundle_pdfs
 marker, run_dir, fail = Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3]
-assemble = bundle_pdfs._assemble
+assemble = bundle_pdfs._reuse_bundle_set
 def pause(*args, **kwargs):
     marker.touch()
     sys.stdin.readline()
     if fail == "yes":
         raise ValueError("Deliberate assembly failure")
     return assemble(*args, **kwargs)
-with patch.object(bundle_pdfs, "_assemble", pause):
+with patch.object(bundle_pdfs, "_reuse_bundle_set", pause):
     result = bundle_pdfs.bundle_run(run_dir, withhold=["row-000001"])
 assert result["status"] == ("failed" if fail == "yes" else "completed")
 """
@@ -154,21 +155,21 @@ def test_competing_delivery_refuses_busy_run_and_releases_after_completion(
     assert final["withheld_rows"] == []
 
 
-REPLACEMENT_PAUSE = """
+PUBLICATION_PAUSE = """
 import sys
 from pathlib import Path
 from unittest.mock import patch
 from immuknow import bundle_pdfs, run_report
 marker, run_dir, checkpoint = Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3]
-replace, write = Path.replace, run_report.write_report
+rename, write = Path.rename, run_report.write_report
 def pause():
     marker.touch()
     sys.stdin.readline()
 def swap(path, destination):
-    if path.name == "bundles.next" and checkpoint == "before_replace":
+    if path.name.endswith(".incomplete") and checkpoint == "before_replace":
         pause()
-    result = replace(path, destination)
-    if path.name == "bundles.next" and checkpoint == "after_replace":
+    result = rename(path, destination)
+    if path.name.endswith(".incomplete") and checkpoint == "after_replace":
         pause()
     return result
 def report(path, record):
@@ -176,7 +177,7 @@ def report(path, record):
     if record["delivery_attempts"][-1]["status"] == "completed" and checkpoint == "after_commit":
         pause()
     return result
-with patch.object(Path, "replace", swap), patch.object(run_report, "write_report", report):
+with patch.object(Path, "rename", swap), patch.object(run_report, "write_report", report):
     bundle_pdfs.bundle_run(run_dir, withhold=["row-000001"])
 """
 
@@ -184,19 +185,23 @@ with patch.object(Path, "replace", swap), patch.object(run_report, "write_report
 @pytest.mark.parametrize(
     "checkpoint", ["before_replace", "after_replace", "after_commit"]
 )
-def test_killed_writer_releases_lock_and_next_delivery_recovers(
+def test_killed_writer_leaves_prior_set_and_unused_directory(
     tmp_path, saved_run, checkpoint
 ):
     original_record = read_record(saved_run)
     original_bundles = bundles(saved_run)
-    with paused_process(tmp_path, REPLACEMENT_PAUSE, saved_run, checkpoint) as process:
-        assert (saved_run / "bundles.previous").is_dir()
+    with paused_process(tmp_path, PUBLICATION_PAUSE, saved_run, checkpoint) as process:
+        directories = set((saved_run / "bundles").iterdir())
+        assert len(directories) == 2
+        assert any(path.name.endswith(".incomplete") for path in directories) == (
+            checkpoint == "before_replace"
+        )
         paused = read_record(saved_run)
         committed_bundles = bundles(saved_run)
         process.kill()
         process.wait(timeout=10)
 
-    # Refuse this new choice after recovery, so the recovered bundles remain visible.
+    # A later invalid choice leaves the last committed memberships visible.
     result = rebundle(
         saved_run, "--accept-warning", "unknown-warning-token", "--reason", "Reviewed"
     )
@@ -205,21 +210,20 @@ def test_killed_writer_releases_lock_and_next_delivery_recovers(
     recovered = read_record(saved_run)
     assert recovered["delivery_attempts"][-1]["status"] == "failed"
     prior = recovered["delivery_attempts"][-2]
+    assert prior == paused["delivery_attempts"][-1]
     if checkpoint == "after_commit":
-        assert prior == paused["delivery_attempts"][-1]
         assert prior["status"] == "completed"
         assert bundles(saved_run) == committed_bundles
         expected = paused
     else:
-        assert prior["status"] == "failed"
-        assert prior["checks"][-1]["code"] == "delivery.interrupted"
+        assert prior["status"] == "running"
         assert bundles(saved_run) == original_bundles
         expected = original_record
     assert [entry["bundle"] for entry in recovered["entries"]] == [
         entry["bundle"] for entry in expected["entries"]
     ]
-    assert not (saved_run / "bundles.previous").exists()
-    assert not (saved_run / "bundles.next").exists()
+    # No discovery, adoption or deletion of abandoned directories is required.
+    assert set((saved_run / "bundles").iterdir()) == directories
     completed = rebundle(saved_run)
     assert completed.returncode == 0, completed.stderr
 
@@ -269,5 +273,7 @@ def test_new_run_is_locked_through_its_final_report(tmp_path, checkpoint):
         assert (run_dir / "run.json").read_bytes() == before
         process.communicate("continue\n", timeout=PROCESS_DEADLINE)
         assert process.returncode == 0, (tmp_path / "child.log").read_text()
-    result = rebundle(run_dir)
+    assert not run_dir.exists()
+    completed_dir = run_dir.with_name(run_dir.name.removesuffix(".incomplete"))
+    result = rebundle(completed_dir)
     assert result.returncode == 0, result.stderr

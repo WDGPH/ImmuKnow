@@ -1,4 +1,4 @@
-"""Evaluate saved findings and bind individual warning acceptance to exact evidence.
+"""Evaluate saved findings and bind individual warning acceptance to the applicable rule.
 
 Observations stay in entry ``checks``. Every delivery attempt stores a separate
 evaluation; accepting a warning never changes either its observation or result.
@@ -19,7 +19,7 @@ from .data_models import CheckResult
 from .render_contract import report_schema
 from .structured_input import read_json
 
-POLICY_VERSION = 21
+POLICY_VERSION = 22
 
 
 @dataclass(frozen=True)
@@ -59,37 +59,7 @@ RULES = {
             for item in report_schema()["$defs"]["check"]["properties"]["code"]["oneOf"]
         ),
         RuleDefinition(
-            "output.qr_destination",
-            "QR destinations have HTTP or HTTPS web addresses",
-            "validate_pdfs",
-            adjustable=True,
-        ),
-        RuleDefinition(
-            "output.unrecorded_link",
-            "PDF link destinations were recorded by supplied helpers",
-            "validate_pdfs",
-            adjustable=True,
-        ),
-        RuleDefinition(
             "output.readable", "PDF can be opened", "validate_pdfs", mandatory=True
-        ),
-        RuleDefinition(
-            "output.evidence_matches",
-            "Evidence matches the selected PDF",
-            "validate_pdfs",
-            mandatory=True,
-        ),
-        RuleDefinition(
-            "output.client_identity",
-            "Visible identity matches the source",
-            "validate_pdfs",
-            mandatory=True,
-        ),
-        RuleDefinition(
-            "output.text_readable",
-            "PDF text can be inspected",
-            "validate_pdfs",
-            mandatory=True,
         ),
         RuleDefinition(
             "render.evidence_failed",
@@ -230,10 +200,17 @@ RULES = {
     )
 }
 
-REQUIRED_ORIGINAL_CHECKS = (
-    "output.readable",
-    "output.evidence_matches",
-    "output.client_identity",
+REQUIRED_ORIGINAL_CHECKS = ("output.readable",)
+
+# Saved runs retain historical observations; these checks no longer determine routing.
+RETIRED_PDF_CHECKS = frozenset(
+    {
+        "output.client_identity",
+        "output.evidence_matches",
+        "output.qr_destination",
+        "output.unrecorded_link",
+        "output.text_readable",
+    }
 )
 
 
@@ -262,6 +239,10 @@ def _validate_rule_changes(changes: Any) -> None:
     if not isinstance(changes, dict):
         raise ValueError("validation.rules must be an object")
     for code, change in changes.items():
+        if code in RETIRED_PDF_CHECKS:
+            raise ValueError(
+                f"PDF check was retired: {code}. Remove it from validation rule settings."
+            )
         if code not in RULES or not RULES[code].adjustable:
             raise ValueError(f"Rule cannot be adjusted: {code}")
         if not isinstance(change, dict) or set(change) - {
@@ -357,22 +338,24 @@ def resolve_policy(policy: dict, record: dict) -> dict[str, dict[str, dict[str, 
 
     for settings in resolved.values():
         apply(settings, policy.get("rules", {}), "run")
+    entries_by_client: dict[str | None, list[str]] = {}
+    for entry in record["entries"]:
+        entries_by_client.setdefault(entry.get("client_id"), []).append(
+            entry["row_key"]
+        )
     selected = set()
     for client in policy.get("clients", []):
         selector = client["selector"]
         if "scheme" in selector:
-            matches = [
-                entry["row_key"]
-                for entry in record["entries"]
-                if entry.get("client_id") == selector["value"]
-            ]
+            matches = entries_by_client.get(selector["value"], [])
         else:
-            matches = [
-                key
-                for key in resolved
-                if key == selector["row_key"]
+            key = selector["row_key"]
+            matches = (
+                [key]
+                if key in resolved
                 and record["input"].get("sha256") == selector["input_sha256"]
-            ]
+                else []
+            )
         if len(matches) != 1:
             raise ValueError("Validation selector must match exactly one source row")
         key = matches[0]
@@ -411,8 +394,6 @@ class Evaluation:
     run_id: str
     row_key: str
     pdf_sha256: str
-    evidence_sha256: str
-    rules_sha256: str
     settings: dict[str, dict[str, Any]]
     observations: list[dict[str, Any]]
     results: list[dict[str, Any]]
@@ -431,8 +412,6 @@ class WarningAcceptance:
     run_id: str
     row_key: str
     pdf_sha256: str
-    evidence_sha256: str
-    rules_sha256: str
     warning_code: str
     warning_id: str
     reason: str
@@ -456,6 +435,8 @@ def evaluate_original(
         if not isinstance(observation, dict):
             raise ValueError("Check evidence must be an object")
         code, status = observation.get("code"), observation.get("status")
+        if isinstance(code, str) and code in RETIRED_PDF_CHECKS:
+            continue
         if not isinstance(code, str) or code not in RULES:
             raise ValueError(f"Unknown check rule: {code!r}; checking must be renewed")
         if status not in ("pass", "warn", "fail", "not_applicable", "not_run"):
@@ -511,28 +492,13 @@ def evaluate_original(
                         "Required PDF evidence is missing or incomplete; generate and check a new notice.",
                     ).to_dict()
                 )
-    rules_hash = fingerprint({"definitions": policy_snapshot(), "settings": settings})
-    evidence_hash = fingerprint(
-        {
-            "run_id": record["run_id"],
-            "row_key": entry["row_key"],
-            "original": entry["original"],
-            "source": entry["source"],
-            "facts": entry["facts"],
-            "assignment": entry["assignment"],
-            "resources": record["resources"],
-            "input": record["input"].get("sha256"),
-            "rules": rules_hash,
-            "observations": observations,
-            "render_summary": entry.get("render_summary"),
-            "results": results,
-        }
-    )
-    warnings = {
-        f"{result['code']}:{index + 1}": result["code"]
-        for index, result in enumerate(results)
-        if result["status"] == "warn" and RULES[result["code"]].scope == "original"
-    }
+    occurrences: dict[str, int] = {}
+    warnings: dict[str, str] = {}
+    for result in results:
+        code = result["code"]
+        if result["status"] == "warn" and RULES[code].scope == "original":
+            occurrences[code] = occurrences.get(code, 0) + 1
+            warnings[f"{code}:{occurrences[code]}"] = code
     failures = sorted(
         {
             result["code"]
@@ -544,16 +510,20 @@ def evaluate_original(
         record["run_id"],
         entry["row_key"],
         entry["original"]["sha256"],
-        evidence_hash,
-        rules_hash,
         deepcopy(settings),
         deepcopy(observations),
         results,
         {
-            code: fingerprint(
-                {"evidence": evidence_hash, "warning_set": warnings, "code": code}
+            warning_id: fingerprint(
+                {
+                    "run_id": record["run_id"],
+                    "row_key": entry["row_key"],
+                    "warning_id": warning_id,
+                    "rule_setting": settings.get(code),
+                    "policy_version": POLICY_VERSION,
+                }
             )
-            for code in warnings
+            for warning_id, code in warnings.items()
         },
         failures,
     )
@@ -591,8 +561,6 @@ def accept_warnings(
                     evaluation.run_id,
                     evaluation.row_key,
                     evaluation.pdf_sha256,
-                    evaluation.evidence_sha256,
-                    evaluation.rules_sha256,
                     code.rsplit(":", 1)[0],
                     code,
                     reason.strip(),
@@ -601,22 +569,16 @@ def accept_warnings(
             )
         )
     existing = record.setdefault("warning_acceptances", [])
+    existing_tokens = {item["token"] for item in existing}
     for acceptance in pending:
-        if not any(item["token"] == acceptance["token"] for item in existing):
+        if acceptance["token"] not in existing_tokens:
             existing.append(acceptance)
+            existing_tokens.add(acceptance["token"])
 
 
 def route_original(record: dict, evaluation: Evaluation, *, withheld: bool) -> dict:
     """Make new and saved-run delivery use the same failure-aware decision."""
-    accepted = {
-        item["token"]
-        for item in record.get("warning_acceptances", [])
-        if item["run_id"] == evaluation.run_id
-        and item["row_key"] == evaluation.row_key
-        and item["pdf_sha256"] == evaluation.pdf_sha256
-        and item["evidence_sha256"] == evaluation.evidence_sha256
-        and item["rules_sha256"] == evaluation.rules_sha256
-    }
+    accepted = {item["token"] for item in record.get("warning_acceptances", [])}
     unresolved = [
         code
         for code, token in evaluation.warning_tokens.items()
@@ -642,6 +604,5 @@ def route_original(record: dict, evaluation: Evaluation, *, withheld: bool) -> d
             for code, token in evaluation.warning_tokens.items()
             if token in accepted
         ],
-        "evaluation_sha256": evaluation.evidence_sha256,
         "withheld": withheld,
     }

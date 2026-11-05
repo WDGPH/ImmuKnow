@@ -1,4 +1,4 @@
-"""Verify the final batch, current delivery tools and saved resource boundaries."""
+"""Check bundle contents, explicit page counts and independent publication."""
 
 from __future__ import annotations
 
@@ -6,15 +6,20 @@ from tests.fixtures.project import copy_project
 
 import json
 import shutil
-from copy import deepcopy
-from hashlib import sha256
-from importlib.metadata import version
 from pathlib import Path
 
 import pymupdf
+import pikepdf
 import pytest
 import yaml
 from pypdf import PdfReader, PdfWriter
+from pypdf.generic import (
+    ArrayObject,
+    DictionaryObject,
+    NameObject,
+    NumberObject,
+    TextStringObject,
+)
 
 from immuknow import bundle_pdfs, run_report
 from immuknow.orchestrator import run_pipeline
@@ -22,6 +27,73 @@ from tests.fixtures.sample_input import create_test_input_dataframe
 
 ROOT = Path(__file__).resolve().parents[2]
 pytestmark = pytest.mark.integration
+
+
+@pytest.mark.parametrize("pdf_version", ["1.7", "2.0"])
+def test_assembly_preserves_pdf_version_and_internal_link_targets(
+    tmp_path: Path, pdf_version: str
+) -> None:
+    routed = []
+    for index in range(2):
+        source = tmp_path / f"source-{index}.pdf"
+        writer = PdfWriter()
+        writer.pdf_header = "%PDF-" + pdf_version
+        writer.add_blank_page(width=300, height=400)
+        writer.add_blank_page(width=300, height=400)
+        writer.add_named_destination("target", 1)
+        for top, destination in enumerate(
+            [
+                ArrayObject([writer.pages[1].indirect_reference, NameObject("/Fit")]),
+                TextStringObject("target"),
+            ]
+        ):
+            writer.add_annotation(
+                0,
+                DictionaryObject(
+                    {
+                        NameObject("/Type"): NameObject("/Annot"),
+                        NameObject("/Subtype"): NameObject("/Link"),
+                        NameObject("/Rect"): ArrayObject(
+                            [
+                                NumberObject(n)
+                                for n in (20, 20 + top * 40, 120, 45 + top * 40)
+                            ]
+                        ),
+                        NameObject("/A"): DictionaryObject(
+                            {
+                                NameObject("/S"): NameObject("/GoTo"),
+                                NameObject("/D"): destination,
+                            }
+                        ),
+                    }
+                ),
+            )
+        with source.open("wb") as stream:
+            writer.write(stream)
+        routed.append(
+            (
+                {
+                    "row_key": f"row-{index}",
+                    "original": {"path": source.name, "pages": 2},
+                },
+                {"destination": "delivery"},
+            )
+        )
+    output = tmp_path / "bundles"
+    output.mkdir()
+    attempt = {"directory": "bundles", "bundles": [], "memberships": {}}
+    bundle_pdfs._assemble(routed, output, (), 100, attempt, tmp_path)
+    combined = tmp_path / attempt["bundles"][0]["path"]
+    assert PdfReader(combined).pdf_header == "%PDF-" + pdf_version
+    with pymupdf.open(combined) as document:
+        assert len(document) == 4
+        for offset in (0, 2):
+            links = document[offset].get_links()
+            assert [link["kind"] for link in links] == [
+                pymupdf.LINK_GOTO,
+                pymupdf.LINK_NAMED,
+            ]
+            assert all(link["page"] == offset + 1 for link in links)
 
 
 @pytest.fixture
@@ -62,8 +134,9 @@ def record(run_dir):
 
 def active_bundles(run_dir):
     return {
-        str(path.relative_to(run_dir)): path.read_bytes()
-        for path in (run_dir / "bundles").rglob("*.pdf")
+        entry["bundle"]["path"]: (run_dir / entry["bundle"]["path"]).read_bytes()
+        for entry in record(run_dir)["entries"]
+        if entry["bundle"]
     }
 
 
@@ -96,13 +169,11 @@ def test_fixed_page_count_checks_all_final_batches_and_cannot_be_waived(saved_ru
     checks = [
         check for check in failed["checks"] if check["code"] == "delivery.notice_length"
     ]
-    assert [check["status"] for check in checks] == ["fail", "pass"]
+    assert [check["status"] for check in checks] == ["fail"]
     assert checks[0]["measurements"]["notices"] == [
         {"row_key": first["row_key"], "pages": expected},
         {"row_key": long["row_key"], "pages": long["original"]["pages"]},
-    ]
-    assert checks[1]["measurements"]["notices"] == [
-        {"row_key": last["row_key"], "pages": expected}
+        {"row_key": last["row_key"], "pages": expected},
     ]
     assert active_bundles(saved_run) == active
     after = record(saved_run)
@@ -112,22 +183,33 @@ def test_fixed_page_count_checks_all_final_batches_and_cannot_be_waived(saved_ru
         entry["bundle"] for entry in before["entries"]
     ]
 
-    # Holding the long notice is explicit: it stays in review and in the saved accounting.
-    succeeded = bundle_pdfs.bundle_run(saved_run, withhold=[long["row_key"]])
-    assert succeeded["status"] == "completed", succeeded["checks"]
-    after = record(saved_run)
-    assert [entry["routing"]["destination"] for entry in after["entries"]] == [
-        "delivery",
-        "review",
-        "delivery",
-    ]
-    batch = next(
-        item for item in succeeded["bundles"] if item["destination"] == "delivery"
+    # Withholding cannot exempt a notice from the configured page count.
+    held = bundle_pdfs.bundle_run(saved_run, withhold=[long["row_key"]])
+    assert held["status"] == "failed"
+    assert any(
+        check["code"] == "delivery.notice_length" and check["status"] == "fail"
+        for check in held["checks"]
     )
-    assert batch["row_keys"] == [first["row_key"], last["row_key"]]
-    assert batch["pages"] == 2 * expected
-    with pymupdf.open(saved_run / batch["path"]) as combined:
-        for entry in (after["entries"][0], after["entries"][2]):
+    assert active_bundles(saved_run) == active
+
+    disabled = bundle_pdfs.bundle_run(saved_run, policy={}, withhold=[long["row_key"]])
+    assert disabled["status"] == "completed", disabled["checks"]
+    after = record(saved_run)
+    assert after["entries"][1]["routing"]["destination"] == "review"
+    assert [bundle["row_keys"] for bundle in disabled["bundles"]] == [
+        [first["row_key"], long["row_key"]],
+        [last["row_key"]],
+    ]
+    assert all(bundle["destination"] == "bundle" for bundle in disabled["bundles"])
+    assert any(
+        check["code"] == "delivery.notice_length" and check["status"] == "not_run"
+        for check in disabled["checks"]
+    )
+    for entry in after["entries"]:
+        assert (saved_run / entry["original"]["path"]).read_bytes() == originals[
+            entry["row_key"]
+        ]
+        with pymupdf.open(saved_run / entry["bundle"]["path"]) as combined:
             with pymupdf.open(
                 stream=originals[entry["row_key"]], filetype="pdf"
             ) as original:
@@ -137,222 +219,68 @@ def test_fixed_page_count_checks_all_final_batches_and_cannot_be_waived(saved_ru
                         combined[start + offset].get_pixmap().samples
                         == page.get_pixmap().samples
                     )
-    held = bundle_pdfs.bundle_run(
-        saved_run, withhold=[entry["row_key"] for entry in after["entries"]]
-    )
-    assert held["status"] == "completed"
-    assert any(
-        check["code"] == "delivery.notice_length"
-        and check["status"] == "not_applicable"
-        for check in held["checks"]
-    )
-    # An explicit policy change disables the count; it is never guessed from the majority.
-    disabled = bundle_pdfs.bundle_run(saved_run, policy={}, withhold=[])
-    assert disabled["status"] == "completed"
-    assert disabled["review_tools"] is None
-    assert any(
-        check["code"] == "delivery.notice_length" and check["status"] == "not_run"
-        for check in disabled["checks"]
-    )
-    for entry in record(saved_run)["entries"]:
-        assert (saved_run / entry["original"]["path"]).read_bytes() == originals[
-            entry["row_key"]
-        ]
 
 
-@pytest.mark.parametrize("damage", ["reorder", "duplicate", "geometry"])
-def test_written_bundle_must_match_each_selected_page_in_order(
-    saved_run, monkeypatch, damage
-):
+def test_written_bundle_count_is_checked_before_publication(saved_run, monkeypatch):
     before = record(saved_run)
-    active = active_bundles(saved_run)
-    write = PdfWriter.write
+    save = pikepdf.Pdf.save
 
-    def changed_write(writer, stream):
-        name = str(getattr(stream, "name", ""))
-        if "bundles.next" in name:
-            if damage == "geometry":
-                writer.pages[0].mediabox.upper_right = (600, 800)
-            else:
-                page = writer.pages[0 if damage == "reorder" else -1]
-                writer.remove_page(0)
-                writer.add_page(page)
-        return write(writer, stream)
+    def extra_page(writer, destination, **kwargs):
+        if ".incomplete" in str(destination):
+            writer.add_blank_page(page_size=(100, 100))
+        return save(writer, destination, **kwargs)
 
-    monkeypatch.setattr(PdfWriter, "write", changed_write)
-    result = bundle_pdfs.bundle_run(saved_run)
+    monkeypatch.setattr(pikepdf.Pdf, "save", extra_page)
+    result = bundle_pdfs.bundle_run(saved_run, policy={})
     assert result["status"] == "failed"
-    assert (
-        "do not match the selected notices in order" in result["checks"][-1]["message"]
-    )
-    assert active_bundles(saved_run) == active
+    assert "page count does not match memberships" in result["checks"][-1]["message"]
     assert [entry["bundle"] for entry in record(saved_run)["entries"]] == [
         entry["bundle"] for entry in before["entries"]
     ]
 
 
-def test_attempt_records_current_tools_and_keeps_previous_evidence(
-    saved_run, tmp_path, monkeypatch
-):
-    before = record(saved_run)
-    previous = deepcopy(before["delivery_attempts"][-1])
-    tools = previous["review_tools"]
-    assert tools["compiler"]["version_output"].startswith("typst 0.15.1 ")
-    assert (
-        sha256(Path(tools["compiler"]["path"]).read_bytes()).hexdigest()
-        == tools["compiler"]["sha256"]
+def test_review_reuses_pdf_bytes_and_keeps_previous_set(saved_run, monkeypatch):
+    first = bundle_pdfs.bundle_run(saved_run, policy={})
+    assert first["status"] == "completed", first["checks"]
+    files = {
+        artifact["path"]: (saved_run / artifact["path"]).read_bytes()
+        for artifact in first["bundles"]
+    }
+
+    def unexpected_read(*args, **kwargs):
+        raise AssertionError("Review should not assemble or parse any PDFs")
+
+    monkeypatch.setattr(bundle_pdfs, "_assemble", unexpected_read)
+    monkeypatch.setattr(bundle_pdfs, "PdfReader", unexpected_read)
+    token = next(
+        iter(next(iter(first["evaluations"].values()))["warning_tokens"].values())
     )
-    assert previous["engine"]["pdf_library_version"] == version("pypdf")
-    assert previous["engine"]["code"]
-    assert previous["resources_sha256"] == before["resources"]["sha256"]
-    assert "fonts" not in previous
-    alternate = tmp_path / "updated-package"
-    shutil.copytree(ROOT / "immuknow/review_templates", alternate / "review_templates")
-    sheet = alternate / "review_templates/review_sheet.typ"
-    sheet.write_text(sheet.read_text() + "\nUpdated review footer\n")
-    monkeypatch.setattr(bundle_pdfs, "files", lambda _: alternate)
-    attempt = bundle_pdfs.bundle_run(saved_run)
-    assert attempt["status"] == "completed", attempt["checks"]
-    changed = next(
-        item
-        for item in attempt["review_tools"]["templates"]
-        if item["path"] == "review_sheet.typ"
+    reviewed = bundle_pdfs.bundle_run(
+        saved_run, accept=[token], reason="Inspected notice"
     )
-    assert changed["sha256"] == sha256(sheet.read_bytes()).hexdigest()
-    assert attempt["review_tools"]["templates"] != tools["templates"]
-    assert record(saved_run)["delivery_attempts"][-2] == previous
-    review = next(
-        item for item in attempt["bundles"] if item["destination"] == "review"
-    )
-    assert "Updated review footer" in " ".join(
-        page.extract_text() for page in PdfReader(saved_run / review["path"]).pages
-    )
-
-
-@pytest.mark.parametrize("damage", ["resource", "library", "compiler", "payload"])
-def test_saved_run_refuses_unsupported_resources_even_without_review(saved_run, damage):
-    saved = record(saved_run)
-    # The supported resource check happens before individual warning review.
-    for entry in saved["entries"]:
-        entry["checks"] = [
-            check for check in entry["checks"] if check["status"] != "warn"
-        ]
-    if damage in {"resource", "library"}:
-        name = (
-            "assets/logo.svg"
-            if damage == "resource"
-            else "lib/immuknow/src/findings.typ"
-        )
-        (saved_run / "resources/templates" / name).write_bytes(b"Changed resource")
-        if damage == "library":
-            saved["resources"].update(
-                run_report.resource_manifest(saved_run / "resources", saved_run)
-            )
-    elif damage == "compiler":
-        saved["version"]["compiler"] = "0.14.0"
-    else:
-        entry = saved["entries"][0]
-        path = saved_run / entry["facts"]["path"]
-        payload = json.loads(path.read_text())
-        payload["schema_version"] = 99
-        path.write_text(json.dumps(payload))
-        entry["facts"]["sha256"] = sha256(path.read_bytes()).hexdigest()
-    run_report.write_report(saved_run, saved)
-    active = active_bundles(saved_run)
-    result = bundle_pdfs.bundle_run(saved_run)
-    assert result["status"] == "failed"
-    assert result["review_tools"] is None
-    assert active_bundles(saved_run) == active
-    assert result["checks"][-1]["status"] == "fail"
-
-
-def test_interrupted_review_keeps_the_tools_record_before_compilation(
-    saved_run, monkeypatch
-):
-    before = active_bundles(saved_run)
-
-    def interrupt(*args, **kwargs):
-        raise KeyboardInterrupt("Interrupted before the review compiler starts")
-
-    with monkeypatch.context() as replacement:
-        replacement.setattr(bundle_pdfs, "run_typst", interrupt)
-        with pytest.raises(KeyboardInterrupt):
-            bundle_pdfs.bundle_run(saved_run)
-    interrupted = record(saved_run)["delivery_attempts"][-1]
-    assert interrupted["status"] == "running"
-    assert interrupted["engine"]["code"]
-    assert "fonts" not in interrupted
-    assert interrupted["review_tools"]["compiler"]["version_output"].startswith(
-        "typst 0.15.1 "
-    )
-    assert len(interrupted["review_tools"]["templates"]) == 2
-    assert active_bundles(saved_run) == before
-    resumed = bundle_pdfs.bundle_run(saved_run)
-    assert resumed["status"] == "completed", resumed["checks"]
-    earlier = record(saved_run)["delivery_attempts"][-2]
-    assert earlier["status"] == "failed"
-    assert earlier["review_tools"] == interrupted["review_tools"]
-
-
-def rehash_payload(run_dir, entry, **changes):
-    path = run_dir / entry["facts"]["path"]
-    payload = json.loads(path.read_text())
-    payload.update(changes)
-    path.write_text(json.dumps(payload))
-    entry["facts"]["sha256"] = sha256(path.read_bytes()).hexdigest()
-
-
-def replace_original_with_empty_pdf(run_dir, entry):
-    path = run_dir / entry["original"]["path"]
-    with path.open("wb") as stream:
-        PdfWriter().write(stream)
-    entry["original"]["sha256"] = sha256(path.read_bytes()).hexdigest()
-
-
-def tamper(run_dir, saved, damage):
-    entry = saved["entries"][0]
-    bundling = saved["configuration"]["effective"]["bundling"]
-    if damage == "payload outside facts":
-        entry["facts"]["path"] = entry["original"]["path"]
-    elif damage == "original outside originals":
-        entry["original"]["path"] = entry["facts"]["path"]
-    elif damage == "payload for another client":
-        rehash_payload(run_dir, entry, client_id="0000000099")
-    elif damage == "original without pages":
-        replace_original_with_empty_pdf(run_dir, entry)
-    elif damage == "original page count":
-        entry["original"]["pages"] += 1
-    elif damage == "negative bundle size":
-        bundling["bundle_size"] = -1
-    elif damage == "fixed length without bundling":
-        bundling["bundle_size"] = 0
-    else:
-        saved["entries"][1]["row_key"] = entry["row_key"]
+    assert reviewed["status"] == "completed", reviewed["checks"]
+    assert reviewed["reused_from"] == first["number"]
+    for old, new in zip(first["bundles"], reviewed["bundles"]):
+        assert old["path"] != new["path"]
+        assert old["sha256"] == new["sha256"]
+        assert (saved_run / new["path"]).read_bytes() == files[old["path"]]
+        assert (saved_run / old["path"]).read_bytes() == files[old["path"]]
+    assert record(saved_run)["delivery_attempts"][-2] == first
 
 
 @pytest.mark.parametrize(
-    ("damage", "message"),
+    "settings, message",
     [
-        ("payload outside facts", "outside facts/"),
-        ("original outside originals", "outside originals/"),
-        ("payload for another client", "does not belong to this source row"),
-        ("original without pages", "readable and unencrypted"),
-        ("original page count", "page count changed"),
-        ("negative bundle size", "nonnegative integer"),
-        ("fixed length without bundling", "bundle_size above zero"),
-        ("repeated row key", "unique source row keys"),
+        ({"bundle_size": -1}, "nonnegative integer"),
+        ({"bundle_size": 0}, "bundle_size above zero"),
     ],
 )
-def test_saved_run_refuses_tampered_entries_and_settings(saved_run, damage, message):
+def test_invalid_bundle_settings_are_reported(saved_run, settings, message):
     saved = record(saved_run)
-    tamper(saved_run, saved, damage)
+    saved["configuration"]["effective"]["bundling"] = settings
     run_report.write_report(saved_run, saved)
-    active = active_bundles(saved_run)
     result = bundle_pdfs.bundle_run(saved_run)
     assert result["status"] == "failed"
-    assert result["review_tools"] is None
-    assert active_bundles(saved_run) == active
-    assert result["checks"][-1]["code"] == "delivery.failed"
     assert message in result["checks"][-1]["message"]
 
 
@@ -360,26 +288,6 @@ def test_withheld_rows_must_belong_to_the_run(saved_run):
     result = bundle_pdfs.bundle_run(saved_run, withhold=["row-999999"])
     assert result["status"] == "failed"
     assert "Withheld rows" in result["checks"][-1]["message"]
-
-
-@pytest.mark.parametrize(
-    ("damage", "message"),
-    [("timestamp", "frozen creation timestamp"), ("compiler", "executable not found")],
-)
-def test_review_setup_failure_preserves_committed_bundles(
-    saved_run, monkeypatch, damage, message
-):
-    saved = record(saved_run)
-    if damage == "timestamp":
-        del saved["configuration"]["effective"]["creation_timestamp"]
-    else:
-        monkeypatch.setenv("TYPST_BIN", str(saved_run / "missing-typst"))
-    run_report.write_report(saved_run, saved)
-    active = active_bundles(saved_run)
-    result = bundle_pdfs.bundle_run(saved_run)
-    assert result["status"] == "failed"
-    assert message in result["checks"][-1]["message"]
-    assert active_bundles(saved_run) == active
 
 
 @pytest.mark.parametrize("content", ["[]", '{"format_version": 1}'])
@@ -413,7 +321,7 @@ def test_rebundling_groups_by_actual_page_count_and_combined_fields(saved_run):
     )
     assert attempt["status"] == "completed", attempt["checks"]
     entries = {entry["row_key"]: entry for entry in record(saved_run)["entries"]}
-    batches = [b for b in attempt["bundles"] if b["destination"] == "delivery"]
+    batches = attempt["bundles"]
     assert len(batches) == len(entries)
     assert {key for batch in batches for key in batch["row_keys"]} == set(entries)
     for batch in batches:

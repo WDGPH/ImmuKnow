@@ -79,9 +79,8 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
             "schemas/rendering-v1.json",
             "typst/lib.typ",
             "typst/src/findings.typ",
-            "typst/vendor/codetastic/LICENSE",
-            "review_templates/review_sheet.typ",
-            "review_templates/review_stamp.typ",
+            "typst/vendor/qr/qr.wasm",
+            "typst/vendor/qr/LICENSE.qrcodegen",
         ):
             assert f"immuknow/{resource}" in names
         assert not any(name.startswith("immuknow/templates/") for name in names)
@@ -202,7 +201,7 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
         [
             str(python),
             "-c",
-            "import importlib.util; assert all(importlib.util.find_spec(m) is None for m in ('PIL','qrcode','pymupdf','zxingcpp'))",
+            "import importlib.util; assert all(importlib.util.find_spec(m) is None for m in ('qrcode','pymupdf','zxingcpp'))",
         ],
         unrelated,
     )
@@ -397,20 +396,21 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
         )
         review_membership = first["bundle"]
         review_pages = PdfReader(run_dir / review_membership["path"]).pages
-        assert "source.address_incomplete" in " ".join(
-            page.extract_text()
-            for page in review_pages[
-                review_membership["sheet_start_page"] - 1 : review_membership[
-                    "sheet_end_page"
-                ]
-            ]
-        )
-        for page in review_pages[
+        original_pages = PdfReader(run_dir / first["original"]["path"]).pages
+        selected = review_pages[
             review_membership["notice_start_page"] - 1 : review_membership[
                 "notice_end_page"
             ]
-        ]:
-            assert "REVIEW" in page.extract_text()
+        ]
+        assert [page.extract_text() for page in selected] == [
+            page.extract_text() for page in original_pages
+        ]
+        sidecar = next(
+            bundle["findings_csv"]["path"]
+            for bundle in record["delivery_attempts"][-1]["bundles"]
+            if first["row_key"] in bundle["row_keys"]
+        )
+        assert "source.address_incomplete" in (run_dir / sidecar).read_text()
         originals = {
             entry["row_key"]: entry["original"].copy() for entry in record["entries"]
         }
@@ -453,7 +453,12 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
         assert {
             path.relative_to(run_dir).as_posix()
             for path in (run_dir / "bundles").rglob("*.pdf")
-        } == {bundle["path"] for bundle in attempt["bundles"]}
+        } == {
+            bundle["path"]
+            for completed in rebundled["delivery_attempts"]
+            for bundle in completed["bundles"]
+        }
+        assert attempt["reused_from"] == record["delivery_attempts"][-1]["number"]
         for entry in rebundled["entries"]:
             assert entry["original"] == originals[entry["row_key"]]
             assert entry["encryption"] == encryptions[entry["row_key"]]
@@ -471,8 +476,6 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
             check for check in delivered["checks"] if check["status"] == "warn"
         ] == warning_checks
         membership = delivered["bundle"]
-        assert membership["sheet_start_page"] is None
-        assert membership["sheet_end_page"] is None
         delivered_pages = PdfReader(run_dir / membership["path"]).pages[
             membership["notice_start_page"] - 1 : membership["notice_end_page"]
         ]
