@@ -1,29 +1,7 @@
 # Contributing
 
-Trace a change from `immuknow.orchestrator.run_pipeline` to the notice and
-delivery output it affects. Update the maintained implementation, meaningful
-tests, and the guide that owns the changed user-facing contract. The complete
-run matters more than an unused internal function signature.
+Trace a change through the Rust workflow in `src/pipeline.rs`: preserve source rows, prepare facts and assignments, compile independent notices, record findings, create requested encrypted copies, assemble bundles, and write the report. Change tests and user guidance at the boundary affected by the behavior.
 
-Before keeping a helper, check its production callers and uses in Studio and
-Template. Remove duplicate paths and obsolete internal contracts when they no
-longer protect current behavior. Packaged resources and public APIs may have
-callers outside this repository; an empty local search alone does not make them
-unused.
+Core owns input preparation, native rendering and delivery. The upstream system assesses immunization status. Authored Typst projects own prose and presentation; Core's unbranded fixtures are for tests. See the [template guide](../user_guide/phu_templates.md) for the rendering contract and the [architecture](../reference/architecture.md) for saved-run behavior.
 
-Python supplies validated client data and notice assignments; Typst formats and localizes
-the document. Use [template authoring](../user_guide/phu_templates.md) when
-changing notices. Run the [testing checks](testing.md) and inspect representative
-English and French PDFs for presentation changes.
-
-In the pull request, explain the resulting behavior, verification, and
-remaining limits. Git history and the pull request carry change history.
-Do not commit private PHU materials or real client data.
-
-Keep pipeline stage imports in `orchestrator.py` in the order of the main
-workflow: run setup, factual preparation, render inputs,
-compilation and findings, PDF inspection, encryption, and bundling. `output_directory` is
-imported once for preparation and used again for cleanup after delivery. The marked
-`isort: off` / `isort: on` block is a deliberate exception to alphabetical
-sorting. Imports make modules available; calls inside `run_pipeline` determine
-execution order. Keep supporting imports outside that block.
+Install the pinned Rust toolchain and run the [relevant checks](testing.md). For presentation or compiler changes, inspect representative English and French output, including long names, addresses and histories. Explain the resulting behavior, verification and material limits in the pull request. Do not commit real client data, derived passwords, run artifacts or private PHU assets.

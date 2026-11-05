@@ -1,6 +1,6 @@
 # Authoring native Typst notices
 
-Python prepares facts and explicit assignments. Authored Typst projects own
+The standalone pipeline prepares facts and explicit assignments. Authored Typst projects own
 letter prose, display choices, QR destinations and layout. The maintained
 branding, names and contacts are examples; replace them with reviewed
 PHU content.
@@ -18,18 +18,17 @@ Keep `setup.typ`, `settings.typ`, `presentation.typ`, `assets/`, `translations/`
 `lib/immuknow/` together in the project's `templates/` directory.
 
 ```bash
-immuknow clients.csv --template ./my-project/templates/overdue_diseases_v1.en.typ --config ./my-project/config --output ./runs
-immuknow clients.csv --notice-assignments ./assignments.json --templates ./my-project/templates --config ./my-project/config --output ./runs
+immuknow run clients.csv --template ./my-project/templates/overdue_diseases_v1.en.typ --config ./my-project/config --output ./runs
+immuknow run clients.csv --notice-assignments ./assignments.json --templates ./my-project/templates --config ./my-project/config --output ./runs
 ```
 
 Manifest runs require an explicit `--templates` directory. Single-template runs
 use the selected file's directory. The directory name has no meaning to the CLI.
 Every run stages its own copy and preserves the original authored files.
 
-For your own project, `immuknow.resources.typst_library_root()` locates the
-engine's library. Copy that directory to `templates/lib/immuknow/`. Template's
-`sync_lib.py` helper does this after an engine upgrade. Obtain starter changes
-from Template separately from Core upgrades.
+Export the library with `immuknow resources --output ./resources` and copy
+`resources/typst/` intact to `templates/lib/immuknow/`. Obtain starter notices
+and project-specific changes from Template separately.
 
 Keep `lib/immuknow/` complete and unchanged, including its nested files. Native
 runs, saved-run delivery and Studio check its bytes against the supplied library;
@@ -145,7 +144,7 @@ Use `keep-together: false` to allow normal wrapping without this width warning.
 
 ## Facts contract
 
-`immuknow/schemas/rendering-v1.json` is the structural contract. Python validates
+`resources/schemas/rendering-v1.json` is the structural contract. The pipeline validates
 it before compilation; strings remain literal data rather than executable source.
 
 | Field | Meaning |
@@ -316,10 +315,9 @@ Canadian French. `show-birth-date` and `show-school` independently control the
 other details. If every detail is hidden or absent, only the mailing address
 is placed.
 
-The helper records the displayed client-details and mailing-address areas;
-Python checks their text against the PDF, allowing spaces and line breaks to
-change. Hidden identifiers are not required in the PDF. Repeated blocks are
-allowed when each belongs to the same source row.
+The helper records the displayed client-details and mailing-address areas.
+Hidden identifiers are not required in the PDF. Repeated blocks are allowed
+when each belongs to the same source row.
 
 Shared setup connects the complete, unchanged `notice` to address, history,
 overdue-list and QR helpers. Their placed content records the source row and
@@ -331,8 +329,7 @@ when no envelope window is specified. The client block uses its default layout;
 fit and overlap checks are not applicable. A notice with addresses but no
 specified window warns. This also covers notices using only `address-block`.
 Address blocks stay on one page. The `addressee` and `province` options accept
-plain text. Python checks the mailing name and address in each block against
-the PDF, allowing changes in spaces and line breaks.
+plain text.
 Change presentation through helper options; correct factual errors in the input.
 The report retains the notice data used for layout and checks that each placed
 helper used the same data. Native and browser checks compare it with the prepared input.
@@ -435,8 +432,7 @@ in an authored template.
 
 Use `immuknow.link("https://example.org/record")[Read the record]` for
 external links. It also accepts `mailto:` and `tel:` destinations. Omitting the
-bracketed text keeps Typst's default label. Python compares its destination with
-a clickable link on the recorded page, including during saved-run delivery.
+bracketed text keeps Typst's default label.
 
 In the starter's `settings.typ`, use a fixed QR destination or a function of
 the notice's client facts:
@@ -454,7 +450,7 @@ the notice's client facts:
 
 The helper percent-encodes query values, adds them before any `#section`, and
 uses the same destination for its code and link. Existing query values are kept.
-Python supplies facts and creates no QR images or URLs.
+The pipeline supplies facts; the authored template defines QR destinations.
 
 To include initials, add `first_initial: notice.client_data.first_initial` and
 `last_initial: notice.client_data.last_initial` alongside the other URL values.
@@ -467,19 +463,8 @@ its own packaged localization resources.
 
 The authoritative `runs/<run-id>/run.json` records source rows, facts,
 assignments, checks and original PDF paths. The run stages the selected project
-under `resources/templates/` and facts under `facts/<row_key>.json`. To review a
-retained notice with Typst 0.15.1:
-
-```bash
-typst compile --root ./runs/<run-id> \
-  --input data=/facts/row-000001.json \
-  --input notice-template=overdue_diseases_v1.en.typ \
-  --input notice-version=overdue_diseases_v1 --input notice-language=en \
-  ./runs/<run-id>/resources/templates/overdue_diseases_v1.en.typ ./review.pdf
-```
-
-The root bounds file reads. A manual compile aids visual review; the complete
-pipeline also records findings and delivery accounting. Inspect English/French,
+under `resources/templates/` and facts under `facts/<row_key>.json`. Review the retained original PDFs and findings in `report.html` and `run.json`.
+Inspect English/French,
 unknown-age, long-address and long-history examples, including QR links,
 window placement, signatures, symbols and page continuation. The
 [testing guide](../developer_guide/testing.md) describes repeatable checks.

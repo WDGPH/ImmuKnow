@@ -1,25 +1,7 @@
 # ImmuKnow
 
-ImmuKnow checks Panorama/PEAR vaccination records and creates personalized
-immunization notices and history charts. It prepares the supplied records and
-uses your notice assignments. The upstream system assesses immunization status;
-Typst templates control the presentation of English and French notices.
+ImmuKnow prepares supplied immunization records and produces notices from explicit template selections. The upstream system assesses immunization status. Authored Typst projects control wording and presentation.
 
-The included wording, branding, and contact details are samples. Public Health
-Units should review their selected templates and PDFs before use.
+Start with [getting started](user_guide/getting_started.md), then review the [configuration](user_guide/configuration.md), [CSV fields](user_guide/input_schema.md) and [PDF review](user_guide/pdf_validation.md) guides. The [template guide](user_guide/phu_templates.md) describes the facts and shared Typst components; the [API reference](reference/api.md) describes commands for integrations.
 
-Start with [input preparation and the complete workflow](user_guide/getting_started.md).
-Use the [configuration contract](user_guide/configuration.md) for assignments,
-Typst display/QR settings, encryption, and validation. The
-[template authoring guide](user_guide/phu_templates.md) defines the per-notice
-JSON and native identity assertions. Contributors can follow the
-[testing guide](developer_guide/testing.md).
-
-The native package includes a portable Typst project, its licensed QR encoder,
-and supporting resources. A run keeps original PDFs, frozen resources,
-and one authoritative `run.json` with a readable `report.html`. Warnings retain
-reviewable PDFs, and independent clients continue when another notice fails.
-
-Use [ImmuKnow Studio](user_guide/studio.md) to edit and preview notices in a
-browser with fictional examples. Its project download includes local setup and
-helper scripts for running notices with Core on your workstation.
+The standalone executable embeds Typst and the shared resources, uses installed system fonts, and retains source rows, facts, original PDFs and delivery findings in each run. Studio and Template are separate projects with their own releases and integration requirements.

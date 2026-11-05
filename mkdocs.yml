@@ -6,50 +6,32 @@ docs_dir: docs
 site_dir: site
 copyright: "&copy; 2026 Wellington-Dufferin-Guelph Public Health"
 
-# The hub supplies the published theme. Material supports local checks.
+# The external documentation hub supplies the publishing environment.
 theme:
   name: material
-
 markdown_extensions:
   - attr_list
   - admonition
-  - md_in_html
-  - pymdownx.highlight:
-      anchor_linenums: true
-      line_spans: __span
-      pygments_lang_class: true
-  - pymdownx.inlinehilite
-  - pymdownx.details
+  - tables
+  - fenced_code
   - pymdownx.snippets
-  - pymdownx.superfences:
-      custom_fences:
-        - name: mermaid
-          class: mermaid
-          format: !!python/name:pymdownx.superfences.fence_code_format
-  - pymdownx.emoji:
-      emoji_index: !!python/name:material.extensions.emoji.twemoji
-      emoji_generator: !!python/name:material.extensions.emoji.to_svg
-  - pymdownx.tasklist:
-      custom_checkbox: true
   - toc:
       permalink: true
-
 plugins:
   - search
-
 nav:
   - Home: index.md
   - User Guide:
-    - Getting Started: user_guide/getting_started.md
-    - Configuration Reference: user_guide/configuration.md
-    - ImmuKnow Studio: user_guide/studio.md
-    - PHU Templates: user_guide/phu_templates.md
-    - CSV input fields: user_guide/input_schema.md
-    - PDF Validation: user_guide/pdf_validation.md
+      - Getting Started: user_guide/getting_started.md
+      - Configuration: user_guide/configuration.md
+      - ImmuKnow Studio: user_guide/studio.md
+      - PHU Templates: user_guide/phu_templates.md
+      - CSV Input Fields: user_guide/input_schema.md
+      - PDF Review: user_guide/pdf_validation.md
   - Reference:
-    - Architecture: reference/architecture.md
-    - API Reference: reference/api.md
+      - Architecture: reference/architecture.md
+      - Command and Facts Reference: reference/api.md
   - Developer Guide:
-    - Contributing: developer_guide/contributing.md
-    - Testing Standards: developer_guide/testing.md
-    - Documentation Standards: developer_guide/documentation.md
+      - Contributing: developer_guide/contributing.md
+      - Testing: developer_guide/testing.md
+      - Documentation: developer_guide/documentation.md

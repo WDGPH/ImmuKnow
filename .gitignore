@@ -1,21 +1,11 @@
 /runs/
-__pycache__/
-**/__pycache__/
-*.pyc
-**/*.pyc
-*.pyo
+/target/
+/plugins/qr/target/
+/build/
+/dist/
+/site/
 *.log
 *.tmp
-*.egg-info/
-build/
-dist/
-site/
-docs/user_guide/input_schema.md
-.coverage
-.coverage.*
-htmlcov/
-coverage.xml
-coverage.json
 input/*
 !input/sample_students.csv
 !input/sample_assignments.json
@@ -23,8 +13,7 @@ input/*
 phu_templates/
 .gitmodules
 
+# Local tooling and previous checkout build residue
 .venv/
-/plugins/qr/target/
-/experiments/rust-pipeline/target/
-
-/experiments/rust-pipeline/pdf-backend-probe/target/
+*.egg-info/
+__pycache__/

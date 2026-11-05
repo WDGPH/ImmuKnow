@@ -1,25 +1,26 @@
 # QR encoder
 
-The shared Typst library bundles `immuknow/typst/vendor/qr/qr.wasm`.
+The shared Typst library bundles `resources/typst/vendor/qr/qr.wasm`.
 It uses the unmodified MIT-licensed `qrcodegen` 1.8.0 encoder and Typst's
 `wasm-minimal-protocol` 0.1.0 interface. Cargo.lock pins all build dependencies;
 `rust-toolchain.toml` pins Rust 1.92.0 and the WebAssembly target.
-Native installation, wheel/source-archive builds and Studio use the bundled
+The native executable and Studio use the bundled
 artifact and need no Rust installation.
 
 To change the plugin, install rustup, edit this source, then run from Core:
 
 ```sh
-python plugins/qr/build.py
-python plugins/qr/build.py --check
+plugins/qr/build.sh
+plugins/qr/build.sh --check
 ```
 
 The build removes machine-specific source paths. The focused CI workflow
 rebuilds the artifact and requires identical bytes when plugin inputs change.
 Install the pinned `rust-src` component too: Rust's embedded panic locations
 depend on whether its source is installed.
-Core's normal test matrix does not build Rust. Keep the upstream and Rust
-licence notices beside the artifact when updating dependencies.
+Core builds and tests the native application separately from this WebAssembly
+reproducibility check. Keep the upstream and Rust licence notices beside the
+artifact when updating dependencies.
 
 Both plugin exports accept UTF-8 destination bytes and one error-correction letter
 (`l`, `m`, `q`, `h`). `encode` emits the matrix width as one byte followed by one
