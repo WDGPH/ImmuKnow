@@ -1,55 +1,63 @@
 # Getting started
 
-Install Rust 1.92 or later, then build and install the executable from a checkout:
+ImmuKnow creates personalized PDF notices from a CSV file and the notice templates you choose. Your source system assesses immunization status; ImmuKnow uses the information and notice choices you provide. Review your notice wording and output before sending it.
 
-```sh
-cargo install --path . --locked
-immuknow resources --output ./resources
-```
+## Before you start
 
-The executable contains the Typst 0.15.1 engine and shared resources. Install the fonts required by your authored project on the workstation. Exported resources include `config/`, `schemas/`, `typst/` and a resource manifest; keep the shared library with the template project as described in [template authoring](phu_templates.md).
+You need:
 
-Provide a CSV, your configuration directory and exactly one selector. For one notice for the whole cohort:
+- The `immuknow` executable available in your terminal. Ask your project maintainer for a prepared executable. A developer can build it from the checkout using the instructions in the [contributing guide](../developer_guide/contributing.md#build-the-executable).
+- A CSV containing the people and information for the notices. See the [CSV field reference](input_schema.md).
+- A configured notice project containing a `templates` folder and a `config` folder. [ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template) provides example notices and settings to adapt. Review the wording, branding, contacts, and settings for your organization. The project must be set up for this standalone version; see the [template guide](../developer_guide/templates.md). Install the fonts required by your project on the workstation.
+
+Keep the CSV and run folders private: they contain personal information.
+
+## Create notices
+
+Open a terminal. To use one notice for everyone in the CSV, run this command, replacing the paths with your own:
 
 ```sh
 immuknow run clients.csv --template ./project/templates/overdue_diseases_v1.en.typ \
   --config ./project/config --output ./runs
 ```
 
-For explicit per-client selection, use a manifest and a template directory:
+Here `clients.csv` is your input file, `--template` points to the notice to use, `--config` points to your settings folder, and `--output` selects where the new run folder will be created.
+
+To choose a notice separately for each person, supply a selection file and the folder containing the notices instead of `--template`:
 
 ```sh
 immuknow run clients.csv --notice-assignments assignments.json \
   --templates ./project/templates --config ./project/config --output ./runs
 ```
 
-The [configuration guide](configuration.md) describes the manifest and reference files. Template filenames have the form `<version>.<language>.typ`; supported languages are `en` and `fr`. Assignments choose notices; the catalog checks applicability and does not select or translate notices.
+The [configuration guide](configuration.md) explains the selection file and settings. Notice filenames follow `<version>.<language>.typ`, with `en` or `fr` as the language. You choose the notices; the notice list in `notice_versions.yaml` checks whether each choice fits the supplied information. It does not choose or translate notices.
 
-## Prepare the input
+## Review the results
 
-See the [CSV field reference](input_schema.md) for required columns. Text is retained as text, including leading zeros. CSV may use comma, semicolon, tab or pipe delimiters. Automatic decoding tries UTF-8 (with an optional BOM), Windows-1252, then Latin-1. To specify one, pass `--input-encoding utf-8-sig`, `cp1252` or `latin-1`. Control characters, repeated or malformed headers, and rows with a different number of fields are rejected.
+Open the new folder inside `runs`, then open `report.html` in a browser. Check the findings and review the notices before sending them. The folder retains the input, settings, prepared information, original PDFs, and a machine-readable `run.json` record. A folder ending in `.incomplete` is a run that has not finished.
 
-A blank or incomplete source value can produce a finding while retaining the row. Invalid history, duplicate nonblank client IDs, missing or ambiguous assignments, and forecasted agents that do not cover overdue diseases reject the cohort before rendering. `intended_reader` may be blank, `student`, or `guardian`; other values require correction. Source rows are retained with stable row keys before preparation. If malformed CSV structure prevents row parsing, the raw `source.csv` is retained with the rejection reason.
+If grouping is enabled in your settings, `bundles-0001/` contains grouped PDFs named `bundle-*.pdf` for notices eligible to send. Readable notices that failed checks go into separate `review-*.pdf` files for investigation. A CSV beside each grouped PDF lists the input rows and their page ranges. A warning is eligible for sending by default, so review warnings as well as failures. If grouping is disabled, use the report to find the individual results. A run with failures returns an error status; warnings alone do not.
 
-## Vaccine names in history
+See [PDF checks and review](pdf_validation.md) for holding a notice and creating a new set of grouped PDFs after review. Read the report for actual outcomes; a file's presence alone does not mean all checks passed.
 
-Each history entry is `YYYY-MM-DD - Agent`, optionally followed by ` - Valid` or ` - Invalid`, and ends with `;`. Dates must exist, separators and validity tokens are exact, and every fragment is checked. For example:
+## Prepare the CSV
+
+The [CSV field reference](input_schema.md) describes the columns. Text is kept as text, including leading zeros. Files can use commas, semicolons, tabs, or pipes as separators. ImmuKnow tries common text encodings (UTF-8, Windows-1252, then Latin-1); use `--input-encoding utf-8-sig`, `cp1252`, or `latin-1` to specify an encoding. Malformed headers, control characters, and rows with the wrong number of fields are rejected.
+
+Some missing values produce findings while retaining the row. Invalid history, duplicate nonblank client IDs, missing or ambiguous notice assignments, and vaccine choices in `overdue_agent` that do not cover the listed overdue diseases reject the input before notices are created. If the CSV structure prevents rows from being read, the original `source.csv` and the rejection reason are retained.
+
+For vaccine history, write each entry as `YYYY-MM-DD - Agent`, optionally followed by ` - Valid` or ` - Invalid`, and end each entry with a semicolon. For example:
 
 ```text
 2020-05-01 - MMR - Valid;2021-06-02 - Tdap;
 ```
 
-Blank history and `-;` or `-  -;` mean no history. Agent names match the selected vaccine reference exactly. A placed history table reports unknown agents unless its `ignore-agents` option excludes them; an omitted table performs no mapping check. See [template authoring](phu_templates.md).
-
-## Review the run
-
-A new run is held in an `.incomplete` directory until it finishes. It retains the source CSV, configuration and resource copies, prepared facts, original PDFs, `run.json`, `report.html`, and numbered bundle directories. Warnings remain eligible for delivery by default; failed checks route readable PDFs to review bundles. A run with failures exits nonzero; warnings alone exit successfully. See [PDF review](pdf_validation.md) for withholding and rebuilding bundles.
-
-Use `immuknow prepare` with the same CSV, selector, config and optional encoding to write versioned facts and checks to standard output without rendering PDFs. See the [API reference](../reference/api.md).
+Use exact agent names from the vaccine reference in your settings. A blank history, `-;`, or `-  -;` means no history. See the [template guide](../developer_guide/templates.md) for how history is checked when displayed.
 
 ## Intended reader
 
-Set the optional `intended_reader` column to `student` or `guardian`. A blank
-value uses the age default: student at 16 or older, guardian under 16. Unknown
-age without an explicit reader uses neutral wording. Other values reject the
-input. Supply the intended mailing destination in the address columns.
+The optional `intended_reader` column can be `student` or `guardian`. If blank, the default is student at age 16 or older and guardian under 16. If age is unknown and the reader is blank, the notice uses neutral wording. Other values are rejected. Put the intended mailing destination in the address columns.
+
+## For integrations
+
+`immuknow prepare` uses the same CSV, notice selection, settings, and optional encoding to write prepared information and checks as JSON without creating PDFs. See the [command reference](../developer_guide/cli.md).

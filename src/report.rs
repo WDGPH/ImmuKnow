@@ -16,6 +16,21 @@ pub fn escaped(text: &str) -> String {
 fn text<'a>(v: &'a Value, key: &str) -> &'a str {
     v[key].as_str().unwrap_or("")
 }
+fn label(status: &str) -> &str {
+    match status {
+        "completed_with_failures" => "Completed with failures",
+        "completed_with_warnings" => "Completed with warnings",
+        "completed" => "Completed",
+        "deliverable" => "Ready",
+        "review" => "Needs review",
+        "withheld" => "Withheld",
+        "not_requested" => "Not requested",
+        "not_run" => "Not run",
+        "failed" => "Failed",
+        "running" => "In progress",
+        _ => status,
+    }
+}
 fn artifact(html: &mut String, label: &str, value: &Value) {
     let Some(path) = value["path"].as_str() else {
         return;
@@ -57,7 +72,7 @@ fn checks(html: &mut String, checks: &Value) {
         if let Some(reason) = c["policy_reason"].as_str() {
             let _ = write!(
                 html,
-                "<li>Policy: {} · observed {}</li>",
+                "<li>Rule reason: {} · original result: {}</li>",
                 escaped(reason),
                 escaped(text(c, "observed_status"))
             );
@@ -74,7 +89,7 @@ pub fn write(dir: &Path, record: &Value) -> Result<()> {
     let _ = write!(
         html,
         "<p>Status: <strong>{}</strong> · {} source rows</p>",
-        escaped(text(record, "status")),
+        escaped(label(text(record, "status"))),
         entries.map_or(0, Vec::len)
     );
     if let Some(error) = record["error"].as_str() {
@@ -85,7 +100,12 @@ pub fn write(dir: &Path, record: &Value) -> Result<()> {
     html.push_str("<h2>Bundles</h2>");
     if let Some(bundles) = record["bundles"].as_array() {
         for b in bundles {
-            artifact(&mut html, &format!("{} bundle", text(b, "route")), b);
+            let bundle_label = match text(b, "route") {
+                "deliverable" => "Ready notices bundle",
+                "review" => "Review bundle",
+                _ => "Bundle",
+            };
+            artifact(&mut html, bundle_label, b);
             if let Some(path) = b["csv"].as_str() {
                 artifact(
                     &mut html,
@@ -109,13 +129,13 @@ pub fn write(dir: &Path, record: &Value) -> Result<()> {
                 "<details><summary>{} · {} · {}</summary>",
                 escaped(text(e, "row_key")),
                 escaped(text(e, "client_id")),
-                escaped(text(e, "routing"))
+                escaped(label(text(e, "routing")))
             );
             let _ = write!(
                 html,
-                "<p>Original: {} · Encryption: {}</p>",
-                escaped(text(&e["original"], "status")),
-                escaped(text(&e["encryption"], "status"))
+                "<p>Original PDF: {} · Encrypted copy: {}</p>",
+                escaped(label(text(&e["original"], "status"))),
+                escaped(label(text(&e["encryption"], "status")))
             );
             artifact(&mut html, "Original PDF", &e["original"]);
             artifact(&mut html, "Encrypted PDF", &e["encryption"]);
@@ -135,7 +155,7 @@ pub fn write(dir: &Path, record: &Value) -> Result<()> {
                 if !diagnostics.is_empty() {
                     let _ = write!(
                         html,
-                        "<p>Compiler diagnostics: {}</p>",
+                        "<p>Notice creation messages: {}</p>",
                         escaped(diagnostics)
                     );
                 }

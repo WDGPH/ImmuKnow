@@ -1,6 +1,6 @@
-//! Complete native preparation, rendering and delivery workflows.
+//! Prepare client information, create notices, and save bundles and reports.
 use crate::{
-    compiler, delivery,
+    bundles, compiler,
     input::{self, Config, PrepareOptions, Prepared, Selection},
     pdf, policy, pool, report, resources, validation,
 };
@@ -118,10 +118,21 @@ fn redacted(config: &Config) -> Result<Value> {
     Ok(settings)
 }
 fn source_entries(path: &Path, encoding: Option<&str>) -> Result<Vec<Value>> {
-    Ok(input::source_rows(path, encoding)?.into_iter().enumerate().map(|(i, source)| {
-        let id = source["client_id"].as_str().unwrap_or("").trim().to_owned();
-        json!({"row_key":format!("row-{:06}",i+1),"client_id":id,"source":source,"checks":[],"original":{"status":"not_run"},"encryption":{"status":"not_run"}})
-    }).collect())
+    Ok(input::source_rows(path, encoding)?
+        .into_iter()
+        .enumerate()
+        .map(|(i, source)| {
+            let id = source["client_id"].as_str().unwrap_or("").trim().to_owned();
+            json!({
+                "row_key": format!("row-{:06}", i + 1),
+                "client_id": id,
+                "source": source,
+                "checks": [],
+                "original": {"status": "not_run"},
+                "encryption": {"status": "not_run"}
+            })
+        })
+        .collect())
 }
 fn assign_entries(record: &mut Value, prepared: &[Prepared], encryption: bool) {
     for (entry, p) in record["entries"]
@@ -327,7 +338,7 @@ fn process(
                                         }
                                     }
                                     Err(_) => {
-                                        entry["encryption"] = json!({"status":"failed","error":"Required password facts are unavailable"})
+                                        entry["encryption"] = json!({"status":"failed","error":"Information needed for the password is missing"})
                                     }
                                 }
                             }
@@ -353,6 +364,7 @@ fn process(
             }
             Ok(())
         }));
+        // Finish submitted encryption jobs even when a later notice or checkpoint fails.
         drop(jobs);
         for (index, value) in results {
             record["entries"][index]["encryption"] = value;
@@ -392,12 +404,25 @@ pub fn run(opts: &RunOptions) -> Result<RunResult> {
     let dir = output.join(format!("{name}.incomplete"));
     fs::create_dir(&dir)?;
     let _lock = lock(&dir)?;
-    let mut record = json!({"run_schema_version":1,"engine":"typst 0.15.1","timestamp":timestamp,"status":"running","input":{},"resources":resources::identity(),"entries":[],"checks":[],"bundles":[],"delivery_attempts":[],"timings":{}});
+    let mut record = json!({
+        "run_schema_version": 1,
+        "engine": "typst 0.15.1",
+        "timestamp": timestamp,
+        "status": "running",
+        "input": {},
+        "resources": resources::identity(),
+        "entries": [],
+        "checks": [],
+        "bundles": [],
+        "delivery_attempts": [],
+        "timings": {}
+    });
     report::write(&dir, &record)?;
     let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
         let bytes = fs::read(&opts.csv).context("Unable to read source CSV")?;
         crate::atomic(&dir.join("source.csv"), &bytes)?;
         record["input"] = json!({"path":"source.csv","sha256":crate::hash(&bytes),"requested_encoding":opts.encoding});
+        // Record every readable row before configuration or preparation can fail.
         record["entries"] = json!(source_entries(
             &dir.join("source.csv"),
             opts.encoding.as_deref()
@@ -420,7 +445,7 @@ pub fn run(opts: &RunOptions) -> Result<RunResult> {
                 .as_deref()
                 .filter(|s| !s.trim().is_empty());
             let source = match original {
-                None => resource_root.path().join("config/school_reference.json"),
+                None => opts.config.join("school_reference.json"),
                 Some(s) if Path::new(s).is_absolute() => PathBuf::from(s),
                 Some(s) => opts.config.join(s),
             };
@@ -479,10 +504,10 @@ pub fn run(opts: &RunOptions) -> Result<RunResult> {
         )?;
         record["timings"]["render_seconds"] = json!(render_start.elapsed().as_secs_f64());
         policy::apply(&mut record, &c, resource_root.path())?;
-        let delivery_start = Instant::now();
-        delivery::bundle(&dir, &mut record, &c, usize::from(opts.bundle_workers))?;
-        record["timings"]["delivery_seconds"] = json!(delivery_start.elapsed().as_secs_f64());
-        record["status"] = json!(delivery::outcome(&record));
+        let bundling_start = Instant::now();
+        bundles::bundle(&dir, &mut record, &c, usize::from(opts.bundle_workers))?;
+        record["timings"]["delivery_seconds"] = json!(bundling_start.elapsed().as_secs_f64());
+        record["status"] = json!(bundles::outcome(&record));
         let attempt = json!({"bundles":record["bundles"],"configured_settings":record["configured_settings"],"holds":[],"status":record["status"]});
         record["delivery_attempts"]
             .as_array_mut()
@@ -528,6 +553,7 @@ pub fn rebundle(
     workers: usize,
 ) -> Result<RunResult> {
     let dir = run.canonicalize()?;
+    // Read the record only after taking the lock so two attempts cannot overwrite each other.
     let _lock = lock(&dir)?;
     let mut record: Value = crate::read_json(&dir.join("run.json"))?;
     ensure!(
@@ -577,19 +603,19 @@ pub fn rebundle(
     }
     policy::validate(&next, &c, resource_root.path())?;
     policy::apply(&mut next, &c, resource_root.path())?;
-    if let Err(error) = delivery::bundle(&dir, &mut next, &c, workers) {
+    if let Err(error) = bundles::bundle(&dir, &mut next, &c, workers) {
         let attempt = json!({"status":"failed","error":format!("{error:#}"),"validation":c.validation,"withhold":withhold,"release":release,"reason":reason});
         record["delivery_attempts"]
             .as_array_mut()
-            .context("Missing delivery attempts")?
+            .context("Missing bundle attempts")?
             .push(attempt);
         report::write(&dir, &record)?;
         return Err(
-            error.context("Delivery attempt failed; previous bundles and decisions retained")
+            error.context("Could not create bundles; previous bundles and decisions were kept")
         );
     }
     next["configured_settings"] = redacted(&c)?;
-    next["status"] = json!(delivery::outcome(&next));
+    next["status"] = json!(bundles::outcome(&next));
     let attempt = json!({"bundles":next["bundles"],"validation":c.validation,"withhold":withhold,"release":release,"reason":reason,"status":next["status"]});
     if !next["delivery_attempts"].is_array() {
         next["delivery_attempts"] = json!([]);

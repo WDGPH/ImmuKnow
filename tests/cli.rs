@@ -41,7 +41,7 @@ fn p(path: &Path) -> &str {
 struct Project {
     _temp: TempDir,
     root: PathBuf,
-    resources: PathBuf,
+    config: PathBuf,
     templates: PathBuf,
     csv: PathBuf,
     assignments: PathBuf,
@@ -53,6 +53,12 @@ impl Project {
         let root = temp.path().to_path_buf();
         let resources = root.join("exported resources");
         success(&cli(&root, &["resources", "--output", p(&resources)]));
+        assert!(!resources.join("config").exists());
+        let config = root.join("project config");
+        copy_tree(
+            &Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/config"),
+            &config,
+        );
         let templates = root.join("unbranded templates");
         copy_tree(
             &Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/templates"),
@@ -126,7 +132,7 @@ impl Project {
         Self {
             _temp: temp,
             root,
-            resources,
+            config,
             templates,
             csv,
             assignments,
@@ -134,8 +140,6 @@ impl Project {
         }
     }
     fn run(&self) -> Output {
-        // Keep joined path alive for the lifetime of the argument slice.
-        let config = self.resources.join("config");
         cli(
             &self.root,
             &[
@@ -146,7 +150,7 @@ impl Project {
                 "--templates",
                 p(&self.templates),
                 "--config",
-                p(&config),
+                p(&self.config),
                 "--output",
                 p(&self.runs),
             ],
@@ -170,7 +174,7 @@ impl Project {
 #[test]
 fn exported_resources_work_outside_checkout_and_mixed_rows_remain_associated() {
     let project = Project::new();
-    let config = project.resources.join("config/parameters.yaml");
+    let config = project.config.join("parameters.yaml");
     let contents = fs::read_to_string(&config)
         .unwrap()
         .replace("enabled: false\n  password:", "enabled: true\n  password:");
@@ -316,7 +320,7 @@ fn exported_resources_work_outside_checkout_and_mixed_rows_remain_associated() {
 #[test]
 fn prepare_supports_both_selectors_and_does_not_create_runs() {
     let project = Project::new();
-    let config = project.resources.join("config");
+    let config = project.config.clone();
     let manifest = cli(
         &project.root,
         &[
@@ -363,10 +367,46 @@ fn prepare_supports_both_selectors_and_does_not_create_runs() {
 }
 
 #[test]
+fn school_reference_defaults_to_project_config_and_has_no_packaged_fallback() {
+    let project = Project::new();
+    let parameters = project.config.join("parameters.yaml");
+    let settings = fs::read_to_string(&parameters).unwrap().replace(
+        "school_validation:\n  enabled: false",
+        "school_validation:\n  enabled: true",
+    );
+    let template = project.templates.join("overdue_agents_v1.en.typ");
+    let prepare = || {
+        cli(
+            &project.root,
+            &[
+                "prepare",
+                p(&project.csv),
+                "--template",
+                p(&template),
+                "--config",
+                p(&project.config),
+            ],
+        )
+    };
+    for reference in ["", "  reference_file: null\n", "  reference_file: '  '\n"] {
+        fs::write(
+            &parameters,
+            settings.replace("  target_phu:", &format!("{reference}  target_phu:")),
+        )
+        .unwrap();
+        success(&prepare());
+    }
+    fs::remove_file(project.config.join("school_reference.json")).unwrap();
+    let missing = prepare();
+    assert!(!missing.status.success());
+    assert!(String::from_utf8_lossy(&missing.stderr).contains("Unable to read school reference"));
+}
+
+#[test]
 fn failed_configuration_and_input_keep_source_row_accounting() {
     let project = Project::new();
     fs::write(
-        project.resources.join("config/parameters.yaml"),
+        project.config.join("parameters.yaml"),
         "encryption: [not an object]\n",
     )
     .unwrap();
@@ -418,7 +458,7 @@ fn french_notice_with_school_mismatch_is_retained_for_review() {
     )
     .unwrap();
     select_first_rows(&project, &["overdue_agents_v1.fr.typ"]);
-    let parameters = project.resources.join("config/parameters.yaml");
+    let parameters = project.config.join("parameters.yaml");
     let config = fs::read_to_string(&parameters).unwrap().replace(
         "school_validation:\n  enabled: false",
         "school_validation:\n  enabled: true",
@@ -426,6 +466,18 @@ fn french_notice_with_school_mismatch_is_retained_for_review() {
     fs::write(parameters, config).unwrap();
     let _ = project.run();
     let (run, record) = project.record();
+    assert_eq!(
+        record["school_reference_source"],
+        project
+            .config
+            .join("school_reference.json")
+            .to_string_lossy()
+            .as_ref()
+    );
+    assert_eq!(
+        fs::read(run.join("resources/config/school-reference-snapshot.json")).unwrap(),
+        fs::read(project.config.join("school_reference.json")).unwrap()
+    );
     let row = &record["entries"][0];
     assert_eq!(row["original"]["status"], "completed", "{row}");
     assert!(
@@ -454,7 +506,7 @@ fn french_notice_with_school_mismatch_is_retained_for_review() {
 fn zero_bundle_size_leaves_originals_without_bundles() {
     let project = Project::new();
     select_first_rows(&project, &["overdue_agents_v1.en.typ"]);
-    let parameters = project.resources.join("config/parameters.yaml");
+    let parameters = project.config.join("parameters.yaml");
     let config = fs::read_to_string(&parameters)
         .unwrap()
         .replace("bundle_size: 100", "bundle_size: 0");
@@ -565,7 +617,7 @@ fn nested_selected_config_never_leaks_literal_encryption_password() {
     let flat = project.root.join("flat-project");
     copy_tree(&project.templates, &flat);
     let config = flat.join("config");
-    copy_tree(&project.resources.join("config"), &config);
+    copy_tree(&project.config, &config);
     let parameters = config.join("parameters.yaml");
     let secret = "fixture-secret-not-to-save";
     let content = fs::read_to_string(&parameters)
@@ -648,7 +700,7 @@ fn missing_password_fact_fails_one_copy_and_later_rows_continue() {
         writer.write_record(values).unwrap();
     }
     writer.flush().unwrap();
-    let parameters = project.resources.join("config/parameters.yaml");
+    let parameters = project.config.join("parameters.yaml");
     let config = fs::read_to_string(&parameters)
         .unwrap()
         .replace("enabled: false\n  password:", "enabled: true\n  password:")
@@ -678,7 +730,8 @@ fn missing_password_fact_fails_one_copy_and_later_rows_continue() {
             .iter()
             .any(|finding| finding["check_code"] == "encryption.failed"
                 && finding["status"] == "fail"
-                && finding["message"].contains("password facts"))
+                && finding["message"].contains("password")
+                && finding["message"].contains("missing"))
     );
     assert_eq!(rows[1]["original"]["status"], "completed");
     assert_eq!(rows[1]["encryption"]["status"], "completed");

@@ -49,8 +49,9 @@ fn changes(value: Option<&Value>, adjustable: &BTreeSet<String>) -> Result<Map<S
     Ok(rules.clone())
 }
 fn resolve(record: &Value, config: &Config, resources: &Path) -> Result<Vec<Map<String, Value>>> {
-    crate::input::validate_delivery(config)?;
-    let schema: Value = crate::read_json(&resources.join("typst/report-v2.json"))?;
+    crate::input::validate_bundling(config)?;
+    let schema: Value = crate::read_json(&resources.join("typst/report.json"))?;
+    // The shared report schema owns which observations may be overridden.
     let adjustable = schema["$defs"]["check"]["properties"]["code"]["oneOf"]
         .as_array()
         .context("Missing render rule definitions")?
@@ -125,6 +126,8 @@ fn resolve(record: &Value, config: &Config, resources: &Path) -> Result<Vec<Map<
             selected.insert(i),
             "More than one validation selector matches a source row"
         );
+        // Merge individual fields so a client can override one part of a
+        // default rule while retaining its other settings.
         for (code, value) in changes(client.get("rules"), &adjustable)? {
             let current = result[i]
                 .entry(code)
@@ -140,7 +143,7 @@ fn resolve(record: &Value, config: &Config, resources: &Path) -> Result<Vec<Map<
 pub fn validate(record: &Value, config: &Config, resources: &Path) -> Result<()> {
     resolve(record, config, resources).map(|_| ())
 }
-/// Keep observations intact and save the decisions used for this delivery attempt.
+/// Keep observations intact and save the decisions used for this bundle attempt.
 pub fn apply(record: &mut Value, config: &Config, resources: &Path) -> Result<()> {
     let rules = resolve(record, config, resources)?;
     for (entry, rules) in record["entries"]
@@ -149,6 +152,7 @@ pub fn apply(record: &mut Value, config: &Config, resources: &Path) -> Result<()
         .iter_mut()
         .zip(rules)
     {
+        // Policy changes a copy; the original checks remain the render evidence.
         let mut checks = entry["checks"]
             .as_array()
             .context("Missing observed checks")?

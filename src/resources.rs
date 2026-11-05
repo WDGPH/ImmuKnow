@@ -1,4 +1,4 @@
-//! Resources embedded in the executable and reproducibly exported when needed.
+//! Shared files shipped inside the executable, so installed tools need no checkout.
 use anyhow::{Context, Result, ensure};
 use include_dir::{Dir, include_dir};
 use serde_json::{Value, json};
@@ -50,7 +50,7 @@ fn export(dir: &Dir<'_>, output: &Path) -> Result<()> {
     }
     Ok(())
 }
-/// Export `config`, `schemas`, `typst`, and a resource identity manifest.
+/// Export the schemas, Typst library, and file hashes. Project settings are separate.
 /// Existing identical files are accepted; differing files are never overwritten.
 pub fn materialize(output: &Path) -> Result<()> {
     fs::create_dir_all(output)?;
@@ -76,13 +76,13 @@ mod tests {
     fn export_preserves_existing_files() -> Result<()> {
         let tmp = tempfile::tempdir()?;
         materialize(tmp.path())?;
-        assert!(tmp.path().join("schemas/rendering-v1.json").is_file());
+        assert!(tmp.path().join("schemas/rendering.json").is_file());
         assert_eq!(
             serde_json::from_slice::<Value>(&fs::read(tmp.path().join("resource-manifest.json"))?)?,
             identity()
         );
         materialize(tmp.path())?;
-        fs::write(tmp.path().join("schemas/rendering-v1.json"), b"changed")?;
+        fs::write(tmp.path().join("schemas/rendering.json"), b"changed")?;
         assert!(materialize(tmp.path()).is_err());
         Ok(())
     }

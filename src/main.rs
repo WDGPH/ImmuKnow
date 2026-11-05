@@ -11,7 +11,7 @@ use std::path::PathBuf;
 #[command(
     name = "immuknow",
     version,
-    about = "Prepare, compile and deliver immunization notices"
+    about = "Create and bundle immunization notices"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -20,8 +20,9 @@ struct Cli {
 #[derive(Args)]
 #[group(required = false)]
 struct Inputs {
-    /// CSV containing client facts.
+    /// CSV file containing client information.
     csv: PathBuf,
+    /// JSON file matching each client ID to a template filename.
     #[arg(
         long,
         conflicts_with = "template",
@@ -29,12 +30,16 @@ struct Inputs {
         required_unless_present = "template"
     )]
     notice_assignments: Option<PathBuf>,
+    /// One template file to use for every client.
     #[arg(long, conflicts_with_all=["notice_assignments", "templates"], required_unless_present="notice_assignments")]
     template: Option<PathBuf>,
+    /// Directory containing the templates named in the assignment file.
     #[arg(long)]
     templates: Option<PathBuf>,
+    /// Directory containing parameters and reference files.
     #[arg(long, default_value = "config")]
     config: PathBuf,
+    /// CSV text encoding; by default, try UTF-8, Windows-1252, then Latin-1.
     #[arg(long, value_parser=["utf-8-sig", "cp1252", "latin-1"])]
     input_encoding: Option<String>,
 }
@@ -90,17 +95,17 @@ enum Command {
         #[arg(long, default_value_t=4, value_parser=clap::value_parser!(u8).range(1..=16))]
         bundle_workers: u8,
     },
-    /// Write validated notice facts and findings as JSON, without compiling PDFs.
+    /// Write prepared client information and checks as JSON without creating PDFs.
     Prepare {
         #[command(flatten)]
         inputs: Inputs,
     },
-    /// Export the exact configuration, schemas and Typst resources in this executable.
+    /// Export the shared Typst library and JSON schemas included in this executable.
     Resources {
         #[arg(long)]
         output: PathBuf,
     },
-    /// Build a new delivery attempt from an existing run without recompiling notices.
+    /// Make new bundles from a saved run without rebuilding notices.
     Rebundle {
         run: PathBuf,
         #[arg(long)]

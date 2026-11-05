@@ -1,6 +1,6 @@
 # CSV input fields
 
-This reference describes the supplied input schema. Required indicates that the column must be present; incomplete row values may produce findings. See [getting started](getting_started.md) for cohort rejection rules.
+Use these column names in your CSV. A required column must be present, even when some rows have missing values. Missing information may produce warnings or failed checks. A vaccine “agent” is the name or code used for a vaccine in your source system. See [getting started](getting_started.md) for cases that reject the whole input file.
 
 | Field | Required column | Description |
 | --- | --- | --- |
@@ -16,10 +16,29 @@ This reference describes the supplied input schema. Required indicates that the 
 | `province` | No | Province / territory of client address |
 | `postal_code` | No | Postal code of client address |
 | `overdue_disease` | No | Semicolon-separated overdue diseases. Each disease may be followed by ' - N', where N is the next dose number as a positive whole number, for example 'Measles - 2; Polio;'. A dose suffix that is not a positive whole number produces a warning, and the disease is shown without a number. Whether dose numbers appear on notices is set by include-dose in Settings. |
-| `overdue_agent` | No | Semicolon-separated list of overdue agents for client |
-| `imms_given` | Yes | Semicolon-separated entries in the exact form 'YYYY-MM-DD - Agent', optionally followed by ' - Valid' or ' - Invalid', for example '2020-05-01 - MMR - Valid;'. Agent names are matched exactly against the selected vaccine_reference.json. A placed history table reports an error for an unknown agent unless its ignore-agents option explicitly excludes it. Month and day always have two digits. Dates must exist. Every entry ends with ';', including the last. Spaces, tabs and line breaks may surround entries; field separators are exactly space-hyphen-space. Blank history and the placeholders '-;' and '-  -;' (when validity is exported) mean no history. A missing final ';', a leading ';', ';;' and other empty entries, extra fields and wrongly cased status tokens reject the whole input file. |
+| `overdue_agent` | No | Semicolon-separated list of overdue agents for the client |
+| `imms_given` | Yes | Recorded vaccinations. Use the date, vaccine agent and optional validity result for each entry; see the example below. |
 | `board_name` | No | School board name |
 | `board_id` | No | School board identifier |
 | `school_id` | No | School identifier |
 | `version_id` | No | Version identifier |
 | `intended_reader` | No | Intended reader: student or guardian. Leave blank to use the age default (student at 16 or older, guardian under 16). Unknown age without a reader uses neutral wording. Invalid values reject the whole input file. Supply the intended mailing destination in the address columns. |
+
+## Vaccination history example
+
+In `imms_given`, separate entries with semicolons and include the final semicolon:
+
+```text
+2020-05-01 - MMR - Valid;2021-06-02 - Tdap;
+```
+
+Each entry has the form `YYYY-MM-DD - Agent`, optionally followed by ` - Valid`
+or ` - Invalid`. Keep the spaces around each hyphen. Months and days need two
+digits, and dates must exist. The status words are case-sensitive. Spaces,
+tabs and line breaks may surround entries, but extra fields or empty entries
+(such as `;;`) reject the whole input file.
+
+Use agent names exactly as they appear in your project's `vaccine_reference.json`.
+When a notice shows a history table, an unknown agent fails its check unless the
+template explicitly excludes that agent with `ignore-agents`. An omitted history
+table needs no mapping check. A blank field, `-;`, or `-  -;` means no history.

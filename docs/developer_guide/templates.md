@@ -1,11 +1,12 @@
-# Authoring native Typst notices
+# Writing notice templates
 
-The standalone pipeline prepares facts and explicit assignments. Authored Typst projects own
-letter prose, display choices, QR destinations and layout. The maintained
+This guide is for people editing Typst templates or connecting another application.
+ImmuKnow supplies the client information and selected notice. Your template controls
+the wording, appearance and QR links. The maintained
 branding, names and contacts are examples; replace them with reviewed
 PHU content.
 
-Use [Studio](studio.md) for source editing, matching example previews and
+Use [Studio](../user_guide/studio.md) for source editing, matching example previews and
 project exports. This guide owns the native facts and Typst component contract.
 
 ## Select a complete project
@@ -31,8 +32,9 @@ Export the library with `immuknow resources --output ./resources` and copy
 and project-specific changes from Template separately.
 
 Keep `lib/immuknow/` complete and unchanged, including its nested files. Native
-runs, saved-run delivery and Studio check its bytes against the supplied library;
-rewriting a project manifest does not approve an edited copy. Linked library
+runs and saved-run bundling check its bytes against the supplied library;
+Studio integrations should use the same exported copy. Rewriting a project
+manifest does not approve an edited copy. Linked library
 paths are refused. Put your own helpers outside that directory, and edit notice
 prose, Settings, assets and project translations there. Studio opens supplied
 library files for reading only.
@@ -42,14 +44,15 @@ text or drawing added elsewhere in an authored template belongs to the right
 client; review authored content as well as the reported checks.
 
 Keep dependencies inside this tree and import them through relative paths.
-Native runs and Studio refuse `@local` and `@preview` package imports, including
-paths built from variables. Native compilation uses private package directories
-and blocks downloads before connecting; it cannot use a package installed elsewhere.
+Core refuses `@local` and `@preview` package imports, including paths built from
+variables. Keep library dependencies inside the project; Core does not download
+packages or read a package installed elsewhere. Check the same restriction in Studio
+when updating its integration.
 
 The filename `<version>.<language>.typ` supplies version and language. Rename
 only when the authored prose matches the intended language. Selection never
 changes language or chooses a different notice automatically. See
-[configuration](configuration.md) for the explicit manifest schema and
+[configuration](../user_guide/configuration.md) for the explicit manifest schema and
 warning/failure behavior.
 
 ## Entry points and Settings
@@ -129,7 +132,7 @@ Use a helper's explicit `addressee:` option when authored wording requires a
 particular label. The suspension starter uses the same reader flags for its service wording,
 reader heading and default addressee. Age facts remain available independently
 of the intended reader.
-See [intended reader](getting_started.md#intended-reader) for CSV overrides and
+See [intended reader](../user_guide/getting_started.md#intended-reader) for CSV overrides and
 mailing destinations.
 
 Link labels stay together by default:
@@ -144,7 +147,7 @@ Use `keep-together: false` to allow normal wrapping without this width warning.
 
 ## Facts contract
 
-`resources/schemas/rendering-v1.json` is the structural contract. The pipeline validates
+`resources/schemas/rendering.json` is the structural contract. The pipeline validates
 it before compilation; strings remain literal data rather than executable source.
 
 | Field | Meaning |
@@ -159,7 +162,7 @@ it before compilation; strings remain literal data rather than executable source
 | `overdue_diseases` | `{disease, dose}` facts; invalid numeric doses retain `dose_raw` |
 | `overdue_agents` | Source vaccine agent names |
 | `history` | Normalized administrations with ISO `date_given`, `agent`, `display_name`, configured `diseases`, `validity` and boolean `mapping_known` |
-| `validity_coverage` | Whole-cohort `all_present`, `all_absent` or `mixed` |
+| `validity_coverage` | Whole-file `all_present`, `all_absent` or `mixed` |
 | `has_immunization_records` | Whether the source contains any administrations before exclusions or deduplication |
 | `history_validity_coverage` | Per-history source flag coverage, before exclusions and deduplication: `all_present`, `all_absent` or `mixed` |
 
@@ -239,7 +242,7 @@ wording selected by its language. This does not change surrounding paragraphs.
 Typst content overrides the no-records message; the override is used only when
 there are no source records. This is separate from `empty`, which supplies
 content when the overdue list itself is empty. Prepared overdue lists, facts,
-notice assignments and delivery checks remain intact.
+notice assignments and bundle checks remain intact.
 
 ### ISPA disease display and assertions
 
@@ -301,13 +304,13 @@ hidden. The optional input CSV column `oiid` supplies the Ontario Immunization
 ID as text, preserving leading zeros. The prepared notice exposes `oiid` and
 `oiid_coverage` (`all_present`, `mixed`, or `all_absent`) for custom content.
 
-Enabling `show-oiid` requires at least one nonblank OIID in the input cohort;
-an entirely absent OIID cohort fails rendering until the input or display
-choice is corrected. In a mixed cohort, `missing-oiid` controls clients without
+Enabling `show-oiid` requires at least one nonblank OIID in the input file;
+an input file with no OIIDs fails rendering until the input or display
+choice is corrected. In a mixed input file, `missing-oiid` controls clients without
 an OIID: `none` (the default) omits the line, `""` leaves the value blank after
 the label, `auto` shows “Not available” / “Non disponible”, and a plain-text
 string supplies custom wording. This option applies only with `show-oiid: true`;
-it does not replace an available OIID or bypass the all-absent cohort error.
+it does not replace an available OIID or bypass the error when every row lacks OIID.
 An omitted or blank OIID column remains supported with OIID display disabled.
 Set `id-label: "Record number"`, `oiid-label: "Record key"`, or `school-label`
 to customize plain-text labels. Default labels are provided in English and
@@ -383,7 +386,7 @@ not depend on whether the Other column is shown. An explicit exclusion in one
 table applies only to that table.
 
 A mapping error alone leaves a successfully rendered PDF in review and prevents
-delivery. It cannot be disabled, downgraded or accepted as a warning. Correct the
+sending. It cannot be disabled, downgraded or accepted as a warning. Correct the
 source name or reference entry, or add an explicit agent exclusion and generate
 a new run. A notice without a history table has no history-mapping check. Other
 errors, such as mixed validity flags, can prevent compilation entirely.
@@ -423,8 +426,9 @@ For a smaller signature, change `width: 4.5cm` to `width: 3cm`. Leave height
 unspecified to preserve the image's aspect ratio. The helper assumes no default
 image filename. Use `signature: none` to omit the image.
 
-The supplied report builder writes version 2 evidence under `report-v2.json`
-inside the library. It includes the source row and selected filename as well as
+The supplied report builder creates invisible document metadata described by
+`report.json` inside the library (`schema_version: 2`). It does not add report pages
+or attach a JSON file to the PDF. It includes the source row and selected filename as well as
 client, version and language. Missing fields, unknown checks/components,
 contradictory presence findings and invalid page ranges are refused by native
 runs and Studio. Keep the supplied builder; do not write a replacement report
@@ -467,7 +471,7 @@ under `resources/templates/` and facts under `facts/<row_key>.json`. Review the 
 Inspect English/French,
 unknown-age, long-address and long-history examples, including QR links,
 window placement, signatures, symbols and page continuation. The
-[testing guide](../developer_guide/testing.md) describes repeatable checks.
+[testing guide](testing.md) describes repeatable checks.
 
 Keep the printed name directly in the signature call. It may include credentials,
 for example `name: "Dr. Annie Body, MD"`. The suspension order defines a separate

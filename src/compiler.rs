@@ -121,6 +121,8 @@ impl Compiler {
         }
     }
     pub fn run(&mut self, request: &Request) -> Result<Compiled, String> {
+        // The compiler is reused across rows, but cached files must not retain
+        // the previous row's virtual JSON or project file contents.
         self.files.reset();
         self.files.loader_mut().notice =
             Bytes::new(serde_json::to_vec(&request.notice).map_err(|e| e.to_string())?);
@@ -164,6 +166,8 @@ impl Compiler {
         {
             return Err("immuknow-evidence.json is reserved for internal render evidence".into());
         }
+        // Evidence extraction can fail independently of PDF export; return both
+        // outcomes so the caller can retain a usable original for review.
         let reports = (|| -> Result<serde_json::Value, String> {
             let selector = Selector::Label(
                 Label::new(typst::utils::PicoStr::intern("immuknow-report")).unwrap(),

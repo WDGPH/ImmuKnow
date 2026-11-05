@@ -1,7 +1,23 @@
 # ImmuKnow
 
-ImmuKnow prepares supplied immunization records and produces notices from explicit template selections. The upstream system assesses immunization status. Authored Typst projects control wording and presentation.
+ImmuKnow turns a CSV file of immunization information into personalized PDF
+notices. You select the notices; the system that supplied the information is
+responsible for assessing immunization status.
 
-Start with [getting started](user_guide/getting_started.md), then review the [configuration](user_guide/configuration.md), [CSV fields](user_guide/input_schema.md) and [PDF review](user_guide/pdf_validation.md) guides. The [template guide](user_guide/phu_templates.md) describes the facts and shared Typst components; the [API reference](reference/api.md) describes commands for integrations.
+## Create and review notices
 
-The standalone executable embeds Typst and the shared resources, uses installed system fonts, and retains source rows, facts, original PDFs and delivery findings in each run. Studio and Template are separate projects with their own releases and integration requirements.
+Start with [getting started](user_guide/getting_started.md). It explains what you
+need, how to create notices, and where to find the PDFs and report. The
+[configuration guide](user_guide/configuration.md) explains settings and reference
+lists. See [CSV fields](user_guide/input_schema.md) for the required columns and
+[PDF review](user_guide/pdf_validation.md) for warnings, failed checks and holds.
+
+## Edit templates or work on the application
+
+The [template guide](developer_guide/templates.md) explains how to change notice
+content and shared components. Developers can use the
+[command reference](developer_guide/cli.md), [architecture guide](developer_guide/architecture.md)
+and [contributing guide](developer_guide/contributing.md).
+
+[Studio](user_guide/studio.md) is a separate browser editor. ImmuKnow Template
+supplies a starting project. Check their instructions when updating Core.

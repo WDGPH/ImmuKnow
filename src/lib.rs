@@ -1,6 +1,6 @@
-//! Native notice preparation, warm Typst compilation and verified delivery.
+//! Prepare client information, compile notices, and save PDFs with a review report.
+pub mod bundles;
 pub mod compiler;
-pub mod delivery;
 pub mod input;
 pub mod pdf;
 pub mod pipeline;

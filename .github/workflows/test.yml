@@ -36,7 +36,9 @@ jobs:
       - run: cargo test --release --locked
       - name: Build and inspect release archive
         run: |
-          scripts/build-native.sh "$RUNNER_TEMP/dist"
+          mkdir -p "$RUNNER_TEMP/dist"
+          tar -czf "$RUNNER_TEMP/dist/immuknow-linux-x86_64.tar.gz" \
+            -C target/release immuknow -C "$GITHUB_WORKSPACE" LICENSE
           tar -tzf "$RUNNER_TEMP"/dist/*.tar.gz
       - name: Upload native release archive
         uses: actions/upload-artifact@v7.0.2

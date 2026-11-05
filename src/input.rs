@@ -145,11 +145,11 @@ pub fn config(path: &Path) -> Result<Config> {
         c.typst.bin.is_none() && c.typst.timeouts_seconds.is_none(),
         "typst.bin and typst.timeouts_seconds are retired; remove them from parameters.yaml"
     );
-    validate_delivery(&c)?;
+    validate_bundling(&c)?;
 
     Ok(c)
 }
-/// Parse and normalize delivery grouping fields.
+/// Parse the fields used to group notices into bundles.
 pub fn grouping_fields(value: &Value) -> Result<Vec<String>> {
     let fields: Vec<&str> = match value {
         Value::Null => vec![],
@@ -225,8 +225,8 @@ pub fn fixed_pages(config: &Config) -> Result<Option<u64>> {
         Ok(None)
     }
 }
-/// Validate delivery settings on both new runs and saved-run attempts.
-pub fn validate_delivery(config: &Config) -> Result<()> {
+/// Apply the same bundle settings to new runs and saved runs.
+pub fn validate_bundling(config: &Config) -> Result<()> {
     ensure!(
         config
             .validation
@@ -669,7 +669,7 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>
             .as_deref()
             .filter(|s| !s.trim().is_empty());
         let path = if file.is_none() {
-            options.resources.join("config/school_reference.json")
+            config_dir.join("school_reference.json")
         } else if Path::new(file.unwrap()).is_absolute() {
             PathBuf::from(file.unwrap())
         } else {
@@ -759,7 +759,7 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>
             checks.push(check(
                 "assignment.extra_manifest_row",
                 "warn",
-                "Assignment manifest contains entries absent from the source.",
+                "The assignment file contains clients who are not in the CSV.",
             ));
         }
         if let Some((mapping, hash, filename)) = &school {
@@ -973,7 +973,7 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>
                 "assignment.eligibility_conflict",
                 if applicable { "pass" } else { "warn" },
                 if applicable {
-                    "Selected notice is applicable."
+                    "The selected notice matches the supplied information."
                 } else {
                     "Selected notice does not match the supplied facts."
                 },
@@ -982,7 +982,7 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>
             checks.push(check(
                 "assignment.check_unavailable",
                 "warn",
-                "No catalog applicability check is available for this selected version.",
+                "The selected notice has no matching rule in the notice catalog.",
             ));
         }
         let first = get(r, "first_name");
@@ -992,7 +992,45 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>
             .filter(|s| !s.is_empty())
             .collect::<Vec<_>>()
             .join(" ");
-        let notice = json!({"schema_version":1,"row_key":row_key,"client_id":id,"oiid":get(r,"oiid"),"oiid_coverage":oiid_coverage,"template":a.template,"version_id":version,"language":language,"intended_reader":if get(r,"intended_reader").is_empty(){None}else{Some(get(r,"intended_reader"))},"client_data":{"name":full_name,"first_name":first,"last_name":last,"first_initial":first.chars().take(1).collect::<String>(),"last_initial":last.chars().take(1).collect::<String>(),"address":street,"city":get(r,"city"),"province":get(r,"province"),"postal_code":get(r,"postal_code"),"date_of_birth_iso":dob,"age":age,"school":get(r,"school_name")},"school":{"name":get(r,"school_name"),"id":get(r,"school_id")},"board":{"name":get(r,"board_name"),"id":get(r,"board_id")},"date_of_delivery":c.date_of_delivery,"date_as_of":c.date_as_of,"overdue_diseases":overdue,"overdue_agents":agents,"history":history,"has_immunization_records":!history.is_empty(),"validity_coverage":dataset_coverage,"history_validity_coverage":coverage(hk,hu)});
+        let notice = json!({
+            "schema_version": 1,
+            "row_key": row_key,
+            "client_id": id,
+            "oiid": get(r, "oiid"),
+            "oiid_coverage": oiid_coverage,
+            "template": a.template,
+            "version_id": version,
+            "language": language,
+            "intended_reader": if get(r, "intended_reader").is_empty() {
+                None
+            } else {
+                Some(get(r, "intended_reader"))
+            },
+            "client_data": {
+                "name": full_name,
+                "first_name": first,
+                "last_name": last,
+                "first_initial": first.chars().take(1).collect::<String>(),
+                "last_initial": last.chars().take(1).collect::<String>(),
+                "address": street,
+                "city": get(r, "city"),
+                "province": get(r, "province"),
+                "postal_code": get(r, "postal_code"),
+                "date_of_birth_iso": dob,
+                "age": age,
+                "school": get(r, "school_name")
+            },
+            "school": {"name": get(r, "school_name"), "id": get(r, "school_id")},
+            "board": {"name": get(r, "board_name"), "id": get(r, "board_id")},
+            "date_of_delivery": c.date_of_delivery,
+            "date_as_of": c.date_as_of,
+            "overdue_diseases": overdue,
+            "overdue_agents": agents,
+            "history": history,
+            "has_immunization_records": !history.is_empty(),
+            "validity_coverage": dataset_coverage,
+            "history_validity_coverage": coverage(hk, hu)
+        });
         result.push(Prepared{source,notice,checks,assignment:json!({"template":a.template,"version_id":version,"language":language,"notice_kind":kind,"experiment_id":a.experiment_id,"experiment_arm":a.experiment_arm})});
     }
     Ok(result)

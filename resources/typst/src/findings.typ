@@ -14,7 +14,7 @@
   }
   [#metadata((name: name, measurements: measurements, url: url, notice: notice)) <immuknow-component>]
 }
-#let report-schema = json("../report-v2.json")
+#let report-schema = json("../report.json")
 #let known-components = report-schema.properties.components.properties.keys()
 
 // Query the final placed elements, never a state updated during layout iterations.

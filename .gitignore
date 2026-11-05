@@ -1,6 +1,6 @@
 /runs/
 /target/
-/plugins/qr/target/
+/typst-plugins/qr/target/
 /build/
 /dist/
 /site/

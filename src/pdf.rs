@@ -1,4 +1,4 @@
-//! lopdf candidate: whole-document encryption; visual bundles preserve source page trees.
+//! Whole-document encryption and visual bundles that preserve source page trees.
 use anyhow::{Result, ensure};
 use lopdf::encryption::crypt_filters::{Aes256CryptFilter, CryptFilter};
 use lopdf::{Document, EncryptionState, EncryptionVersion, Object, Permissions, dictionary};
@@ -226,7 +226,7 @@ pub fn merge(paths: &[impl AsRef<Path>], destination: &Path) -> Result<usize> {
         }
         ensure!(
             !source.catalog()?.has(b"AcroForm"),
-            "Rust bundle prototype does not support forms"
+            "PDF bundles do not support forms"
         );
         resolve_named_links(&mut source)?;
         source.renumber_objects_with(merged.max_id + 1);
@@ -237,7 +237,7 @@ pub fn merge(paths: &[impl AsRef<Path>], destination: &Path) -> Result<usize> {
             .get_object_mut(root)?
             .as_dict_mut()?
             .set("Parent", pages_root);
-        // Tagged merging is explicitly outside this candidate's verified contract.
+        // Tagged merging is outside the verified contract.
         // Remove dangling document-level parent-tree keys rather than claim valid tags.
         for object in source.objects.values_mut() {
             if let Ok(d) = object.as_dict_mut() {

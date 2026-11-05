@@ -1,4 +1,4 @@
-//! Bundle retained originals into uniquely named delivery attempts.
+//! Create numbered bundle sets from the saved original PDFs.
 use anyhow::{Context, Result, ensure};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -49,7 +49,7 @@ fn severity(entry: &Value) -> &'static str {
     }
     if warning { "warn" } else { "pass" }
 }
-/// Report the most severe finding, including failed encryption and delivery.
+/// Summarize the most severe finding across notices and bundles.
 pub fn outcome(record: &Value) -> &'static str {
     let mut warning = false;
     for e in record["entries"].as_array().into_iter().flatten() {
@@ -83,6 +83,7 @@ pub fn bundle(
 ) -> Result<()> {
     let fields = crate::input::grouping_fields(&config.bundling.group_by)?;
     let fixed = crate::input::fixed_pages(config)?;
+    // Work on a copy so a failed bundle attempt leaves the saved decisions intact.
     let mut entries = record["entries"]
         .as_array()
         .context("Missing run entries")?
@@ -124,6 +125,7 @@ pub fn bundle(
                 e["effective_checks"].as_array_mut().unwrap().push(json!({"code":"delivery.notice_length","stage":"delivery","status":"fail","message":format!("Expected {expected} pages; found {pages}")}));
             }
         }
+        // Readable notices with failures stay available in a separate review bundle.
         let route = if severity(e) == "fail" || e["encryption"]["status"] == "failed" {
             "review"
         } else {

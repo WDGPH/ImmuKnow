@@ -14,7 +14,6 @@ markdown_extensions:
   - admonition
   - tables
   - fenced_code
-  - pymdownx.snippets
   - toc:
       permalink: true
 plugins:
@@ -25,13 +24,13 @@ nav:
       - Getting Started: user_guide/getting_started.md
       - Configuration: user_guide/configuration.md
       - ImmuKnow Studio: user_guide/studio.md
-      - PHU Templates: user_guide/phu_templates.md
       - CSV Input Fields: user_guide/input_schema.md
       - PDF Review: user_guide/pdf_validation.md
-  - Reference:
-      - Architecture: reference/architecture.md
-      - Command and Facts Reference: reference/api.md
-  - Developer Guide:
+  - Developers and Template Authors:
+      - Writing Templates: developer_guide/templates.md
+      - Command Reference: developer_guide/cli.md
+      - Architecture: developer_guide/architecture.md
+      - QR Codes: developer_guide/qr.md
       - Contributing: developer_guide/contributing.md
       - Testing: developer_guide/testing.md
       - Documentation: developer_guide/documentation.md

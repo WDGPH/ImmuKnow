@@ -10,8 +10,8 @@ pub struct Validator {
 }
 impl Validator {
     pub fn new(core: &Path) -> Result<Self> {
-        let payload: Value = crate::read_json(&core.join("schemas/rendering-v1.json"))?;
-        let schema: Value = crate::read_json(&core.join("typst/report-v2.json"))?;
+        let payload: Value = crate::read_json(&core.join("schemas/rendering.json"))?;
+        let schema: Value = crate::read_json(&core.join("typst/report.json"))?;
         Ok(Self {
             payload: jsonschema::options()
                 .should_validate_formats(true)
@@ -74,6 +74,8 @@ impl Validator {
             Ok(())
         }
         let checks = r["checks"].as_array().unwrap();
+        // Schema validation establishes shape; these checks tie each component
+        // and measurement back to the source row and the rendered document.
         for (name, placed) in r["components"].as_object().unwrap() {
             let measurements = r["measurements"][name]
                 .as_array()

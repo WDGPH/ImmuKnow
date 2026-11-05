@@ -2,7 +2,7 @@
 
 Import `lib.typ` from the authored project. Importing the package does not read
 client data, inspect compiler inputs, or render components. Core supplies the
-prepared facts described by `resources/schemas/rendering-v1.json`.
+prepared facts described by `resources/schemas/rendering.json`.
 
 Text links and URL helpers live in `src/links.typ`; QR rendering lives in
 `src/qr.typ`. Use the public helpers exported by `lib.typ` in your templates.
@@ -52,7 +52,7 @@ display-default adapter or separate layout-settings file.
 - `client-block(notice, window: envelope-preset)` places the address and labeled
   client ID, with details beside the address or below it (`details: "below"`).
   `id-label: "Record number"` changes the label. Each placed ID records its
-  source row, value and measured area for checking against the PDF text.
+  source row, value and measured area in the document report.
   The source province is the default. An unknown reader uses a neutral addressee;
   unknown birth dates remain blank and produce a warning when displayed.
   It warns if the client-details area enters the first-page envelope window.
@@ -75,7 +75,7 @@ display-default adapter or separate layout-settings file.
   without changing supplied facts. Varicella applies from the 2010 birth cohort;
   meningococcal scope also follows birth cohort and age. Mixed lists remain
   supported. `ispa-only: true` on `overdue-agents` raises an explicit error.
-  See the [authoring guide](https://docs.phiz.ca/immuknow/latest/user_guide/phu_templates/#ispa-disease-display-and-assertions)
+  See the [authoring guide](https://docs.phiz.ca/immuknow/latest/developer_guide/templates/#ispa-disease-display-and-assertions)
   for the rules and suspension/affirmative assertions.
 - `immunization-history(notice, diseases: (...), include-other: true,
   ignore-agents: (), show-validity: true, omit-invalid: false)` derives the
@@ -126,7 +126,7 @@ Unused content emits no component findings. `url-encode(string)` encodes UTF-8
 query/path components with RFC 3986 unreserved characters; `query-url` applies
 it to raw dictionary keys and values. A fixed URL string is used verbatim.
 
-The report follows `report-v2.json`: `schema_version: 2`, `identity` (`row_key`,
+The report follows `report.json`: `schema_version: 2`, `identity` (`row_key`,
 `template`, `client_id`, `version_id`, `language`), actual `page_count`, `checks`,
 `qr_urls`, `measurements`, and the `notice` data used for layout. Native and
 browser checks compare that data with the prepared input. Each placed personal
@@ -157,7 +157,7 @@ for non-ASCII destinations. URL construction and styled drawing remain in Typst;
 default square symbols use horizontal runs prepared in Rust. Other styles and
 centre images use a cell matrix; structural marker geometry is derived from
 Codetastic. Plugin source and build
-instructions are in Core's `plugins/qr/`. Native use and Studio need no Rust
+instructions are in Core's `typst-plugins/qr/`. Native use and Studio need no Rust
 installation or downloaded Typst packages.
 
 Bullet lists use `indent: 0.8cm` by default. Set `indent` on the overdue helper

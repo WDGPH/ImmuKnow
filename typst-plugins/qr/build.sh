@@ -28,7 +28,7 @@ cd -- "$project"
 cargo "+$toolchain" build --locked --release --target wasm32-unknown-unknown
 built="$target/wasm32-unknown-unknown/release/immuknow_qr.wasm"
 if [[ "$mode" == --check ]]; then
-  cmp --silent "$built" "$destination" || { printf 'QR plugin differs; rebuild with plugins/qr/build.sh\n' >&2; exit 1; }
+  cmp --silent "$built" "$destination" || { printf 'QR plugin differs; rebuild with typst-plugins/qr/build.sh\n' >&2; exit 1; }
   printf 'QR plugin verified: %s\n' "$destination"
 else
   cp -- "$built" "$destination"
