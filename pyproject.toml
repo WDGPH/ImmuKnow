@@ -28,6 +28,7 @@ dependencies = [
     "pypdf[crypto]>=6.21.2",
     "frictionless",
     "jsonschema>=4.26.0",
+    "pikepdf>=10.17.0",
 ]
 
 [dependency-groups]

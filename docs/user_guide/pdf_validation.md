@@ -255,7 +255,7 @@ manually changing these files is unsupported. Saved hashes identify the files
 originally produced and are not repeatedly checked for outside edits.
 
 Each attempt records the application code and data format files it uses, along
-with the Python and pypdf versions, saved resources and output hashes.
+with the Python, pypdf, pikepdf and qpdf versions, saved resources and output hashes.
 Earlier attempt records stay unchanged.
 Only supported run formats can be loaded. The compiler version used to create
 a notice does not prevent copying its completed PDF pages.

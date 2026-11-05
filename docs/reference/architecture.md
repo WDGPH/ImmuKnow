@@ -183,7 +183,10 @@ failures remain in JSON/HTML. The CSV is a view, not a second run record.
 It needs neither the source project nor Typst, fonts or encryption passwords.
 Initial assembly opens each original once, copies its pages and records the
 resulting page ranges. Newly assembled bundles are reopened to check their page
-counts. Review choices change the findings, not the pages: a later attempt with
+counts. Assembly and individual encryption use pikepdf's compiled qpdf engine;
+pypdf independently reads the resulting PDFs for output checks. Run and attempt
+engine records include both PDF library versions and the qpdf version.
+Review choices change the findings, not the pages: a later attempt with
 the same grouping settings copies the completed PDF files into its new directory
 and writes updated CSVs. It does not parse or reassemble those PDFs. The requested
 notice length is still checked against the original page counts.

@@ -8,8 +8,8 @@ from multiprocessing import get_context
 from collections.abc import Callable, Iterable
 from pypdf.errors import PdfReadError
 
-from pypdf import PdfReader, PdfWriter
-from pypdf.errors import DependencyError
+import pikepdf
+from pypdf import PdfReader
 from pypdf.generic import DictionaryObject
 
 from .client_placeholders import (
@@ -51,26 +51,25 @@ def encrypt_notice(
     if not password.strip():
         raise ValueError("Password must not be empty")
 
-    reader = PdfReader(source)
-    writer = PdfWriter()
-    writer.clone_document_from_reader(reader)
-    try:
-        writer.encrypt(
-            user_password=password, owner_password=password, algorithm="AES-256"
-        )
-    except DependencyError:
-        raise ValueError(
-            "PDF encryption is unavailable. Reinstall ImmuKnow with its required dependencies."
-        ) from None
-    except ValueError:
-        raise ValueError(
-            "The password cannot be used for PDF encryption. Check the password settings."
-        ) from None
     destination.parent.mkdir(parents=True, exist_ok=True)
     partial = destination.with_suffix(".partial.pdf")
     try:
-        with partial.open("wb") as stream:
-            writer.write(stream)
+        try:
+            with pikepdf.Pdf.open(source) as original:
+                page_count = len(original.pages)
+                original.save(
+                    partial,
+                    encryption=pikepdf.Encryption(
+                        owner=password,
+                        user=password,
+                        R=6,
+                        allow=pikepdf.Permissions(modify_assembly=True),
+                    ),
+                )
+        except (pikepdf.PdfError, pikepdf.PasswordError, ValueError):
+            raise ValueError(
+                "The PDF could not be encrypted. Check the source and password settings."
+            ) from None
         encrypted = PdfReader(partial)
         if (
             not encrypted.is_encrypted
@@ -92,7 +91,7 @@ def encrypt_notice(
             raise ValueError(
                 "Encrypted output does not use the required AES-256 settings"
             )
-        if len(encrypted.pages) != len(reader.pages):
+        if len(encrypted.pages) != page_count:
             raise ValueError("Encrypted output page count differs from the original")
         partial.replace(destination)
         return {"algorithm": "AES-256", "revision": 6, "key_bits": 256}

@@ -18,6 +18,8 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any, TextIO
 
+import pikepdf
+
 from .data_models import CheckResult, CheckStatus
 
 RUN_FORMAT_VERSION = 2
@@ -30,6 +32,11 @@ def engine_identity() -> dict[str, Any]:
         "application_version": version("ImmuKnow"),
         "python_version": platform.python_version(),
         "pdf_library_version": version("pypdf"),
+        "pdf_writer": {
+            "library": "pikepdf",
+            "version": version("pikepdf"),
+            "qpdf_version": pikepdf.__libqpdf_version__,
+        },
         "run_format_version": RUN_FORMAT_VERSION,
         "code": [
             artifact_record(path, package) for path in sorted(package.glob("*.py"))

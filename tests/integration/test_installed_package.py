@@ -200,7 +200,7 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
         [
             str(python),
             "-c",
-            "import importlib.util; assert all(importlib.util.find_spec(m) is None for m in ('PIL','qrcode','pymupdf','zxingcpp'))",
+            "import importlib.util; assert all(importlib.util.find_spec(m) is None for m in ('qrcode','pymupdf','zxingcpp'))",
         ],
         unrelated,
     )

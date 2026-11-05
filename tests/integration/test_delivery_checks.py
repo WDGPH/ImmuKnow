@@ -9,9 +9,17 @@ import shutil
 from pathlib import Path
 
 import pymupdf
+import pikepdf
 import pytest
 import yaml
 from pypdf import PdfReader, PdfWriter
+from pypdf.generic import (
+    ArrayObject,
+    DictionaryObject,
+    NameObject,
+    NumberObject,
+    TextStringObject,
+)
 
 from immuknow import bundle_pdfs, run_report
 from immuknow.orchestrator import run_pipeline
@@ -19,6 +27,73 @@ from tests.fixtures.sample_input import create_test_input_dataframe
 
 ROOT = Path(__file__).resolve().parents[2]
 pytestmark = pytest.mark.integration
+
+
+@pytest.mark.parametrize("pdf_version", ["1.7", "2.0"])
+def test_assembly_preserves_pdf_version_and_internal_link_targets(
+    tmp_path: Path, pdf_version: str
+) -> None:
+    routed = []
+    for index in range(2):
+        source = tmp_path / f"source-{index}.pdf"
+        writer = PdfWriter()
+        writer.pdf_header = "%PDF-" + pdf_version
+        writer.add_blank_page(width=300, height=400)
+        writer.add_blank_page(width=300, height=400)
+        writer.add_named_destination("target", 1)
+        for top, destination in enumerate(
+            [
+                ArrayObject([writer.pages[1].indirect_reference, NameObject("/Fit")]),
+                TextStringObject("target"),
+            ]
+        ):
+            writer.add_annotation(
+                0,
+                DictionaryObject(
+                    {
+                        NameObject("/Type"): NameObject("/Annot"),
+                        NameObject("/Subtype"): NameObject("/Link"),
+                        NameObject("/Rect"): ArrayObject(
+                            [
+                                NumberObject(n)
+                                for n in (20, 20 + top * 40, 120, 45 + top * 40)
+                            ]
+                        ),
+                        NameObject("/A"): DictionaryObject(
+                            {
+                                NameObject("/S"): NameObject("/GoTo"),
+                                NameObject("/D"): destination,
+                            }
+                        ),
+                    }
+                ),
+            )
+        with source.open("wb") as stream:
+            writer.write(stream)
+        routed.append(
+            (
+                {
+                    "row_key": f"row-{index}",
+                    "original": {"path": source.name, "pages": 2},
+                },
+                {"destination": "delivery"},
+            )
+        )
+    output = tmp_path / "bundles"
+    output.mkdir()
+    attempt = {"directory": "bundles", "bundles": [], "memberships": {}}
+    bundle_pdfs._assemble(routed, output, (), 100, attempt, tmp_path)
+    combined = tmp_path / attempt["bundles"][0]["path"]
+    assert PdfReader(combined).pdf_header == "%PDF-" + pdf_version
+    with pymupdf.open(combined) as document:
+        assert len(document) == 4
+        for offset in (0, 2):
+            links = document[offset].get_links()
+            assert [link["kind"] for link in links] == [
+                pymupdf.LINK_GOTO,
+                pymupdf.LINK_NAMED,
+            ]
+            assert all(link["page"] == offset + 1 for link in links)
 
 
 @pytest.fixture
@@ -148,14 +223,14 @@ def test_fixed_page_count_checks_all_final_batches_and_cannot_be_waived(saved_ru
 
 def test_written_bundle_count_is_checked_before_publication(saved_run, monkeypatch):
     before = record(saved_run)
-    write = PdfWriter.write
+    save = pikepdf.Pdf.save
 
-    def extra_page(writer, stream):
-        if ".incomplete" in str(getattr(stream, "name", "")):
-            writer.add_blank_page(width=100, height=100)
-        return write(writer, stream)
+    def extra_page(writer, destination, **kwargs):
+        if ".incomplete" in str(destination):
+            writer.add_blank_page(page_size=(100, 100))
+        return save(writer, destination, **kwargs)
 
-    monkeypatch.setattr(PdfWriter, "write", extra_page)
+    monkeypatch.setattr(pikepdf.Pdf, "save", extra_page)
     result = bundle_pdfs.bundle_run(saved_run, policy={})
     assert result["status"] == "failed"
     assert "page count does not match memberships" in result["checks"][-1]["message"]

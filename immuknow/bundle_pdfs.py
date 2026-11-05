@@ -12,7 +12,8 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from pypdf import PdfReader, PdfWriter
+import pikepdf
+from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
 from . import run_report, validation_policy
@@ -53,18 +54,6 @@ def _group_values(entry: dict, fields: tuple[str, ...]) -> tuple[str, ...]:
         else:
             values.append(str(entry["original"]["pages"]))
     return tuple(values)
-
-
-def _original_reader(entry: dict, run_dir: Path) -> PdfReader:
-    """Open an accepted original only when its pages are needed for assembly."""
-    reader = PdfReader(run_dir / entry["original"]["path"])
-    if reader.is_encrypted or not reader.pages:
-        raise ValueError(
-            f"Original PDF must be readable and unencrypted: {entry['row_key']}"
-        )
-    if len(reader.pages) != entry["original"]["pages"]:
-        raise ValueError(f"Original PDF page count changed: {entry['row_key']}")
-    return reader
 
 
 def _routes(
@@ -148,31 +137,42 @@ def _assemble(
             name = f"{prefix}_{group_number:03d}_{label}_{offset // size + 1:03d}.pdf"
             output = next_dir / name
             path = attempt["directory"] + "/" + name
-            writer = PdfWriter()
             memberships: list[tuple[dict, dict, dict]] = []
             cursor = 1
-            for entry, routing in chunk:
-                first_page = cursor
-                original = _original_reader(entry, run_dir)
-                for page in original.pages:
-                    writer.add_page(page)
-                    cursor += 1
-                memberships.append(
-                    (
-                        entry,
-                        routing,
-                        {
-                            "path": path,
-                            "destination": "bundle",
-                            "start_page": first_page,
-                            "end_page": cursor - 1,
-                            "notice_start_page": first_page,
-                            "notice_end_page": cursor - 1,
-                        },
+            minimum_version = "1.3"
+            with pikepdf.Pdf.new() as writer:
+                for entry, routing in chunk:
+                    first_page = cursor
+                    with pikepdf.Pdf.open(
+                        run_dir / entry["original"]["path"]
+                    ) as original:
+                        if original.is_encrypted or not original.pages:
+                            raise ValueError(
+                                "Original PDF must be readable and unencrypted: "
+                                + entry["row_key"]
+                            )
+                        if len(original.pages) != entry["original"]["pages"]:
+                            raise ValueError(
+                                "Original PDF page count changed: " + entry["row_key"]
+                            )
+                        minimum_version = max(minimum_version, original.pdf_version)
+                        writer.add_pages_from(original)
+                        cursor += len(original.pages)
+                    memberships.append(
+                        (
+                            entry,
+                            routing,
+                            {
+                                "path": path,
+                                "destination": "bundle",
+                                "start_page": first_page,
+                                "end_page": cursor - 1,
+                                "notice_start_page": first_page,
+                                "notice_end_page": cursor - 1,
+                            },
+                        )
                     )
-                )
-            with output.open("wb") as stream:
-                writer.write(stream)
+                writer.save(output, min_version=minimum_version)
             written = PdfReader(output)
             if len(written.pages) != cursor - 1:
                 raise ValueError(
@@ -602,6 +602,15 @@ def _bundle_run(
         run_report.add_check(attempt, "delivery.failed", "delivery", "fail", detail)
         run_report.finish_run(record)
         run_report.write_report(run_dir, record)
-        if isinstance(exc, (OSError, ValueError, PdfReadError)):
+        if isinstance(
+            exc,
+            (
+                OSError,
+                ValueError,
+                PdfReadError,
+                pikepdf.PdfError,
+                pikepdf.PasswordError,
+            ),
+        ):
             return attempt
         raise
