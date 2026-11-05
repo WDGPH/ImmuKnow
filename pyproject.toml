@@ -14,7 +14,7 @@ immuknow = [
     "typst/*",
     "typst/src/*.typ",
     "typst/locales/*.json",
-    "typst/vendor/codetastic/*",
+    "typst/vendor/qr/*",
     "review_templates/*.typ",
 ]
 
@@ -43,6 +43,7 @@ dev = [
     "prek",
     "ty>=0.0.91",
     "pytest-xdist>=3.8.0",
+    "pikepdf==10.17.0",
 ]
 docs = [
     "jinja2>=3.1.6",

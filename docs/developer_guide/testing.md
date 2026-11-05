@@ -1,8 +1,11 @@
 # Testing
 
 Run commands from the Core repository root. Studio has its own repository,
-examples and browser checks. Core builds and tests do not require Node, Rust
-or Pillow. Native QR checks decode grayscale page buffers directly with ZXing.
+examples and browser checks. The existing Python commands and their tests do not
+require Node or Rust. Native QR checks decode grayscale page buffers directly
+with ZXing. The Rust pipeline has a separate Cargo build/test workflow; its
+independent PDF audit scripts use the pinned development dependency `pikepdf`.
+The Rust executable itself uses lopdf and requires no Python runtime.
 
 ## Testing across the projects
 

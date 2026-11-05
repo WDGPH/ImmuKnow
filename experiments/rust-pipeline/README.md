@@ -17,10 +17,25 @@ and process independent bundles concurrently. The Rust source and shared Typst
 resources match the measured experiment; this PR carries the compiled QR
 resource update relative to `main`.
 
-This is an experiment, not an alternative production command. The Python
-package and its installation requirements are unchanged. The earlier direct-report Rust Typst middleware with Python orchestration and
+This is an experiment, not an alternative production command. The existing
+Python CLI retains its runtime dependencies. The earlier direct-report Rust Typst middleware with Python orchestration and
 pikepdf remains a fallback candidate, documented in #241/#242 rather than
 included in this standalone branch.
+
+## CI coverage
+
+`Check Rust pipeline` builds the release executable with the pinned toolchain and
+locked Cargo dependencies, runs the shared render-contract/PDF/worker tests,
+checks formatting and exercises the executable entry point. Cargo builds run
+serially to bound compiler memory; application/library runtime threads retain
+their defaults. Cached build outputs avoid rebuilding Typst on every revision.
+
+The existing Python matrix stays enabled because this draft still ships the
+Python CLI and changes its shared QR resources. It also type-checks the optional
+Python audit tools. Their independent PDF reader, `pikepdf`, is a locked
+**development-only** dependency, not a dependency of the Rust executable.
+Install those tools with `uv sync --locked --group dev`. CI does not run the
+1,000-client performance experiment or claim production workflow parity.
 
 ## Build and run
 
