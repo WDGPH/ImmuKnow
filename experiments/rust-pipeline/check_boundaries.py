@@ -110,6 +110,7 @@ def main() -> None:
         with path.open(newline="") as stream:
             reader = csv.DictReader(stream)
             rows, fields = list(reader), reader.fieldnames
+        assert fields is not None
         function(rows)
         with path.open("w", newline="") as stream:
             writer = csv.DictWriter(stream, fieldnames=fields)

@@ -13,6 +13,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Any, cast
 
 
 def main() -> None:
@@ -33,6 +34,8 @@ def main() -> None:
     from immuknow import bundle_pdfs, compile_notices, encrypt_notices
     from immuknow.orchestrator import run_pipeline
 
+    # This adapter targets the separate #241 checkout selected by --core.
+    comparison_pipeline = cast(Any, run_pipeline)
     original_run = compile_notices.run_typst
     child = None
     reports = None
@@ -42,7 +45,9 @@ def main() -> None:
         "delivery_seconds": 0.0,
     }
 
-    def native(command, *, timeout, operation):
+    def native(
+        command: list[str], *, timeout: float, operation: str
+    ) -> subprocess.CompletedProcess[str]:
         nonlocal child, reports
         if command[1] != "compile":
             return original_run(command, timeout=timeout, operation=operation)
@@ -68,6 +73,7 @@ def main() -> None:
             "timestamp": int(command[command.index("--creation-timestamp") + 1]),
             "direct_report": True,
         }
+        assert child.stdin is not None and child.stdout is not None
         child.stdin.write(json.dumps(request) + "\n")
         child.stdin.flush()
         result = json.loads(child.stdout.readline())
@@ -77,11 +83,11 @@ def main() -> None:
         reports = result["reports"]
         return subprocess.CompletedProcess(command, 0, "", result["diagnostics"])
 
-    compile_notices.run_typst = native
-    compile_notices._strip_evidence = lambda content: (
-        content,
-        [json.dumps(reports).encode()],
-        False,
+    setattr(compile_notices, "run_typst", native)
+    setattr(
+        compile_notices,
+        "_strip_evidence",
+        lambda content: (content, [json.dumps(reports).encode()], False),
     )
 
     def instrument(module, name, key):
@@ -101,7 +107,7 @@ def main() -> None:
     instrument(bundle_pdfs, "_bundle_run", "delivery_seconds")
     started = time.perf_counter()
     try:
-        path = run_pipeline(
+        path = comparison_pipeline(
             args.csv,
             args.output,
             notice_assignments=args.assignments,
@@ -111,6 +117,7 @@ def main() -> None:
         )
     finally:
         if child is not None:
+            assert child.stdin is not None and child.stdout is not None
             child.stdin.close()
             child.wait(timeout=10)
             child.stdout.close()
