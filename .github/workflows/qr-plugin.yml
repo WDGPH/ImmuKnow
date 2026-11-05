@@ -15,7 +15,7 @@ jobs:
         with:
           python-version: '3.14'
       - name: Install the pinned Rust toolchain
-        run: rustup toolchain install 1.92.0 --profile minimal --component rustfmt --target wasm32-unknown-unknown
+        run: rustup toolchain install 1.92.0 --profile minimal --component rustfmt,rust-src --target wasm32-unknown-unknown
       - name: Check Rust formatting
         run: cargo +1.92.0 fmt --manifest-path plugins/qr/Cargo.toml --check
       - name: Rebuild and compare the shipped artifact

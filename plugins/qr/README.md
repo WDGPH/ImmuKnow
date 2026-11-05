@@ -16,6 +16,8 @@ python plugins/qr/build.py --check
 
 The build removes machine-specific source paths. The focused CI workflow
 rebuilds the artifact and requires identical bytes when plugin inputs change.
+Install the pinned `rust-src` component too: Rust's embedded panic locations
+depend on whether its source is installed.
 Core's normal test matrix does not build Rust. Keep the upstream and Rust
 licence notices beside the artifact when updating dependencies.
 
