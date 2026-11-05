@@ -1,10 +1,37 @@
-#import "../vendor/codetastic/qrutil.typ" as qrutil
-#import "../vendor/codetastic/bitfield.typ" as bitfield
+// Structural marker geometry follows Codetastic; see vendor/qr/LICENSE.codetastic.
+#let reserved-grid(n) = {
+  let version = calc.quo(n - 17, 4)
+  let field = range(n).map(row => range(n).map(column => row == 6 or column == 6))
+  let areas = ((0, 0, 9, 9), (n - 8, 0, 8, 9), (0, n - 8, 9, 8))
+  if version >= 7 {
+    areas += ((n - 11, 0, 3, 6), (0, n - 11, 6, 3))
+  }
+  if version > 1 {
+    let count = calc.quo(version, 7) + 2
+    let step = if version == 32 { 26 } else {
+      calc.quo(4 * version + 2 * count + 1, 2 * count - 2) * 2
+    }
+    let positions = (6,) + range(count - 1).map(i => n - 7 - i * step).rev()
+    for x in positions {
+      for y in positions {
+        if not ((x == 6 and y == 6) or (x == 6 and y == n - 7) or (x == n - 7 and y == 6)) {
+          areas.push((x - 2, y - 2, 5, 5))
+        }
+      }
+    }
+  }
+  for (x, y, width, height) in areas {
+    for row in range(y, y + height) {
+      for column in range(x, x + width) { field.at(row).at(column) = true }
+    }
+  }
+  field
+}
 
 // Style only data cells; retain timing, alignment, format and version information.
-#let draw-qr(field, version, unit, quiet, bg, fg, module-shape: "square", corner-style: "square", logo: none, logo-size: 30%, logo-padding: 0.3mm, logo-mask: none) = {
+#let draw-qr(field, unit, quiet, bg, fg, module-shape: "square", corner-style: "square", logo: none, logo-size: 30%, logo-padding: 0.3mm, logo-mask: none) = {
   let n = field.len()
-  let reserved = qrutil.reserve-bits(bitfield.new(n, n), version)
+  let reserved = reserved-grid(n)
   let total = (n + 2 * quiet) * unit
   let logo-cells = n * (logo-size / 100%)
   let start = (n - logo-cells) / 2

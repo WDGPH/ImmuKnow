@@ -14,7 +14,7 @@ immuknow = [
     "typst/*",
     "typst/src/*.typ",
     "typst/locales/*.json",
-    "typst/vendor/codetastic/*",
+    "typst/vendor/qr/*",
 ]
 
 [project]

@@ -79,7 +79,8 @@ def test_installed_wheel_uses_packaged_and_external_resources(tmp_path: Path) ->
             "schemas/rendering-v1.json",
             "typst/lib.typ",
             "typst/src/findings.typ",
-            "typst/vendor/codetastic/LICENSE",
+            "typst/vendor/qr/qr.wasm",
+            "typst/vendor/qr/LICENSE.qrcodegen",
         ):
             assert f"immuknow/{resource}" in names
         assert not any(name.startswith("immuknow/templates/") for name in names)

@@ -1,4 +1,4 @@
-#import "../vendor/codetastic/codetastic.typ" as codes
+#import "qr-encode.typ": encode-qr
 #import "qr-style.typ": draw-qr
 #import "findings.typ": component
 
@@ -34,8 +34,10 @@
   let ecl = if error-correction == auto { if logo == none { "l" } else { "h" } } else { error-correction }
   assert(logo == none or ecl == "h", message: "QR centre images require error-correction: h (or auto)")
   component("qr", notice: notice, url: destination)
-  link(destination, codes.qrcode(destination, width: width, quiet-zone: 4, ecl: ecl,
-    colors: (background, foreground),
-    draw: draw-qr.with(module-shape: module-shape, corner-style: corner-style, logo: picture, logo-size: logo-size, logo-padding: logo-padding, logo-mask: mask),
-  ))
+  let field = encode-qr(destination, ecl)
+  let quiet = 4
+  link(destination, box(draw-qr(field, width / (field.len() + 2 * quiet), quiet,
+    background, foreground, module-shape: module-shape, corner-style: corner-style,
+    logo: picture, logo-size: logo-size, logo-padding: logo-padding, logo-mask: mask,
+  )))
 }

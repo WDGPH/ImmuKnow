@@ -26,7 +26,8 @@ no fonts; it uses the completed PDFs.
 
 The Python runtime needs the official Typst 0.15.1 executable. It does not require
 Node, Rust, a browser, or a Python QR encoder. QR construction and drawing
-are authored in Typst Settings. Optional image inspection tools belong to the
+use a bundled WebAssembly encoder and Typst drawing; Settings supplies QR options.
+Optional image inspection tools belong to the
 development environment.
 
 Build native artifacts with the same Python versions supported at runtime:
