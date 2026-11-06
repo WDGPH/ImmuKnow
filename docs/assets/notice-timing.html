@@ -182,9 +182,23 @@
       }
       .budget-map {
         display: grid;
-        grid-template-columns: var(--columns, 31fr 29fr);
+        grid-template-columns: var(--columns, 31fr 25fr);
+        grid-template-rows: var(--rows, 4fr 56fr);
         gap: 8px;
-        height: 400px;
+        height: 520px;
+      }
+      .tile.prep-tile {
+        grid-column: 1 / -1;
+        flex-direction: row-reverse;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 14px;
+      }
+      .tile.prep-tile .seconds {
+        font-size: 22px;
+      }
+      .prep-tile .name {
+        font-size: 14px;
       }
       .rest {
         display: grid;
@@ -468,8 +482,8 @@
         }
         .budget-map {
           grid-template-columns: 1fr;
-          grid-template-rows: 31fr 29fr;
-          height: 620px;
+          grid-template-rows: var(--mobile-rows, 4fr 31fr 25fr);
+          height: 700px;
         }
         .hero-tile {
           padding: 25px;
@@ -492,14 +506,20 @@
           height: 140px;
         }
         .tile:not(.hero-tile) {
-          padding: 12px;
-          gap: 6px;
+          padding: 10px;
+          gap: 4px;
         }
         .tile:not(.hero-tile) .seconds {
           font-size: 29px;
         }
         .tile:not(.hero-tile) .name {
           font-size: 13px;
+        }
+        .tile.prep-tile {
+          padding: 6px 12px;
+        }
+        .tile.prep-tile .seconds {
+          font-size: 22px;
         }
         .parallel {
           padding: 19px;
@@ -555,6 +575,11 @@
         }
         .facts span {
           font-size: 12px;
+        }
+      }
+      @media (max-width: 400px) {
+        .budget-map {
+          height: 820px;
         }
       }
     </style>
@@ -670,17 +695,17 @@
         </div>
         <section id="budget-view" aria-label="A proportional time budget">
           <p class="intro">
-            Each block gets a share of the minute. Making each person's
-            information fit the pages takes the largest share. Select a block to
-            see what it does.
+            Follow the numbers in roughly the order the work happens. The larger
+            blocks take more time. Select a block for a plain-language
+            explanation.
           </p>
           <div class="budget-map" id="budget-map"></div>
           <p class="caption">
-            Block size shows main-workflow time, rounded to 60 seconds. These
-            are pieces of the work, rather than the order it runs in.
+            Times are rounded to a minute. Saving files and updating the report
+            also happen throughout the run; steps 2–6 repeat for each person.
           </p>
           <div class="explanation" aria-live="polite" aria-atomic="true">
-            <h2 id="detail-title">Compose each notice</h2>
+            <h2 id="detail-title">Fill and lay out each notice</h2>
             <p id="detail-description"></p>
           </div>
           <div class="parallel">
@@ -688,7 +713,7 @@
               <use href="#lock" width="60" height="66" />
             </svg>
             <div>
-              <h2>Meanwhile, make the protected copies.</h2>
+              <h2>At the same time: make protected copies.</h2>
               <p>
                 As each original is ready, another worker makes its
                 password-protected copy and checks it. The original is kept
@@ -1116,67 +1141,75 @@
       const categories = [
         {
           key: "Typst evaluation and layout",
-          name: "Compose each notice",
-          short: "Compose notices",
+          name: "Fill and lay out each notice",
+          short: "Fill and lay out each notice",
           color: "compose",
+          order: 2,
           description:
             "Fill the chosen template with this person’s information, build any QR code, and fit the text onto the pages. This is the largest part of the work. Typst stays warm between people, reusing fonts and earlier work where it can.",
         },
         {
           key: "PDF export",
-          name: "Write the PDFs",
-          short: "Write PDFs",
+          name: "Turn the pages into PDF files",
+          short: "Make the PDF files",
           color: "pdf",
+          order: 3,
           description:
             "Turn each finished page layout into a PDF. This happens for each notice as it is ready.",
         },
         {
           key: "Cache cleanup",
-          name: "Keep memory tidy",
-          short: "Tidy memory",
+          name: "Free memory for the next notice",
+          short: "Make room for the next notice",
           color: "memory",
+          order: 6,
           description:
-            "Release older cached Typst work while keeping useful results for the next notice. The engine stays warm without retaining everything forever.",
+            "Let go of older page-layout work so memory does not keep growing. Fonts and useful results stay ready for the next person’s notice.",
         },
         {
           key: "Original PDF checks",
           name: "Check the PDF pages",
-          short: "Page checks",
+          short: "Check PDF pages",
           color: "checks",
+          order: 4,
           description:
             "Inspect the original PDF and check its page count. The template also supplies a content-check report from the same compiled document; no extra pages or attachment are added.",
         },
         {
           key: "Reports and checkpoints",
-          name: "Save reports and checkpoints",
-          short: "Save reports",
+          name: "Save the review report",
+          short: "Save the review report",
           color: "reports",
+          order: 8,
           description:
             "Save the run record and its readable HTML report, including checkpoints during the run. This keeps findings and PDF locations together for review.",
         },
         {
           key: "Combining PDFs",
-          name: "Combine notices into groups",
-          short: "Combine groups",
+          name: "Join notices into groups",
+          short: "Join notices into groups",
           color: "groups",
+          order: 7,
           description:
             "Four workers can combine independent groups of original notices, with CSV lists of page membership. Readable notices with failed checks go into separate review PDFs. Notices on hold stay out.",
         },
         {
           key: "File hashes",
-          name: "Identify saved files",
-          short: "Identify files",
+          name: "Record each saved file’s fingerprint",
+          short: "Record which files were saved",
           color: "identity",
+          order: 5,
           description:
-            "Give saved files a fingerprint so the run record identifies their exact contents. This block covers the main workflow’s fingerprints; the background worker also identifies protected copies.",
+            "Calculate a digital fingerprint for each saved file, so the report records exactly which file was produced. Protected copies have fingerprints too; those are recorded by the background worker.",
         },
         {
           key: "Other preparation, file writes and bookkeeping",
-          name: "Read, prepare and save",
-          short: "Read + save",
+          name: "Read and prepare the client list",
+          short: "Read the client list",
           color: "files",
+          order: 1,
           description:
-            "Read and prepare the supplied input, pass each person’s information to Typst, save originals and prepared information, and update the run’s other records.",
+            "Read the CSV and your notice choices, then prepare each person’s information. This time allowance also includes saving the originals and other files as the run continues.",
         },
       ];
       // Largest-remainder rounding keeps the proportional picture at exactly 60 seconds.
@@ -1195,7 +1228,7 @@
           tiles[i].setAttribute("aria-pressed", String(i === index)),
         );
         $("detail-title").textContent =
-          `${categories[index].name} · about ${seconds[index]} seconds`;
+          `${categories[index].order}. ${categories[index].name} · about ${seconds[index]} seconds`;
         $("detail-description").textContent = categories[index].description;
       }
       function tile(index, hero = false) {
@@ -1207,7 +1240,7 @@
         button.style.setProperty("--weight", seconds[index]);
         button.setAttribute(
           "aria-label",
-          `${c.name}, about ${seconds[index]} seconds`,
+          `${c.order}. ${c.name}, about ${seconds[index]} seconds`,
         );
         button.setAttribute("aria-pressed", "false");
         const time = document.createElement("span");
@@ -1215,12 +1248,13 @@
         time.textContent = `${seconds[index]}s`;
         const label = document.createElement("span");
         label.className = "name";
-        label.textContent = hero ? "Compose each notice" : c.short;
+        label.textContent = `${c.order}. ${c.short}`;
         button.append(time, label);
         if (hero) {
           const sub = document.createElement("span");
           sub.className = "sub";
-          sub.textContent = "Personal text, QR codes and page layout.";
+          sub.textContent =
+            "Place each person’s text, history and QR code into the chosen template.";
           button.append(sub);
           const art = document.createElementNS(
             "http://www.w3.org/2000/svg",
@@ -1243,15 +1277,25 @@
       }
       $("budget-map").style.setProperty(
         "--columns",
-        `${seconds[0]}fr ${60 - seconds[0]}fr`,
+        `${seconds[0]}fr ${60 - seconds[0] - seconds[7]}fr`,
       );
-      $("budget-map").append(tile(0, true));
+      $("budget-map").style.setProperty(
+        "--rows",
+        `${seconds[7]}fr ${60 - seconds[7]}fr`,
+      );
+      $("budget-map").style.setProperty(
+        "--mobile-rows",
+        `${seconds[7]}fr ${seconds[0]}fr ${60 - seconds[7] - seconds[0]}fr`,
+      );
+      const preparation = tile(7);
+      preparation.classList.add("prep-tile");
+      $("budget-map").append(preparation, tile(0, true));
       const rest = document.createElement("div");
       rest.className = "rest";
       const rows = [
-        [1, 5],
-        [2, 6],
-        [7, 4, 3],
+        [1, 3],
+        [6, 2],
+        [5, 4],
       ];
       rest.style.gridTemplateRows = rows
         .map((row) => `${row.reduce((sum, i) => sum + seconds[i], 0)}fr`)

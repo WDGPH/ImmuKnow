@@ -1,43 +1,49 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 710" role="img" aria-labelledby="title desc">
-<title id="title">Where the minute goes</title><desc id="desc">A proportional time budget for 1,000 custom notices: 31 seconds composing pages and QR codes, 6 writing PDFs, 6 grouping originals, 4 tidying memory, 4 identifying files, 4 reading and saving, 3 reporting, 2 checking PDF pages. Protected copies are made alongside notice creation.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 820" role="img" aria-labelledby="title desc">
+<title id="title">Where the minute goes, in rough processing order</title><desc id="desc">1. Read the client list, 4 seconds including file saving throughout the run. 2. Fill and lay out notices, 31 seconds. 3. Make PDF files, 6 seconds. 4. Check PDF pages, 2 seconds. 5. Record which files were saved, 4 seconds. 6. Make room for the next notice, 4 seconds. 7. Join notices into groups, 6 seconds. 8. Save the review report, 3 seconds. Protected copies are made at the same time as notices.</desc>
 <style>:root{color-scheme:light dark;--bg:#f6f7fa;--ink:#19283b;--muted:#536277;--compose:#bbd5ff;--pdf:#d2c7ee;--groups:#b7e0cf;--memory:#f2d999;--identity:#dbdfea;--files:#bde3e8;--reports:#edc5d1;--checks:#f3c7a2;--tile-ink:#19283b}@media(prefers-color-scheme:dark){:root{--bg:#101721;--ink:#edf3fc;--muted:#bac7d9;--compose:#2c5085;--pdf:#493c6e;--groups:#245d4c;--memory:#665323;--identity:#3c485f;--files:#285560;--reports:#663d51;--checks:#70482a;--tile-ink:#f1f5fe}}text{fill:var(--ink)}.muted{fill:var(--muted)}.tile{fill:var(--tile-ink)}</style>
-<rect width="1040" height="710" rx="20" fill="var(--bg)"/>
+<rect width="1040" height="820" rx="20" fill="var(--bg)"/>
 <g font-family="system-ui,sans-serif">
 <text x="32.00" y="48.00" font-size="29" font-weight="700" class="">1,000 custom notices. About 60 seconds.</text>
-<text x="32.00" y="82.00" font-size="20" font-weight="400" class="muted">Here’s where the minute goes.</text>
-<rect x="32.00" y="118.00" width="500.13" height="350.00" rx="12" fill="var(--compose)"/>
-<text x="60.00" y="221.00" font-size="91" font-weight="750" class="tile">31s</text>
-<text x="60.00" y="275.00" font-size="29" font-weight="650" class="tile">Compose each notice</text>
-<text x="60.00" y="311.00" font-size="19" font-weight="400" class="tile">Personal text, QR codes</text>
-<text x="60.00" y="337.00" font-size="19" font-weight="400" class="tile">and page layout.</text>
-<g opacity=".3" transform="translate(377.13,293)" fill="none" stroke="var(--tile-ink)" stroke-width="3"><rect width="118" height="145" rx="9"/><path d="M20 25h45M20 45h78M20 65h78M20 85h65M20 113h35"/><rect x="73" y="108" width="24" height="24"/></g>
-<rect x="540.13" y="118.00" width="229.93" height="138.21" rx="12" fill="var(--pdf)"/>
-<text x="557.13" y="161.00" font-size="35" font-weight="750" class="tile">6s</text>
-<text x="557.13" y="190.00" font-size="17" font-weight="600" class="tile">Write PDFs</text>
-<rect x="778.07" y="118.00" width="229.93" height="138.21" rx="12" fill="var(--groups)"/>
-<text x="795.07" y="161.00" font-size="35" font-weight="750" class="tile">6s</text>
-<text x="795.07" y="190.00" font-size="17" font-weight="600" class="tile">Combine groups</text>
-<rect x="540.13" y="264.21" width="229.93" height="92.14" rx="12" fill="var(--memory)"/>
-<text x="557.13" y="307.21" font-size="35" font-weight="750" class="tile">4s</text>
-<text x="557.13" y="336.21" font-size="17" font-weight="600" class="tile">Tidy memory</text>
-<rect x="778.07" y="264.21" width="229.93" height="92.14" rx="12" fill="var(--identity)"/>
-<text x="795.07" y="307.21" font-size="35" font-weight="750" class="tile">4s</text>
-<text x="795.07" y="336.21" font-size="17" font-weight="600" class="tile">Identify files</text>
-<rect x="540.13" y="364.34" width="200.83" height="103.66" rx="12" fill="var(--files)"/>
-<text x="557.13" y="407.34" font-size="35" font-weight="750" class="tile">4s</text>
-<text x="557.13" y="436.34" font-size="17" font-weight="600" class="tile">Read + save</text>
-<rect x="748.96" y="364.34" width="150.62" height="103.66" rx="12" fill="var(--reports)"/>
-<text x="765.96" y="407.34" font-size="35" font-weight="750" class="tile">3s</text>
-<text x="765.96" y="436.34" font-size="17" font-weight="600" class="tile">Save reports</text>
-<rect x="907.59" y="364.34" width="100.41" height="103.66" rx="12" fill="var(--checks)"/>
-<text x="924.59" y="407.34" font-size="35" font-weight="750" class="tile">2s</text>
-<text x="924.59" y="433.34" font-size="15" font-weight="600" class="tile">Page</text>
-<text x="924.59" y="452.34" font-size="15" font-weight="600" class="tile">checks</text>
-<text x="32.00" y="500.00" font-size="15" font-weight="400" class="muted">Block size shows the share of main work, rounded to one minute.</text>
-<rect x="32.00" y="529.00" width="976.00" height="111.00" rx="12" fill="var(--groups)"/>
-<g transform="translate(54,552)" fill="none" stroke="var(--tile-ink)" stroke-width="3"><rect x="4" y="24" width="46" height="36" rx="8"/><path d="M15 24V13a12 12 0 0 1 24 0v11"/><circle cx="27" cy="41" r="3"/></g>
-<text x="132.00" y="568.00" font-size="24" font-weight="650" class="tile">Meanwhile: make the protected copies.</text>
-<text x="132.00" y="597.00" font-size="17" font-weight="400" class="tile">A separate worker makes and checks them alongside notice creation.</text>
-<text x="132.00" y="622.00" font-size="15" font-weight="400" class="tile">Originals stay available for review and grouping.</text>
-<text x="32.00" y="681.00" font-size="16" font-weight="400" class="muted">Explore the time budget or follow one notice in the interactive view.</text>
+<text x="32.00" y="82.00" font-size="20" font-weight="400" class="muted">Follow the numbers; larger blocks take more time.</text>
+<rect x="32.00" y="118.00" width="976.00" height="30.80" rx="10" fill="var(--files)"/>
+<text x="47.00" y="140.00" font-size="16" font-weight="650" class="tile">1. Read the client list and prepare each person’s information</text>
+<text x="962.00" y="142.00" font-size="23" font-weight="750" class="tile">4s</text>
+<rect x="32.00" y="156.80" width="535.86" height="431.20" rx="10" fill="var(--compose)"/>
+<text x="60.00" y="258.80" font-size="91" font-weight="750" class="tile">31s</text>
+<text x="60.00" y="315.80" font-size="29" font-weight="650" class="tile">2. Fill and lay out</text>
+<text x="60.00" y="351.80" font-size="29" font-weight="650" class="tile">each notice</text>
+<text x="60.00" y="394.80" font-size="18" font-weight="400" class="tile">Place their text, history and QR code</text>
+<text x="60.00" y="420.80" font-size="18" font-weight="400" class="tile">into the chosen template.</text>
+<g opacity=".3" transform="translate(412.86,418.0)" fill="none" stroke="var(--tile-ink)" stroke-width="3"><rect width="118" height="145" rx="9"/><path d="M20 25h45M20 45h78M20 65h78M20 85h65M20 113h35"/><rect x="73" y="108" width="24" height="24"/></g>
+<rect x="575.86" y="156.80" width="318.11" height="132.86" rx="10" fill="var(--pdf)"/>
+<text x="590.86" y="200.80" font-size="35" font-weight="750" class="tile">6s</text>
+<text x="590.86" y="227.80" font-size="17" font-weight="600" class="tile">3. Make the</text>
+<text x="590.86" y="248.80" font-size="17" font-weight="600" class="tile">PDF files</text>
+<rect x="901.96" y="156.80" width="106.04" height="132.86" rx="10" fill="var(--checks)"/>
+<text x="916.96" y="200.80" font-size="35" font-weight="750" class="tile">2s</text>
+<text x="916.96" y="227.80" font-size="15" font-weight="600" class="tile">4. Check</text>
+<text x="916.96" y="248.80" font-size="15" font-weight="600" class="tile">PDF pages</text>
+<rect x="575.86" y="297.66" width="212.07" height="132.86" rx="10" fill="var(--identity)"/>
+<text x="590.86" y="341.66" font-size="35" font-weight="750" class="tile">4s</text>
+<text x="590.86" y="368.66" font-size="17" font-weight="600" class="tile">5. Record which</text>
+<text x="590.86" y="389.66" font-size="17" font-weight="600" class="tile">files were saved</text>
+<rect x="795.93" y="297.66" width="212.07" height="132.86" rx="10" fill="var(--memory)"/>
+<text x="810.93" y="341.66" font-size="35" font-weight="750" class="tile">4s</text>
+<text x="810.93" y="368.66" font-size="17" font-weight="600" class="tile">6. Make room for</text>
+<text x="810.93" y="389.66" font-size="17" font-weight="600" class="tile">the next notice</text>
+<rect x="575.86" y="438.53" width="282.76" height="149.47" rx="10" fill="var(--groups)"/>
+<text x="590.86" y="482.53" font-size="35" font-weight="750" class="tile">6s</text>
+<text x="590.86" y="509.53" font-size="17" font-weight="600" class="tile">7. Join notices</text>
+<text x="590.86" y="530.53" font-size="17" font-weight="600" class="tile">into groups</text>
+<rect x="866.62" y="438.53" width="141.38" height="149.47" rx="10" fill="var(--reports)"/>
+<text x="881.62" y="482.53" font-size="35" font-weight="750" class="tile">3s</text>
+<text x="881.62" y="509.53" font-size="17" font-weight="600" class="tile">8. Save the</text>
+<text x="881.62" y="530.53" font-size="17" font-weight="600" class="tile">review report</text>
+<text x="32.00" y="615.00" font-size="15" font-weight="400" class="muted">Rough order: saving files and updating reports also happen throughout the run.</text>
+<rect x="32.00" y="642.00" width="976.00" height="111.00" rx="10" fill="var(--groups)"/>
+<g transform="translate(54,665)" fill="none" stroke="var(--tile-ink)" stroke-width="3"><rect x="4" y="24" width="46" height="36" rx="8"/><path d="M15 24V13a12 12 0 0 1 24 0v11"/><circle cx="27" cy="41" r="3"/></g>
+<text x="132.00" y="681.00" font-size="24" font-weight="650" class="tile">At the same time: make protected copies.</text>
+<text x="132.00" y="710.00" font-size="17" font-weight="400" class="tile">A separate worker creates and checks password-protected copies.</text>
+<text x="132.00" y="735.00" font-size="15" font-weight="400" class="tile">This happens while steps 2–6 repeat. Originals stay available for review.</text>
+<text x="32.00" y="796.00" font-size="16" font-weight="400" class="muted">Times are rounded shares of work for the whole batch; steps 2–6 repeat for each person.</text>
 </g></svg>
