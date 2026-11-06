@@ -2,11 +2,14 @@
 
 The standalone Rust pipeline created **1,000 personalized notices in about 60 seconds**: 2,000 pages, 1,000 separate password-protected copies and 10 grouped PDFs, each with a CSV listing page membership. The notices included different client information and 667 QR codes.
 
-The Gantt chart rounds this to **60 seconds**. The rows separate composing pages and QR codes, writing PDFs, checking content and page counts, saving files, making and checking protected copies, grouping originals, and saving the report. These jobs repeat for each person. Protected copies are made alongside notice creation.
+The interactive visual has two ways to explore the work:
 
-[Open the interactive Gantt chart](../assets/notice-timing.html) or its [static version](../assets/notice-timing.svg). Start, pause or move through the minute, watch the recorded output counts, and select any of the 13 jobs to see what it does. Choose Automatic, Light or Dark for the appearance. Automatic follows the documentation theme, or your system preference when opened separately. Stronger blocks show more work during that second. The chart starts paused and works without an internet connection once downloaded.
+- **Spend the minute:** a picture made of proportional blocks. Composing the notices gets the largest block; selecting any block explains its share. Protected copies appear separately because they are made alongside notice creation.
+- **[Follow a notice](../assets/notice-timing.html#journey):** a paper-and-copy walkthrough from the client list to the grouped PDF. Step through it, then replay the recorded output counts for the batch.
 
-<iframe src="../../assets/notice-timing.html" title="Interactive Gantt chart: creating 1,000 personalized notices" width="100%" height="1550" loading="lazy" style="border:0;border-radius:12px"></iframe>
+[Open the interactive visual](../assets/notice-timing.html) or its [static version](../assets/notice-timing.svg). Both use an approximate 60-second total. Choose Automatic, Light or Dark for the appearance. Automatic follows the documentation theme, or your system preference when opened separately. The replay starts paused.
+
+<iframe src="../../assets/notice-timing.html" title="Where the minute goes: a time budget and notice walkthrough" width="100%" height="1450" loading="lazy" style="border:0;border-radius:12px"></iframe>
 
 ## What the timing includes
 
@@ -14,7 +17,7 @@ The whole-command measurement includes reading and preparing the input, creating
 
 This was fictional client data in a shared environment limited to 4 CPUs and 8 GiB RAM, with warm filesystem caches. It is a measured example, not a capacity guarantee. Your templates, page counts, fonts, settings and computer will affect the result. Your project supplies the wording and appearance; the upstream system assesses immunization status.
 
-The interactive chart rounds the profiled workflow to 60 seconds and shows recorded activity in one-second blocks. The counters replay recorded completions rather than assuming that every notice takes the same time. Expand the chart's timing table for the measured breakdown. Encryption overlaps the main work and is not added to that table's total.
+The blocks divide main-workflow time into a rounded minute. They describe how much work each job takes, rather than when it runs. Encryption happens alongside notice creation and is not added to those blocks. The walkthrough explains the steps without assigning a measured time to an individual notice. Its replay uses recorded output completions.
 
 ## See a real command
 

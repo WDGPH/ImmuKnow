@@ -3,478 +3,808 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>A minute of ImmuKnow — 1,000 custom notices</title>
+    <title>Where the minute goes — ImmuKnow</title>
     <style>
       :root {
         color-scheme: light dark;
-        --background: #f7f9fc;
-        --surface: #ffffff;
-        --track: #eff3f9;
-        --counter: #f1f5fa;
-        --ink: #17253a;
-        --muted: #53627a;
-        --line: #d7dfeb;
-        --blue: #3867d6;
-        --pink: #a34f79;
-        --green: #248264;
-      }
-      * {
-        box-sizing: border-box;
-      }
-      body {
-        margin: 0;
-        background: var(--background);
-        color: var(--ink);
-        font:
-          16px/1.5 system-ui,
-          sans-serif;
-      }
-      main {
-        max-width: 1080px;
-        margin: auto;
-        padding: 28px;
-      }
-      h1 {
-        font-size: clamp(25px, 4vw, 38px);
-        line-height: 1.15;
-        margin: 8px 0 16px;
-        letter-spacing: -0.025em;
-      }
-      p {
-        margin: 10px 0;
-      }
-      .eyebrow {
-        font-size: 13px;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--green);
-      }
-      .muted,
-      small {
-        color: var(--muted);
-      }
-      .panel {
-        background: var(--surface);
-        border: 1px solid var(--line);
-        border-radius: 16px;
-        padding: 22px;
-        margin-top: 22px;
-      }
-      .controls {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 12px;
-      }
-      button,
-      select {
-        font: inherit;
-        border: 1px solid #bac7da;
-        border-radius: 8px;
-        padding: 8px 13px;
-        background: var(--surface);
-        color: var(--ink);
-        cursor: pointer;
-      }
-      #play {
-        background: var(--blue);
-        color: white;
-        border-color: var(--blue);
-      }
-      button:focus-visible,
-      select:focus-visible,
-      input:focus-visible,
-      a:focus-visible {
-        outline: 3px solid #b45d15;
-        outline-offset: 3px;
-      }
-      .clock {
-        margin-left: auto;
-        font-size: 24px;
-        font-variant-numeric: tabular-nums;
-        font-weight: 700;
-      }
-      .scrub {
-        width: 100%;
-        margin: 20px 0 8px;
-        accent-color: var(--blue);
-      }
-      .axis {
-        display: flex;
-        justify-content: space-between;
-        margin-left: 247px;
-        font-size: 13px;
-        color: var(--muted);
-      }
-      .lane {
-        display: grid;
-        grid-template-columns: 235px 1fr;
-        gap: 12px;
-        align-items: center;
-        margin: 10px 0;
-      }
-      .lane-label {
-        font-size: 14px;
-        text-align: left;
-        padding: 0;
-        border: 0;
-        background: none;
-        text-decoration: underline;
-        text-underline-offset: 4px;
-      }
-      .track {
-        height: 27px;
-        background: repeating-linear-gradient(
-          90deg,
-          var(--track) 0,
-          var(--track) calc(16.6667% - 1px),
-          var(--line) calc(16.6667% - 1px),
-          var(--line) 16.6667%
-        );
-        border-radius: 6px;
-        position: relative;
-        overflow: hidden;
-      }
-      .bar {
-        position: absolute;
-        top: 3px;
-        height: 21px;
-        background: var(--blue);
-        border-radius: 4px;
-        opacity: 0.25;
-        min-width: 0;
-      }
-      .playhead {
-        position: absolute;
-        top: 0;
-        bottom: 0;
-        border-left: 2px solid var(--ink);
-        z-index: 2;
-      }
-      .counters {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 12px;
-        margin: 20px 0 8px;
-      }
-      .counter {
-        padding: 12px;
-        background: var(--counter);
-        border-radius: 10px;
-      }
-      .counter strong {
-        font-size: 26px;
-        display: block;
-        font-variant-numeric: tabular-nums;
-      }
-      .counter span {
-        font-size: 14px;
-      }
-      .explanation {
-        min-height: 100px;
-        border-left: 4px solid var(--blue);
-        padding-left: 16px;
-      }
-      .explanation h2 {
-        font-size: 19px;
-        margin-bottom: 6px;
-      }
-      .explanation p {
-        margin-top: 0;
-      }
-      details {
-        margin-top: 24px;
-      }
-      summary {
-        cursor: pointer;
-        font-weight: 650;
-      }
-      table {
-        border-collapse: collapse;
-        width: 100%;
-        margin: 16px 0;
-      }
-      th,
-      td {
-        padding: 9px 5px;
-        border-bottom: 1px solid var(--line);
-        text-align: left;
-      }
-      td:last-child,
-      th:last-child {
-        text-align: right;
-        white-space: nowrap;
-      }
-      .footer {
-        font-size: 13px;
-        margin-top: 24px;
-      }
-      a {
-        color: #2456b7;
-      }
-      @media (max-width: 600px) {
-        main {
-          padding: 16px;
-        }
-        .panel {
-          padding: 14px;
-        }
-        .lane {
-          grid-template-columns: 116px 1fr;
-          gap: 8px;
-        }
-        .axis {
-          margin-left: 124px;
-        }
-        .lane-label {
-          font-size: 12px;
-        }
-        .counter {
-          padding: 8px;
-        }
-        .counter strong {
-          font-size: 22px;
-        }
-        .counter span {
-          font-size: 12px;
-        }
-        .clock {
-          font-size: 19px;
-        }
-        .controls {
-          gap: 8px;
-        }
-        button,
-        select {
-          padding: 7px 9px;
-        }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        * {
-          scroll-behavior: auto;
-        }
-      }
-
-      .lane-group {
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
-        margin: 22px 0 10px;
-        color: var(--muted);
-      }
-      .lane-label {
-        display: flex;
-        justify-content: space-between;
-        gap: 10px;
-        align-items: center;
-        text-decoration: none;
-      }
-      .lane-label:hover {
-        text-decoration: underline;
-      }
-      .duration {
-        font-size: 12px;
-        color: var(--muted);
-        white-space: nowrap;
-        text-decoration: none;
-      }
-      .future {
-        position: absolute;
-        top: 0;
-        bottom: 0;
-        right: 0;
-        background: var(--track);
-        opacity: 0.7;
-        pointer-events: none;
+        --bg: #f6f7fa;
+        --surface: #fff;
+        --ink: #19283b;
+        --muted: #536277;
+        --line: #d6deea;
+        --subtle: #eaf0f6;
+        --blue: #365ebd;
+        --paper: #fff;
+        --compose: #bbd5ff;
+        --pdf: #d2c7ee;
+        --groups: #b7e0cf;
+        --memory: #f2d999;
+        --identity: #dbdfea;
+        --files: #bde3e8;
+        --reports: #edc5d1;
+        --checks: #f3c7a2;
+        --tile-ink: #19283b;
       }
       :root[data-theme="dark"] {
         color-scheme: dark;
-        --background: #101724;
-        --surface: #182233;
-        --track: #202d42;
-        --counter: #223149;
-        --ink: #eef3fb;
-        --muted: #b9c7db;
-        --line: #3b4c65;
-        --blue: #86a7ff;
-        --pink: #e6a1c8;
-        --green: #83d6b4;
+        --bg: #101721;
+        --surface: #192434;
+        --ink: #edf3fc;
+        --muted: #bac7d9;
+        --line: #3a4c63;
+        --subtle: #263449;
+        --blue: #a9c4ff;
+        --paper: #263b55;
+        --compose: #2c5085;
+        --pdf: #493c6e;
+        --groups: #245d4c;
+        --memory: #665323;
+        --identity: #3c485f;
+        --files: #285560;
+        --reports: #663d51;
+        --checks: #70482a;
+        --tile-ink: #f1f5fe;
       }
       :root[data-theme="light"] {
         color-scheme: light;
       }
       @media (prefers-color-scheme: dark) {
         :root:not([data-theme="light"]) {
-          --background: #101724;
-          --surface: #182233;
-          --track: #202d42;
-          --counter: #223149;
-          --ink: #eef3fb;
-          --muted: #b9c7db;
-          --line: #3b4c65;
-          --blue: #86a7ff;
-          --pink: #e6a1c8;
-          --green: #83d6b4;
+          --bg: #101721;
+          --surface: #192434;
+          --ink: #edf3fc;
+          --muted: #bac7d9;
+          --line: #3a4c63;
+          --subtle: #263449;
+          --blue: #a9c4ff;
+          --paper: #263b55;
+          --compose: #2c5085;
+          --pdf: #493c6e;
+          --groups: #245d4c;
+          --memory: #665323;
+          --identity: #3c485f;
+          --files: #285560;
+          --reports: #663d51;
+          --checks: #70482a;
+          --tile-ink: #f1f5fe;
         }
       }
+      * {
+        box-sizing: border-box;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          16px/1.55 system-ui,
+          sans-serif;
+      }
+      main {
+        max-width: 1100px;
+        margin: auto;
+        padding: 30px;
+      }
+      h1 {
+        font-size: clamp(32px, 5vw, 51px);
+        line-height: 1.12;
+        letter-spacing: -0.035em;
+        margin: 12px 0 20px;
+        font-weight: 700;
+      }
+      h2 {
+        font-size: 24px;
+        line-height: 1.25;
+        margin: 0 0 10px;
+        letter-spacing: -0.02em;
+      }
+      p {
+        margin: 10px 0;
+      }
+      .muted,
+      .caption {
+        color: var(--muted);
+      }
+      .eyebrow {
+        font-size: 12px;
+        letter-spacing: 0.12em;
+        font-weight: 750;
+        text-transform: uppercase;
+        color: var(--blue);
+      }
+      .toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 15px;
+      }
+      .theme {
+        font-size: 13px;
+        white-space: nowrap;
+      }
+      .facts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 9px;
+        margin-bottom: 24px;
+      }
+      .facts span {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        padding: 6px 11px;
+        border-radius: 99px;
+        font-size: 13px;
+      }
+      .switcher {
+        display: flex;
+        gap: 6px;
+        padding: 5px;
+        background: var(--subtle);
+        border-radius: 12px;
+        width: fit-content;
+        margin: 25px 0;
+      }
+      button,
+      select {
+        font: inherit;
+        color: var(--ink);
+        border: 1px solid var(--line);
+        background: var(--surface);
+        border-radius: 9px;
+        padding: 9px 14px;
+        cursor: pointer;
+      }
+      select {
+        padding: 5px 8px;
+      }
+      button:focus-visible,
+      select:focus-visible,
+      input:focus-visible,
+      a:focus-visible {
+        outline: 3px solid var(--blue);
+        outline-offset: 3px;
+      }
+      .switcher button {
+        border: 0;
+        background: transparent;
+      }
+      .switcher [aria-pressed="true"] {
+        background: var(--surface);
+        box-shadow: 0 2px 5px #0001;
+        font-weight: 650;
+      }
+      .intro {
+        max-width: 770px;
+        margin-bottom: 20px;
+      }
+      .budget-map {
+        display: grid;
+        grid-template-columns: var(--columns, 31fr 29fr);
+        gap: 8px;
+        height: 400px;
+      }
+      .rest {
+        display: grid;
+        grid-template-rows: 12fr 8fr 9fr;
+        gap: 8px;
+        min-width: 0;
+      }
+      .map-row {
+        display: flex;
+        gap: 8px;
+        min-height: 0;
+      }
+      .tile {
+        flex: var(--weight);
+        min-width: 0;
+        border: 0;
+        border-radius: 12px;
+        text-align: left;
+        padding: 17px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: flex-start;
+        gap: 6px;
+        color: var(--tile-ink);
+        background: var(--color);
+        position: relative;
+        isolation: isolate;
+        overflow: hidden;
+      }
+      .tile[aria-pressed="true"] {
+        box-shadow: inset 0 0 0 3px var(--tile-ink);
+      }
+      .tile .seconds {
+        font-size: clamp(25px, 3.8vw, 39px);
+        font-weight: 750;
+        line-height: 1;
+        letter-spacing: -0.04em;
+        font-variant-numeric: tabular-nums;
+      }
+      .tile .name {
+        font-size: 14px;
+        font-weight: 600;
+        line-height: 1.25;
+      }
+      .hero-tile {
+        justify-content: flex-start;
+        padding: 28px;
+      }
+      .hero-tile .seconds {
+        font-size: clamp(65px, 9vw, 94px);
+        margin-top: 12px;
+      }
+      .hero-tile .name {
+        font-size: clamp(21px, 2.5vw, 29px);
+        max-width: 270px;
+        margin-top: 7px;
+      }
+      .hero-tile .sub {
+        font-size: 14px;
+        max-width: 220px;
+        line-height: 1.4;
+      }
+      .hero-art {
+        position: absolute;
+        width: 140px;
+        height: 170px;
+        right: 20px;
+        bottom: 10px;
+        opacity: 0.3;
+        z-index: -1;
+      }
+      .caption {
+        font-size: 13px;
+        margin: 14px 0 20px;
+      }
+      .explanation {
+        padding: 23px 26px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 13px;
+        min-height: 148px;
+      }
+      .explanation h2 {
+        font-size: 21px;
+      }
+      .explanation p {
+        max-width: 850px;
+      }
+      .parallel {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 18px;
+        align-items: center;
+        margin-top: 18px;
+        padding: 22px 26px;
+        background: var(--groups);
+        color: var(--tile-ink);
+        border-radius: 13px;
+      }
+      .parallel svg {
+        width: 75px;
+        height: 75px;
+      }
+      .parallel h2 {
+        font-size: 20px;
+      }
+      .parallel p {
+        font-size: 15px;
+        margin-bottom: 0;
+      }
+      .parallel .aside {
+        font-size: 13px;
+        margin-top: 7px;
+      }
+      .steps {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 7px;
+        margin: 20px 0;
+      }
+      .step {
+        padding: 12px 9px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        text-align: left;
+        font-size: 13px;
+        line-height: 1.2;
+        min-width: 0;
+      }
+      .step span:first-child {
+        font-size: 18px;
+        font-weight: 750;
+        color: var(--muted);
+      }
+      .step[aria-pressed="true"] {
+        border-color: var(--blue);
+        background: var(--subtle);
+      }
+      .scene {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        overflow: hidden;
+      }
+      .scene svg {
+        display: block;
+        width: 100%;
+        height: 235px;
+      }
+      .scene text {
+        font-family: system-ui, sans-serif;
+        fill: var(--ink);
+      }
+      .scene-copy {
+        padding: 0 26px 24px;
+      }
+      .step-nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        padding: 18px 26px;
+        border-top: 1px solid var(--line);
+        font-size: 14px;
+      }
+      .step-nav button:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+      .scene-label {
+        font-size: 12px;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--blue);
+        font-weight: 700;
+      }
+      .replay {
+        margin-top: 25px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 24px;
+      }
+      .replay h2 {
+        font-size: 21px;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        margin-top: 15px;
+      }
+      .clock {
+        margin-left: auto;
+        font-size: 23px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+      }
       #play {
-        background: #3867d6;
-        color: #fff;
-        border-color: #3867d6;
+        background: #365ebd;
+        color: white;
+        border-color: #365ebd;
+      }
+      .scrub {
+        width: 100%;
+        accent-color: var(--blue);
+        margin: 14px 0;
+      }
+      .counters {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+      }
+      .counter {
+        padding: 15px;
+        background: var(--subtle);
+        border-radius: 10px;
+      }
+      .counter strong {
+        display: block;
+        font-size: 30px;
+        line-height: 1.25;
+        font-variant-numeric: tabular-nums;
+      }
+      .counter span {
+        font-size: 13px;
+      }
+      .counter progress {
+        display: block;
+        width: 100%;
+        height: 8px;
+        accent-color: var(--blue);
+        margin-top: 12px;
+      }
+      .footer {
+        font-size: 13px;
+        color: var(--muted);
+        margin-top: 26px;
+        max-width: 950px;
       }
       a {
         color: var(--blue);
       }
-      @media (max-width: 600px) {
-        .lane {
-          grid-template-columns: 155px 1fr;
+      .symbols {
+        position: absolute;
+        width: 0;
+        height: 0;
+        overflow: hidden;
+      }
+      .scene-line {
+        fill: none;
+        stroke: var(--line);
+        stroke-width: 3;
+      }
+      .paper-outline {
+        fill: var(--paper);
+        stroke: var(--blue);
+        stroke-width: 2;
+      }
+      .paper-line {
+        stroke: var(--blue);
+        stroke-width: 3;
+        stroke-linecap: round;
+        opacity: 0.65;
+      }
+      .icon-fill {
+        fill: var(--blue);
+      }
+      @media (max-width: 650px) {
+        main {
+          padding: 18px;
         }
-        .axis {
-          margin-left: 163px;
+        .toolbar {
+          align-items: flex-start;
         }
-        .duration {
-          display: none;
+        .toolbar .eyebrow {
+          max-width: 150px;
         }
-        .lane-label {
-          font-size: 12px;
+        .budget-map {
+          grid-template-columns: 1fr;
+          grid-template-rows: 31fr 29fr;
+          height: 620px;
         }
-        .controls label {
+        .hero-tile {
+          padding: 25px;
+        }
+        .hero-tile .name {
+          max-width: 240px;
+          font-size: 24px;
+        }
+        .hero-tile .seconds {
+          font-size: 80px;
+          margin-top: 0;
+        }
+        .hero-tile .sub {
+          max-width: 200px;
+        }
+        .hero-art {
+          right: 18px;
+          bottom: 18px;
+          width: 110px;
+          height: 140px;
+        }
+        .tile:not(.hero-tile) {
+          padding: 12px;
+          gap: 6px;
+        }
+        .tile:not(.hero-tile) .seconds {
+          font-size: 29px;
+        }
+        .tile:not(.hero-tile) .name {
           font-size: 13px;
         }
+        .parallel {
+          padding: 19px;
+          gap: 12px;
+          grid-template-columns: 52px 1fr;
+        }
+        .parallel svg {
+          width: 52px;
+          height: 52px;
+        }
+        .explanation {
+          padding: 20px;
+        }
+        .steps {
+          grid-template-columns: repeat(3, 1fr);
+        }
+        .scene svg {
+          height: 190px;
+        }
+        .scene-copy {
+          padding: 0 20px 20px;
+        }
+        .step-nav {
+          padding: 15px;
+        }
+        .replay {
+          padding: 18px;
+        }
+        .counter {
+          padding: 10px;
+        }
+        .counter strong {
+          font-size: 25px;
+        }
+        .counter span {
+          font-size: 12px;
+        }
+        .clock {
+          font-size: 20px;
+        }
         .controls {
+          font-size: 14px;
+        }
+        .switcher button {
+          font-size: 14px;
+          padding: 10px;
+        }
+        .counters {
           gap: 7px;
         }
-      }
-      @media (max-width: 600px) {
-        .axis span:nth-child(even) {
-          display: none;
+        .facts {
+          gap: 6px;
+        }
+        .facts span {
+          font-size: 12px;
         }
       }
     </style>
   </head>
   <body>
+    <svg class="symbols" aria-hidden="true">
+      <defs>
+        <symbol id="paper" viewBox="0 0 120 155">
+          <rect
+            class="paper-outline"
+            x="8"
+            y="6"
+            width="104"
+            height="143"
+            rx="9"
+          />
+          <path
+            class="paper-line"
+            d="M26 28H72 M26 44H94 M26 58H94 M26 72H85 M26 120H64 M26 134H88"
+          />
+          <g class="icon-fill">
+            <path
+              d="M77 92h12v12H77zm3 3v6h6v-6zm-21-3h12v12H59zm3 3v6h6v-6zm15 18h12v12H77zm3 3v6h6v-6z"
+              fill-rule="evenodd"
+            />
+            <rect x="62" y="110" width="5" height="5" />
+            <rect x="69" y="118" width="5" height="5" />
+          </g>
+        </symbol>
+        <symbol id="lock" viewBox="0 0 60 66">
+          <rect
+            x="8"
+            y="28"
+            width="44"
+            height="32"
+            rx="8"
+            fill="var(--groups)"
+            stroke="var(--blue)"
+            stroke-width="3"
+          />
+          <path
+            d="M18 28V17a12 12 0 0 1 24 0v11"
+            fill="none"
+            stroke="var(--blue)"
+            stroke-width="4"
+          />
+          <circle cx="30" cy="43" r="4" class="icon-fill" />
+        </symbol>
+        <symbol id="tick" viewBox="0 0 64 64">
+          <circle
+            cx="32"
+            cy="32"
+            r="28"
+            fill="var(--groups)"
+            stroke="var(--blue)"
+            stroke-width="2"
+          />
+          <path
+            d="m18 32 10 10 19-21"
+            fill="none"
+            stroke="var(--blue)"
+            stroke-width="5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </symbol>
+        <symbol id="arrow" viewBox="0 0 100 30">
+          <path
+            d="M5 15H88m-13-9 14 9-14 9"
+            fill="none"
+            stroke="var(--blue)"
+            stroke-width="3"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </symbol>
+      </defs>
+    </svg>
     <main>
-      <div class="eyebrow">A recorded run, rounded to one minute</div>
-      <h1>1,000 custom notices.<br />60 seconds, from CSV to PDFs.</h1>
-      <p>
-        Different people, chosen templates, checked pages and password-protected
-        copies. The chart shows the repeated work inside each notice, plus the
-        jobs that happen alongside it.
-      </p>
-      <p class="muted">
-        An approximate replay of a recorded run, rounded to 60 seconds.
-      </p>
-      <section class="panel" aria-label="Interactive Gantt chart">
-        <div class="controls">
-          <button id="play" type="button">Play</button
-          ><button id="restart" type="button">Restart</button
-          ><label for="speed">Replay speed</label
-          ><select id="speed">
-            <option value="1">1×</option>
-            <option value="4" selected>4×</option>
-            <option value="10">10×</option></select
-          ><label for="theme">Theme</label
-          ><select id="theme">
+      <div class="toolbar">
+        <span class="eyebrow">A minute of ImmuKnow</span
+        ><label class="theme" for="theme"
+          >Appearance
+          <select id="theme">
             <option value="auto">Automatic</option>
             <option value="light">Light</option>
-            <option value="dark">Dark</option></select
-          ><output class="clock" id="clock" for="time">0.0 / 60 s</output>
-        </div>
-        <label for="time" class="muted">Move through the minute</label
-        ><input
-          class="scrub"
-          type="range"
-          id="time"
-          min="0"
-          max="60"
-          step="0.1"
-          value="0"
-          aria-valuetext="0 seconds of 60"
-        />
-        <div class="axis" aria-hidden="true">
-          <span>0 s</span><span>10</span><span>20</span><span>30</span
-          ><span>40</span><span>50</span><span>60 s</span>
-        </div>
-        <div id="lanes"></div>
-        <div
-          class="counters"
-          aria-label="Completed outputs at the selected time"
+            <option value="dark">Dark</option>
+          </select></label
         >
-          <div class="counter">
-            <strong id="originals">0</strong
-            ><span>of 1,000 original notices</span>
-          </div>
-          <div class="counter">
-            <strong id="encrypted">0</strong
-            ><span>of 1,000 protected copies</span>
-          </div>
-          <div class="counter">
-            <strong id="bundles">0</strong><span>of 10 grouped PDFs</span>
-          </div>
-        </div>
-        <p class="muted">
-          <small
-            >Each block marks work during that second; stronger blocks mean more
-            time on that job. Jobs repeat for each person, so these rows
-            overlap. Select a job name to learn more. The counters replay
-            recorded completions.</small
+      </div>
+      <h1>1,000 custom notices.<br />Where does the minute go?</h1>
+      <div class="facts">
+        <span>2,000 pages</span><span>1,000 protected copies</span
+        ><span>10 grouped PDFs</span>
+      </div>
+      <div class="interactive">
+        <div class="switcher" aria-label="Choose a visual explanation">
+          <button
+            id="budget-button"
+            type="button"
+            aria-pressed="true"
+            aria-controls="budget-view"
           >
-        </p>
-      </section>
-      <section class="panel explanation" aria-live="polite" aria-atomic="true">
-        <h2 id="job-title">Why the bars overlap</h2>
-        <p id="job-description">
-          As soon as an original PDF is ready, another worker can make and check
-          its protected copy. Encryption largely fits inside the time spent
-          creating notices. Adding those two bars together would count the same
-          seconds twice.
-        </p>
-      </section>
-      <details>
-        <summary>What takes time inside these jobs?</summary>
-        <p>
-          Most time goes into fitting each person's information onto the pages.
-          The Typst engine stays warm between notices, reusing fonts and earlier
-          work where it can.
-        </p>
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Main workflow work</th>
-              <th scope="col">Measured time</th>
-            </tr>
-          </thead>
-          <tbody id="breakdown"></tbody>
-        </table>
-        <p class="muted">
-          These measured slices come from the profiled main workflow. Encryption
-          is outside this sum: its worker did 41.72 seconds of work alongside
-          notice creation, including protection checks and file fingerprints.
-          Combining used four workers; its elapsed time is shown above, not the
-          sum of their work.
-        </p>
-      </details>
-      <p class="footer">
-        Fictional 1,000-client workload; 2,000 notice pages; 667 QR codes; 1,000
-        AES-256 protected copies; 10 groups of 100 notices with matching CSV
-        page lists. Shared environment limited to 4 CPUs and 8 GiB RAM;
-        filesystem caches were warm. Different templates, page counts, fonts,
-        settings and computers change the result.
-      </p>
-      <p class="footer">
-        <a href="notice-timings.json">Download the measurements</a> ·
-        <a href="notice-timing.svg">Static Gantt chart</a>. JavaScript is only
-        used for replay; no information leaves this page.
-      </p>
+            Spend the minute</button
+          ><button
+            id="journey-button"
+            type="button"
+            aria-pressed="false"
+            aria-controls="journey-view"
+          >
+            Follow a notice
+          </button>
+        </div>
+        <section id="budget-view" aria-label="A proportional time budget">
+          <p class="intro">
+            Each block gets a share of the minute. Making each person's
+            information fit the pages takes the largest share. Select a block to
+            see what it does.
+          </p>
+          <div class="budget-map" id="budget-map"></div>
+          <p class="caption">
+            Block size shows main-workflow time, rounded to 60 seconds. These
+            are pieces of the work, rather than the order it runs in.
+          </p>
+          <div class="explanation" aria-live="polite" aria-atomic="true">
+            <h2 id="detail-title">Compose each notice</h2>
+            <p id="detail-description"></p>
+          </div>
+          <div class="parallel">
+            <svg aria-hidden="true" viewBox="0 0 60 66">
+              <use href="#lock" width="60" height="66" />
+            </svg>
+            <div>
+              <h2>Meanwhile, make the protected copies.</h2>
+              <p>
+                As each original is ready, another worker makes its
+                password-protected copy and checks it. The original is kept
+                separately.
+              </p>
+              <p class="aside">
+                This work runs alongside notice creation, inside the same
+                minute.
+              </p>
+            </div>
+          </div>
+        </section>
+        <section
+          id="journey-view"
+          aria-label="Follow one notice through the workflow"
+          hidden
+        >
+          <p class="intro">
+            One person, one chosen notice. Follow their PDF from the client list
+            to its place in a group. The engine stays warm and repeats this work
+            for the next person.
+          </p>
+          <div class="steps" id="steps" aria-label="Choose a step"></div>
+          <div class="scene">
+            <div id="scene-art"></div>
+            <div class="scene-copy" aria-live="polite" aria-atomic="true">
+              <span id="scene-label" class="scene-label"></span>
+              <h2 id="scene-title"></h2>
+              <p id="scene-description"></p>
+            </div>
+            <div class="step-nav">
+              <button id="previous" type="button">← Previous</button
+              ><span id="step-count"></span
+              ><button id="next" type="button">Next →</button>
+            </div>
+          </div>
+          <div class="replay">
+            <h2>Now repeat it 1,000 times.</h2>
+            <p class="muted">
+              Replay the recorded output counts across an approximate minute.
+            </p>
+            <div class="controls">
+              <button id="play" type="button">Play</button
+              ><button id="restart" type="button">Restart</button
+              ><label for="speed">Speed</label
+              ><select id="speed">
+                <option value="1">1×</option>
+                <option value="4" selected>4×</option>
+                <option value="10">10×</option></select
+              ><output id="clock" for="time" class="clock">0 / 60 s</output>
+            </div>
+            <label for="time" class="caption">Move through the run</label
+            ><input
+              id="time"
+              class="scrub"
+              type="range"
+              min="0"
+              max="60"
+              step="0.1"
+              value="0"
+              aria-valuetext="0 seconds of 60"
+            />
+            <div class="counters">
+              <div class="counter">
+                <strong id="originals">0</strong><span>original notices</span
+                ><progress
+                  id="original-progress"
+                  max="1000"
+                  value="0"
+                  aria-label="Original notices completed"
+                ></progress>
+              </div>
+              <div class="counter">
+                <strong id="encrypted">0</strong><span>protected copies</span
+                ><progress
+                  id="encrypted-progress"
+                  max="1000"
+                  value="0"
+                  aria-label="Protected copies completed"
+                ></progress>
+              </div>
+              <div class="counter">
+                <strong id="bundles">0</strong><span>grouped PDFs</span
+                ><progress
+                  id="bundle-progress"
+                  max="10"
+                  value="0"
+                  aria-label="Grouped PDFs completed"
+                ></progress>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
       <noscript
-        ><p>
-          Replay needs JavaScript.
-          <a href="notice-timing.svg">Open the static Gantt chart</a> or
-          <a href="notice-timings.json">read the measured data</a>.
-        </p></noscript
-      >
+        ><style>
+          .interactive,
+          .theme {
+            display: none;
+          }</style
+        ><img
+          src="notice-timing.svg"
+          style="width: 100%; height: auto"
+          alt="Main work rounded to 60 seconds: compose notices 31, write PDFs 6, combine groups 6, tidy memory 4, identify files 4, read and save 4, reports 3, page checks 2. Protected copies run alongside notice creation."
+      /></noscript>
+      <p class="footer">
+        Based on a recorded run with fictional clients in a shared 4-CPU / 8-GiB
+        environment. Templates, page counts, fonts and computers affect the
+        result. The walkthrough explains the steps; the replay uses measured
+        completions.
+      </p>
+      <p class="footer">
+        <a href="notice-timing.svg">Static visual</a> ·
+        <a href="notice-timings.json">Measurements</a>. No external services or
+        libraries are needed to use this page.
+      </p>
     </main>
     <script id="measurements" type="application/json">
       {
@@ -781,83 +1111,298 @@
     </script>
     <script>
       "use strict";
-      const data = JSON.parse(
-        document.getElementById("measurements").textContent,
-      );
-      // These recorded activity rows repeat per person; their times are not all additive.
-      const jobs = data.phases;
       const $ = (id) => document.getElementById(id);
-      const tracks = [];
-      let group = "";
-      for (const job of jobs) {
-        if (job.group !== group) {
-          group = job.group;
-          const heading = document.createElement("p");
-          heading.className = "lane-group";
-          heading.textContent = group;
-          $("lanes").append(heading);
-        }
-        const lane = document.createElement("div");
-        lane.className = "lane";
-        const label = document.createElement("button");
-        label.type = "button";
-        label.className = "lane-label";
-        label.textContent = job.name;
-        const duration = document.createElement("span");
-        duration.className = "duration";
-        duration.textContent =
-          job.seconds < 1 ? "<1 s" : `~${Math.round(job.seconds)} s`;
-        label.append(duration);
-        label.addEventListener("click", () => {
-          $("job-title").textContent = job.name;
-          $("job-description").textContent = job.description;
-        });
-        const track = document.createElement("div");
-        track.className = "track";
-        track.setAttribute("aria-hidden", "true");
-        job.bins.forEach((busy, second) => {
-          if (!busy) return;
-          const bar = document.createElement("span");
-          bar.className = "bar";
-          bar.style.left = `${(second / 60) * 100}%`;
-          bar.style.width = `calc(${100 / 60}% - 1px)`;
-          bar.style.background = job.color;
-          bar.style.opacity = 0.3 + (0.7 * busy) / 100;
-          track.append(bar);
-        });
-        const shade = document.createElement("span");
-        shade.className = "future";
-        const head = document.createElement("span");
-        head.className = "playhead";
-        track.append(shade, head);
-        lane.append(label, track);
-        $("lanes").append(lane);
-        tracks.push({ shade, head });
-      }
-      const names = [
-        "Compose and lay out pages",
-        "Write PDF pages",
-        "Clean up reusable work",
-        "Check original PDFs",
-        "Save reports and checkpoints",
-        "Combine notices into groups",
-        "Fingerprint saved files",
-        "Other preparation, saving and bookkeeping",
+      const data = JSON.parse($("measurements").textContent);
+      const categories = [
+        {
+          key: "Typst evaluation and layout",
+          name: "Compose each notice",
+          short: "Compose notices",
+          color: "compose",
+          description:
+            "Fill the chosen template with this person’s information, build any QR code, and fit the text onto the pages. This is the largest part of the work. Typst stays warm between people, reusing fonts and earlier work where it can.",
+        },
+        {
+          key: "PDF export",
+          name: "Write the PDFs",
+          short: "Write PDFs",
+          color: "pdf",
+          description:
+            "Turn each finished page layout into a PDF. This happens for each notice as it is ready.",
+        },
+        {
+          key: "Cache cleanup",
+          name: "Keep memory tidy",
+          short: "Tidy memory",
+          color: "memory",
+          description:
+            "Release older cached Typst work while keeping useful results for the next notice. The engine stays warm without retaining everything forever.",
+        },
+        {
+          key: "Original PDF checks",
+          name: "Check the PDF pages",
+          short: "Page checks",
+          color: "checks",
+          description:
+            "Inspect the original PDF and check its page count. The template also supplies a content-check report from the same compiled document; no extra pages or attachment are added.",
+        },
+        {
+          key: "Reports and checkpoints",
+          name: "Save reports and checkpoints",
+          short: "Save reports",
+          color: "reports",
+          description:
+            "Save the run record and its readable HTML report, including checkpoints during the run. This keeps findings and PDF locations together for review.",
+        },
+        {
+          key: "Combining PDFs",
+          name: "Combine notices into groups",
+          short: "Combine groups",
+          color: "groups",
+          description:
+            "Four workers can combine independent groups of original notices, with CSV lists of page membership. Readable notices with failed checks go into separate review PDFs. Notices on hold stay out.",
+        },
+        {
+          key: "File hashes",
+          name: "Identify saved files",
+          short: "Identify files",
+          color: "identity",
+          description:
+            "Give saved files a fingerprint so the run record identifies their exact contents. This block covers the main workflow’s fingerprints; the background worker also identifies protected copies.",
+        },
+        {
+          key: "Other preparation, file writes and bookkeeping",
+          name: "Read, prepare and save",
+          short: "Read + save",
+          color: "files",
+          description:
+            "Read and prepare the supplied input, pass each person’s information to Typst, save originals and prepared information, and update the run’s other records.",
+        },
       ];
-      Object.values(data.categories).forEach((seconds, index) => {
-        const row = document.createElement("tr");
-        const name = document.createElement("th");
-        name.scope = "row";
-        name.textContent = names[index];
-        const time = document.createElement("td");
-        time.textContent = `${seconds.toFixed(2)} s`;
-        row.append(name, time);
-        $("breakdown").append(row);
+      // Largest-remainder rounding keeps the proportional picture at exactly 60 seconds.
+      const shares = categories.map(
+        (c) => (data.categories[c.key] / data.workflow_seconds) * 60,
+      );
+      const seconds = shares.map(Math.floor);
+      const remainders = shares
+        .map((v, i) => ({ i, fraction: v - seconds[i] }))
+        .sort((a, b) => b.fraction - a.fraction);
+      const remaining = 60 - seconds.reduce((a, b) => a + b, 0);
+      for (let i = 0; i < remaining; i++) seconds[remainders[i].i]++;
+      const tiles = [];
+      function selectCategory(index) {
+        categories.forEach((_, i) =>
+          tiles[i].setAttribute("aria-pressed", String(i === index)),
+        );
+        $("detail-title").textContent =
+          `${categories[index].name} · about ${seconds[index]} seconds`;
+        $("detail-description").textContent = categories[index].description;
+      }
+      function tile(index, hero = false) {
+        const c = categories[index],
+          button = document.createElement("button");
+        button.type = "button";
+        button.className = "tile" + (hero ? " hero-tile" : "");
+        button.style.setProperty("--color", `var(--${c.color})`);
+        button.style.setProperty("--weight", seconds[index]);
+        button.setAttribute(
+          "aria-label",
+          `${c.name}, about ${seconds[index]} seconds`,
+        );
+        button.setAttribute("aria-pressed", "false");
+        const time = document.createElement("span");
+        time.className = "seconds";
+        time.textContent = `${seconds[index]}s`;
+        const label = document.createElement("span");
+        label.className = "name";
+        label.textContent = hero ? "Compose each notice" : c.short;
+        button.append(time, label);
+        if (hero) {
+          const sub = document.createElement("span");
+          sub.className = "sub";
+          sub.textContent = "Personal text, QR codes and page layout.";
+          button.append(sub);
+          const art = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "svg",
+          );
+          art.setAttribute("viewBox", "0 0 120 155");
+          art.setAttribute("aria-hidden", "true");
+          art.classList.add("hero-art");
+          const use = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "use",
+          );
+          use.setAttribute("href", "#paper");
+          art.append(use);
+          button.append(art);
+        }
+        button.addEventListener("click", () => selectCategory(index));
+        tiles[index] = button;
+        return button;
+      }
+      $("budget-map").style.setProperty(
+        "--columns",
+        `${seconds[0]}fr ${60 - seconds[0]}fr`,
+      );
+      $("budget-map").append(tile(0, true));
+      const rest = document.createElement("div");
+      rest.className = "rest";
+      const rows = [
+        [1, 5],
+        [2, 6],
+        [7, 4, 3],
+      ];
+      rest.style.gridTemplateRows = rows
+        .map((row) => `${row.reduce((sum, i) => sum + seconds[i], 0)}fr`)
+        .join(" ");
+      for (const row of rows) {
+        const part = document.createElement("div");
+        part.className = "map-row";
+        for (const index of row) part.append(tile(index));
+        rest.append(part);
+      }
+      $("budget-map").append(rest);
+      selectCategory(0);
+      // The walkthrough illustrates order, not an individual notice’s measured duration.
+      const steps = [
+        {
+          label: "Choose",
+          title: "Start with the person and the chosen notice.",
+          description:
+            "Read their row from the CSV and the notice choice you supplied. Your upstream system has already assessed immunization status; your project supplies the wording and appearance.",
+          scene: "inputs",
+        },
+        {
+          label: "Compose",
+          title: "Make the notice personal.",
+          description:
+            "Fill the template with this person’s information, build any QR code and fit the pages. One warm Typst engine repeats this work for each person.",
+          scene: "compose",
+        },
+        {
+          label: "Write PDF",
+          title: "Turn those pages into a PDF.",
+          description:
+            "Export the finished layout. The PDF and its invisible content-check report come from the same compiled document.",
+          scene: "export",
+        },
+        {
+          label: "Check + save",
+          title: "Check the result and keep the original.",
+          description:
+            "Check the template’s report, the person it belongs to and the PDF page count. Save the original and its findings. A readable notice with failed checks remains available for review.",
+          scene: "check",
+        },
+        {
+          label: "Protect",
+          title: "Keep the original. Make a protected copy.",
+          description:
+            "A background worker makes a separate password-protected copy and verifies access while the main engine moves on to another person. The original stays available for review and grouping.",
+          scene: "copies",
+        },
+        {
+          label: "Group",
+          title: "Give the notice its place in a group.",
+          description:
+            "Once notice creation is finished, combine originals into groups and record each person’s page range in a CSV. Readable notices with failed checks go into review PDFs; held notices stay out. Save the final report.",
+          scene: "groups",
+        },
+      ];
+      let step = 0;
+      const sheet = (x, y, label) =>
+        `<use href="#paper" x="${x}" y="${y}" width="120" height="155"/><text x="${x + 60}" y="${y + 178}" font-size="15" text-anchor="middle">${label}</text>`;
+      const arrow = (x, y) =>
+        `<use href="#arrow" x="${x}" y="${y}" width="90" height="28"/>`;
+      function sceneArt(kind) {
+        let content = "";
+        if (kind === "inputs")
+          content =
+            sheet(140, 24, "Client information") +
+            arrow(290, 87) +
+            sheet(410, 24, "Chosen template");
+        if (kind === "compose")
+          content =
+            sheet(270, 25, "Personal text + QR code") +
+            '<rect x="425" y="46" width="124" height="44" rx="22" fill="var(--compose)"/><text x="487" y="73" font-size="14" text-anchor="middle">Warm Typst</text>';
+        if (kind === "export")
+          content =
+            sheet(140, 24, "Finished layout") +
+            arrow(290, 87) +
+            sheet(410, 24, "Original PDF");
+        if (kind === "check")
+          content =
+            sheet(260, 24, "Original kept") +
+            '<use href="#tick" x="430" y="64" width="72" height="72"/>';
+        if (kind === "copies")
+          content =
+            sheet(140, 24, "Original kept") +
+            arrow(290, 87) +
+            sheet(410, 24, "Protected copy") +
+            '<use href="#lock" x="505" y="105" width="48" height="53"/>';
+        if (kind === "groups")
+          content =
+            sheet(110, 24, "Original notice") +
+            arrow(245, 87) +
+            sheet(385, 12, "") +
+            sheet(400, 24, "Grouped PDF") +
+            '<use href="#tick" x="550" y="66" width="64" height="64"/>';
+        return `<svg viewBox="0 0 760 235" role="img" aria-label="${steps[step].title}">${content}</svg>`;
+      }
+      const stepButtons = [];
+      steps.forEach((s, i) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "step";
+        const n = document.createElement("span");
+        n.textContent = i + 1;
+        const label = document.createElement("span");
+        label.textContent = s.label;
+        b.append(n, label);
+        b.setAttribute("aria-pressed", "false");
+        b.addEventListener("click", () => showStep(i));
+        $("steps").append(b);
+        stepButtons.push(b);
       });
+      function showStep(index) {
+        step = index;
+        stepButtons.forEach((b, i) =>
+          b.setAttribute("aria-pressed", String(i === step)),
+        );
+        $("scene-art").innerHTML = sceneArt(steps[step].scene);
+        $("scene-label").textContent = `Step ${step + 1} of ${steps.length}`;
+        $("scene-title").textContent = steps[step].title;
+        $("scene-description").textContent = steps[step].description;
+        $("step-count").textContent = `${step + 1} / ${steps.length}`;
+        $("previous").disabled = step === 0;
+        $("next").disabled = step === steps.length - 1;
+      }
+      $("previous").addEventListener("click", () => showStep(step - 1));
+      $("next").addEventListener("click", () => showStep(step + 1));
+      showStep(0);
       let elapsed = 0,
         playing = false,
         previous = 0,
         frame = 0;
+      function pause() {
+        playing = false;
+        cancelAnimationFrame(frame);
+        $("play").textContent = "Play";
+      }
+      function chooseView(view) {
+        pause();
+        for (const name of ["budget", "journey"]) {
+          $(`${name}-view`).hidden = name !== view;
+          $(`${name}-button`).setAttribute(
+            "aria-pressed",
+            String(name === view),
+          );
+        }
+      }
+      $("budget-button").addEventListener("click", () => chooseView("budget"));
+      $("journey-button").addEventListener("click", () =>
+        chooseView("journey"),
+      );
       function render() {
         $("time").value = elapsed;
         $("time").setAttribute(
@@ -865,26 +1410,19 @@
           `${elapsed.toFixed(1)} seconds of 60`,
         );
         $("clock").textContent = `${elapsed.toFixed(1)} / 60 s`;
-        for (const { shade, head } of tracks) {
-          shade.style.left = `${(elapsed / 60) * 100}%`;
-          head.style.left = `${Math.min((elapsed / 60) * 100, 99.7)}%`;
-        }
         const recorded = (elapsed / 60) * data.workflow_seconds;
         let sample = data.samples[0];
         for (const candidate of data.samples) {
           if (candidate[0] > recorded + 0.00001) break;
           sample = candidate;
         }
-        // The stored final timestamp is rounded to milliseconds.
         if (elapsed === 60) sample = data.samples[data.samples.length - 1];
         ["originals", "encrypted", "bundles"].forEach(
           (id, i) => ($(id).textContent = sample[i + 1].toLocaleString("en")),
         );
-      }
-      function pause() {
-        playing = false;
-        cancelAnimationFrame(frame);
-        $("play").textContent = "Play";
+        ["original-progress", "encrypted-progress", "bundle-progress"].forEach(
+          (id, i) => ($(id).value = sample[i + 1]),
+        );
       }
       function tick(now) {
         if (!playing) return;
@@ -919,7 +1457,6 @@
         elapsed = Number($("time").value);
         render();
       });
-      // Start paused, including when reduced motion is preferred. Hidden tabs pause too.
       document.addEventListener("visibilitychange", () => {
         if (document.hidden) pause();
       });
@@ -949,6 +1486,8 @@
         });
       }
       updateTheme();
+
+      if (location.hash === "#journey") chooseView("journey");
       render();
     </script>
   </body>
