@@ -4,7 +4,7 @@ ImmuKnow turns a CSV of immunization information into personalized PDF notices. 
 
 **1,000 custom notices in about 60 seconds.** Including protected copies, grouped PDFs and a readable report.
 
-[![Numbered time budget in rough processing order: filling and laying out notices takes about half the minute; protected copies are made at the same time.](docs/assets/notice-timing.svg)](docs/user_guide/performance.md)
+[![Stopwatch showing four shares of a minute: create notices 41 seconds; prepare, check and save 10; group notices 6; write the report 3. Protected copies are made at the same time.](docs/assets/notice-timing.svg)](docs/user_guide/performance.md)
 
 [Explore the interactive timing breakdown](docs/user_guide/performance.md) · [See the libraries in the pipeline](docs/developer_guide/architecture.md#libraries-in-the-pipeline)
 

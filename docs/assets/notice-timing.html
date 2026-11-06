@@ -180,96 +180,80 @@
         max-width: 770px;
         margin-bottom: 20px;
       }
-      .budget-map {
+      .budget-layout {
         display: grid;
-        grid-template-columns: var(--columns, 31fr 25fr);
-        grid-template-rows: var(--rows, 4fr 56fr);
-        gap: 8px;
-        height: 520px;
-      }
-      .tile.prep-tile {
-        grid-column: 1 / -1;
-        flex-direction: row-reverse;
-        justify-content: space-between;
+        grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
         align-items: center;
-        padding: 6px 14px;
+        gap: 32px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        padding: 12px 28px 20px 12px;
       }
-      .tile.prep-tile .seconds {
-        font-size: 22px;
-      }
-      .prep-tile .name {
-        font-size: 14px;
-      }
-      .rest {
-        display: grid;
-        grid-template-rows: 12fr 8fr 9fr;
-        gap: 8px;
-        min-width: 0;
-      }
-      .map-row {
-        display: flex;
-        gap: 8px;
-        min-height: 0;
-      }
-      .tile {
-        flex: var(--weight);
-        min-width: 0;
-        border: 0;
-        border-radius: 12px;
-        text-align: left;
-        padding: 17px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: flex-start;
-        gap: 6px;
-        color: var(--tile-ink);
-        background: var(--color);
+      .stopwatch {
         position: relative;
-        isolation: isolate;
-        overflow: hidden;
+        min-width: 0;
+        aspect-ratio: 1;
       }
-      .tile[aria-pressed="true"] {
-        box-shadow: inset 0 0 0 3px var(--tile-ink);
+      .stopwatch canvas {
+        position: absolute;
+        inset: 0;
+        width: 100% !important;
+        height: 100% !important;
       }
-      .tile .seconds {
-        font-size: clamp(25px, 3.8vw, 39px);
-        font-weight: 750;
-        line-height: 1;
-        letter-spacing: -0.04em;
-        font-variant-numeric: tabular-nums;
+      .slice-list {
+        display: grid;
+        gap: 10px;
       }
-      .tile .name {
-        font-size: 14px;
-        font-weight: 600;
+      .slice {
+        display: grid;
+        grid-template-columns: 12px 1fr auto;
+        align-items: center;
+        gap: 13px;
+        text-align: left;
+        padding: 16px;
+        border-color: transparent;
+        background: transparent;
+      }
+      .slice[aria-pressed="true"] {
+        background: var(--subtle);
+        border-color: var(--line);
+      }
+      .slice .swatch {
+        width: 12px;
+        height: 36px;
+        background: var(--color);
+        border-radius: 5px;
+      }
+      .slice .name {
+        font-weight: 650;
         line-height: 1.25;
       }
-      .hero-tile {
-        justify-content: flex-start;
-        padding: 28px;
+      .slice .summary {
+        display: block;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 400;
+        margin-top: 5px;
       }
-      .hero-tile .seconds {
-        font-size: clamp(65px, 9vw, 94px);
-        margin-top: 12px;
+      .slice .seconds {
+        font-size: 27px;
+        font-weight: 750;
+        white-space: nowrap;
       }
-      .hero-tile .name {
-        font-size: clamp(21px, 2.5vw, 29px);
-        max-width: 270px;
-        margin-top: 7px;
-      }
-      .hero-tile .sub {
+      .breakdown {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 6px 20px;
+        margin: 16px 0 0;
         font-size: 14px;
-        max-width: 220px;
-        line-height: 1.4;
       }
-      .hero-art {
-        position: absolute;
-        width: 140px;
-        height: 170px;
-        right: 20px;
-        bottom: 10px;
-        opacity: 0.3;
-        z-index: -1;
+      .breakdown dt {
+        color: var(--muted);
+      }
+      .breakdown dd {
+        margin: 0;
+        font-weight: 650;
       }
       .caption {
         font-size: 13px;
@@ -480,46 +464,24 @@
         .toolbar .eyebrow {
           max-width: 150px;
         }
-        .budget-map {
+        .budget-layout {
           grid-template-columns: 1fr;
-          grid-template-rows: var(--mobile-rows, 4fr 31fr 25fr);
-          height: 700px;
+          gap: 0;
+          padding: 8px 12px 16px;
         }
-        .hero-tile {
-          padding: 25px;
+        .stopwatch {
+          width: 100%;
+          max-width: 450px;
+          margin: auto;
         }
-        .hero-tile .name {
-          max-width: 240px;
-          font-size: 24px;
-        }
-        .hero-tile .seconds {
-          font-size: 80px;
-          margin-top: 0;
-        }
-        .hero-tile .sub {
-          max-width: 200px;
-        }
-        .hero-art {
-          right: 18px;
-          bottom: 18px;
-          width: 110px;
-          height: 140px;
-        }
-        .tile:not(.hero-tile) {
-          padding: 10px;
+        .slice-list {
           gap: 4px;
         }
-        .tile:not(.hero-tile) .seconds {
-          font-size: 29px;
+        .slice {
+          padding: 12px;
         }
-        .tile:not(.hero-tile) .name {
-          font-size: 13px;
-        }
-        .tile.prep-tile {
-          padding: 6px 12px;
-        }
-        .tile.prep-tile .seconds {
-          font-size: 22px;
+        .slice .seconds {
+          font-size: 24px;
         }
         .parallel {
           padding: 19px;
@@ -575,11 +537,6 @@
         }
         .facts span {
           font-size: 12px;
-        }
-      }
-      @media (max-width: 400px) {
-        .budget-map {
-          height: 820px;
         }
       }
     </style>
@@ -695,18 +652,31 @@
         </div>
         <section id="budget-view" aria-label="A proportional time budget">
           <p class="intro">
-            Follow the numbers in roughly the order the work happens. The larger
-            blocks take more time. Select a block for a plain-language
-            explanation.
+            One turn of the stopwatch, four shares of the work. Select a slice
+            or its label to see what happens inside it.
           </p>
-          <div class="budget-map" id="budget-map"></div>
+          <div class="budget-layout">
+            <div class="stopwatch">
+              <canvas
+                id="stopwatch"
+                role="img"
+                aria-label="A 60-second work budget: create notices 41 seconds; prepare, check and save 10; group notices 6; write the report 3. The same values are available in the buttons alongside."
+              ></canvas>
+            </div>
+            <div
+              class="slice-list"
+              id="slice-list"
+              aria-label="Explore the four time shares"
+            ></div>
+          </div>
           <p class="caption">
-            Times are rounded to a minute. Saving files and updating the report
-            also happen throughout the run; steps 2–6 repeat for each person.
+            Rounded to a minute. These are shares of the work; several steps
+            repeat for each person.
           </p>
           <div class="explanation" aria-live="polite" aria-atomic="true">
-            <h2 id="detail-title">Fill and lay out each notice</h2>
+            <h2 id="detail-title">Create the notices</h2>
             <p id="detail-description"></p>
+            <dl class="breakdown" id="detail-breakdown"></dl>
           </div>
           <div class="parallel">
             <svg aria-hidden="true" viewBox="0 0 60 66">
@@ -817,7 +787,7 @@
         ><img
           src="notice-timing.svg"
           style="width: 100%; height: auto"
-          alt="Main work rounded to 60 seconds: compose notices 31, write PDFs 6, combine groups 6, tidy memory 4, identify files 4, read and save 4, reports 3, page checks 2. Protected copies run alongside notice creation."
+          alt="Main work rounded to 60 seconds: create notices 41, prepare, check and save 10, group notices 6, write the report 3. Protected copies run alongside notice creation."
       /></noscript>
       <p class="footer">
         Based on a recorded run with fictional clients in a shared 4-CPU / 8-GiB
@@ -827,8 +797,9 @@
       </p>
       <p class="footer">
         <a href="notice-timing.svg">Static visual</a> ·
-        <a href="notice-timings.json">Measurements</a>. No external services or
-        libraries are needed to use this page.
+        <a href="notice-timings.json">Measurements</a> · Built with
+        <a href="https://www.chartjs.org/">Chart.js</a>. The chart library is
+        included locally; no external service is needed.
       </p>
     </main>
     <script id="measurements" type="application/json">
@@ -1134,179 +1105,243 @@
         ]
       }
     </script>
+    <script src="vendor/chart-4.6.1.umd.min.js"></script>
     <script>
       "use strict";
       const $ = (id) => document.getElementById(id);
       const data = JSON.parse($("measurements").textContent);
+      // The clock is a work budget, not a timeline. Keep overlapping encryption outside it.
       const categories = [
         {
-          key: "Typst evaluation and layout",
-          name: "Fill and lay out each notice",
-          short: "Fill and lay out each notice",
-          color: "compose",
-          order: 2,
+          name: "Create the notices",
+          color: "#5686df",
+          summary: "Personalize the pages and make PDFs",
           description:
-            "Fill the chosen template with this person’s information, build any QR code, and fit the text onto the pages. This is the largest part of the work. Typst stays warm between people, reusing fonts and earlier work where it can.",
+            "Fill each chosen template with the person’s information, lay out the pages and create the PDF. QR codes are built here too. Typst stays warm between people, reusing fonts and earlier work; it also clears older results to keep memory in check.",
+          parts: [
+            [
+              "Typst evaluation and layout",
+              "Fill and lay out the pages, including QR codes",
+            ],
+            ["PDF export", "Turn the finished pages into PDFs"],
+            ["Cache cleanup", "Clear older layout work to make room"],
+          ],
         },
         {
-          key: "PDF export",
-          name: "Turn the pages into PDF files",
-          short: "Make the PDF files",
-          color: "pdf",
-          order: 3,
+          name: "Prepare, check and save",
+          color: "#db9a46",
+          summary: "Read the list and look after each file",
           description:
-            "Turn each finished page layout into a PDF. This happens for each notice as it is ready.",
+            "Read the client list and your notice choices, prepare the information, and save each original. Check PDF pages and record a fingerprint identifying each saved file. This work happens before and between notice creation, rather than in one separate stretch.",
+          parts: [
+            [
+              "Other preparation, file writes and bookkeeping",
+              "Read, prepare and save files",
+            ],
+            ["Original PDF checks", "Check the original PDF pages"],
+            ["File hashes", "Record which files were saved"],
+          ],
         },
         {
-          key: "Cache cleanup",
-          name: "Free memory for the next notice",
-          short: "Make room for the next notice",
-          color: "memory",
-          order: 6,
+          name: "Group the notices",
+          color: "#46a58c",
+          summary: "Combine PDFs with page lists",
           description:
-            "Let go of older page-layout work so memory does not keep growing. Fonts and useful results stay ready for the next person’s notice.",
+            "Join notices into grouped PDFs, each with a CSV listing whose pages are inside. Readable notices with failed checks go into separate review PDFs. Notices on hold stay out. Independent groups can be combined at the same time.",
+          parts: [
+            ["Combining PDFs", "Combine the PDFs and save their page lists"],
+          ],
         },
         {
-          key: "Original PDF checks",
-          name: "Check the PDF pages",
-          short: "Check PDF pages",
-          color: "checks",
-          order: 4,
+          name: "Write the report",
+          color: "#ad78bf",
+          summary: "Keep findings and PDF locations together",
           description:
-            "Inspect the original PDF and check its page count. The template also supplies a content-check report from the same compiled document; no extra pages or attachment are added.",
-        },
-        {
-          key: "Reports and checkpoints",
-          name: "Save the review report",
-          short: "Save the review report",
-          color: "reports",
-          order: 8,
-          description:
-            "Save the run record and its readable HTML report, including checkpoints during the run. This keeps findings and PDF locations together for review.",
-        },
-        {
-          key: "Combining PDFs",
-          name: "Join notices into groups",
-          short: "Join notices into groups",
-          color: "groups",
-          order: 7,
-          description:
-            "Four workers can combine independent groups of original notices, with CSV lists of page membership. Readable notices with failed checks go into separate review PDFs. Notices on hold stay out.",
-        },
-        {
-          key: "File hashes",
-          name: "Record each saved file’s fingerprint",
-          short: "Record which files were saved",
-          color: "identity",
-          order: 5,
-          description:
-            "Calculate a digital fingerprint for each saved file, so the report records exactly which file was produced. Protected copies have fingerprints too; those are recorded by the background worker.",
-        },
-        {
-          key: "Other preparation, file writes and bookkeeping",
-          name: "Read and prepare the client list",
-          short: "Read the client list",
-          color: "files",
-          order: 1,
-          description:
-            "Read the CSV and your notice choices, then prepare each person’s information. This time allowance also includes saving the originals and other files as the run continues.",
+            "Save the run record and its readable HTML report so you can review the findings and find the PDFs. This includes saving progress during the run, as well as the final report.",
+          parts: [
+            ["Reports and checkpoints", "Save progress and the final report"],
+          ],
         },
       ];
-      // Largest-remainder rounding keeps the proportional picture at exactly 60 seconds.
-      const shares = categories.map(
-        (c) => (data.categories[c.key] / data.workflow_seconds) * 60,
-      );
-      const seconds = shares.map(Math.floor);
-      const remainders = shares
-        .map((v, i) => ({ i, fraction: v - seconds[i] }))
-        .sort((a, b) => b.fraction - a.fraction);
-      const remaining = 60 - seconds.reduce((a, b) => a + b, 0);
-      for (let i = 0; i < remaining; i++) seconds[remainders[i].i]++;
-      const tiles = [];
-      function selectCategory(index) {
-        categories.forEach((_, i) =>
-          tiles[i].setAttribute("aria-pressed", String(i === index)),
-        );
-        $("detail-title").textContent =
-          `${categories[index].order}. ${categories[index].name} · about ${seconds[index]} seconds`;
-        $("detail-description").textContent = categories[index].description;
+      // Largest-remainder rounding preserves an exact 60-second total at both levels.
+      function roundedShares(values, total) {
+        const sum = values.reduce((a, b) => a + b, 0);
+        const shares = values.map((v) => (v / sum) * total);
+        const result = shares.map(Math.floor);
+        const order = shares
+          .map((v, i) => ({ i, fraction: v - result[i] }))
+          .sort((a, b) => b.fraction - a.fraction);
+        for (
+          let i = 0, left = total - result.reduce((a, b) => a + b, 0);
+          i < left;
+          i++
+        )
+          result[order[i].i]++;
+        return result;
       }
-      function tile(index, hero = false) {
-        const c = categories[index],
-          button = document.createElement("button");
+      const seconds = roundedShares(
+        categories.map((c) =>
+          c.parts.reduce((sum, [key]) => sum + data.categories[key], 0),
+        ),
+        60,
+      );
+      const css = (name) =>
+        getComputedStyle(document.documentElement)
+          .getPropertyValue(name)
+          .trim();
+      const buttons = [];
+      let selected = 0;
+      let chart;
+      function selectCategory(index) {
+        selected = index;
+        buttons.forEach((button, i) =>
+          button.setAttribute("aria-pressed", String(i === index)),
+        );
+        const category = categories[index];
+        $("detail-title").textContent =
+          `${category.name} · about ${seconds[index]} seconds`;
+        $("detail-description").textContent = category.description;
+        $("detail-breakdown").replaceChildren();
+        const parts = roundedShares(
+          category.parts.map(([key]) => data.categories[key]),
+          seconds[index],
+        );
+        category.parts.forEach(([, label], i) => {
+          const term = document.createElement("dt"),
+            value = document.createElement("dd");
+          term.textContent = label;
+          value.textContent = `${parts[i]} s`;
+          $("detail-breakdown").append(term, value);
+        });
+        if (chart) chart.update("none");
+      }
+      categories.forEach((category, i) => {
+        const button = document.createElement("button");
         button.type = "button";
-        button.className = "tile" + (hero ? " hero-tile" : "");
-        button.style.setProperty("--color", `var(--${c.color})`);
-        button.style.setProperty("--weight", seconds[index]);
+        button.className = "slice";
+        button.style.setProperty("--color", category.color);
         button.setAttribute(
           "aria-label",
-          `${c.order}. ${c.name}, about ${seconds[index]} seconds`,
+          `${category.name}, about ${seconds[i]} seconds`,
         );
-        button.setAttribute("aria-pressed", "false");
+        button.setAttribute(
+          "aria-controls",
+          "detail-title detail-description detail-breakdown",
+        );
+        const swatch = document.createElement("span");
+        swatch.className = "swatch";
+        swatch.setAttribute("aria-hidden", "true");
+        const name = document.createElement("span");
+        name.className = "name";
+        name.textContent = category.name;
+        const summary = document.createElement("span");
+        summary.className = "summary";
+        summary.textContent = category.summary;
+        name.append(summary);
         const time = document.createElement("span");
         time.className = "seconds";
-        time.textContent = `${seconds[index]}s`;
-        const label = document.createElement("span");
-        label.className = "name";
-        label.textContent = `${c.order}. ${c.short}`;
-        button.append(time, label);
-        if (hero) {
-          const sub = document.createElement("span");
-          sub.className = "sub";
-          sub.textContent =
-            "Place each person’s text, history and QR code into the chosen template.";
-          button.append(sub);
-          const art = document.createElementNS(
-            "http://www.w3.org/2000/svg",
-            "svg",
-          );
-          art.setAttribute("viewBox", "0 0 120 155");
-          art.setAttribute("aria-hidden", "true");
-          art.classList.add("hero-art");
-          const use = document.createElementNS(
-            "http://www.w3.org/2000/svg",
-            "use",
-          );
-          use.setAttribute("href", "#paper");
-          art.append(use);
-          button.append(art);
-        }
-        button.addEventListener("click", () => selectCategory(index));
-        tiles[index] = button;
-        return button;
+        time.textContent = `${seconds[i]}s`;
+        button.append(swatch, name, time);
+        button.addEventListener("click", () => selectCategory(i));
+        buttons.push(button);
+        $("slice-list").append(button);
+      });
+      // Chart.js owns the segments and hit testing. This decoration adds the stopwatch face.
+      const stopwatchFace = {
+        id: "stopwatch-face",
+        afterDraw(chart) {
+          const arc = chart.getDatasetMeta(0).data[0];
+          if (!arc) return;
+          const { ctx } = chart,
+            { x, y, outerRadius: r } = arc;
+          const scale = Math.min(chart.width / 460, 1);
+          ctx.save();
+          ctx.strokeStyle = css("--muted");
+          ctx.fillStyle = css("--muted");
+          ctx.lineWidth = 1.5;
+          for (let i = 0; i < 60; i++) {
+            const angle = (i / 60) * Math.PI * 2 - Math.PI / 2;
+            const from = r + 8,
+              to = r + (i % 5 === 0 ? 17 : 12);
+            ctx.beginPath();
+            ctx.moveTo(x + Math.cos(angle) * from, y + Math.sin(angle) * from);
+            ctx.lineTo(x + Math.cos(angle) * to, y + Math.sin(angle) * to);
+            ctx.stroke();
+          }
+          ctx.font = `500 ${14 * scale}px system-ui`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          for (const n of [0, 15, 30, 45]) {
+            const angle = (n / 60) * Math.PI * 2 - Math.PI / 2;
+            ctx.fillText(
+              String(n),
+              x + Math.cos(angle) * (r + 30),
+              y + Math.sin(angle) * (r + 30),
+            );
+          }
+          ctx.fillStyle = css("--ink");
+          ctx.fillRect(x - 13 * scale, y - r - 58, 26 * scale, 8 * scale);
+          ctx.fillRect(x - 5 * scale, y - r - 50, 10 * scale, 9 * scale);
+          ctx.font = `750 ${80 * scale}px system-ui`;
+          ctx.fillText("60", x, y - 10 * scale);
+          ctx.font = `500 ${17 * scale}px system-ui`;
+          ctx.fillStyle = css("--muted");
+          ctx.fillText("seconds", x, y + 40 * scale);
+          ctx.restore();
+        },
+      };
+      if (window.Chart) {
+        chart = new Chart($("stopwatch"), {
+          type: "doughnut",
+          data: {
+            labels: categories.map((c) => c.name),
+            datasets: [
+              {
+                data: seconds,
+                backgroundColor: categories.map((c) => c.color),
+                borderColor: css("--surface"),
+                borderWidth: 3,
+                hoverOffset: 5,
+                offset: (context) => (context.dataIndex === selected ? 5 : 0),
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            cutout: "66%",
+            layout: { padding: { top: 70, right: 42, bottom: 40, left: 42 } },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: (context) =>
+                    ` ${context.label}: about ${context.raw} seconds`,
+                },
+              },
+            },
+            onClick: (_, elements) => {
+              if (elements.length) selectCategory(elements[0].index);
+            },
+            onHover: (event, elements) => {
+              event.native.target.style.cursor = elements.length
+                ? "pointer"
+                : "default";
+            },
+          },
+          plugins: [stopwatchFace],
+        });
+      } else {
+        // Keep the explanation and controls usable if the chart asset cannot load.
+        $("stopwatch").hidden = true;
+        const fallback = document.createElement("img");
+        fallback.src = "notice-timing.svg";
+        fallback.alt =
+          "Four work shares totalling 60 seconds; values are listed below.";
+        fallback.style.width = "100%";
+        $("stopwatch").parentElement.append(fallback);
       }
-      $("budget-map").style.setProperty(
-        "--columns",
-        `${seconds[0]}fr ${60 - seconds[0] - seconds[7]}fr`,
-      );
-      $("budget-map").style.setProperty(
-        "--rows",
-        `${seconds[7]}fr ${60 - seconds[7]}fr`,
-      );
-      $("budget-map").style.setProperty(
-        "--mobile-rows",
-        `${seconds[7]}fr ${seconds[0]}fr ${60 - seconds[7] - seconds[0]}fr`,
-      );
-      const preparation = tile(7);
-      preparation.classList.add("prep-tile");
-      $("budget-map").append(preparation, tile(0, true));
-      const rest = document.createElement("div");
-      rest.className = "rest";
-      const rows = [
-        [1, 3],
-        [6, 2],
-        [5, 4],
-      ];
-      rest.style.gridTemplateRows = rows
-        .map((row) => `${row.reduce((sum, i) => sum + seconds[i], 0)}fr`)
-        .join(" ");
-      for (const row of rows) {
-        const part = document.createElement("div");
-        part.className = "map-row";
-        for (const index of row) part.append(tile(index));
-        rest.append(part);
-      }
-      $("budget-map").append(rest);
       selectCategory(0);
       // The walkthrough illustrates order, not an individual notice’s measured duration.
       const steps = [
@@ -1517,8 +1552,15 @@
         if (theme === "auto" && scheme)
           theme = scheme === "slate" ? "dark" : "light";
         document.documentElement.dataset.theme = theme;
+        if (chart) {
+          chart.data.datasets[0].borderColor = css("--surface");
+          chart.update("none");
+        }
       }
       $("theme").addEventListener("change", updateTheme);
+      window
+        .matchMedia("(prefers-color-scheme: dark)")
+        .addEventListener("change", updateTheme);
       if (documentationBody) {
         const observer = new MutationObserver(updateTheme);
         observer.observe(documentationBody, {

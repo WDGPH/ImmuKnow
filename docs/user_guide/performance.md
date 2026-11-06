@@ -4,12 +4,12 @@ The standalone Rust pipeline created **1,000 personalized notices in about 60 se
 
 The interactive visual has two ways to explore the work:
 
-- **Spend the minute:** a picture made of proportional blocks. Numbered blocks follow the rough processing order, starting with the client list. Filling and laying out each notice gets the largest block; selecting any block explains its share. Protected copies appear separately because they are made alongside notice creation.
+- **Spend the minute:** a stopwatch divided into four slices. Creating notices takes the largest share; the other slices cover preparing/checking/saving, grouping PDFs, and writing the report. Select a slice or its label to see the smaller tasks inside it. Protected copies appear separately because they are made alongside notice creation.
 - **[Follow a notice](../assets/notice-timing.html#journey):** a paper-and-copy walkthrough from the client list to the grouped PDF. Step through it, then replay the recorded output counts for the batch.
 
 [Open the interactive visual](../assets/notice-timing.html) or its [static version](../assets/notice-timing.svg). Both use an approximate 60-second total. Choose Automatic, Light or Dark for the appearance. Automatic follows the documentation theme, or your system preference when opened separately. The replay starts paused.
 
-<iframe src="../../assets/notice-timing.html" title="Where the minute goes: a time budget and notice walkthrough" width="100%" height="1450" loading="lazy" style="border:0;border-radius:12px"></iframe>
+<iframe src="../../assets/notice-timing.html" title="Where the minute goes: a time budget and notice walkthrough" width="100%" height="1570" loading="lazy" style="border:0;border-radius:12px"></iframe>
 
 ## What the timing includes
 
@@ -17,7 +17,7 @@ The whole-command measurement includes reading and preparing the input, creating
 
 This was fictional client data in a shared environment limited to 4 CPUs and 8 GiB RAM, with warm filesystem caches. It is a measured example, not a capacity guarantee. Your templates, page counts, fonts, settings and computer will affect the result. Your project supplies the wording and appearance; the upstream system assesses immunization status.
 
-The blocks divide main-workflow time into a rounded minute. Their numbers show the rough order of the work. Steps 2–6 repeat for each person; file saving and report updates happen throughout. Encryption happens alongside notice creation and is not added to those blocks. The walkthrough explains the steps without assigning a measured time to an individual notice. Its replay uses recorded output completions.
+The slices divide main-workflow time into a rounded minute. They show shares of the work, rather than a timeline: creating, checking and saving repeat for each person, and report updates happen throughout. Creating notices includes page layout, QR codes, making the PDFs and clearing older layout results to keep memory in check. Encryption happens alongside notice creation and is not added to the clock. The walkthrough explains the steps without assigning a measured time to an individual notice. Its replay uses recorded output completions.
 
 ## See a real command
 
