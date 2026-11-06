@@ -27,6 +27,84 @@ pub struct RunOptions {
 pub struct RunResult {
     pub record: PathBuf,
     pub succeeded: bool,
+    pub summary: RunSummary,
+}
+
+/// Small receipts for terminal progress; no client information or worker-side output.
+#[derive(Clone, Copy)]
+pub enum Progress {
+    Preparing,
+    Notices {
+        done: usize,
+        total: usize,
+        protected: usize,
+    },
+    Protecting {
+        done: usize,
+        total: usize,
+    },
+    Grouping {
+        done: usize,
+        total: usize,
+    },
+    Reporting,
+}
+
+#[derive(Default)]
+pub struct RunSummary {
+    pub protection_requested: bool,
+    pub grouping_requested: bool,
+    pub run_findings: usize,
+    pub rows: usize,
+    pub originals: usize,
+    pub pages: u64,
+    pub protected: usize,
+    pub groups: usize,
+    pub review_groups: usize,
+    pub warnings: usize,
+    pub failed: usize,
+    pub held: usize,
+}
+impl RunSummary {
+    fn from_record(record: &Value) -> Self {
+        let mut summary = Self {
+            protection_requested: record["configured_settings"]["encryption"]["enabled"] == true,
+            grouping_requested: record["configured_settings"]["bundling"]["bundle_size"]
+                .as_u64()
+                .is_some_and(|n| n > 0),
+            ..Self::default()
+        };
+        summary.run_findings = record["checks"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|check| matches!(check["status"].as_str(), Some("warn" | "fail")))
+            .count();
+        for entry in record["entries"].as_array().into_iter().flatten() {
+            summary.rows += 1;
+            if entry["original"]["status"] == "completed" {
+                summary.originals += 1;
+                summary.pages += entry["original"]["pages"].as_u64().unwrap_or(0);
+            }
+            summary.protected += usize::from(entry["encryption"]["status"] == "completed");
+            let severity = bundles::severity(entry);
+            summary.warnings += usize::from(severity == "warn");
+            summary.failed += usize::from(
+                severity == "fail"
+                    || entry["original"]["status"] != "completed"
+                    || entry["encryption"]["status"] == "failed",
+            );
+            summary.held += usize::from(entry["routing"] == "withheld");
+        }
+        for group in record["bundles"].as_array().into_iter().flatten() {
+            if group["route"] == "review" {
+                summary.review_groups += 1;
+            } else {
+                summary.groups += 1;
+            }
+        }
+        summary
+    }
 }
 
 fn lock(dir: &Path) -> Result<File> {
@@ -236,7 +314,13 @@ fn process(
     timestamp: i64,
     workers: u8,
     root: &Path,
+    progress: &mut impl FnMut(Progress),
 ) -> Result<()> {
+    progress(Progress::Notices {
+        done: 0,
+        total: prepared.len(),
+        protected: 0,
+    });
     let validator = validation::Validator::new(root)?;
     for p in prepared {
         validator.payload(&p.notice)?;
@@ -258,6 +342,9 @@ fn process(
     };
     let pool_result = pool::with_pool(usize::from(workers.max(1)), encrypt, |jobs, results| {
         let mut count = 0usize;
+        let mut protected = 0usize;
+        let mut encryption_done = 0usize;
+        let mut encryption_total = 0usize;
         let rendering = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
             for (index, p) in prepared.iter().enumerate() {
                 let key = p.notice["row_key"]
@@ -322,6 +409,7 @@ fn process(
                             if c.encryption.enabled {
                                 match input::password(p, c) {
                                     Ok(password) => {
+                                        encryption_total += 1;
                                         let job = (
                                             index,
                                             dir.join(&original),
@@ -330,6 +418,9 @@ fn process(
                                         );
                                         if workers == 0 {
                                             let (_, value) = encrypt(job);
+                                            encryption_done += 1;
+                                            protected +=
+                                                usize::from(value["status"] == "completed");
                                             entry["encryption"] = value;
                                         } else {
                                             entry["encryption"] = json!({"status":"pending"});
@@ -355,9 +446,16 @@ fn process(
                 }
                 comemo::evict(10);
                 for (i, result) in results.try_iter() {
+                    encryption_done += 1;
+                    protected += usize::from(result["status"] == "completed");
                     record["entries"][i]["encryption"] = result;
                     count -= 1;
                 }
+                progress(Progress::Notices {
+                    done: index + 1,
+                    total: prepared.len(),
+                    protected,
+                });
                 if (index + 1) % 100 == 0 {
                     report::write(dir, record)?;
                 }
@@ -366,7 +464,18 @@ fn process(
         }));
         // Finish submitted encryption jobs even when a later notice or checkpoint fails.
         drop(jobs);
+        if count > 0 {
+            progress(Progress::Protecting {
+                done: encryption_done,
+                total: encryption_total,
+            });
+        }
         for (index, value) in results {
+            encryption_done += 1;
+            progress(Progress::Protecting {
+                done: encryption_done,
+                total: encryption_total,
+            });
             record["entries"][index]["encryption"] = value;
             count -= 1;
         }
@@ -388,6 +497,15 @@ fn process(
 }
 
 pub fn run(opts: &RunOptions) -> Result<RunResult> {
+    run_with_progress(opts, &mut |_| {})
+}
+
+/// The coordinator reports completed work; callers choose how to display it.
+pub fn run_with_progress(
+    opts: &RunOptions,
+    progress: &mut impl FnMut(Progress),
+) -> Result<RunResult> {
+    progress(Progress::Preparing);
     let started = Instant::now();
     let timestamp = timestamp(opts.timestamp)?;
     fs::create_dir_all(&opts.output)?;
@@ -501,12 +619,20 @@ pub fn run(opts: &RunOptions) -> Result<RunResult> {
             timestamp,
             opts.encryption_workers,
             resource_root.path(),
+            progress,
         )?;
         record["timings"]["render_seconds"] = json!(render_start.elapsed().as_secs_f64());
         policy::apply(&mut record, &c, resource_root.path())?;
         let bundling_start = Instant::now();
-        bundles::bundle(&dir, &mut record, &c, usize::from(opts.bundle_workers))?;
+        bundles::bundle_with_progress(
+            &dir,
+            &mut record,
+            &c,
+            usize::from(opts.bundle_workers),
+            &mut |done, total| progress(Progress::Grouping { done, total }),
+        )?;
         record["timings"]["delivery_seconds"] = json!(bundling_start.elapsed().as_secs_f64());
+        progress(Progress::Reporting);
         record["status"] = json!(bundles::outcome(&record));
         let attempt = json!({"bundles":record["bundles"],"configured_settings":record["configured_settings"],"holds":[],"status":record["status"]});
         record["delivery_attempts"]
@@ -524,6 +650,7 @@ pub fn run(opts: &RunOptions) -> Result<RunResult> {
             Ok(RunResult {
                 record: completed.join("run.json"),
                 succeeded: record["status"] != "completed_with_failures",
+                summary: RunSummary::from_record(&record),
             })
         }
         Ok(Err(error)) => {
@@ -629,5 +756,6 @@ pub fn rebundle(
     Ok(RunResult {
         record: dir.join("run.json"),
         succeeded: record["status"] != "completed_with_failures",
+        summary: RunSummary::from_record(&record),
     })
 }

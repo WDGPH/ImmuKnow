@@ -8,7 +8,8 @@ the selected templates control wording and appearance.
 
 | File | Responsibility |
 | --- | --- |
-| `src/main.rs` | Read command options. |
+| `src/main.rs` | Read command options and resolve project folders. |
+| `src/terminal.rs` | Show progress and a readable completion summary. |
 | `src/input.rs` | Read the CSV, project settings and reference lists; prepare client information. |
 | `src/compiler.rs` | Keep one Typst compiler warm and obtain the PDF and checks from the same document. |
 | `src/validation.rs`, `src/policy.rs` | Check the report and apply permitted rule changes. |
@@ -65,7 +66,7 @@ Encryption creates a separate AES-256 revision 6 PDF and verifies protection
 and password access. The original remains available. Derived passwords are
 never saved. One encryption worker and four bundle workers are used by default;
 `src/pool.rs` provides the small bounded work queue. The coordinator alone updates
-the saved record.
+the saved record and sends count-only progress receipts to the terminal display. Library callers can run without terminal output. The display adds no worker thread.
 
 ## Save runs and later changes
 

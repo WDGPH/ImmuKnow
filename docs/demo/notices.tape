@@ -3,10 +3,10 @@
 Output notice-demo.gif
 Require immuknow
 Set Shell bash
-Set Width 1200
-Set Height 600
-Set FontSize 19
-Set FontFamily "FreeMono"
+Set Width 1000
+Set Height 760
+Set FontSize 24
+Set FontFamily "DejaVu Sans Mono"
 Set Theme "Catppuccin Frappe"
 Set Padding 24
 Set WindowBar Colorful
@@ -20,16 +20,7 @@ Type "export PS1='$ '; clear"
 Enter
 Sleep 500ms
 Show
-Type "# Create notices for six fictional clients"
-Enter
-Type "immuknow run clients.csv --notice-assignments notices.json --templates project/templates --config project/config --output runs"
+Type "immuknow run clients.csv --notices notices.json"
 Enter
 Wait+Line /\$$/
-Sleep 1500ms
-Type "ls runs/*/"
-Enter
-Wait+Line /\$$/
-Sleep 2s
-Type "# Open report.html to review findings and notices."
-Enter
-Sleep 3s
+Sleep 7s

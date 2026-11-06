@@ -21,7 +21,7 @@ fn relative_original(dir: &Path, entry: &Value) -> Result<PathBuf> {
     );
     Ok(dir.join(path))
 }
-fn severity(entry: &Value) -> &'static str {
+pub(crate) fn severity(entry: &Value) -> &'static str {
     let mut warning = false;
     if let Some(checks) = entry
         .get("effective_checks")
@@ -80,6 +80,16 @@ pub fn bundle(
     record: &mut Value,
     config: &crate::input::Config,
     workers: usize,
+) -> Result<()> {
+    bundle_with_progress(dir, record, config, workers, &mut |_, _| {})
+}
+
+pub(crate) fn bundle_with_progress(
+    dir: &Path,
+    record: &mut Value,
+    config: &crate::input::Config,
+    workers: usize,
+    progress: &mut impl FnMut(usize, usize),
 ) -> Result<()> {
     let fields = crate::input::grouping_fields(&config.bundling.group_by)?;
     let fixed = crate::input::fixed_pages(config)?;
@@ -147,6 +157,7 @@ pub fn bundle(
         groups.entry((route.to_owned(), key)).or_default().push(i);
     }
     if config.bundling.bundle_size == 0 {
+        progress(0, 0);
         record["entries"] = json!(entries);
         record["bundles"] = json!([]);
         return Ok(());
@@ -185,17 +196,26 @@ pub fn bundle(
             Ok((number, route, group, indices, pages, hash))
         };
         let mut results = BTreeMap::new();
+        let total = jobs.len();
+        progress(0, total);
         crate::pool::with_pool(
             workers.max(1).min(jobs.len().max(1)),
             work,
             |sender, receiver| {
                 for job in jobs {
                     sender.send(job).context("Bundle worker stopped")?;
+                    // Collect ready receipts while submitting larger sets too.
+                    for result in receiver.try_iter() {
+                        let item = result?;
+                        results.insert(item.0, item);
+                        progress(results.len(), total);
+                    }
                 }
                 drop(sender);
                 for result in receiver {
                     let item = result?;
                     results.insert(item.0, item);
+                    progress(results.len(), total);
                 }
                 Ok(())
             },

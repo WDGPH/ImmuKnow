@@ -1,5 +1,6 @@
-//! Command parsing only; the library owns each complete workflow.
-use anyhow::{Context, Result, ensure};
+//! Command parsing and terminal presentation; the library owns each workflow.
+mod terminal;
+use anyhow::{Result, ensure};
 use clap::{Args, Parser, Subcommand};
 use immuknow::{
     input::Selection,
@@ -16,6 +17,12 @@ use std::path::PathBuf;
 struct Cli {
     #[command(subcommand)]
     command: Command,
+    /// Progress display: auto for terminals, plain for readable logs, off for silence.
+    #[arg(long, global = true, value_enum, default_value_t = terminal::Mode::Auto)]
+    progress: terminal::Mode,
+    /// Add decorative emoji to the progress headings.
+    #[arg(long, global = true)]
+    emoji: bool,
 }
 #[derive(Args)]
 #[group(required = false)]
@@ -25,8 +32,8 @@ struct Inputs {
     /// JSON file matching each client ID to a template filename.
     #[arg(
         long,
+        visible_alias = "notices",
         conflicts_with = "template",
-        requires = "templates",
         required_unless_present = "template"
     )]
     notice_assignments: Option<PathBuf>,
@@ -36,9 +43,12 @@ struct Inputs {
     /// Directory containing the templates named in the assignment file.
     #[arg(long)]
     templates: Option<PathBuf>,
-    /// Directory containing parameters and reference files.
-    #[arg(long, default_value = "config")]
-    config: PathBuf,
+    /// Project folder containing templates/ and config/.
+    #[arg(long)]
+    project: Option<PathBuf>,
+    /// Directory containing parameters and reference files (default: config).
+    #[arg(long)]
+    config: Option<PathBuf>,
     /// CSV text encoding; by default, try UTF-8, Windows-1252, then Latin-1.
     #[arg(long, value_parser=["utf-8-sig", "cp1252", "latin-1"])]
     input_encoding: Option<String>,
@@ -54,10 +64,23 @@ impl Inputs {
         let (selection, templates) = match (self.notice_assignments, self.template) {
             (Some(manifest), None) => (
                 Selection::Manifest(manifest),
-                self.templates
-                    .context("--templates is required with assignments")?,
+                self.templates.unwrap_or_else(|| {
+                    self.project
+                        .as_deref()
+                        .unwrap_or(std::path::Path::new("."))
+                        .join("templates")
+                }),
             ),
             (None, Some(template)) => {
+                let template = if let Some(project) = &self.project {
+                    if template.is_absolute() {
+                        template
+                    } else {
+                        project.join("templates").join(template)
+                    }
+                } else {
+                    template
+                };
                 let parent = template
                     .parent()
                     .filter(|p| !p.as_os_str().is_empty())
@@ -71,7 +94,10 @@ impl Inputs {
             csv: self.csv,
             selection,
             templates,
-            config: self.config,
+            config: self.config.unwrap_or_else(|| {
+                self.project
+                    .map_or_else(|| PathBuf::from("config"), |p| p.join("config"))
+            }),
             output,
             encoding: self.input_encoding,
             timestamp,
@@ -127,7 +153,9 @@ fn main() {
     }
 }
 fn execute() -> Result<()> {
-    match Cli::parse().command {
+    let cli = Cli::parse();
+    let mut terminal = terminal::Terminal::new(cli.progress, cli.emoji);
+    match cli.command {
         Command::Run {
             inputs,
             output,
@@ -135,13 +163,12 @@ fn execute() -> Result<()> {
             encryption_workers,
             bundle_workers,
         } => {
-            let result = pipeline::run(&inputs.options(
-                output,
-                timestamp,
-                encryption_workers,
-                bundle_workers,
-            )?)?;
-            println!("{}", result.record.display());
+            let result = pipeline::run_with_progress(
+                &inputs.options(output, timestamp, encryption_workers, bundle_workers)?,
+                &mut |event| terminal.update(event),
+            )?;
+            terminal.finish(&result);
+            terminal.print_record(&result);
             if !result.succeeded {
                 std::process::exit(1);
             }
@@ -179,7 +206,8 @@ fn execute() -> Result<()> {
                 &release,
                 usize::from(bundle_workers),
             )?;
-            println!("{}", result.record.display());
+            terminal.finish(&result);
+            terminal.print_record(&result);
             if !result.succeeded {
                 std::process::exit(1);
             }

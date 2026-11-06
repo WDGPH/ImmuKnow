@@ -810,3 +810,87 @@ fn failed_rebundle_records_attempt_and_keeps_existing_delivery_and_decisions() {
     assert_eq!(fs::read(original_bundle).unwrap(), bundle_bytes);
     fs::write(original, saved_original).unwrap();
 }
+
+#[test]
+fn project_shortcut_supports_explicit_choices_overrides_and_quiet_output() {
+    let project = Project::new();
+    select_first_rows(&project, &["overdue_agents_v1.en.typ"]);
+    let authored = project.root.join("authored project");
+    copy_tree(&project.templates, &authored.join("templates"));
+    copy_tree(&project.config, &authored.join("config"));
+    let selected = cli(
+        &project.root,
+        &[
+            "prepare",
+            p(&project.csv),
+            "--project",
+            p(&authored),
+            "--notices",
+            p(&project.assignments),
+        ],
+    );
+    success(&selected);
+    let facts: Value = serde_json::from_slice(&selected.stdout).unwrap();
+    let from_project = cli(
+        &authored,
+        &[
+            "prepare",
+            p(&project.csv),
+            "--notices",
+            p(&project.assignments),
+        ],
+    );
+    success(&from_project);
+    let local_facts: Value = serde_json::from_slice(&from_project.stdout).unwrap();
+    assert_eq!(facts["entries"], local_facts["entries"]);
+    assert_eq!(
+        facts["entries"][0]["assignment"]["template"],
+        "overdue_agents_v1.en.typ"
+    );
+    let single = cli(
+        &project.root,
+        &[
+            "prepare",
+            p(&project.csv),
+            "--project",
+            p(&authored),
+            "--template",
+            "overdue_agents_v1.en.typ",
+        ],
+    );
+    success(&single);
+    let single_facts: Value = serde_json::from_slice(&single.stdout).unwrap();
+    assert_eq!(facts["entries"], single_facts["entries"]);
+    // Explicit paths still work even when the project defaults are absent.
+    fs::rename(
+        authored.join("templates"),
+        authored.join("unused-templates"),
+    )
+    .unwrap();
+    fs::rename(authored.join("config"), authored.join("unused-config")).unwrap();
+    let quiet = cli(
+        &project.root,
+        &[
+            "run",
+            p(&project.csv),
+            "--project",
+            p(&authored),
+            "--notices",
+            p(&project.assignments),
+            "--templates",
+            p(&project.templates),
+            "--config",
+            p(&project.config),
+            "--output",
+            p(&project.runs),
+            "--progress",
+            "off",
+            "--emoji",
+        ],
+    );
+    success(&quiet);
+    assert!(quiet.stderr.is_empty());
+    let saved = PathBuf::from(String::from_utf8(quiet.stdout).unwrap().trim());
+    let record: Value = serde_json::from_slice(&fs::read(saved).unwrap()).unwrap();
+    assert_eq!(record["entries"].as_array().unwrap().len(), 1);
+}

@@ -17,18 +17,26 @@ Keep the CSV and run folders private: they contain personal information.
 Open a terminal. To use one notice for everyone in the CSV, run this command, replacing the paths with your own:
 
 ```sh
-immuknow run clients.csv --template ./project/templates/overdue_diseases_v1.en.typ \
-  --config ./project/config --output ./runs
+immuknow run clients.csv --project project --template overdue_diseases_v1.en.typ
 ```
 
-Here `clients.csv` is your input file, `--template` points to the notice to use, `--config` points to your settings folder, and `--output` selects where the new run folder will be created.
+Here `clients.csv` is your input file, `--project` points to the folder containing `templates/` and `config/`, and `--template` names the notice to use from that project. Results go into `runs/` unless you choose another folder with `--output`.
 
 To choose a notice separately for each person, supply a selection file and the folder containing the notices instead of `--template`:
 
 ```sh
-immuknow run clients.csv --notice-assignments assignments.json \
-  --templates ./project/templates --config ./project/config --output ./runs
+immuknow run clients.csv --project project --notices notices.json
 ```
+
+If your terminal is already open in the project folder, you can omit `--project project`: `immuknow run clients.csv --notices notices.json` uses the local `templates/` and `config/` folders.
+
+`--notices` is a shorter name for `--notice-assignments`; both take the same JSON selection file. CSV and selection-file paths are relative to your current folder. With `--project`, a relative `--template` is looked up inside that project's `templates/` folder. You can still supply `--templates` and `--config` explicitly to override the project folders.
+
+## Follow the progress
+
+The terminal shows the current job, a progress bar while notices are processed, a running count of protected copies, and processing speed once work has been running for a second. It then summarizes notices, pages, protected copies, grouped PDFs and findings, and points you to `report.html`. Processing a row is not the same as passing every check: review the final findings too.
+
+The defaults use text labels. Add `--emoji` for decorative emoji in the headings. Use `--progress plain` for stage announcements and occasional counts without redrawing lines, or `--progress off` to hide progress and the summary. Redirected output uses plain announcements automatically. `NO_COLOR` disables terminal styling. These choices affect the display only.
 
 The [configuration guide](configuration.md) explains the selection file and settings. Notice filenames follow `<version>.<language>.typ`, with `en` or `fr` as the language. You choose the notices; the notice list in `notice_versions.yaml` checks whether each choice fits the supplied information. It does not choose or translate notices.
 

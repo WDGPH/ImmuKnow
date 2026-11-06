@@ -24,8 +24,7 @@ You need the `immuknow` executable, a CSV, and a configured notice project with 
 For example, to use one notice for everyone, open a terminal and run the following, replacing the paths with your own:
 
 ```sh
-immuknow run clients.csv --template ./project/templates/overdue_diseases_v1.en.typ \
-  --config ./project/config --output ./runs
+immuknow run clients.csv --project project --template overdue_diseases_v1.en.typ
 ```
 
 Open `report.html` in the new run folder and review its findings and the notices. If grouping is enabled in your settings, the run also contains PDFs combining notices for sending and separate `review-*.pdf` files for readable notices that failed checks. Each grouped PDF has a CSV showing which pages belong to each input row. Warnings are eligible for sending by default, so inspect them too. The [PDF review guide](docs/user_guide/pdf_validation.md) explains the results and how to hold a notice or make a new set of grouped PDFs.
@@ -34,9 +33,9 @@ The [getting started guide](docs/user_guide/getting_started.md) walks through th
 
 ## See it run
 
-![CLI demonstration: generate notices for six fictional clients, then list the saved results.](docs/assets/notice-demo.gif)
+![CLI demonstration: generate notices for six fictional clients with progress and a completion summary.](docs/assets/notice-demo.gif)
 
-This short recording uses the six fictional clients from ImmuKnow Template; the Gantt chart above describes the separate 1,000-notice benchmark. [Recording instructions and VHS tape](docs/developer_guide/documentation.md#recording-the-cli-demo).
+Progress shows the current job and processing speed; the final summary lists the PDFs and findings. This short recording uses the six fictional clients from ImmuKnow Template; the Gantt chart above describes the separate 1,000-notice benchmark. [Recording instructions and VHS tape](docs/developer_guide/documentation.md#recording-the-cli-demo).
 
 ## For developers and template authors
 
