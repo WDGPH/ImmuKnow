@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 1050" role="img" aria-labelledby="title desc">
+<title id="title">The ImmuKnow library map</title><desc id="desc">A Rust command reads a CSV and project settings, uses one warm Typst engine and its QR WebAssembly plugin, saves checked originals, creates encrypted copies alongside notice creation, combines original pages, and writes the run report. No Python or separate Typst executable is required.</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="#718096"/></marker></defs>
+<rect width="1040" height="1050" rx="18" fill="#f7f9fc"/>
+<g font-family="system-ui,sans-serif" fill="#17253a">
+<text x="32" y="43" font-size="28" fill="#17253a" font-weight="700">From client information to reviewed notices</text>
+<text x="32" y="73" font-size="17" fill="#53627a" font-weight="400">One Rust application • library names appear below each job</text>
+<rect x="32" y="100" width="470" height="100" rx="12" fill="white" stroke="#3867d6" stroke-width="2"/>
+<text x="50" y="129" font-size="20" fill="#3867d6" font-weight="650">Your inputs</text>
+<text x="50" y="157" font-size="16" fill="#17253a" font-weight="400">CSV + chosen notices + project settings</text>
+<text x="50" y="180" font-size="16" fill="#17253a" font-weight="400">Your project supplies wording, images and reference lists.</text>
+<rect x="538" y="100" width="470" height="100" rx="12" fill="white" stroke="#3867d6" stroke-width="2"/>
+<text x="556" y="129" font-size="20" fill="#3867d6" font-weight="650">Read and prepare</text>
+<text x="556" y="157" font-size="16" fill="#17253a" font-weight="400">clap · csv · encoding_rs · serde-saphyr</text>
+<text x="556" y="180" font-size="16" fill="#17253a" font-weight="400">serde / serde_json · chrono · jsonschema</text>
+<path d="M502 150L535 150" fill="none" stroke="#718096" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M773 200V220H337V240" fill="none" stroke="#718096" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="32" y="240" width="610" height="155" rx="12" fill="white" stroke="#3867d6" stroke-width="2"/>
+<text x="50" y="269" font-size="20" fill="#3867d6" font-weight="650">Create each personalized notice</text>
+<text x="50" y="297" font-size="16" fill="#17253a" font-weight="400">typst + typst-layout: templates and page layout</text>
+<text x="50" y="320" font-size="16" fill="#17253a" font-weight="400">typst-kit: fonts and local project files</text>
+<text x="50" y="343" font-size="16" fill="#17253a" font-weight="400">comemo: reuse work between notices</text>
+<text x="50" y="366" font-size="16" fill="#17253a" font-weight="400">typst-pdf: export the finished pages</text>
+<rect x="680" y="240" width="328" height="155" rx="12" fill="white" stroke="#3867d6" stroke-width="2"/>
+<text x="698" y="269" font-size="20" fill="#3867d6" font-weight="650">QR codes inside Typst</text>
+<text x="698" y="297" font-size="16" fill="#17253a" font-weight="400">qrcodegen: build the QR pattern</text>
+<text x="698" y="320" font-size="16" fill="#17253a" font-weight="400">wasm-minimal-protocol: interface</text>
+<text x="698" y="343" font-size="16" fill="#17253a" font-weight="400">wasmi: run the WebAssembly</text>
+<text x="698" y="366" font-size="16" fill="#17253a" font-weight="400">Same plugin works in Studio.</text>
+
+
+<path d="M642 315L678 315" fill="none" stroke="#718096" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="50" y="424" font-size="16" fill="#53627a" font-weight="400">One warm engine; PDF and check results come from the same document.</text>
+<path d="M337 395L337 451" fill="none" stroke="#718096" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="32" y="455" width="610" height="120" rx="12" fill="white" stroke="#3867d6" stroke-width="2"/>
+<text x="50" y="484" font-size="20" fill="#3867d6" font-weight="650">Check and save the original</text>
+<text x="50" y="512" font-size="16" fill="#17253a" font-weight="400">jsonschema: check the template’s report</text>
+<text x="50" y="535" font-size="16" fill="#17253a" font-weight="400">lopdf: inspect PDF pages · sha2: identify saved files</text>
+<text x="50" y="558" font-size="16" fill="#17253a" font-weight="400">Readable originals remain available for review.</text>
+<rect x="680" y="455" width="328" height="120" rx="12" fill="white" stroke="#a34f79" stroke-width="2"/>
+<text x="698" y="484" font-size="20" fill="#a34f79" font-weight="650">Make protected copies</text>
+<text x="698" y="512" font-size="16" fill="#17253a" font-weight="400">lopdf: AES-256 encryption + checks</text>
+<text x="698" y="535" font-size="16" fill="#17253a" font-weight="400">rand: encryption randomness</text>
+<text x="698" y="558" font-size="16" fill="#17253a" font-weight="400">One worker overlaps notice creation.</text>
+<path d="M642 510L678 510" fill="none" stroke="#718096" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M337 575L337 625" fill="none" stroke="#718096" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="32" y="630" width="610" height="120" rx="12" fill="white" stroke="#248264" stroke-width="2"/>
+<text x="50" y="659" font-size="20" fill="#248264" font-weight="650">Combine original notices into groups</text>
+<text x="50" y="687" font-size="16" fill="#17253a" font-weight="400">lopdf: combine pages · csv: record page membership</text>
+<text x="50" y="710" font-size="16" fill="#17253a" font-weight="400">Four workers can combine independent groups.</text>
+<text x="50" y="733" font-size="16" fill="#17253a" font-weight="400">Failed checks → separate review PDFs; holds → no group.</text>
+<text x="680" y="630" font-size="18" fill="#a34f79" font-weight="650">Separate encrypted PDFs</text>
+<text x="680" y="656" font-size="16" fill="#53627a" font-weight="400">Grouped PDFs use originals.</text>
+<text x="680" y="681" font-size="16" fill="#53627a" font-weight="400">Encryption is optional.</text>
+<path d="M337 750L337 795" fill="none" stroke="#718096" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="32" y="800" width="976" height="100" rx="12" fill="white" stroke="#3867d6" stroke-width="2"/>
+<text x="50" y="829" font-size="20" fill="#3867d6" font-weight="650">Finish the run report</text>
+<text x="50" y="857" font-size="16" fill="#17253a" font-weight="400">serde_json: saved run record · Rust HTML output: readable report · csv: page membership</text>
+<text x="50" y="880" font-size="16" fill="#17253a" font-weight="400">include_dir embeds the shared Typst library and schemas for “immuknow resources”.</text>
+<text x="32" y="941" font-size="18" fill="#17253a" font-weight="600">Outputs: original PDFs + encrypted copies + grouped/review PDFs + report.html + run.json</text>
+<text x="32" y="976" font-size="16" fill="#53627a" font-weight="400">The upstream system assesses status; your project supplies the authored wording.</text>
+<text x="32" y="1008" font-size="16" fill="#53627a" font-weight="400">No Python runtime and no separate Typst command are needed.</text>
+</g></svg>

@@ -1,0 +1,301 @@
+{
+  "control_seconds": 57.759569,
+  "profile_command_seconds": 58.739195,
+  "workflow_seconds": 58.21843887,
+  "production_commit": "a5bfe974178731629810162f6b99f48f353cf5f8",
+  "profiling_commit": "81ac287",
+  "input_sha256": "8615ee238c6fd93648a98581be1b4d59fc747e02cc8e61b1c1856a140c8b0832",
+  "encryption_worker_seconds": 41.72,
+  "samples": [
+    [0.0, 0, 0, 0],
+    [0.5, 0, 0, 0],
+    [1.0, 5, 4, 0],
+    [1.5, 15, 15, 0],
+    [2.0, 27, 27, 0],
+    [2.5, 37, 36, 0],
+    [3.0, 48, 47, 0],
+    [3.5, 58, 57, 0],
+    [4.0, 70, 69, 0],
+    [4.5, 79, 78, 0],
+    [5.0, 90, 89, 0],
+    [5.5, 100, 99, 0],
+    [6.0, 108, 107, 0],
+    [6.5, 120, 119, 0],
+    [7.0, 130, 130, 0],
+    [7.5, 140, 139, 0],
+    [8.0, 151, 150, 0],
+    [8.5, 162, 162, 0],
+    [9.0, 173, 172, 0],
+    [9.5, 184, 183, 0],
+    [10.0, 195, 194, 0],
+    [10.5, 203, 202, 0],
+    [11.0, 214, 213, 0],
+    [11.5, 224, 223, 0],
+    [12.0, 234, 233, 0],
+    [12.5, 245, 244, 0],
+    [13.0, 255, 254, 0],
+    [13.5, 266, 265, 0],
+    [14.0, 277, 276, 0],
+    [14.5, 287, 286, 0],
+    [15.0, 298, 297, 0],
+    [15.5, 307, 306, 0],
+    [16.0, 318, 317, 0],
+    [16.5, 328, 328, 0],
+    [17.0, 339, 338, 0],
+    [17.5, 349, 349, 0],
+    [18.0, 360, 359, 0],
+    [18.5, 371, 370, 0],
+    [19.0, 381, 380, 0],
+    [19.5, 392, 391, 0],
+    [20.0, 400, 400, 0],
+    [20.5, 410, 409, 0],
+    [21.0, 421, 420, 0],
+    [21.5, 432, 431, 0],
+    [22.0, 442, 441, 0],
+    [22.5, 454, 453, 0],
+    [23.0, 464, 463, 0],
+    [23.5, 475, 474, 0],
+    [24.0, 485, 484, 0],
+    [24.5, 496, 496, 0],
+    [25.0, 502, 501, 0],
+    [25.5, 512, 511, 0],
+    [26.0, 523, 522, 0],
+    [26.5, 533, 532, 0],
+    [27.0, 543, 543, 0],
+    [27.5, 552, 552, 0],
+    [28.0, 561, 561, 0],
+    [28.5, 571, 570, 0],
+    [29.0, 582, 581, 0],
+    [29.5, 592, 591, 0],
+    [30.0, 600, 600, 0],
+    [30.5, 608, 607, 0],
+    [31.0, 618, 617, 0],
+    [31.5, 627, 626, 0],
+    [32.0, 638, 637, 0],
+    [32.5, 648, 647, 0],
+    [33.0, 657, 656, 0],
+    [33.5, 667, 666, 0],
+    [34.0, 676, 675, 0],
+    [34.5, 686, 685, 0],
+    [35.0, 696, 695, 0],
+    [35.5, 700, 700, 0],
+    [36.0, 710, 709, 0],
+    [36.5, 721, 720, 0],
+    [37.0, 733, 732, 0],
+    [37.5, 742, 741, 0],
+    [38.0, 753, 752, 0],
+    [38.5, 763, 762, 0],
+    [39.0, 773, 772, 0],
+    [39.5, 783, 782, 0],
+    [40.0, 793, 792, 0],
+    [40.5, 800, 800, 0],
+    [41.0, 804, 803, 0],
+    [41.5, 814, 813, 0],
+    [42.0, 823, 822, 0],
+    [42.5, 833, 832, 0],
+    [43.0, 843, 842, 0],
+    [43.5, 852, 851, 0],
+    [44.0, 862, 861, 0],
+    [44.5, 870, 870, 0],
+    [45.0, 879, 878, 0],
+    [45.5, 890, 889, 0],
+    [46.0, 899, 898, 0],
+    [46.5, 901, 900, 0],
+    [47.0, 912, 911, 0],
+    [47.5, 922, 921, 0],
+    [48.0, 931, 930, 0],
+    [48.5, 942, 941, 0],
+    [49.0, 952, 951, 0],
+    [49.5, 963, 962, 0],
+    [50.0, 973, 972, 0],
+    [50.5, 982, 981, 0],
+    [51.0, 993, 993, 0],
+    [51.5, 1000, 1000, 0],
+    [52.0, 1000, 1000, 0],
+    [52.5, 1000, 1000, 0],
+    [53.0, 1000, 1000, 0],
+    [53.5, 1000, 1000, 0],
+    [54.0, 1000, 1000, 0],
+    [54.5, 1000, 1000, 0],
+    [55.0, 1000, 1000, 4],
+    [55.5, 1000, 1000, 4],
+    [56.0, 1000, 1000, 6],
+    [56.5, 1000, 1000, 8],
+    [57.0, 1000, 1000, 10],
+    [57.5, 1000, 1000, 10],
+    [58.0, 1000, 1000, 10],
+    [58.218, 1000, 1000, 10]
+  ],
+  "categories": {
+    "Typst evaluation and layout": 30.506352987,
+    "PDF export": 5.57724043,
+    "Cache cleanup": 3.858289524,
+    "Original PDF checks": 2.397676659,
+    "Reports and checkpoints": 2.71395681,
+    "Combining PDFs": 5.90838866,
+    "File hashes": 3.48949623,
+    "Other preparation, file writes and bookkeeping": 3.7670375699999994
+  },
+  "phases": [
+    {
+      "name": "Read + prepare inputs",
+      "color": "#9b7b30",
+      "group": "Get ready",
+      "seconds": 0.45224,
+      "bins": [
+        47, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+      ],
+      "description": "Read the CSV, chosen notices, project settings and fonts. The source system has already assessed immunization status."
+    },
+    {
+      "name": "Read each person\u2019s facts",
+      "color": "#498ca5",
+      "group": "Create each notice",
+      "seconds": 0.54812,
+      "bins": [
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0
+      ],
+      "description": "Pass each person\u2019s prepared information and selected template into the same warm Typst engine."
+    },
+    {
+      "name": "Compose pages + QR codes",
+      "color": "#577ce7",
+      "group": "Create each notice",
+      "seconds": 30.50635,
+      "bins": [
+        40, 65, 64, 63, 63, 57, 65, 61, 64, 64, 57, 64, 63, 65, 62, 53, 62, 62,
+        64, 63, 53, 63, 64, 61, 61, 50, 64, 63, 60, 62, 49, 63, 62, 60, 60, 62,
+        41, 64, 61, 60, 62, 35, 59, 63, 58, 59, 61, 33, 62, 63, 63, 63, 59, 0,
+        0, 0, 0, 0, 0, 0
+      ],
+      "description": "Fill the template, draw any QR code and fit the text onto the pages. Typst may make several layout passes. QR generation and drawing are included here; they are not timed separately for all 1,000 notices."
+    },
+    {
+      "name": "Write PDF pages",
+      "color": "#438eaf",
+      "group": "Create each notice",
+      "seconds": 5.57724,
+      "bins": [
+        8, 12, 12, 12, 12, 11, 12, 13, 11, 12, 10, 12, 12, 12, 11, 10, 12, 12,
+        11, 11, 10, 12, 11, 12, 11, 10, 11, 11, 12, 11, 8, 10, 11, 12, 11, 10,
+        8, 11, 11, 12, 10, 7, 10, 11, 12, 11, 11, 7, 12, 11, 11, 11, 10, 0, 0,
+        0, 0, 0, 0, 0
+      ],
+      "description": "Export the finished pages from Typst into a PDF. This repeats for each person, rather than waiting for all notices to be laid out."
+    },
+    {
+      "name": "Check notice content",
+      "color": "#a578c2",
+      "group": "Create each notice",
+      "seconds": 0.49725,
+      "bins": [
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        2, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0
+      ],
+      "description": "Read the template\u2019s invisible check report from the same compiled document and check that it matches the person and page count. No extra report pages or PDF attachment are created."
+    },
+    {
+      "name": "Check PDF pages",
+      "color": "#bd7749",
+      "group": "Create each notice",
+      "seconds": 2.39768,
+      "bins": [
+        1, 5, 5, 5, 4, 4, 5, 5, 5, 5, 4, 5, 5, 4, 5, 6, 6, 5, 5, 5, 5, 5, 5, 5,
+        6, 3, 5, 6, 5, 4, 3, 5, 5, 5, 6, 4, 3, 5, 4, 5, 5, 3, 6, 5, 5, 7, 5, 3,
+        4, 5, 5, 4, 4, 0, 0, 0, 0, 0, 0, 0
+      ],
+      "description": "Inspect each original PDF and check its page count before saving it."
+    },
+    {
+      "name": "Save facts + original PDFs",
+      "color": "#3e9a9e",
+      "group": "Create each notice",
+      "seconds": 1.36014,
+      "bins": [
+        1, 2, 2, 3, 2, 2, 2, 2, 3, 3, 2, 2, 2, 3, 3, 2, 2, 3, 3, 3, 2, 3, 3, 3,
+        3, 2, 2, 2, 3, 3, 2, 2, 2, 2, 3, 4, 2, 3, 2, 5, 4, 2, 2, 3, 3, 3, 3, 2,
+        2, 2, 2, 4, 4, 0, 0, 0, 0, 0, 0, 0
+      ],
+      "description": "Save the original PDF and its prepared information. Originals remain available even when checks call for review."
+    },
+    {
+      "name": "Fingerprint saved files",
+      "color": "#7a86a2",
+      "group": "Create each notice",
+      "seconds": 3.4895,
+      "bins": [
+        4, 8, 7, 8, 7, 6, 7, 8, 7, 7, 6, 7, 8, 7, 7, 7, 7, 8, 7, 7, 6, 8, 7, 7,
+        7, 5, 8, 7, 7, 8, 6, 7, 8, 6, 7, 6, 5, 8, 7, 8, 7, 4, 6, 6, 7, 6, 7, 4,
+        7, 7, 6, 7, 7, 0, 0, 0, 0, 0, 0, 0
+      ],
+      "description": "Calculate file fingerprints for the saved record. This row shows main-workflow fingerprints; protected-copy fingerprints happen in the background worker."
+    },
+    {
+      "name": "Clean up reusable work",
+      "color": "#a08b50",
+      "group": "Create each notice",
+      "seconds": 3.85829,
+      "bins": [
+        1, 5, 7, 7, 8, 7, 6, 8, 7, 6, 6, 7, 6, 6, 8, 6, 8, 8, 6, 8, 6, 6, 7, 8,
+        8, 6, 7, 7, 9, 8, 7, 8, 8, 11, 10, 10, 8, 7, 10, 6, 8, 8, 8, 9, 11, 10,
+        10, 8, 8, 8, 9, 8, 6, 0, 0, 0, 0, 0, 0, 0
+      ],
+      "description": "Retain useful Typst caches between notices and release older cached work. This keeps the compiler warm without retaining everything forever."
+    },
+    {
+      "name": "Make protected copies",
+      "color": "#bd689a",
+      "group": "Alongside notice creation",
+      "seconds": 15.13686,
+      "bins": [
+        7, 34, 32, 29, 29, 26, 31, 31, 32, 32, 28, 32, 33, 33, 33, 29, 32, 32,
+        31, 31, 26, 33, 33, 30, 29, 23, 30, 29, 31, 30, 25, 32, 32, 32, 30, 32,
+        21, 32, 31, 30, 33, 20, 28, 32, 30, 26, 31, 19, 29, 31, 28, 33, 32, 0,
+        0, 0, 0, 0, 0, 0
+      ],
+      "description": "One background worker reads each saved original, prepares its password protection and writes a separate AES-256 copy. It overlaps notice creation."
+    },
+    {
+      "name": "Check protected copies",
+      "color": "#976fc8",
+      "group": "Alongside notice creation",
+      "seconds": 21.61363,
+      "bins": [
+        10, 48, 42, 46, 44, 37, 48, 48, 46, 48, 41, 46, 44, 46, 43, 43, 45, 44,
+        44, 46, 39, 46, 44, 47, 45, 36, 43, 43, 38, 46, 37, 38, 44, 42, 43, 45,
+        28, 46, 45, 42, 45, 26, 38, 43, 40, 40, 44, 24, 45, 46, 46, 48, 43, 0,
+        0, 0, 0, 0, 0, 0
+      ],
+      "description": "Check that each protected copy rejects access without a password and opens with the correct password. The original is kept separately."
+    },
+    {
+      "name": "Combine original PDFs",
+      "color": "#399a7a",
+      "group": "Finish the run",
+      "seconds": 5.90839,
+      "bins": [
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 55, 100, 100, 100, 100, 100, 54
+      ],
+      "description": "Use four workers to combine independent groups of original notices and save CSV page lists. Readable notices with failed checks go into review PDFs; held notices stay out. This row shows elapsed grouping time, not the sum of worker times."
+    },
+    {
+      "name": "Save checkpoints + report",
+      "color": "#b46c73",
+      "group": "Throughout the run",
+      "seconds": 2.71396,
+      "bins": [
+        6, 0, 0, 0, 0, 10, 0, 0, 0, 0, 11, 0, 0, 0, 0, 13, 0, 0, 0, 0, 15, 0, 0,
+        0, 0, 22, 0, 0, 0, 0, 22, 1, 0, 0, 0, 0, 30, 0, 0, 0, 0, 37, 4, 0, 0, 0,
+        0, 42, 0, 0, 0, 0, 7, 36, 0, 0, 0, 0, 0, 25
+      ],
+      "description": "Save checkpoints while notices are being created, then the final run record and readable report. Open report.html to review findings and PDFs."
+    }
+  ]
+}

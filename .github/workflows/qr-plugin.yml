@@ -1,0 +1,19 @@
+name: Check QR plugin
+on:
+  push:
+    paths: ['typst-plugins/qr/**', 'resources/typst/vendor/qr/**', '.github/workflows/qr-plugin.yml']
+  pull_request:
+    paths: ['typst-plugins/qr/**', 'resources/typst/vendor/qr/**', '.github/workflows/qr-plugin.yml']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install the pinned Rust toolchain
+        run: rustup toolchain install 1.92.0 --profile minimal --component rustfmt,rust-src --target wasm32-unknown-unknown
+      - name: Check Rust formatting
+        run: cargo +1.92.0 fmt --manifest-path typst-plugins/qr/Cargo.toml --check
+      - name: Rebuild and compare the shipped artifact
+        run: typst-plugins/qr/build.sh --check

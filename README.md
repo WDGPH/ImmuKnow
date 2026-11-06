@@ -1,125 +1,48 @@
-# 🩺 ImmuKnow
-[![Run Pytest](https://github.com/WDGPH/ImmuKnow/actions/workflows/test.yml/badge.svg)](https://github.com/WDGPH/ImmuKnow/actions/workflows/test.yml)
-[![codecov](https://codecov.io/gh/WDGPH/ImmuKnow/graph/badge.svg?token=J7BSABDO9M)](https://codecov.io/gh/WDGPH/ImmuKnow)
-[![Docs](https://img.shields.io/badge/docs-PHIZ-blue)](https://docs.phiz.ca/immuknow/)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/WDGPH/ImmuKnow)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+# ImmuKnow
 
-## Run a cohort
+ImmuKnow turns a CSV of immunization information into personalized PDF notices. You choose the notice for each person, or one notice for everyone. The system that supplies the CSV is responsible for assessing immunization status; ImmuKnow does not make that assessment. Review the notice wording and PDFs before sending them.
 
-Install Python 3.11 or later, [uv](https://docs.astral.sh/uv/),
-and Typst 0.15.1. Start with [ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template),
-or download a Studio project with **Include fictional client data** enabled.
-From the project directory, run the fictional sample:
+**1,000 custom notices in about 60 seconds.** Including protected copies, grouped PDFs and a readable report.
 
-```bash
-uv sync --locked
-uv run python scripts/run.py --sample
+[![Stopwatch showing four shares of a minute: create notices 41 seconds; prepare, check and save 10; group notices 6; write the report 3. Protected copies are made at the same time.](docs/assets/notice-timing.svg)](docs/user_guide/performance.md)
+
+[Explore the interactive timing breakdown](docs/user_guide/performance.md) · [See the libraries in the pipeline](docs/developer_guide/architecture.md#libraries-in-the-pipeline)
+
+<details>
+<summary>Libraries from CSV to PDFs</summary>
+
+![Library map showing Rust input preparation, Typst and QR codes, PDF checks, encrypted copies, grouped PDFs and reporting.](docs/assets/pipeline-libraries.svg)
+
+[Read how the application works](docs/developer_guide/architecture.md).
+
+</details>
+
+## For operators
+
+You need the `immuknow` executable, a CSV, and a configured notice project with templates and settings. Ask your project maintainer for a prepared executable, or see the build instructions below. [ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template) provides example notices and settings to adapt and review. Check that your project is set up for this standalone version; see [getting started](docs/user_guide/getting_started.md) and the [template guide](docs/developer_guide/templates.md).
+
+For example, to use one notice for everyone, open a terminal and run the following, replacing the paths with your own:
+
+```sh
+immuknow run clients.csv --project project --template overdue_diseases_v1.en.typ
 ```
 
-Template maintains the fictional client CSV and its sample assignments. Studio
-uses the same people for previews and can include a selected example in a project
-download. The facts are illustrative, not a vaccination schedule or clinical
-assessment. Follow the [Template guide](https://github.com/WDGPH/ImmuKnow-Template)
-for setup and sample options.
+Open `report.html` in the new run folder and review its findings and the notices. If grouping is enabled in your settings, the run also contains PDFs combining notices for sending and separate `review-*.pdf` files for readable notices that failed checks. Each grouped PDF has a CSV showing which pages belong to each input row. Warnings are eligible for sending by default, so inspect them too. The [PDF review guide](docs/user_guide/pdf_validation.md) explains the results and how to hold a notice or make a new set of grouped PDFs.
 
-To run Core directly, pass one CSV and exactly one notice selector. From a Core
-checkout, with a prepared Template project in `./my-project`:
+The [getting started guide](docs/user_guide/getting_started.md) walks through the inputs, commands, and results. See also [CSV fields](docs/user_guide/input_schema.md) and [configuration](docs/user_guide/configuration.md).
 
-```bash
-uv sync
-uv run immuknow ./my-project/input/sample/sample_students.csv \
-  --notice-assignments ./my-project/input/sample/sample_assignments.json \
-  --templates ./my-project/templates --config ./my-project/config --output ./runs
+## See it run
+
+![CLI demonstration: generate notices for six fictional clients with progress and a completion summary.](docs/assets/notice-demo.gif)
+
+Progress shows the current job and processing speed; the final summary lists the PDFs and findings. This short recording uses the six fictional clients from ImmuKnow Template; the time budget above describes the separate 1,000-notice benchmark. [Recording instructions and VHS tape](docs/developer_guide/documentation.md#recording-the-cli-demo).
+
+## For developers and template authors
+
+To build the executable from this checkout, install Rust 1.92 or later and run:
+
+```sh
+cargo install --path . --locked
 ```
 
-Alternatively, select one template for the whole cohort:
-
-```bash
-uv run immuknow ./my-project/input/sample/sample_students.csv \
-  --template ./my-project/templates/overdue_diseases_v1.en.typ \
-  --config ./my-project/config --output ./runs
-```
-
-Every selected file must be named `<version_id>.<language>.typ`, with
-`en` or `fr`. In an assignments file, `template` is a filename, not a path.
-`--notice-assignments` requires `--templates` to select a complete template project;
-`--template` uses the selected file's directory. An installed package supplies
-the same command and resources. See [selecting notices](docs/user_guide/getting_started.md#select-notices)
-for the catalog, custom directories and selection rules.
-
-Each run has its own directory beneath `--output`, with original PDFs,
-optional individual encryption, bundles, saved facts/resources, `run.json`, and
-a readable `report.html`. Every source row has an entry, including failed notices.
-Recoverable source, assignment, and layout findings retain a PDF where possible;
-independent notices continue after a failed render. Warnings return CLI exit 0;
-failed entries or output steps return nonzero. See
-[getting started](docs/user_guide/getting_started.md) for input and output
-paths, [configuration](docs/user_guide/configuration.md) for options and
-assignments, and [template authoring](docs/user_guide/phu_templates.md)
-for the JSON contract.
-
-## Author notices in Studio
-
-ImmuKnow Studio lets you edit and preview notices in your browser using
-fictional examples. Its project download includes your selected notice,
-configuration, fonts and licences, plus local setup and helper scripts from
-[ImmuKnow-Template](https://github.com/WDGPH/ImmuKnow-Template). Install the
-fonts for native use and run the project with Core on your workstation. The
-[Studio overview](docs/user_guide/studio.md) explains the handoff.
-
-## Call from Python
-
-```python
-from pathlib import Path
-from immuknow.orchestrator import run_pipeline
-
-record_path = run_pipeline(
-    Path("students.csv"),
-    Path("runs"),
-    notice_assignments=Path("assignments.json"),
-    template_dir=Path("my-project/templates"),
-    config_dir=Path("my-project/config"),
-)
-```
-
-`record_path` points to the authoritative `run.json`, including partial results.
-Read its status and entries to assess the complete run. The
-[architecture](docs/reference/architecture.md) explains the run and
-its evidence.
-
-## Development
-
-The wheel contains the shared Typst library under `typst/`, schemas, reference
-configuration and internal review layouts. Starter projects live in Template.
-Core tests use small unbranded fixtures outside the distribution. Native
-compilation uses system fonts and saves the project resources it uses. A relocated custom project keeps its own Settings, translations,
-assets and library. Python supplies normalized facts; display choices and
-QR destinations belong in the supplied project’s Typst files. Native use needs no Node, Rust, or browser.
-
-```bash
-uv sync --all-groups
-uv run ty check
-uv run pytest
-uv run --locked prek install
-uv run --locked prek run --all-files
-```
-
-Install hooks once per clone. They lint and format Python with Ruff; CI checks
-the same rules without rewriting files. The hooks run the Ruff version
-locked by the project.
-
-Build the native wheel and source distribution with:
-
-```bash
-uv run python scripts/build-native.py --out-dir dist
-```
-
-Both this command and `uv build` generate `immuknow/build.json` inside the build
-output. It records the native files, build tools and source revision without
-changing source files. Native builds need no Studio, Node, Rust or Typst installation.
-Typst is needed to generate notices.
-
-The [testing guide](docs/developer_guide/testing.md) covers pinned Typst and
-fonts, native checks, and visual review. Git history and releases record earlier
-changes.
+The executable includes the Typst engine and shared resources and uses fonts installed on the workstation. `immuknow resources --output ./immuknow-resources` exports the shared library, schemas, and resource manifest. `immuknow prepare` produces prepared data without PDFs; `immuknow rebundle` makes another set of grouped PDFs from a saved run. See the [template guide](docs/developer_guide/templates.md), [command reference](docs/developer_guide/cli.md), and [contributing guide](docs/developer_guide/contributing.md).

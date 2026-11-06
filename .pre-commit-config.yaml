@@ -1,16 +1,9 @@
-# Install once per clone: uv run --locked prek install
 repos:
   - repo: local
     hooks:
-      - id: ruff-check
-        name: Ruff lint
+      - id: cargo-fmt
+        name: Rust formatting
         language: system
-        entry: uv run --locked ruff check --fix --force-exclude
-        types_or: [python, pyi, jupyter]
-        require_serial: true
-      - id: ruff-format
-        name: Ruff format
-        language: system
-        entry: uv run --locked ruff format --force-exclude
-        types_or: [python, pyi, jupyter]
-        require_serial: true
+        entry: cargo fmt --all --check
+        pass_filenames: false
+        files: '\.rs$'

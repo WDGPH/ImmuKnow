@@ -1,157 +1,64 @@
 # Documentation
 
-Keep one current guide for each contract: [getting started](../user_guide/getting_started.md)
-for inputs and the complete workflow, [configuration](../user_guide/configuration.md)
-for user options and reference data, [template authoring](../user_guide/phu_templates.md)
-for native JSON and assertions, [Studio overview](../user_guide/studio.md) for the separate editor,
-and [testing](testing.md) for native checks.
-The [architecture](../reference/architecture.md) explains output evidence.
-Link to these guides instead of copying them into new step descriptions.
+Keep each contract in its owning guide. [Getting started](../user_guide/getting_started.md) describes a run; [configuration](../user_guide/configuration.md) describes settings; [PDF review](../user_guide/pdf_validation.md) describes bundle decisions; and [template authoring](templates.md) describes the Typst project and facts. The [architecture](architecture.md) explains the native workflow and record. Link to the owning guide when another page needs context.
 
-Module docstrings should state purpose and important inputs, outputs, and
-failures. Use types and examples when they clarify behavior. Test names and
-docstrings should identify the user-visible behavior protected, especially
-for compilation, mixed cohorts, and missing outputs.
+Use exact CLI options, paths, schema fields and statuses. Explain behavior for the person performing the task, including the distinction between warnings, failed checks and output failures. Keep user instructions separate from contributor implementation details. Use fictional examples and do not put client information in documentation.
 
-## Shared language and project responsibilities
+Check source links, commands and key schema references locally:
 
-Use this standard in Core, Studio and Template, including documentation,
-application messages, code, comments and docstrings.
-
-Write for the person completing the task. Start with what they can do and what
-happens next. Use concrete words, short sentences and the exact labels shown in
-the application. Explain a technical term when readers first need it. Prefer
-"prepared client records" or "disease names" when those are the facts meant.
-
-Give each shared contract one maintained owner:
-
-| Project | Owns the explanation of |
-| --- | --- |
-| ImmuKnow Core | Native inputs, notice selection, rendering resources, validation, saved runs and delivery |
-| ImmuKnow Studio | Browser editing, previews, and project import and download |
-| ImmuKnow Template | Fictional example clients, starter letters, Settings, display translations, example branding, project configuration, local setup, helper commands and starter tests |
-
-Link to the owning guide for details. Include enough context and commands for a
-reader to complete the current task without reconstructing it across
-repositories. A short handoff summary is useful; competing specifications of
-validation or delivery are not.
-
-Core ships no starter project. Template maintains the authored starters; Studio
-consumes verified pinned project resources and presents Template’s fictional clients.
-Core owns the shared library, schemas and rendering/validation behavior.
-Its small unbranded test projects are fixtures, not supported starter notices.
-
-Keep names readers must recognize exact: commands, flags, paths, API names,
-schema fields, check codes and status values. Explain what they mean rather
-than replacing them with approximate synonyms. A template is a source file; a
-notice is the document it produces. Template’s fictional clients supply Studio
-previews and can be included as sample inputs in a downloaded project. Distinguish warnings, failed checks,
-failed output steps and runs that stop before producing notices.
-
-An error should explain what failed and, when known, what the person can do
-next. Retain filenames, offending values, error codes and other details needed
-to investigate. Do not promise that a suggested action will fix a problem
-unless the program can establish that.
-
-Keep user guidance focused on the task. Put implementation and maintenance
-details in contributor documentation. Comments should explain constraints or
-decisions that the code does not make clear. Docstrings should describe purpose
-and significant inputs, results and failures. Prefer clear internal names;
-rename existing ones only to resolve a concrete misunderstanding. Wording
-changes must preserve validation, state changes and delivery decisions.
-
-Update the owning explanation when behavior changes. Keep review history,
-completed test runs and temporary migration notes in pull requests and Git
-history. Repository guides describe current behavior and repeatable checks.
-
-Keep pull request titles and descriptions short and plain. Explain the problem,
-why the change helps and what readers will experience. A before/after example
-can help a review; repository guides do not need that development history.
-Omit agent attribution and detailed verification logs. Include validation details
-only when they help a reviewer understand a material risk or limitation.
-
-## Template authoring principles
-
-Design for the person reading and editing the source. Keep choices close to where
-they take effect, and introduce indirection when it expresses a shared meaning
-or removes meaningful duplication. Prefer explicit, discoverable configuration
-over conventions an author must already know.
-
-Give components useful defaults with local, understandable overrides. Keep
-concepts independently editable when their meanings differ, even if their
-initial example values happen to match.
-
-Make editing conveniences serve clear authored source. Preserve the author's
-intent and control as work moves through editing, resets and downloads. Put
-shared behavior in its owning project and link to it from the others.
-
-## Publish through the documentation hub
-
-Documentation stays here. The public [WDGPH documentation hub](https://docs.phiz.ca/)
-fetches this repository and builds `main` at `/immuknow/latest/` and recorded
-stable `vX.Y.Z` tags at `/immuknow/vX.Y.Z/`. Its reviewed release lock chooses
-the current release. A tag notification proposes a release-lock correction;
-it does not approve or publish that correction.
-This repository checks documentation and sends notifications; it does not
-publish a separate Pages site or legacy redirects. The old manual is retired
-without redirect compatibility. Disabling its former workflow does not remove
-an already published GitHub Pages artifact: a repository administrator must
-unpublish the old site in **Settings → Pages → Unpublish site**. Do this only for
-`WDGPH/ImmuKnow`; the hub remains published at `docs.phiz.ca`.
-
-The **Check documentation** workflow runs strict documentation builds on main
-pushes, pull requests, and manual requests, using this repository's locked dependencies. The separate **Notify documentation
-hub** workflow does not check out or execute project code. Once enabled, a push
-to `main` requests a hub build, and a semantic-version tag push or deletion
-requests a complete release reconciliation. The notification sends no source
-content. There is no scheduled polling.
-
-### Notification contract
-
-The notifier is active when `DOCS_HUB_NOTIFY_ENABLED` is true. Its dispatch step
-uses `DOCS_HUB_TRIGGER_TOKEN`, targets main in `WDGPH/docs`, and identifies
-`WDGPH/ImmuKnow`. Documentation builds never receive that token.
-The hub controls release-lock review and deployment.
-
-### Correct tags and recover missed notifications
-
-Use exact stable tags such as `v1.2.3`; prerelease tags and leading-zero versions
-are not imported. The hub compares the full current tag set with its release
-lock, so a delayed notification does not apply a stale event payload. It proposes
-withdrawal for deleted tags and a changed commit for reused or moved tags.
-
-[GitHub's tag events](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows)
-have two limits: a tag push executes the workflow recorded at the tagged commit,
-so historical commits may lack this notifier, and creating/deleting more than
-three tags at once can suppress events. Events created by a workflow's ordinary
-`GITHUB_TOKEN` may also not trigger another workflow. After retagging a historical
-commit, any bulk tag operation, or an operation performed with that token, run:
-
-```bash
-gh workflow run docs-hub-notify.yml --repo WDGPH/ImmuKnow --ref main
+```sh
+cargo test --release --locked --test documentation
 ```
 
-The Actions UI offers the same manual recovery. A deleted tag normally triggers
-the notifier from the default branch, but run manual reconciliation after recreating
-an old tag to ensure the final state is observed. Guaranteed automatic notification
-for arbitrary historical tag commits requires a separately hosted GitHub webhook
-or App relay; the Actions-only setup has this explicit maintenance step.
+The documentation hub consumes this repository's Markdown and `mkdocs.yml`; the Core build and its documentation check require no documentation framework. The separate notification workflow informs the hub of changes. It does not publish the site or give the hub access to run data.
 
-### Local documentation checks
+## Maintaining the visuals
 
-For a local source check or Material preview:
+The [user-facing performance guide](../user_guide/performance.md) owns the plain-language timing explanation. Its proportional time budget rounds the main workflow to 60 seconds; keep precise timings out of the headline and caption. The [library map](../assets/pipeline-libraries.svg) belongs to the architecture guide. Both SVGs render directly on GitHub and in the documentation site without a diagram service.
 
-```bash
-uv sync --locked --no-default-groups --group docs
-uv run --locked --no-default-groups --group docs python -m unittest discover -s docs -p 'test_*.py'
-uv run --locked --no-default-groups --group docs python docs/generate_schema_docs.py
-uv run --locked --no-default-groups --group docs python -m mkdocs build --strict
-uv run --locked --no-default-groups --group docs python -m mkdocs serve
+The [interactive visual](../assets/notice-timing.html) has two views: **Spend the minute**, a Chart.js stopwatch with selectable slices, and **Follow a notice**, with six illustrated steps and a replay of batch completions. The browser library is included locally under `docs/assets/vendor`; no CDN, framework, Node installation or network access is needed to view it. To use the interactive page offline, keep the assets folder together. Its inline `measurements` JSON matches [notice-timings.json](../assets/notice-timings.json). Keep both copies together when updating measurements. The downloaded data retains the finer activity bins for analysis.
+
+The four slices group the measured main-workflow categories:
+
+| Slice | Measured categories | Rounded seconds |
+| --- | --- | ---: |
+| Create the notices | Typst evaluation/layout, PDF export, cache cleanup | 41 |
+| Prepare, check and save | Other preparation/writes, original PDF checks, file hashes | 10 |
+| Group the notices | Combining PDFs | 6 |
+| Write the report | Reports and checkpoints | 3 |
+
+Largest-remainder rounding makes the slices total exactly 60 seconds. Selecting a slice shows its component tasks, rounded within that slice's allowance. Keep the static SVG and the canvas's text alternative consistent with those results. The clock represents aggregate work shares, not a chronological trace: notice work repeats per person, and files and reports are saved throughout. The protected-copy callout is separate because that worker overlaps the main workflow. QR work remains inside Typst layout; it is not invented as a separately measured slice. The walkthrough explains order without inventing per-notice timings. Replay counters use recorded completions, with original completion recorded when its encryption job starts, after saving the original.
+
+Chart.js owns the doughnut geometry, resizing, tooltips and pointer selection. A small local drawing hook adds stopwatch ticks, the top button and the total. Native HTML buttons expose the same values and selection to keyboard and screen-reader users; descriptions and component tasks stay in HTML. The chart does not animate; the separate completion replay starts paused and pauses when hidden or when views change. Automatic appearance follows the surrounding documentation theme or the system preference, and repaints the canvas when that preference changes. A static SVG is available without JavaScript and when the library fails to load.
+
+The pinned browser bundle is **Chart.js 4.6.1**, copied unchanged from `package/dist/chart.umd.min.js` in the [published npm package](https://registry.npmjs.org/chart.js/-/chart.js-4.6.1.tgz). Its SHA-256 is `87364cc2b2a76a6684929e7d6b80b18a897794db38400caff1fcf1791c6925d2`. The npm archive was checked against its published SHA-512 integrity value before copying. Preserve the Chart.js MIT license and the MIT license for its bundled **@kurkle/color 0.3.2** dependency. To update, verify the new package integrity, inspect its bundled dependency notices, replace the versioned browser file and licenses, update the HTML script path and these notes, then run the browser checks below. No application dependency changes are required.
+
+The measurements came from production commit `a5bfe974178731629810162f6b99f48f353cf5f8` and profiling commit `81ac287` on `experiment/workflow-profiling`. The uninstrumented command took 57.76 seconds; the profiled command took 58.74 seconds, including 58.22 seconds inside the workflow. Instrumentation is not part of the production application. Main-workflow slices exclude the concurrent encryption worker and must not be added to worker totals.
+
+After editing, check all four slices by clicking both the chart and the HTML buttons, confirm their total and component totals, both views, all six walkthrough steps, and replay play/pause, restart, speed and scrubbing. Final replay counts are 1,000 originals, 1,000 protected copies and 10 groups. Check keyboard use, a narrow screen, Automatic/Light/Dark themes, embedded theme changes, reduced-motion settings, the no-JavaScript and failed-library static fallbacks, offline use with no external requests, SVG clipping, and a strict documentation build. Keep examples fictional.
+
+## Recording the CLI demo
+
+The README uses a real [VHS](https://github.com/charmbracelet/vhs) recording, generated from [notices.tape](../demo/notices.tape). It runs the normal command for six fictional clients at normal playback speed; it is not the 1,000-client benchmark. VHS, `ttyd`, `ffmpeg` and a browser are recording tools only, not application dependencies. Use the VHS installation instructions for your platform.
+
+Install `immuknow`, DejaVu Sans Mono for the recording, and the fonts required by a compatible ImmuKnow Template checkout. From the Core repository root, prepare a scratch directory (replace the Template path):
+
+```sh
+CORE_DIR="$PWD"
+TEMPLATE_DIR=../ImmuKnow-Template
+DEMO_DIR=$(mktemp -d)
+cp -R "$TEMPLATE_DIR/templates" "$TEMPLATE_DIR/config" "$DEMO_DIR/"
+cp "$TEMPLATE_DIR/input/sample/sample_students.csv" "$DEMO_DIR/clients.csv"
+cp "$TEMPLATE_DIR/input/sample/sample_assignments.json" "$DEMO_DIR/notices.json"
+immuknow resources --output "$DEMO_DIR/core-resources"
+cp -R "$DEMO_DIR/core-resources/typst/." "$DEMO_DIR/templates/lib/immuknow/"
 ```
 
-The hub supplies published branding. Keep local Material configuration plain;
-retain Markdown extensions and navigation needed by the source content.
+In the scratch copy of `config/parameters.yaml`, set `encryption.enabled` to `true`. The recording uses the six-client example from Template commit `782d8d4` with the current standalone Core. Exporting the shared resources above lets a compatible project use the currently installed Core library. Then record:
 
-A documentation-only change does not require rebuilding native or browser
-artifacts. Studio maintains its own build and browser checks in its separate
-repository; a Core documentation build does not establish native/browser parity.
+```sh
+cd "$DEMO_DIR"
+vhs "$CORE_DIR/docs/demo/notices.tape"
+```
+
+Watch `notice-demo.gif` and check the generated run's report and all six notice outcomes before copying `notice-demo.gif` to `docs/assets/`. Start in a fresh scratch folder for each recording so the demo creates only one run. Keep outputs and local recording tools outside the repository. The short demo shows the actual default progress display and completion summary with a larger font and narrower terminal. It opens no PDF and uses only fictional information. The summary points the operator to `report.html`; the linked getting-started guide supplies the accessible text walkthrough.

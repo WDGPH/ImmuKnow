@@ -1,246 +1,71 @@
 # Getting started
 
-Install Python 3.11 or later, [uv](https://docs.astral.sh/uv/), and
-[Typst 0.15.1](https://typst.app/docs/changelog/0.15.1/). Put `typst`
-on `PATH`, set `TYPST_BIN`, or configure `typst.bin` in `parameters.yaml`.
-Start with [ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template),
-or download a Studio project with **Include fictional client data** enabled.
-From that project directory, run the fictional sample:
+ImmuKnow creates personalized PDF notices from a CSV file and the notice templates you choose. Your source system assesses immunization status; ImmuKnow uses the information and notice choices you provide. Review your notice wording and output before sending it.
 
-```bash
-uv sync --locked
-uv run python scripts/run.py --sample
+## Before you start
+
+You need:
+
+- The `immuknow` executable available in your terminal. Ask your project maintainer for a prepared executable. A developer can build it from the checkout using the instructions in the [contributing guide](../developer_guide/contributing.md#build-the-executable).
+- A CSV containing the people and information for the notices. See the [CSV field reference](input_schema.md).
+- A configured notice project containing a `templates` folder and a `config` folder. [ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template) provides example notices and settings to adapt. Review the wording, branding, contacts, and settings for your organization. The project must be set up for this standalone version; see the [template guide](../developer_guide/templates.md). Install the fonts required by your project on the workstation.
+
+Keep the CSV and run folders private: they contain personal information.
+
+## Create notices
+
+Open a terminal. To use one notice for everyone in the CSV, run this command, replacing the paths with your own:
+
+```sh
+immuknow run clients.csv --project project --template overdue_diseases_v1.en.typ
 ```
 
-Template maintains the example clients and sample assignments. Studio uses the
-same fictional people for previews and can include a selected example in a
-project download. Their histories and forecasts are illustrative; they are not
-vaccination schedules or clinical assessments. Follow the [Template guide](https://github.com/WDGPH/ImmuKnow-Template)
-for setup and sample options. The examples describe facts as of January 15, 2026;
-project dates determine ages and notice applicability.
+Here `clients.csv` is your input file, `--project` points to the folder containing `templates/` and `config/`, and `--template` names the notice to use from that project. Results go into `runs/` unless you choose another folder with `--output`.
 
-Keeping one CSV in Template lets native projects and browser previews use the
-same people. Template owns their facts and sample notice assignments; Studio
-supplies preview descriptions and builds preview JSON. Public examples help
-people design notices and try the workflow. Independent test fixtures exercise
-engine and project behavior; see the [testing guide](../developer_guide/testing.md).
+To choose a notice separately for each person, supply a selection file and the folder containing the notices instead of `--template`:
 
-To run Core directly from a checkout, first prepare a Template project using its
-setup guide. With that project in `./my-project`:
-
-```bash
-uv sync
-uv run immuknow ./my-project/input/sample/sample_students.csv \
-  --notice-assignments ./my-project/input/sample/sample_assignments.json \
-  --templates ./my-project/templates --config ./my-project/config --output ./runs
+```sh
+immuknow run clients.csv --project project --notices notices.json
 ```
 
-An installed package provides `immuknow` and its resources without a checkout.
+If your terminal is already open in the project folder, you can omit `--project project`: `immuknow run clients.csv --notices notices.json` uses the local `templates/` and `config/` folders.
 
-## Prepare input
+`--notices` is a shorter name for `--notice-assignments`; both take the same JSON selection file. CSV and selection-file paths are relative to your current folder. With `--project`, a relative `--template` is looked up inside that project's `templates/` folder. You can still supply `--templates` and `--config` explicitly to override the project folders.
 
-Pass the path to one CSV extracted from Panorama/PEAR for the complete cohort.
-Relative paths start from your working directory: `students.csv` reads a file
-in that directory, while `./input/students.csv` reads it from the `input`
-subdirectory. Absolute paths are also accepted. Use the column names and required
-fields listed in [CSV input fields](input_schema.md).
+## Follow the progress
 
-Absent optional columns are filled with empty strings. Missing required columns
-stop shared setup. Row findings preserve the known facts and identify problems.
-Panorama client IDs are ten-digit strings using `0`–`9`; malformed or repeated
-nonblank IDs reject the complete file. Missing IDs retain their source row keys
-and may be used with the single-template selector.
+The terminal shows the current job, a progress bar while notices are processed, a running count of protected copies, and processing speed once work has been running for a second. It then summarizes notices, pages, protected copies, grouped PDFs and findings, and points you to `report.html`. Processing a row is not the same as passing every check: review the final findings too.
 
-The CSV is read as text, with raw values saved before trimming whitespace.
-Comma, semicolon, tab and pipe separators are supported. Headers must be unique,
-nonempty names without surrounding whitespace. Every row must have the same
-number of fields as the header; quote values that contain the separator or a
-line break. Repeated headers, broken quoting and extra or missing fields stop
-the run before notices are generated.
+The defaults use text labels. Add `--emoji` for decorative emoji in the headings. Use `--progress plain` for stage announcements and occasional counts without redrawing lines, or `--progress off` to hide progress and the summary. Redirected output uses plain announcements automatically. `NO_COLOR` disables terminal styling. These choices affect the display only.
 
-The reader first tries UTF-8, with or without a byte-order mark, then Windows-1252,
-then Latin-1. The selected encoding and separator are recorded in `run.json`.
-This is a fallback order, not guaranteed encoding detection. To select explicitly,
-use `--input-encoding utf-8-sig`, `--input-encoding cp1252`, or
-`--input-encoding latin-1`. Unsupported control characters stop the run so that
-damaged names or addresses cannot silently reach notices.
+The [configuration guide](configuration.md) explains the selection file and settings. Notice filenames follow `<version>.<language>.typ`, with `en` or `fr` as the language. You choose the notices; the notice list in `notice_versions.yaml` checks whether each choice fits the supplied information. It does not choose or translate notices.
 
-Blank cells stay blank; literal `NA`, `nan`, and `NULL` stay as text. Unknown
-birth dates produce unknown ages, not an assumed age group. Incomplete mailing
-addresses remain in the cohort with warnings. Normalized history retains all
-disease mappings.
-Forecasted agents must cover every overdue disease using the selected
-`vaccine_reference.json` and disease-name normalization. Missing coverage rejects
-the cohort before notices are generated, even when other diseases are also
-covered. Additional coverage warns. Unlisted agents do not count toward coverage;
-they warn when the known agents already cover the overdue set. Details are saved
-with each source row in `run.json`.
-The packaged input schema defines the columns and cannot be replaced through
-`--config`.
+## Review the results
 
-### Intended reader
+Open the new folder inside `runs`, then open `report.html` in a browser. Check the findings and review the notices before sending them. The folder retains the input, settings, prepared information, original PDFs, and a machine-readable `run.json` record. A folder ending in `.incomplete` is a run that has not finished.
 
-The optional `intended_reader` column accepts `student` or `guardian`. An explicit choice
-controls both ordinary letter wording and the default address addressee,
-regardless of age. Leave it blank to use the default: students aged 16 or older
-receive student wording, younger clients receive guardian wording, and unknown
-age uses neutral wording. Reader selection does not change the birth date or age.
+If grouping is enabled in your settings, `bundles-0001/` contains grouped PDFs named `bundle-*.pdf` for notices eligible to send. Readable notices that failed checks go into separate `review-*.pdf` files for investigation. A CSV beside each grouped PDF lists the input rows and their page ranges. A warning is eligible for sending by default, so review warnings as well as failures. If grouping is disabled, use the report to find the individual results. A run with failures returns an error status; warnings alone do not.
 
-Supply the mailing destination in the existing street, city, province and postal
-code columns. A reader choice does not create guardian contact details. Invalid
-values reject the cohort before any notices are rendered; correct the source
-and run it again. Saved source rows retain the supplied choice. Rename the former `reader` column
-to `intended_reader` before running.
+See [PDF checks and review](pdf_validation.md) for holding a notice and creating a new set of grouped PDFs after review. Read the report for actual outcomes; a file's presence alone does not mean all checks passed.
 
-### History format
+## Prepare the CSV
 
-End every administration with a semicolon, including the last, as in Panorama
-exports. Each entry is exactly `YYYY-MM-DD - Agent;`, optionally with
-` - Valid` or ` - Invalid` before the semicolon, for example
-`2020-05-01 - MMR - Valid;`. Month and day always have two digits
-(`2020-05-01`, not `2020-5-1`), and the date must exist. Use one space on
-each side of the separating hyphens. Spaces, tabs and line breaks may surround
-complete entries. Hyphenated names such as `DTaP-IPV-Hib` remain intact; an
-extra field separator inside an agent name is ambiguous and is rejected.
+The [CSV field reference](input_schema.md) describes the columns. Text is kept as text, including leading zeros. Files can use commas, semicolons, tabs, or pipes as separators. ImmuKnow tries common text encodings (UTF-8, Windows-1252, then Latin-1); use `--input-encoding utf-8-sig`, `cp1252`, or `latin-1` to specify an encoding. Malformed headers, control characters, and rows with the wrong number of fields are rejected.
 
-Blank history, `-;` and `-  -;` mean no recorded history. A missing final
-semicolon, a leading semicolon, `;;` and other empty entries, extra fields,
-impossible dates, dates
-in any other form (such as `May 1, 2020`) and wrongly cased status tokens
-reject the entire input file before any notices are generated, even when a
-notice omits history or its `ignore-agents` option excludes the agent. `Invalid`
-is accepted as an upstream assessment. An omitted status leaves dose validity
-unknown. Every bad fragment is recorded with its source row, column and
-fragment number; correct the source
-and start a new run. Warning acceptance cannot release rejected input.
+Some missing values produce findings while retaining the row. Invalid history, duplicate nonblank client IDs, missing or ambiguous notice assignments, and vaccine choices in `overdue_agent` that do not cover the listed overdue diseases reject the input before notices are created. If the CSV structure prevents rows from being read, the original `source.csv` and the rejection reason are retained.
 
-### Vaccine names in history
-
-Use the full source agent name for lookup in the selected project's
-`config/vaccine_reference.json`, including spelling and case. The supplied
-reference maps `HB-unspecified` to Hepatitis B. It displays as `HB*`, where the
-asterisk marks an unspecified vaccine formulation. Displaying `*` does not
-change the lookup key or establish that a name has a reference entry.
-
-An agent absent from the reference stays in the source and prepared history.
-A history table reports a `content.history_mapping` error unless its
-`ignore-agents` option explicitly excludes that name. Correct the source name,
-add an appropriate reference entry, or deliberately exclude the agent from the
-table. See [history options](phu_templates.md#component-choices-and-findings)
-for exclusions and how mapping errors affect delivery.
-
-## Select notices
-
-Select exactly one route for the whole CSV:
-
-- `--notice-assignments PATH` reads a JSON manifest. Each client
-  needs a `client_id` and a `template` filename such as
-  `overdue_agents_v1.fr.typ`. The filename selects version and language
-  within the complete template tree supplied with the required
-  `--templates DIRECTORY` option.
-- `--template PATH` selects one such `.typ` file for all
-  clients. Its filename supplies the version and language. Known applicability
-  conflicts warn without changing this explicit choice.
-
-```bash
-uv run immuknow students.csv \
-  --notice-assignments /path/to/assignments.json \
-  --templates /path/to/my-phu \
-  --output /path/to/runs
-
-uv run immuknow students.csv \
-  --template /path/to/my-phu/overdue_diseases_v1.en.typ \
-  --output /path/to/runs
-```
-
-An assignment file is a UTF-8 JSON array. IDs and template names are nonempty
-strings, with exactly one unambiguous assignment per input client. Optional
-experiment labels are strings carried into the report:
-
-```json
-[
-  {"client_id": "1234567890", "template": "overdue_diseases_v1.en.typ"},
-  {
-    "client_id": "1234567891",
-    "template": "overdue_agents_v1.fr.typ",
-    "experiment_id": "wording-comparison",
-    "experiment_arm": "B"
-  }
-]
-```
-
-Missing or ambiguous assignments cannot produce a trustworthy selected notice.
-Extra assignments are reported and do not create clients. A readable custom
-template without a registered applicability check can render with an
-`assignment.check_unavailable` warning.
-
-Both routes require `<version_id>.<language>.typ` with supported `en` or
-`fr`. Manifest `template` values must be filenames, not paths; they resolve
-inside the selected complete tree. The filename is the only declaration of
-version and language; the compiler passes that identity to Typst. The packaged
-`notice_versions.yaml` supplies named applicability checks. Use
-`--config /path/to/config` for your own catalog and settings. With a
-manifest, `--templates /path/to/my-phu` selects a complete external Typst
-tree. It cannot be combined with `--template`, which supplies its
-containing template tree. A conflicting source `version_id` records a warning;
-it never chooses or replaces the selected notice.
-
-The pipeline processes the whole CSV together; language does not filter
-clients from later output checks. See [configuration](configuration.md)
-for assignment and eligibility rules and [template authoring](phu_templates.md)
-for the native JSON contract.
-
-## Run output
-
-Each invocation creates its own directory beneath `--output` and preserves
-previous runs:
+For vaccine history, write each entry as `YYYY-MM-DD - Agent`, optionally followed by ` - Valid` or ` - Invalid`, and end each entry with a semicolon. For example:
 
 ```text
-runs/<run-id>/
-  run.json        # authoritative source rows, findings and output results
-  report.html     # readable report with links to actual PDFs
-  originals/      # retained, unchanged compiled notices
-  facts/          # saved notice payloads
-  resources/      # source and template/configuration snapshots
-  encrypted/      # optional individual encrypted copies
-  bundles/        # one active delivery/ and review/ result
-  logs/
-  work/           # disposable compiler and assembly files
+2020-05-01 - MMR - Valid;2021-06-02 - Tdap;
 ```
 
-Open the printed `report.html` path to inspect every row, including failed and
-incomplete rows. Original source row keys remain stable when
-notices are sorted. Input failures produce `rejected_input` and no notices,
-encrypted copies or bundles. Shared configuration or file-reading failures
-produce `failed_setup`. After input is accepted, template errors retain
-independent clients' successful outputs; a run with individual failures is
-`completed_with_failures`. Warnings alone return exit 0; failures return nonzero.
+Use exact agent names from the vaccine reference in your settings. A blank history, `-;`, or `-  -;` means no history. See the [template guide](../developer_guide/templates.md) for how history is checked when displayed.
 
-The report records actual original hashes and page counts, encryption outcomes,
-and bundle membership and page ranges. Encryption does not delete originals.
-Saved configuration omits encryption password settings. Cleanup can remove
-`work/`, while originals, facts and report evidence remain. Diagnostics and
-originals contain client information and should be handled as sensitive output.
+## Intended reader
 
-For a callable workflow, `immuknow.orchestrator.run_pipeline` returns the saved
-`run.json` path. Read its status to distinguish partial results from complete
-success. The [workflow guide](../reference/architecture.md) defines run accounting.
+The optional `intended_reader` column can be `student` or `guardian`. If blank, the default is student at age 16 or older and guardian under 16. If age is unknown and the reader is blank, the notice uses neutral wording. Other values are rejected. Put the intended mailing destination in the address columns.
 
-## Review and release notices
+## For integrations
 
-Failed checks and unaccepted warnings keep a readable original in review.
-Review copies have a findings sheet and a red REVIEW mark; delivery copies come
-from unchanged originals. Inspect the original and the latest evaluation, then
-accept individual warning tokens with a reason:
-
-```bash
-uv run immuknow-rebundle ./runs/<run-id> --accept-warning <token> --reason "Reviewed original"
-```
-
-The [PDF review guide](pdf_validation.md) owns warning acceptance, withholding
-and invalidation rules. No choice can force delivery past failed checks.
-
-Rebundling verifies the saved original hashes and does not reread source data or
-authored templates, recompile notices, or rerun encryption. A failed attempt
-keeps the previous active set. See [review and PDF findings](pdf_validation.md)
-for override examples, page ranges and recovery behavior.
+`immuknow prepare` uses the same CSV, notice selection, settings, and optional encoding to write prepared information and checks as JSON without creating PDFs. See the [command reference](../developer_guide/cli.md).

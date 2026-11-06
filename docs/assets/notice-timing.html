@@ -1,0 +1,1580 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Where the minute goes — ImmuKnow</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f6f7fa;
+        --surface: #fff;
+        --ink: #19283b;
+        --muted: #536277;
+        --line: #d6deea;
+        --subtle: #eaf0f6;
+        --blue: #365ebd;
+        --paper: #fff;
+        --compose: #bbd5ff;
+        --pdf: #d2c7ee;
+        --groups: #b7e0cf;
+        --memory: #f2d999;
+        --identity: #dbdfea;
+        --files: #bde3e8;
+        --reports: #edc5d1;
+        --checks: #f3c7a2;
+        --tile-ink: #19283b;
+      }
+      :root[data-theme="dark"] {
+        color-scheme: dark;
+        --bg: #101721;
+        --surface: #192434;
+        --ink: #edf3fc;
+        --muted: #bac7d9;
+        --line: #3a4c63;
+        --subtle: #263449;
+        --blue: #a9c4ff;
+        --paper: #263b55;
+        --compose: #2c5085;
+        --pdf: #493c6e;
+        --groups: #245d4c;
+        --memory: #665323;
+        --identity: #3c485f;
+        --files: #285560;
+        --reports: #663d51;
+        --checks: #70482a;
+        --tile-ink: #f1f5fe;
+      }
+      :root[data-theme="light"] {
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          --bg: #101721;
+          --surface: #192434;
+          --ink: #edf3fc;
+          --muted: #bac7d9;
+          --line: #3a4c63;
+          --subtle: #263449;
+          --blue: #a9c4ff;
+          --paper: #263b55;
+          --compose: #2c5085;
+          --pdf: #493c6e;
+          --groups: #245d4c;
+          --memory: #665323;
+          --identity: #3c485f;
+          --files: #285560;
+          --reports: #663d51;
+          --checks: #70482a;
+          --tile-ink: #f1f5fe;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          16px/1.55 system-ui,
+          sans-serif;
+      }
+      main {
+        max-width: 1100px;
+        margin: auto;
+        padding: 30px;
+      }
+      h1 {
+        font-size: clamp(32px, 5vw, 51px);
+        line-height: 1.12;
+        letter-spacing: -0.035em;
+        margin: 12px 0 20px;
+        font-weight: 700;
+      }
+      h2 {
+        font-size: 24px;
+        line-height: 1.25;
+        margin: 0 0 10px;
+        letter-spacing: -0.02em;
+      }
+      p {
+        margin: 10px 0;
+      }
+      .muted,
+      .caption {
+        color: var(--muted);
+      }
+      .eyebrow {
+        font-size: 12px;
+        letter-spacing: 0.12em;
+        font-weight: 750;
+        text-transform: uppercase;
+        color: var(--blue);
+      }
+      .toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 15px;
+      }
+      .theme {
+        font-size: 13px;
+        white-space: nowrap;
+      }
+      .facts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 9px;
+        margin-bottom: 24px;
+      }
+      .facts span {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        padding: 6px 11px;
+        border-radius: 99px;
+        font-size: 13px;
+      }
+      .switcher {
+        display: flex;
+        gap: 6px;
+        padding: 5px;
+        background: var(--subtle);
+        border-radius: 12px;
+        width: fit-content;
+        margin: 25px 0;
+      }
+      button,
+      select {
+        font: inherit;
+        color: var(--ink);
+        border: 1px solid var(--line);
+        background: var(--surface);
+        border-radius: 9px;
+        padding: 9px 14px;
+        cursor: pointer;
+      }
+      select {
+        padding: 5px 8px;
+      }
+      button:focus-visible,
+      select:focus-visible,
+      input:focus-visible,
+      a:focus-visible {
+        outline: 3px solid var(--blue);
+        outline-offset: 3px;
+      }
+      .switcher button {
+        border: 0;
+        background: transparent;
+      }
+      .switcher [aria-pressed="true"] {
+        background: var(--surface);
+        box-shadow: 0 2px 5px #0001;
+        font-weight: 650;
+      }
+      .intro {
+        max-width: 770px;
+        margin-bottom: 20px;
+      }
+      .budget-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+        align-items: center;
+        gap: 32px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        padding: 12px 28px 20px 12px;
+      }
+      .stopwatch {
+        position: relative;
+        min-width: 0;
+        aspect-ratio: 1;
+      }
+      .stopwatch canvas {
+        position: absolute;
+        inset: 0;
+        width: 100% !important;
+        height: 100% !important;
+      }
+      .slice-list {
+        display: grid;
+        gap: 10px;
+      }
+      .slice {
+        display: grid;
+        grid-template-columns: 12px 1fr auto;
+        align-items: center;
+        gap: 13px;
+        text-align: left;
+        padding: 16px;
+        border-color: transparent;
+        background: transparent;
+      }
+      .slice[aria-pressed="true"] {
+        background: var(--subtle);
+        border-color: var(--line);
+      }
+      .slice .swatch {
+        width: 12px;
+        height: 36px;
+        background: var(--color);
+        border-radius: 5px;
+      }
+      .slice .name {
+        font-weight: 650;
+        line-height: 1.25;
+      }
+      .slice .summary {
+        display: block;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 400;
+        margin-top: 5px;
+      }
+      .slice .seconds {
+        font-size: 27px;
+        font-weight: 750;
+        white-space: nowrap;
+      }
+      .breakdown {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 6px 20px;
+        margin: 16px 0 0;
+        font-size: 14px;
+      }
+      .breakdown dt {
+        color: var(--muted);
+      }
+      .breakdown dd {
+        margin: 0;
+        font-weight: 650;
+      }
+      .caption {
+        font-size: 13px;
+        margin: 14px 0 20px;
+      }
+      .explanation {
+        padding: 23px 26px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 13px;
+        min-height: 148px;
+      }
+      .explanation h2 {
+        font-size: 21px;
+      }
+      .explanation p {
+        max-width: 850px;
+      }
+      .parallel {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 18px;
+        align-items: center;
+        margin-top: 18px;
+        padding: 22px 26px;
+        background: var(--groups);
+        color: var(--tile-ink);
+        border-radius: 13px;
+      }
+      .parallel svg {
+        width: 75px;
+        height: 75px;
+      }
+      .parallel h2 {
+        font-size: 20px;
+      }
+      .parallel p {
+        font-size: 15px;
+        margin-bottom: 0;
+      }
+      .parallel .aside {
+        font-size: 13px;
+        margin-top: 7px;
+      }
+      .steps {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 7px;
+        margin: 20px 0;
+      }
+      .step {
+        padding: 12px 9px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        text-align: left;
+        font-size: 13px;
+        line-height: 1.2;
+        min-width: 0;
+      }
+      .step span:first-child {
+        font-size: 18px;
+        font-weight: 750;
+        color: var(--muted);
+      }
+      .step[aria-pressed="true"] {
+        border-color: var(--blue);
+        background: var(--subtle);
+      }
+      .scene {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        overflow: hidden;
+      }
+      .scene svg {
+        display: block;
+        width: 100%;
+        height: 235px;
+      }
+      .scene text {
+        font-family: system-ui, sans-serif;
+        fill: var(--ink);
+      }
+      .scene-copy {
+        padding: 0 26px 24px;
+      }
+      .step-nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        padding: 18px 26px;
+        border-top: 1px solid var(--line);
+        font-size: 14px;
+      }
+      .step-nav button:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+      .scene-label {
+        font-size: 12px;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--blue);
+        font-weight: 700;
+      }
+      .replay {
+        margin-top: 25px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 24px;
+      }
+      .replay h2 {
+        font-size: 21px;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        margin-top: 15px;
+      }
+      .clock {
+        margin-left: auto;
+        font-size: 23px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+      }
+      #play {
+        background: #365ebd;
+        color: white;
+        border-color: #365ebd;
+      }
+      .scrub {
+        width: 100%;
+        accent-color: var(--blue);
+        margin: 14px 0;
+      }
+      .counters {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+      }
+      .counter {
+        padding: 15px;
+        background: var(--subtle);
+        border-radius: 10px;
+      }
+      .counter strong {
+        display: block;
+        font-size: 30px;
+        line-height: 1.25;
+        font-variant-numeric: tabular-nums;
+      }
+      .counter span {
+        font-size: 13px;
+      }
+      .counter progress {
+        display: block;
+        width: 100%;
+        height: 8px;
+        accent-color: var(--blue);
+        margin-top: 12px;
+      }
+      .footer {
+        font-size: 13px;
+        color: var(--muted);
+        margin-top: 26px;
+        max-width: 950px;
+      }
+      a {
+        color: var(--blue);
+      }
+      .symbols {
+        position: absolute;
+        width: 0;
+        height: 0;
+        overflow: hidden;
+      }
+      .scene-line {
+        fill: none;
+        stroke: var(--line);
+        stroke-width: 3;
+      }
+      .paper-outline {
+        fill: var(--paper);
+        stroke: var(--blue);
+        stroke-width: 2;
+      }
+      .paper-line {
+        stroke: var(--blue);
+        stroke-width: 3;
+        stroke-linecap: round;
+        opacity: 0.65;
+      }
+      .icon-fill {
+        fill: var(--blue);
+      }
+      @media (max-width: 650px) {
+        main {
+          padding: 18px;
+        }
+        .toolbar {
+          align-items: flex-start;
+        }
+        .toolbar .eyebrow {
+          max-width: 150px;
+        }
+        .budget-layout {
+          grid-template-columns: 1fr;
+          gap: 0;
+          padding: 8px 12px 16px;
+        }
+        .stopwatch {
+          width: 100%;
+          max-width: 450px;
+          margin: auto;
+        }
+        .slice-list {
+          gap: 4px;
+        }
+        .slice {
+          padding: 12px;
+        }
+        .slice .seconds {
+          font-size: 24px;
+        }
+        .parallel {
+          padding: 19px;
+          gap: 12px;
+          grid-template-columns: 52px 1fr;
+        }
+        .parallel svg {
+          width: 52px;
+          height: 52px;
+        }
+        .explanation {
+          padding: 20px;
+        }
+        .steps {
+          grid-template-columns: repeat(3, 1fr);
+        }
+        .scene svg {
+          height: 190px;
+        }
+        .scene-copy {
+          padding: 0 20px 20px;
+        }
+        .step-nav {
+          padding: 15px;
+        }
+        .replay {
+          padding: 18px;
+        }
+        .counter {
+          padding: 10px;
+        }
+        .counter strong {
+          font-size: 25px;
+        }
+        .counter span {
+          font-size: 12px;
+        }
+        .clock {
+          font-size: 20px;
+        }
+        .controls {
+          font-size: 14px;
+        }
+        .switcher button {
+          font-size: 14px;
+          padding: 10px;
+        }
+        .counters {
+          gap: 7px;
+        }
+        .facts {
+          gap: 6px;
+        }
+        .facts span {
+          font-size: 12px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <svg class="symbols" aria-hidden="true">
+      <defs>
+        <symbol id="paper" viewBox="0 0 120 155">
+          <rect
+            class="paper-outline"
+            x="8"
+            y="6"
+            width="104"
+            height="143"
+            rx="9"
+          />
+          <path
+            class="paper-line"
+            d="M26 28H72 M26 44H94 M26 58H94 M26 72H85 M26 120H64 M26 134H88"
+          />
+          <g class="icon-fill">
+            <path
+              d="M77 92h12v12H77zm3 3v6h6v-6zm-21-3h12v12H59zm3 3v6h6v-6zm15 18h12v12H77zm3 3v6h6v-6z"
+              fill-rule="evenodd"
+            />
+            <rect x="62" y="110" width="5" height="5" />
+            <rect x="69" y="118" width="5" height="5" />
+          </g>
+        </symbol>
+        <symbol id="lock" viewBox="0 0 60 66">
+          <rect
+            x="8"
+            y="28"
+            width="44"
+            height="32"
+            rx="8"
+            fill="var(--groups)"
+            stroke="var(--blue)"
+            stroke-width="3"
+          />
+          <path
+            d="M18 28V17a12 12 0 0 1 24 0v11"
+            fill="none"
+            stroke="var(--blue)"
+            stroke-width="4"
+          />
+          <circle cx="30" cy="43" r="4" class="icon-fill" />
+        </symbol>
+        <symbol id="tick" viewBox="0 0 64 64">
+          <circle
+            cx="32"
+            cy="32"
+            r="28"
+            fill="var(--groups)"
+            stroke="var(--blue)"
+            stroke-width="2"
+          />
+          <path
+            d="m18 32 10 10 19-21"
+            fill="none"
+            stroke="var(--blue)"
+            stroke-width="5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </symbol>
+        <symbol id="arrow" viewBox="0 0 100 30">
+          <path
+            d="M5 15H88m-13-9 14 9-14 9"
+            fill="none"
+            stroke="var(--blue)"
+            stroke-width="3"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </symbol>
+      </defs>
+    </svg>
+    <main>
+      <div class="toolbar">
+        <span class="eyebrow">A minute of ImmuKnow</span
+        ><label class="theme" for="theme"
+          >Appearance
+          <select id="theme">
+            <option value="auto">Automatic</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select></label
+        >
+      </div>
+      <h1>1,000 custom notices.<br />Where does the minute go?</h1>
+      <div class="facts">
+        <span>2,000 pages</span><span>1,000 protected copies</span
+        ><span>10 grouped PDFs</span>
+      </div>
+      <div class="interactive">
+        <div class="switcher" aria-label="Choose a visual explanation">
+          <button
+            id="budget-button"
+            type="button"
+            aria-pressed="true"
+            aria-controls="budget-view"
+          >
+            Spend the minute</button
+          ><button
+            id="journey-button"
+            type="button"
+            aria-pressed="false"
+            aria-controls="journey-view"
+          >
+            Follow a notice
+          </button>
+        </div>
+        <section id="budget-view" aria-label="A proportional time budget">
+          <p class="intro">
+            One turn of the stopwatch, four shares of the work. Select a slice
+            or its label to see what happens inside it.
+          </p>
+          <div class="budget-layout">
+            <div class="stopwatch">
+              <canvas
+                id="stopwatch"
+                role="img"
+                aria-label="A 60-second work budget: create notices 41 seconds; prepare, check and save 10; group notices 6; write the report 3. The same values are available in the buttons alongside."
+              ></canvas>
+            </div>
+            <div
+              class="slice-list"
+              id="slice-list"
+              aria-label="Explore the four time shares"
+            ></div>
+          </div>
+          <p class="caption">
+            Rounded to a minute. These are shares of the work; several steps
+            repeat for each person.
+          </p>
+          <div class="explanation" aria-live="polite" aria-atomic="true">
+            <h2 id="detail-title">Create the notices</h2>
+            <p id="detail-description"></p>
+            <dl class="breakdown" id="detail-breakdown"></dl>
+          </div>
+          <div class="parallel">
+            <svg aria-hidden="true" viewBox="0 0 60 66">
+              <use href="#lock" width="60" height="66" />
+            </svg>
+            <div>
+              <h2>At the same time: make protected copies.</h2>
+              <p>
+                As each original is ready, another worker makes its
+                password-protected copy and checks it. The original is kept
+                separately.
+              </p>
+              <p class="aside">
+                This work runs alongside notice creation, inside the same
+                minute.
+              </p>
+            </div>
+          </div>
+        </section>
+        <section
+          id="journey-view"
+          aria-label="Follow one notice through the workflow"
+          hidden
+        >
+          <p class="intro">
+            One person, one chosen notice. Follow their PDF from the client list
+            to its place in a group. The engine stays warm and repeats this work
+            for the next person.
+          </p>
+          <div class="steps" id="steps" aria-label="Choose a step"></div>
+          <div class="scene">
+            <div id="scene-art"></div>
+            <div class="scene-copy" aria-live="polite" aria-atomic="true">
+              <span id="scene-label" class="scene-label"></span>
+              <h2 id="scene-title"></h2>
+              <p id="scene-description"></p>
+            </div>
+            <div class="step-nav">
+              <button id="previous" type="button">← Previous</button
+              ><span id="step-count"></span
+              ><button id="next" type="button">Next →</button>
+            </div>
+          </div>
+          <div class="replay">
+            <h2>Now repeat it 1,000 times.</h2>
+            <p class="muted">
+              Replay the recorded output counts across an approximate minute.
+            </p>
+            <div class="controls">
+              <button id="play" type="button">Play</button
+              ><button id="restart" type="button">Restart</button
+              ><label for="speed">Speed</label
+              ><select id="speed">
+                <option value="1">1×</option>
+                <option value="4" selected>4×</option>
+                <option value="10">10×</option></select
+              ><output id="clock" for="time" class="clock">0 / 60 s</output>
+            </div>
+            <label for="time" class="caption">Move through the run</label
+            ><input
+              id="time"
+              class="scrub"
+              type="range"
+              min="0"
+              max="60"
+              step="0.1"
+              value="0"
+              aria-valuetext="0 seconds of 60"
+            />
+            <div class="counters">
+              <div class="counter">
+                <strong id="originals">0</strong><span>original notices</span
+                ><progress
+                  id="original-progress"
+                  max="1000"
+                  value="0"
+                  aria-label="Original notices completed"
+                ></progress>
+              </div>
+              <div class="counter">
+                <strong id="encrypted">0</strong><span>protected copies</span
+                ><progress
+                  id="encrypted-progress"
+                  max="1000"
+                  value="0"
+                  aria-label="Protected copies completed"
+                ></progress>
+              </div>
+              <div class="counter">
+                <strong id="bundles">0</strong><span>grouped PDFs</span
+                ><progress
+                  id="bundle-progress"
+                  max="10"
+                  value="0"
+                  aria-label="Grouped PDFs completed"
+                ></progress>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+      <noscript
+        ><style>
+          .interactive,
+          .theme {
+            display: none;
+          }</style
+        ><img
+          src="notice-timing.svg"
+          style="width: 100%; height: auto"
+          alt="Main work rounded to 60 seconds: create notices 41, prepare, check and save 10, group notices 6, write the report 3. Protected copies run alongside notice creation."
+      /></noscript>
+      <p class="footer">
+        Based on a recorded run with fictional clients in a shared 4-CPU / 8-GiB
+        environment. Templates, page counts, fonts and computers affect the
+        result. The walkthrough explains the steps; the replay uses measured
+        completions.
+      </p>
+      <p class="footer">
+        <a href="notice-timing.svg">Static visual</a> ·
+        <a href="notice-timings.json">Measurements</a> · Built with
+        <a href="https://www.chartjs.org/">Chart.js</a>. The chart library is
+        included locally; no external service is needed.
+      </p>
+    </main>
+    <script id="measurements" type="application/json">
+      {
+        "control_seconds": 57.759569,
+        "profile_command_seconds": 58.739195,
+        "workflow_seconds": 58.21843887,
+        "production_commit": "a5bfe974178731629810162f6b99f48f353cf5f8",
+        "profiling_commit": "81ac287",
+        "input_sha256": "8615ee238c6fd93648a98581be1b4d59fc747e02cc8e61b1c1856a140c8b0832",
+        "encryption_worker_seconds": 41.72,
+        "samples": [
+          [0.0, 0, 0, 0],
+          [0.5, 0, 0, 0],
+          [1.0, 5, 4, 0],
+          [1.5, 15, 15, 0],
+          [2.0, 27, 27, 0],
+          [2.5, 37, 36, 0],
+          [3.0, 48, 47, 0],
+          [3.5, 58, 57, 0],
+          [4.0, 70, 69, 0],
+          [4.5, 79, 78, 0],
+          [5.0, 90, 89, 0],
+          [5.5, 100, 99, 0],
+          [6.0, 108, 107, 0],
+          [6.5, 120, 119, 0],
+          [7.0, 130, 130, 0],
+          [7.5, 140, 139, 0],
+          [8.0, 151, 150, 0],
+          [8.5, 162, 162, 0],
+          [9.0, 173, 172, 0],
+          [9.5, 184, 183, 0],
+          [10.0, 195, 194, 0],
+          [10.5, 203, 202, 0],
+          [11.0, 214, 213, 0],
+          [11.5, 224, 223, 0],
+          [12.0, 234, 233, 0],
+          [12.5, 245, 244, 0],
+          [13.0, 255, 254, 0],
+          [13.5, 266, 265, 0],
+          [14.0, 277, 276, 0],
+          [14.5, 287, 286, 0],
+          [15.0, 298, 297, 0],
+          [15.5, 307, 306, 0],
+          [16.0, 318, 317, 0],
+          [16.5, 328, 328, 0],
+          [17.0, 339, 338, 0],
+          [17.5, 349, 349, 0],
+          [18.0, 360, 359, 0],
+          [18.5, 371, 370, 0],
+          [19.0, 381, 380, 0],
+          [19.5, 392, 391, 0],
+          [20.0, 400, 400, 0],
+          [20.5, 410, 409, 0],
+          [21.0, 421, 420, 0],
+          [21.5, 432, 431, 0],
+          [22.0, 442, 441, 0],
+          [22.5, 454, 453, 0],
+          [23.0, 464, 463, 0],
+          [23.5, 475, 474, 0],
+          [24.0, 485, 484, 0],
+          [24.5, 496, 496, 0],
+          [25.0, 502, 501, 0],
+          [25.5, 512, 511, 0],
+          [26.0, 523, 522, 0],
+          [26.5, 533, 532, 0],
+          [27.0, 543, 543, 0],
+          [27.5, 552, 552, 0],
+          [28.0, 561, 561, 0],
+          [28.5, 571, 570, 0],
+          [29.0, 582, 581, 0],
+          [29.5, 592, 591, 0],
+          [30.0, 600, 600, 0],
+          [30.5, 608, 607, 0],
+          [31.0, 618, 617, 0],
+          [31.5, 627, 626, 0],
+          [32.0, 638, 637, 0],
+          [32.5, 648, 647, 0],
+          [33.0, 657, 656, 0],
+          [33.5, 667, 666, 0],
+          [34.0, 676, 675, 0],
+          [34.5, 686, 685, 0],
+          [35.0, 696, 695, 0],
+          [35.5, 700, 700, 0],
+          [36.0, 710, 709, 0],
+          [36.5, 721, 720, 0],
+          [37.0, 733, 732, 0],
+          [37.5, 742, 741, 0],
+          [38.0, 753, 752, 0],
+          [38.5, 763, 762, 0],
+          [39.0, 773, 772, 0],
+          [39.5, 783, 782, 0],
+          [40.0, 793, 792, 0],
+          [40.5, 800, 800, 0],
+          [41.0, 804, 803, 0],
+          [41.5, 814, 813, 0],
+          [42.0, 823, 822, 0],
+          [42.5, 833, 832, 0],
+          [43.0, 843, 842, 0],
+          [43.5, 852, 851, 0],
+          [44.0, 862, 861, 0],
+          [44.5, 870, 870, 0],
+          [45.0, 879, 878, 0],
+          [45.5, 890, 889, 0],
+          [46.0, 899, 898, 0],
+          [46.5, 901, 900, 0],
+          [47.0, 912, 911, 0],
+          [47.5, 922, 921, 0],
+          [48.0, 931, 930, 0],
+          [48.5, 942, 941, 0],
+          [49.0, 952, 951, 0],
+          [49.5, 963, 962, 0],
+          [50.0, 973, 972, 0],
+          [50.5, 982, 981, 0],
+          [51.0, 993, 993, 0],
+          [51.5, 1000, 1000, 0],
+          [52.0, 1000, 1000, 0],
+          [52.5, 1000, 1000, 0],
+          [53.0, 1000, 1000, 0],
+          [53.5, 1000, 1000, 0],
+          [54.0, 1000, 1000, 0],
+          [54.5, 1000, 1000, 0],
+          [55.0, 1000, 1000, 4],
+          [55.5, 1000, 1000, 4],
+          [56.0, 1000, 1000, 6],
+          [56.5, 1000, 1000, 8],
+          [57.0, 1000, 1000, 10],
+          [57.5, 1000, 1000, 10],
+          [58.0, 1000, 1000, 10],
+          [58.218, 1000, 1000, 10]
+        ],
+        "categories": {
+          "Typst evaluation and layout": 30.506352987,
+          "PDF export": 5.57724043,
+          "Cache cleanup": 3.858289524,
+          "Original PDF checks": 2.397676659,
+          "Reports and checkpoints": 2.71395681,
+          "Combining PDFs": 5.90838866,
+          "File hashes": 3.48949623,
+          "Other preparation, file writes and bookkeeping": 3.7670375699999994
+        },
+        "phases": [
+          {
+            "name": "Read + prepare inputs",
+            "color": "#9b7b30",
+            "group": "Get ready",
+            "seconds": 0.45224,
+            "bins": [
+              47, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+            ],
+            "description": "Read the CSV, chosen notices, project settings and fonts. The source system has already assessed immunization status."
+          },
+          {
+            "name": "Read each person\u2019s facts",
+            "color": "#498ca5",
+            "group": "Create each notice",
+            "seconds": 0.54812,
+            "bins": [
+              1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+              1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+              1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0
+            ],
+            "description": "Pass each person\u2019s prepared information and selected template into the same warm Typst engine."
+          },
+          {
+            "name": "Compose pages + QR codes",
+            "color": "#577ce7",
+            "group": "Create each notice",
+            "seconds": 30.50635,
+            "bins": [
+              40, 65, 64, 63, 63, 57, 65, 61, 64, 64, 57, 64, 63, 65, 62, 53,
+              62, 62, 64, 63, 53, 63, 64, 61, 61, 50, 64, 63, 60, 62, 49, 63,
+              62, 60, 60, 62, 41, 64, 61, 60, 62, 35, 59, 63, 58, 59, 61, 33,
+              62, 63, 63, 63, 59, 0, 0, 0, 0, 0, 0, 0
+            ],
+            "description": "Fill the template, draw any QR code and fit the text onto the pages. Typst may make several layout passes. QR generation and drawing are included here; they are not timed separately for all 1,000 notices."
+          },
+          {
+            "name": "Write PDF pages",
+            "color": "#438eaf",
+            "group": "Create each notice",
+            "seconds": 5.57724,
+            "bins": [
+              8, 12, 12, 12, 12, 11, 12, 13, 11, 12, 10, 12, 12, 12, 11, 10, 12,
+              12, 11, 11, 10, 12, 11, 12, 11, 10, 11, 11, 12, 11, 8, 10, 11, 12,
+              11, 10, 8, 11, 11, 12, 10, 7, 10, 11, 12, 11, 11, 7, 12, 11, 11,
+              11, 10, 0, 0, 0, 0, 0, 0, 0
+            ],
+            "description": "Export the finished pages from Typst into a PDF. This repeats for each person, rather than waiting for all notices to be laid out."
+          },
+          {
+            "name": "Check notice content",
+            "color": "#a578c2",
+            "group": "Create each notice",
+            "seconds": 0.49725,
+            "bins": [
+              1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+              1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+              1, 1, 1, 1, 2, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0
+            ],
+            "description": "Read the template\u2019s invisible check report from the same compiled document and check that it matches the person and page count. No extra report pages or PDF attachment are created."
+          },
+          {
+            "name": "Check PDF pages",
+            "color": "#bd7749",
+            "group": "Create each notice",
+            "seconds": 2.39768,
+            "bins": [
+              1, 5, 5, 5, 4, 4, 5, 5, 5, 5, 4, 5, 5, 4, 5, 6, 6, 5, 5, 5, 5, 5,
+              5, 5, 6, 3, 5, 6, 5, 4, 3, 5, 5, 5, 6, 4, 3, 5, 4, 5, 5, 3, 6, 5,
+              5, 7, 5, 3, 4, 5, 5, 4, 4, 0, 0, 0, 0, 0, 0, 0
+            ],
+            "description": "Inspect each original PDF and check its page count before saving it."
+          },
+          {
+            "name": "Save facts + original PDFs",
+            "color": "#3e9a9e",
+            "group": "Create each notice",
+            "seconds": 1.36014,
+            "bins": [
+              1, 2, 2, 3, 2, 2, 2, 2, 3, 3, 2, 2, 2, 3, 3, 2, 2, 3, 3, 3, 2, 3,
+              3, 3, 3, 2, 2, 2, 3, 3, 2, 2, 2, 2, 3, 4, 2, 3, 2, 5, 4, 2, 2, 3,
+              3, 3, 3, 2, 2, 2, 2, 4, 4, 0, 0, 0, 0, 0, 0, 0
+            ],
+            "description": "Save the original PDF and its prepared information. Originals remain available even when checks call for review."
+          },
+          {
+            "name": "Fingerprint saved files",
+            "color": "#7a86a2",
+            "group": "Create each notice",
+            "seconds": 3.4895,
+            "bins": [
+              4, 8, 7, 8, 7, 6, 7, 8, 7, 7, 6, 7, 8, 7, 7, 7, 7, 8, 7, 7, 6, 8,
+              7, 7, 7, 5, 8, 7, 7, 8, 6, 7, 8, 6, 7, 6, 5, 8, 7, 8, 7, 4, 6, 6,
+              7, 6, 7, 4, 7, 7, 6, 7, 7, 0, 0, 0, 0, 0, 0, 0
+            ],
+            "description": "Calculate file fingerprints for the saved record. This row shows main-workflow fingerprints; protected-copy fingerprints happen in the background worker."
+          },
+          {
+            "name": "Clean up reusable work",
+            "color": "#a08b50",
+            "group": "Create each notice",
+            "seconds": 3.85829,
+            "bins": [
+              1, 5, 7, 7, 8, 7, 6, 8, 7, 6, 6, 7, 6, 6, 8, 6, 8, 8, 6, 8, 6, 6,
+              7, 8, 8, 6, 7, 7, 9, 8, 7, 8, 8, 11, 10, 10, 8, 7, 10, 6, 8, 8, 8,
+              9, 11, 10, 10, 8, 8, 8, 9, 8, 6, 0, 0, 0, 0, 0, 0, 0
+            ],
+            "description": "Retain useful Typst caches between notices and release older cached work. This keeps the compiler warm without retaining everything forever."
+          },
+          {
+            "name": "Make protected copies",
+            "color": "#bd689a",
+            "group": "Alongside notice creation",
+            "seconds": 15.13686,
+            "bins": [
+              7, 34, 32, 29, 29, 26, 31, 31, 32, 32, 28, 32, 33, 33, 33, 29, 32,
+              32, 31, 31, 26, 33, 33, 30, 29, 23, 30, 29, 31, 30, 25, 32, 32,
+              32, 30, 32, 21, 32, 31, 30, 33, 20, 28, 32, 30, 26, 31, 19, 29,
+              31, 28, 33, 32, 0, 0, 0, 0, 0, 0, 0
+            ],
+            "description": "One background worker reads each saved original, prepares its password protection and writes a separate AES-256 copy. It overlaps notice creation."
+          },
+          {
+            "name": "Check protected copies",
+            "color": "#976fc8",
+            "group": "Alongside notice creation",
+            "seconds": 21.61363,
+            "bins": [
+              10, 48, 42, 46, 44, 37, 48, 48, 46, 48, 41, 46, 44, 46, 43, 43,
+              45, 44, 44, 46, 39, 46, 44, 47, 45, 36, 43, 43, 38, 46, 37, 38,
+              44, 42, 43, 45, 28, 46, 45, 42, 45, 26, 38, 43, 40, 40, 44, 24,
+              45, 46, 46, 48, 43, 0, 0, 0, 0, 0, 0, 0
+            ],
+            "description": "Check that each protected copy rejects access without a password and opens with the correct password. The original is kept separately."
+          },
+          {
+            "name": "Combine original PDFs",
+            "color": "#399a7a",
+            "group": "Finish the run",
+            "seconds": 5.90839,
+            "bins": [
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 55, 100, 100, 100, 100, 100, 54
+            ],
+            "description": "Use four workers to combine independent groups of original notices and save CSV page lists. Readable notices with failed checks go into review PDFs; held notices stay out. This row shows elapsed grouping time, not the sum of worker times."
+          },
+          {
+            "name": "Save checkpoints + report",
+            "color": "#b46c73",
+            "group": "Throughout the run",
+            "seconds": 2.71396,
+            "bins": [
+              6, 0, 0, 0, 0, 10, 0, 0, 0, 0, 11, 0, 0, 0, 0, 13, 0, 0, 0, 0, 15,
+              0, 0, 0, 0, 22, 0, 0, 0, 0, 22, 1, 0, 0, 0, 0, 30, 0, 0, 0, 0, 37,
+              4, 0, 0, 0, 0, 42, 0, 0, 0, 0, 7, 36, 0, 0, 0, 0, 0, 25
+            ],
+            "description": "Save checkpoints while notices are being created, then the final run record and readable report. Open report.html to review findings and PDFs."
+          }
+        ]
+      }
+    </script>
+    <script src="vendor/chart-4.6.1.umd.min.js"></script>
+    <script>
+      "use strict";
+      const $ = (id) => document.getElementById(id);
+      const data = JSON.parse($("measurements").textContent);
+      // The clock is a work budget, not a timeline. Keep overlapping encryption outside it.
+      const categories = [
+        {
+          name: "Create the notices",
+          color: "#5686df",
+          summary: "Personalize the pages and make PDFs",
+          description:
+            "Fill each chosen template with the person’s information, lay out the pages and create the PDF. QR codes are built here too. Typst stays warm between people, reusing fonts and earlier work; it also clears older results to keep memory in check.",
+          parts: [
+            [
+              "Typst evaluation and layout",
+              "Fill and lay out the pages, including QR codes",
+            ],
+            ["PDF export", "Turn the finished pages into PDFs"],
+            ["Cache cleanup", "Clear older layout work to make room"],
+          ],
+        },
+        {
+          name: "Prepare, check and save",
+          color: "#db9a46",
+          summary: "Read the list and look after each file",
+          description:
+            "Read the client list and your notice choices, prepare the information, and save each original. Check PDF pages and record a fingerprint identifying each saved file. This work happens before and between notice creation, rather than in one separate stretch.",
+          parts: [
+            [
+              "Other preparation, file writes and bookkeeping",
+              "Read, prepare and save files",
+            ],
+            ["Original PDF checks", "Check the original PDF pages"],
+            ["File hashes", "Record which files were saved"],
+          ],
+        },
+        {
+          name: "Group the notices",
+          color: "#46a58c",
+          summary: "Combine PDFs with page lists",
+          description:
+            "Join notices into grouped PDFs, each with a CSV listing whose pages are inside. Readable notices with failed checks go into separate review PDFs. Notices on hold stay out. Independent groups can be combined at the same time.",
+          parts: [
+            ["Combining PDFs", "Combine the PDFs and save their page lists"],
+          ],
+        },
+        {
+          name: "Write the report",
+          color: "#ad78bf",
+          summary: "Keep findings and PDF locations together",
+          description:
+            "Save the run record and its readable HTML report so you can review the findings and find the PDFs. This includes saving progress during the run, as well as the final report.",
+          parts: [
+            ["Reports and checkpoints", "Save progress and the final report"],
+          ],
+        },
+      ];
+      // Largest-remainder rounding preserves an exact 60-second total at both levels.
+      function roundedShares(values, total) {
+        const sum = values.reduce((a, b) => a + b, 0);
+        const shares = values.map((v) => (v / sum) * total);
+        const result = shares.map(Math.floor);
+        const order = shares
+          .map((v, i) => ({ i, fraction: v - result[i] }))
+          .sort((a, b) => b.fraction - a.fraction);
+        for (
+          let i = 0, left = total - result.reduce((a, b) => a + b, 0);
+          i < left;
+          i++
+        )
+          result[order[i].i]++;
+        return result;
+      }
+      const seconds = roundedShares(
+        categories.map((c) =>
+          c.parts.reduce((sum, [key]) => sum + data.categories[key], 0),
+        ),
+        60,
+      );
+      const css = (name) =>
+        getComputedStyle(document.documentElement)
+          .getPropertyValue(name)
+          .trim();
+      const buttons = [];
+      let selected = 0;
+      let chart;
+      function selectCategory(index) {
+        selected = index;
+        buttons.forEach((button, i) =>
+          button.setAttribute("aria-pressed", String(i === index)),
+        );
+        const category = categories[index];
+        $("detail-title").textContent =
+          `${category.name} · about ${seconds[index]} seconds`;
+        $("detail-description").textContent = category.description;
+        $("detail-breakdown").replaceChildren();
+        const parts = roundedShares(
+          category.parts.map(([key]) => data.categories[key]),
+          seconds[index],
+        );
+        category.parts.forEach(([, label], i) => {
+          const term = document.createElement("dt"),
+            value = document.createElement("dd");
+          term.textContent = label;
+          value.textContent = `${parts[i]} s`;
+          $("detail-breakdown").append(term, value);
+        });
+        if (chart) chart.update("none");
+      }
+      categories.forEach((category, i) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "slice";
+        button.style.setProperty("--color", category.color);
+        button.setAttribute(
+          "aria-label",
+          `${category.name}, about ${seconds[i]} seconds`,
+        );
+        button.setAttribute(
+          "aria-controls",
+          "detail-title detail-description detail-breakdown",
+        );
+        const swatch = document.createElement("span");
+        swatch.className = "swatch";
+        swatch.setAttribute("aria-hidden", "true");
+        const name = document.createElement("span");
+        name.className = "name";
+        name.textContent = category.name;
+        const summary = document.createElement("span");
+        summary.className = "summary";
+        summary.textContent = category.summary;
+        name.append(summary);
+        const time = document.createElement("span");
+        time.className = "seconds";
+        time.textContent = `${seconds[i]}s`;
+        button.append(swatch, name, time);
+        button.addEventListener("click", () => selectCategory(i));
+        buttons.push(button);
+        $("slice-list").append(button);
+      });
+      // Chart.js owns the segments and hit testing. This decoration adds the stopwatch face.
+      const stopwatchFace = {
+        id: "stopwatch-face",
+        afterDraw(chart) {
+          const arc = chart.getDatasetMeta(0).data[0];
+          if (!arc) return;
+          const { ctx } = chart,
+            { x, y, outerRadius: r } = arc;
+          const scale = Math.min(chart.width / 460, 1);
+          ctx.save();
+          ctx.strokeStyle = css("--muted");
+          ctx.fillStyle = css("--muted");
+          ctx.lineWidth = 1.5;
+          for (let i = 0; i < 60; i++) {
+            const angle = (i / 60) * Math.PI * 2 - Math.PI / 2;
+            const from = r + 8,
+              to = r + (i % 5 === 0 ? 17 : 12);
+            ctx.beginPath();
+            ctx.moveTo(x + Math.cos(angle) * from, y + Math.sin(angle) * from);
+            ctx.lineTo(x + Math.cos(angle) * to, y + Math.sin(angle) * to);
+            ctx.stroke();
+          }
+          ctx.font = `500 ${14 * scale}px system-ui`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          for (const n of [0, 15, 30, 45]) {
+            const angle = (n / 60) * Math.PI * 2 - Math.PI / 2;
+            ctx.fillText(
+              String(n),
+              x + Math.cos(angle) * (r + 30),
+              y + Math.sin(angle) * (r + 30),
+            );
+          }
+          ctx.fillStyle = css("--ink");
+          ctx.fillRect(x - 13 * scale, y - r - 58, 26 * scale, 8 * scale);
+          ctx.fillRect(x - 5 * scale, y - r - 50, 10 * scale, 9 * scale);
+          ctx.font = `750 ${80 * scale}px system-ui`;
+          ctx.fillText("60", x, y - 10 * scale);
+          ctx.font = `500 ${17 * scale}px system-ui`;
+          ctx.fillStyle = css("--muted");
+          ctx.fillText("seconds", x, y + 40 * scale);
+          ctx.restore();
+        },
+      };
+      if (window.Chart) {
+        chart = new Chart($("stopwatch"), {
+          type: "doughnut",
+          data: {
+            labels: categories.map((c) => c.name),
+            datasets: [
+              {
+                data: seconds,
+                backgroundColor: categories.map((c) => c.color),
+                borderColor: css("--surface"),
+                borderWidth: 3,
+                hoverOffset: 5,
+                offset: (context) => (context.dataIndex === selected ? 5 : 0),
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            cutout: "66%",
+            layout: { padding: { top: 70, right: 42, bottom: 40, left: 42 } },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: (context) =>
+                    ` ${context.label}: about ${context.raw} seconds`,
+                },
+              },
+            },
+            onClick: (_, elements) => {
+              if (elements.length) selectCategory(elements[0].index);
+            },
+            onHover: (event, elements) => {
+              event.native.target.style.cursor = elements.length
+                ? "pointer"
+                : "default";
+            },
+          },
+          plugins: [stopwatchFace],
+        });
+      } else {
+        // Keep the explanation and controls usable if the chart asset cannot load.
+        $("stopwatch").hidden = true;
+        const fallback = document.createElement("img");
+        fallback.src = "notice-timing.svg";
+        fallback.alt =
+          "Four work shares totalling 60 seconds; values are listed below.";
+        fallback.style.width = "100%";
+        $("stopwatch").parentElement.append(fallback);
+      }
+      selectCategory(0);
+      // The walkthrough illustrates order, not an individual notice’s measured duration.
+      const steps = [
+        {
+          label: "Choose",
+          title: "Start with the person and the chosen notice.",
+          description:
+            "Read their row from the CSV and the notice choice you supplied. Your upstream system has already assessed immunization status; your project supplies the wording and appearance.",
+          scene: "inputs",
+        },
+        {
+          label: "Compose",
+          title: "Make the notice personal.",
+          description:
+            "Fill the template with this person’s information, build any QR code and fit the pages. One warm Typst engine repeats this work for each person.",
+          scene: "compose",
+        },
+        {
+          label: "Write PDF",
+          title: "Turn those pages into a PDF.",
+          description:
+            "Export the finished layout. The PDF and its invisible content-check report come from the same compiled document.",
+          scene: "export",
+        },
+        {
+          label: "Check + save",
+          title: "Check the result and keep the original.",
+          description:
+            "Check the template’s report, the person it belongs to and the PDF page count. Save the original and its findings. A readable notice with failed checks remains available for review.",
+          scene: "check",
+        },
+        {
+          label: "Protect",
+          title: "Keep the original. Make a protected copy.",
+          description:
+            "A background worker makes a separate password-protected copy and verifies access while the main engine moves on to another person. The original stays available for review and grouping.",
+          scene: "copies",
+        },
+        {
+          label: "Group",
+          title: "Give the notice its place in a group.",
+          description:
+            "Once notice creation is finished, combine originals into groups and record each person’s page range in a CSV. Readable notices with failed checks go into review PDFs; held notices stay out. Save the final report.",
+          scene: "groups",
+        },
+      ];
+      let step = 0;
+      const sheet = (x, y, label) =>
+        `<use href="#paper" x="${x}" y="${y}" width="120" height="155"/><text x="${x + 60}" y="${y + 178}" font-size="15" text-anchor="middle">${label}</text>`;
+      const arrow = (x, y) =>
+        `<use href="#arrow" x="${x}" y="${y}" width="90" height="28"/>`;
+      function sceneArt(kind) {
+        let content = "";
+        if (kind === "inputs")
+          content =
+            sheet(140, 24, "Client information") +
+            arrow(290, 87) +
+            sheet(410, 24, "Chosen template");
+        if (kind === "compose")
+          content =
+            sheet(270, 25, "Personal text + QR code") +
+            '<rect x="425" y="46" width="124" height="44" rx="22" fill="var(--compose)"/><text x="487" y="73" font-size="14" text-anchor="middle">Warm Typst</text>';
+        if (kind === "export")
+          content =
+            sheet(140, 24, "Finished layout") +
+            arrow(290, 87) +
+            sheet(410, 24, "Original PDF");
+        if (kind === "check")
+          content =
+            sheet(260, 24, "Original kept") +
+            '<use href="#tick" x="430" y="64" width="72" height="72"/>';
+        if (kind === "copies")
+          content =
+            sheet(140, 24, "Original kept") +
+            arrow(290, 87) +
+            sheet(410, 24, "Protected copy") +
+            '<use href="#lock" x="505" y="105" width="48" height="53"/>';
+        if (kind === "groups")
+          content =
+            sheet(110, 24, "Original notice") +
+            arrow(245, 87) +
+            sheet(385, 12, "") +
+            sheet(400, 24, "Grouped PDF") +
+            '<use href="#tick" x="550" y="66" width="64" height="64"/>';
+        return `<svg viewBox="0 0 760 235" role="img" aria-label="${steps[step].title}">${content}</svg>`;
+      }
+      const stepButtons = [];
+      steps.forEach((s, i) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "step";
+        const n = document.createElement("span");
+        n.textContent = i + 1;
+        const label = document.createElement("span");
+        label.textContent = s.label;
+        b.append(n, label);
+        b.setAttribute("aria-pressed", "false");
+        b.addEventListener("click", () => showStep(i));
+        $("steps").append(b);
+        stepButtons.push(b);
+      });
+      function showStep(index) {
+        step = index;
+        stepButtons.forEach((b, i) =>
+          b.setAttribute("aria-pressed", String(i === step)),
+        );
+        $("scene-art").innerHTML = sceneArt(steps[step].scene);
+        $("scene-label").textContent = `Step ${step + 1} of ${steps.length}`;
+        $("scene-title").textContent = steps[step].title;
+        $("scene-description").textContent = steps[step].description;
+        $("step-count").textContent = `${step + 1} / ${steps.length}`;
+        $("previous").disabled = step === 0;
+        $("next").disabled = step === steps.length - 1;
+      }
+      $("previous").addEventListener("click", () => showStep(step - 1));
+      $("next").addEventListener("click", () => showStep(step + 1));
+      showStep(0);
+      let elapsed = 0,
+        playing = false,
+        previous = 0,
+        frame = 0;
+      function pause() {
+        playing = false;
+        cancelAnimationFrame(frame);
+        $("play").textContent = "Play";
+      }
+      function chooseView(view) {
+        pause();
+        for (const name of ["budget", "journey"]) {
+          $(`${name}-view`).hidden = name !== view;
+          $(`${name}-button`).setAttribute(
+            "aria-pressed",
+            String(name === view),
+          );
+        }
+      }
+      $("budget-button").addEventListener("click", () => chooseView("budget"));
+      $("journey-button").addEventListener("click", () =>
+        chooseView("journey"),
+      );
+      function render() {
+        $("time").value = elapsed;
+        $("time").setAttribute(
+          "aria-valuetext",
+          `${elapsed.toFixed(1)} seconds of 60`,
+        );
+        $("clock").textContent = `${elapsed.toFixed(1)} / 60 s`;
+        const recorded = (elapsed / 60) * data.workflow_seconds;
+        let sample = data.samples[0];
+        for (const candidate of data.samples) {
+          if (candidate[0] > recorded + 0.00001) break;
+          sample = candidate;
+        }
+        if (elapsed === 60) sample = data.samples[data.samples.length - 1];
+        ["originals", "encrypted", "bundles"].forEach(
+          (id, i) => ($(id).textContent = sample[i + 1].toLocaleString("en")),
+        );
+        ["original-progress", "encrypted-progress", "bundle-progress"].forEach(
+          (id, i) => ($(id).value = sample[i + 1]),
+        );
+      }
+      function tick(now) {
+        if (!playing) return;
+        if (previous)
+          elapsed = Math.min(
+            60,
+            elapsed + ((now - previous) / 1000) * Number($("speed").value),
+          );
+        previous = now;
+        render();
+        if (elapsed === 60) pause();
+        else frame = requestAnimationFrame(tick);
+      }
+      $("play").addEventListener("click", () => {
+        if (playing) {
+          pause();
+          return;
+        }
+        if (elapsed === 60) elapsed = 0;
+        playing = true;
+        previous = 0;
+        $("play").textContent = "Pause";
+        frame = requestAnimationFrame(tick);
+      });
+      $("restart").addEventListener("click", () => {
+        pause();
+        elapsed = 0;
+        render();
+      });
+      $("time").addEventListener("input", () => {
+        pause();
+        elapsed = Number($("time").value);
+        render();
+      });
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) pause();
+      });
+      let documentationBody;
+      try {
+        if (window.parent !== window)
+          documentationBody = window.parent.document.body;
+      } catch {
+        // A chart embedded by another site still follows its own theme control.
+      }
+      function updateTheme() {
+        let theme = $("theme").value;
+        const scheme = documentationBody?.getAttribute("data-md-color-scheme");
+        if (theme === "auto" && scheme)
+          theme = scheme === "slate" ? "dark" : "light";
+        document.documentElement.dataset.theme = theme;
+        if (chart) {
+          chart.data.datasets[0].borderColor = css("--surface");
+          chart.update("none");
+        }
+      }
+      $("theme").addEventListener("change", updateTheme);
+      window
+        .matchMedia("(prefers-color-scheme: dark)")
+        .addEventListener("change", updateTheme);
+      if (documentationBody) {
+        const observer = new MutationObserver(updateTheme);
+        observer.observe(documentationBody, {
+          attributes: true,
+          attributeFilter: ["data-md-color-scheme"],
+        });
+        window.addEventListener("pagehide", () => observer.disconnect(), {
+          once: true,
+        });
+      }
+      updateTheme();
+
+      if (location.hash === "#journey") chooseView("journey");
+      render();
+    </script>
+  </body>
+</html>

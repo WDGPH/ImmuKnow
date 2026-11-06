@@ -1,97 +1,48 @@
-name: Run Pytest
-'on':
+name: Test Rust
+on:
   push:
-    branches:
-      - '*'
-    paths:
-      - 'immuknow/**'
-      - 'tests/**'
-      - 'scripts/build-native.py'
-      - 'setup.py'
-      - 'MANIFEST.in'
-      - 'pytest.ini'
-      - 'pyproject.toml'
-      - 'uv.lock'
-      - '.pre-commit-config.yaml'
-      - '.github/workflows/test.yml'
+    branches: [main]
   pull_request:
-    branches:
-      - '*'
-    paths:
-      - 'immuknow/**'
-      - 'tests/**'
-      - 'scripts/build-native.py'
-      - 'setup.py'
-      - 'MANIFEST.in'
-      - 'pytest.ini'
-      - 'pyproject.toml'
-      - 'uv.lock'
-      - '.pre-commit-config.yaml'
-      - '.github/workflows/test.yml'
+  workflow_dispatch:
 permissions:
   contents: read
-  id-token: write
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     env:
-      # Notice tests use only the pinned fonts that Studio also ships.
+      CARGO_BUILD_JOBS: '1'
       TYPST_FONT_PATHS: /usr/share/fonts/truetype/freefont
       TYPST_IGNORE_SYSTEM_FONTS: 'true'
-    strategy:
-      matrix:
-        python-version: ['3.11', '3.12', '3.14']
     steps:
       - uses: actions/checkout@v7
+      - name: Cache Rust dependencies and build outputs
+        uses: actions/cache@v6.1.0
         with:
-          fetch-depth: 2
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-      - name: Install dependencies
-        run: uv sync --locked --group dev
-      - name: Install system fonts for notice tests
-        # Pinned to the FreeFont release Studio ships; newer FreeSerif doubles
-        # accented capitals in PDF text. A missing archive should fail loudly.
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+      - name: Install pinned notice fonts
         run: |
-          curl -fL --retry 3 \
-            https://archive.ubuntu.com/ubuntu/pool/main/f/fonts-freefont/fonts-freefont-ttf_20120503-10build1_all.deb \
-            -o "$RUNNER_TEMP/notice-fonts.deb"
+          curl -fL --retry 3 https://archive.ubuntu.com/ubuntu/pool/main/f/fonts-freefont/fonts-freefont-ttf_20120503-10build1_all.deb -o "$RUNNER_TEMP/notice-fonts.deb"
           echo "d1424c9d47b2a6bd0d5149ca66f2bab9b4365237bfbb6063659d961bab2f8ccb  $RUNNER_TEMP/notice-fonts.deb" | sha256sum --check
           dpkg-deb --extract "$RUNNER_TEMP/notice-fonts.deb" "$RUNNER_TEMP/notice-fonts"
           sudo install -d /usr/share/fonts/truetype/freefont
           sudo install -m 644 "$RUNNER_TEMP/notice-fonts/usr/share/fonts/truetype/freefont/"*.ttf /usr/share/fonts/truetype/freefont/
-      - name: Read the native compiler pin
-        id: native
+      - run: cargo fmt --all --check
+      - run: cargo build --release --locked
+      - run: cargo test --release --locked
+      - name: Build and inspect release archive
         run: |
-          echo "version=$(python scripts/build-native.py --print-typst-version)" >> "$GITHUB_OUTPUT"
-      - name: Download and install Typst CLI locally
-        run: |
-          mkdir -p $HOME/.local/bin
-          curl -fL -o /tmp/typst.tar.xz \
-            https://github.com/typst/typst/releases/download/v${{ steps.native.outputs.version }}/typst-x86_64-unknown-linux-musl.tar.xz
-          tar -xf /tmp/typst.tar.xz -C /tmp/ --strip-components=1
-          chmod +x /tmp/typst
-          mv /tmp/typst $HOME/.local/bin/typst
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-          "$HOME/.local/bin/typst" --version
-
-      - name: Check Python types and formatting
-        run: |
-          uv run --locked ty check
-          uv run --locked ruff check --no-fix .
-          uv run --locked ruff format --check .
-
-      - name: Run tests
-        run: uv run --locked pytest -n auto --cov --cov-branch --cov-report=xml
-
-      - name: Verify source files were not changed
-        run: test -z "$(git status --porcelain)"
-
-      - name: Upload results to Codecov
-        uses: codecov/codecov-action@v7
+          mkdir -p "$RUNNER_TEMP/dist"
+          tar -czf "$RUNNER_TEMP/dist/immuknow-linux-x86_64.tar.gz" \
+            -C target/release immuknow -C "$GITHUB_WORKSPACE" LICENSE
+          tar -tzf "$RUNNER_TEMP"/dist/*.tar.gz
+      - name: Upload native release archive
+        uses: actions/upload-artifact@v7.0.2
         with:
-          use_oidc: true
+          name: immuknow-linux-x86_64
+          path: ${{ runner.temp }}/dist/*.tar.gz
+          if-no-files-found: error
