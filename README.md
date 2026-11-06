@@ -2,6 +2,21 @@
 
 ImmuKnow turns a CSV of immunization information into personalized PDF notices. You choose the notice for each person, or one notice for everyone. The system that supplies the CSV is responsible for assessing immunization status; ImmuKnow does not make that assessment. Review the notice wording and PDFs before sending them.
 
+**1,000 custom notices in about 60 seconds.** Including protected copies, grouped PDFs and a readable report.
+
+[![Approximate Gantt chart showing notice creation and encryption overlapping within a one-minute run.](docs/assets/notice-timing.svg)](docs/user_guide/performance.md)
+
+[Explore the interactive timing breakdown](docs/user_guide/performance.md) · [See the libraries in the pipeline](docs/developer_guide/architecture.md#libraries-in-the-pipeline)
+
+<details>
+<summary>Libraries from CSV to PDFs</summary>
+
+![Library map showing Rust input preparation, Typst and QR codes, PDF checks, encrypted copies, grouped PDFs and reporting.](docs/assets/pipeline-libraries.svg)
+
+[Read how the application works](docs/developer_guide/architecture.md).
+
+</details>
+
 ## For operators
 
 You need the `immuknow` executable, a CSV, and a configured notice project with templates and settings. Ask your project maintainer for a prepared executable, or see the build instructions below. [ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template) provides example notices and settings to adapt and review. Check that your project is set up for this standalone version; see [getting started](docs/user_guide/getting_started.md) and the [template guide](docs/developer_guide/templates.md).
@@ -16,6 +31,12 @@ immuknow run clients.csv --template ./project/templates/overdue_diseases_v1.en.t
 Open `report.html` in the new run folder and review its findings and the notices. If grouping is enabled in your settings, the run also contains PDFs combining notices for sending and separate `review-*.pdf` files for readable notices that failed checks. Each grouped PDF has a CSV showing which pages belong to each input row. Warnings are eligible for sending by default, so inspect them too. The [PDF review guide](docs/user_guide/pdf_validation.md) explains the results and how to hold a notice or make a new set of grouped PDFs.
 
 The [getting started guide](docs/user_guide/getting_started.md) walks through the inputs, commands, and results. See also [CSV fields](docs/user_guide/input_schema.md) and [configuration](docs/user_guide/configuration.md).
+
+## See it run
+
+![CLI demonstration: generate notices for six fictional clients, then list the saved results.](docs/assets/notice-demo.gif)
+
+This short recording uses the six fictional clients from ImmuKnow Template; the Gantt chart above describes the separate 1,000-notice benchmark. [Recording instructions and VHS tape](docs/developer_guide/documentation.md#recording-the-cli-demo).
 
 ## For developers and template authors
 

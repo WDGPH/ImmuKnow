@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 472" role="img" aria-labelledby="title desc">
+<title id="title">1,000 custom notices in about 60 seconds</title><desc id="desc">Approximate Gantt chart: prepare inputs at the start; create and check notices until about second 53, while protected copies are made alongside them. Combine original notices from second 53 to 59 and finish the report by second 60.</desc>
+<rect width="1040" height="472" rx="18" fill="#f7f9fc"/>
+<g font-family="system-ui,sans-serif" fill="#17253a">
+<text x="32" y="48" font-size="29" fill="#17253a" font-weight="700">1,000 custom notices. About one minute.</text>
+<text x="32" y="82" font-size="18" fill="#53627a" font-weight="400">2,000 pages • 1,000 encrypted copies • 10 grouped PDFs</text>
+<path d="M235.0 120V375" stroke="#d7dfeb"/>
+<text x="227.0" y="113" font-size="14" fill="#53627a" font-weight="400">0</text>
+<path d="M362.5 120V375" stroke="#d7dfeb"/>
+<text x="354.5" y="113" font-size="14" fill="#53627a" font-weight="400">10</text>
+<path d="M490.0 120V375" stroke="#d7dfeb"/>
+<text x="482.0" y="113" font-size="14" fill="#53627a" font-weight="400">20</text>
+<path d="M617.5 120V375" stroke="#d7dfeb"/>
+<text x="609.5" y="113" font-size="14" fill="#53627a" font-weight="400">30</text>
+<path d="M745.0 120V375" stroke="#d7dfeb"/>
+<text x="737.0" y="113" font-size="14" fill="#53627a" font-weight="400">40</text>
+<path d="M872.5 120V375" stroke="#d7dfeb"/>
+<text x="864.5" y="113" font-size="14" fill="#53627a" font-weight="400">50</text>
+<path d="M1000.0 120V375" stroke="#d7dfeb"/>
+<text x="992.0" y="113" font-size="14" fill="#53627a" font-weight="400">60</text>
+<text x="32" y="163" font-size="17" fill="#17253a" font-weight="400">Prepare inputs</text>
+<rect x="235.0" y="143" width="6.4" height="28" rx="4" fill="#767044"/>
+<text x="32" y="211" font-size="17" fill="#17253a" font-weight="400">Create + check notices</text>
+<rect x="241.4" y="191" width="674.5" height="28" rx="4" fill="#3867d6"/>
+<text x="32" y="259" font-size="17" fill="#17253a" font-weight="400">Protect copies</text>
+<rect x="242.7" y="239" width="668.1" height="28" rx="4" fill="#a34f79"/>
+<text x="32" y="307" font-size="17" fill="#17253a" font-weight="400">Group original PDFs</text>
+<rect x="917.1" y="287" width="76.5" height="28" rx="4" fill="#248264"/>
+<text x="32" y="355" font-size="17" fill="#17253a" font-weight="400">Finish the report</text>
+<rect x="994.9" y="335" width="5.1" height="28" rx="4" fill="#8061b6"/>
+<text x="32" y="414" font-size="19" fill="#a34f79" font-weight="650">Encryption overlaps notice creation — these bars are not added together.</text>
+<text x="32" y="450" font-size="16" fill="#53627a" font-weight="400">Approximate timeline, rounded to 60 seconds.</text>
+</g></svg>

@@ -22,6 +22,7 @@ nav:
   - Home: index.md
   - User Guide:
       - Getting Started: user_guide/getting_started.md
+      - A Minute of ImmuKnow: user_guide/performance.md
       - Configuration: user_guide/configuration.md
       - ImmuKnow Studio: user_guide/studio.md
       - CSV Input Fields: user_guide/input_schema.md

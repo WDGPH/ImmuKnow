@@ -17,6 +17,22 @@ the selected templates control wording and appearance.
 | `src/report.rs` | Write `run.json` and its readable HTML view. |
 | `src/resources.rs` | Export the schemas and Typst library included in the executable. |
 
+## Libraries in the pipeline
+
+![Library map: Rust input preparation, one warm Typst engine and its QR plugin, original PDF checks, concurrent protected copies, grouped originals and run reports.](../assets/pipeline-libraries.svg)
+
+The diagram names the main libraries used directly by Core and the QR plugin, with `wasmi` shown as Typst's WebAssembly runtime. It is a guide to responsibilities, not a list of every indirect dependency. Exact versions are in `Cargo.lock` and `typst-plugins/qr/Cargo.lock`.
+
+`clap` reads command options. `csv` and `encoding_rs` read source text; `serde-saphyr` reads YAML settings. `serde`, `serde_json` and `chrono` support structured information and dates, while `jsonschema` checks the prepared data and template reports.
+
+The official `typst`, `typst-layout`, `typst-kit` and `typst-pdf` libraries handle templates, fonts, page layout and PDF export inside the application. `comemo` lets Typst reuse earlier work. One compiler stays warm across notices. Typst runs the QR WebAssembly plugin through `wasmi`; that plugin uses `qrcodegen` and `wasm-minimal-protocol`. QR encoding currently happens inside that plugin, rather than through a separate native encoder. The same plugin can be used in Studio; see [QR codes](qr.md).
+
+`lopdf` inspects originals, creates protected copies and combines original pages. `rand` supplies encryption randomness and `sha2` fingerprints saved files. A bounded queue built with Rust's standard library overlaps one encryption worker with notice creation. Four workers can combine independent groups afterward. Other libraries may use threads internally too. Grouped PDFs are built from originals, not the encrypted copies.
+
+`serde_json`, Rust's HTML formatting and `csv` write the saved record, readable report and page lists. `include_dir` embeds the shared Typst library and schemas so an installed executable can export them. `anyhow`, `tempfile` and diagnostic helpers support errors and temporary files; they do not form extra pipeline stages.
+
+For the elapsed-time picture, see [a minute of ImmuKnow](../user_guide/performance.md). Overlapping worker times must not be added to the main workflow total.
+
 ## Keep each client connected to the right notice
 
 Every readable source row receives a key such as `row-000001`, in input order.

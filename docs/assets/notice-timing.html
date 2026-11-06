@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>A minute of ImmuKnow — 1,000 custom notices</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #17253a;
+        --muted: #53627a;
+        --line: #d7dfeb;
+        --blue: #3867d6;
+        --pink: #a34f79;
+        --green: #248264;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #f7f9fc;
+        color: var(--ink);
+        font:
+          16px/1.5 system-ui,
+          sans-serif;
+      }
+      main {
+        max-width: 1080px;
+        margin: auto;
+        padding: 28px;
+      }
+      h1 {
+        font-size: clamp(25px, 4vw, 38px);
+        line-height: 1.15;
+        margin: 8px 0 16px;
+        letter-spacing: -0.025em;
+      }
+      p {
+        margin: 10px 0;
+      }
+      .eyebrow {
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--green);
+      }
+      .muted,
+      small {
+        color: var(--muted);
+      }
+      .panel {
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 22px;
+        margin-top: 22px;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+      }
+      button,
+      select {
+        font: inherit;
+        border: 1px solid #bac7da;
+        border-radius: 8px;
+        padding: 8px 13px;
+        background: white;
+        color: var(--ink);
+        cursor: pointer;
+      }
+      #play {
+        background: var(--blue);
+        color: white;
+        border-color: var(--blue);
+      }
+      button:focus-visible,
+      select:focus-visible,
+      input:focus-visible,
+      a:focus-visible {
+        outline: 3px solid #b45d15;
+        outline-offset: 3px;
+      }
+      .clock {
+        margin-left: auto;
+        font-size: 24px;
+        font-variant-numeric: tabular-nums;
+        font-weight: 700;
+      }
+      .scrub {
+        width: 100%;
+        margin: 20px 0 8px;
+        accent-color: var(--blue);
+      }
+      .axis {
+        display: flex;
+        justify-content: space-between;
+        margin-left: 190px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .lane {
+        display: grid;
+        grid-template-columns: 178px 1fr;
+        gap: 12px;
+        align-items: center;
+        margin: 18px 0;
+      }
+      .lane-label {
+        font-size: 14px;
+        text-align: left;
+        padding: 0;
+        border: 0;
+        background: none;
+        text-decoration: underline;
+        text-underline-offset: 4px;
+      }
+      .track {
+        height: 36px;
+        background: repeating-linear-gradient(
+          90deg,
+          #eff3f9 0,
+          #eff3f9 calc(16.6667% - 1px),
+          #d7dfeb calc(16.6667% - 1px),
+          #d7dfeb 16.6667%
+        );
+        border-radius: 6px;
+        position: relative;
+        overflow: hidden;
+      }
+      .bar {
+        position: absolute;
+        top: 5px;
+        height: 26px;
+        background: var(--blue);
+        border-radius: 4px;
+        opacity: 0.25;
+        min-width: 4px;
+      }
+      .bar.done {
+        opacity: 1;
+      }
+      .playhead {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        border-left: 2px solid #17253a;
+        z-index: 2;
+      }
+      .counters {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin: 20px 0 8px;
+      }
+      .counter {
+        padding: 12px;
+        background: #f1f5fa;
+        border-radius: 10px;
+      }
+      .counter strong {
+        font-size: 26px;
+        display: block;
+        font-variant-numeric: tabular-nums;
+      }
+      .counter span {
+        font-size: 14px;
+      }
+      .explanation {
+        min-height: 100px;
+        border-left: 4px solid var(--blue);
+        padding-left: 16px;
+      }
+      .explanation h2 {
+        font-size: 19px;
+        margin-bottom: 6px;
+      }
+      .explanation p {
+        margin-top: 0;
+      }
+      details {
+        margin-top: 24px;
+      }
+      summary {
+        cursor: pointer;
+        font-weight: 650;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 16px 0;
+      }
+      th,
+      td {
+        padding: 9px 5px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+      }
+      td:last-child,
+      th:last-child {
+        text-align: right;
+        white-space: nowrap;
+      }
+      .footer {
+        font-size: 13px;
+        margin-top: 24px;
+      }
+      a {
+        color: #2456b7;
+      }
+      @media (max-width: 600px) {
+        main {
+          padding: 16px;
+        }
+        .panel {
+          padding: 14px;
+        }
+        .lane {
+          grid-template-columns: 116px 1fr;
+          gap: 8px;
+        }
+        .axis {
+          margin-left: 124px;
+        }
+        .lane-label {
+          font-size: 12px;
+        }
+        .counter {
+          padding: 8px;
+        }
+        .counter strong {
+          font-size: 22px;
+        }
+        .counter span {
+          font-size: 12px;
+        }
+        .clock {
+          font-size: 19px;
+        }
+        .controls {
+          gap: 8px;
+        }
+        button,
+        select {
+          padding: 7px 9px;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          scroll-behavior: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="eyebrow">A recorded run, rounded to one minute</div>
+      <h1>1,000 custom notices.<br />60 seconds, from CSV to PDFs.</h1>
+      <p>
+        Different people, chosen templates, checked pages and password-protected
+        copies. The bars show which jobs happen at the same time.
+      </p>
+      <p class="muted">
+        An approximate replay of a recorded run, rounded to 60 seconds.
+      </p>
+      <section class="panel" aria-label="Interactive Gantt chart">
+        <div class="controls">
+          <button id="play" type="button">Play</button
+          ><button id="restart" type="button">Restart</button
+          ><label for="speed">Replay speed</label
+          ><select id="speed">
+            <option value="1">1×</option>
+            <option value="4" selected>4×</option>
+            <option value="10">10×</option></select
+          ><output class="clock" id="clock" for="time">0.0 / 60 s</output>
+        </div>
+        <label for="time" class="muted">Move through the minute</label
+        ><input
+          class="scrub"
+          type="range"
+          id="time"
+          min="0"
+          max="60"
+          step="0.1"
+          value="0"
+          aria-valuetext="0 seconds of 60"
+        />
+        <div class="axis" aria-hidden="true">
+          <span>0 s</span><span>10</span><span>20</span><span>30</span
+          ><span>40</span><span>50</span><span>60 s</span>
+        </div>
+        <div id="lanes"></div>
+        <div
+          class="counters"
+          aria-label="Completed outputs at the selected time"
+        >
+          <div class="counter">
+            <strong id="originals">0</strong
+            ><span>of 1,000 original notices</span>
+          </div>
+          <div class="counter">
+            <strong id="encrypted">0</strong
+            ><span>of 1,000 protected copies</span>
+          </div>
+          <div class="counter">
+            <strong id="bundles">0</strong><span>of 10 grouped PDFs</span>
+          </div>
+        </div>
+        <p class="muted">
+          <small
+            >Completion counts come from recorded events, sampled every
+            half-second and placed on the rounded timeline. Click a job name to
+            learn more.</small
+          >
+        </p>
+      </section>
+      <section class="panel explanation" aria-live="polite" aria-atomic="true">
+        <h2 id="job-title">Why the bars overlap</h2>
+        <p id="job-description">
+          As soon as an original PDF is ready, another worker can make and check
+          its protected copy. Encryption largely fits inside the time spent
+          creating notices. Adding those two bars together would count the same
+          seconds twice.
+        </p>
+      </section>
+      <details>
+        <summary>What takes time inside these jobs?</summary>
+        <p>
+          Most time goes into fitting each person's information onto the pages.
+          The Typst engine stays warm between notices, reusing fonts and earlier
+          work where it can.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Main workflow work</th>
+              <th scope="col">Measured time</th>
+            </tr>
+          </thead>
+          <tbody id="breakdown"></tbody>
+        </table>
+        <p class="muted">
+          These measured slices come from the profiled main workflow. Encryption
+          is outside this sum: its worker did 41.72 seconds of work alongside
+          notice creation, including protection checks and file fingerprints.
+          Combining used four workers; its elapsed time is shown above, not the
+          sum of their work.
+        </p>
+      </details>
+      <p class="footer">
+        Fictional 1,000-client workload; 2,000 notice pages; 667 QR codes; 1,000
+        AES-256 protected copies; 10 groups of 100 notices with matching CSV
+        page lists. Shared environment limited to 4 CPUs and 8 GiB RAM;
+        filesystem caches were warm. Different templates, page counts, fonts,
+        settings and computers change the result.
+      </p>
+      <p class="footer">
+        <a href="notice-timings.json">Download the measurements</a> ·
+        <a href="notice-timing.svg">Static Gantt chart</a>. JavaScript is only
+        used for replay; no information leaves this page.
+      </p>
+      <noscript
+        ><p>
+          Replay needs JavaScript.
+          <a href="notice-timing.svg">Open the static Gantt chart</a> or
+          <a href="notice-timings.json">read the measured data</a>.
+        </p></noscript
+      >
+    </main>
+    <script id="measurements" type="application/json">
+      {
+        "control_seconds": 57.759569,
+        "profile_command_seconds": 58.739195,
+        "workflow_seconds": 58.21843887,
+        "production_commit": "a5bfe974178731629810162f6b99f48f353cf5f8",
+        "profiling_commit": "81ac287",
+        "input_sha256": "8615ee238c6fd93648a98581be1b4d59fc747e02cc8e61b1c1856a140c8b0832",
+        "encryption_worker_seconds": 41.72,
+        "samples": [
+          [0.0, 0, 0, 0],
+          [0.5, 0, 0, 0],
+          [1.0, 5, 4, 0],
+          [1.5, 15, 15, 0],
+          [2.0, 27, 27, 0],
+          [2.5, 37, 36, 0],
+          [3.0, 48, 47, 0],
+          [3.5, 58, 57, 0],
+          [4.0, 70, 69, 0],
+          [4.5, 79, 78, 0],
+          [5.0, 90, 89, 0],
+          [5.5, 100, 99, 0],
+          [6.0, 108, 107, 0],
+          [6.5, 120, 119, 0],
+          [7.0, 130, 130, 0],
+          [7.5, 140, 139, 0],
+          [8.0, 151, 150, 0],
+          [8.5, 162, 162, 0],
+          [9.0, 173, 172, 0],
+          [9.5, 184, 183, 0],
+          [10.0, 195, 194, 0],
+          [10.5, 203, 202, 0],
+          [11.0, 214, 213, 0],
+          [11.5, 224, 223, 0],
+          [12.0, 234, 233, 0],
+          [12.5, 245, 244, 0],
+          [13.0, 255, 254, 0],
+          [13.5, 266, 265, 0],
+          [14.0, 277, 276, 0],
+          [14.5, 287, 286, 0],
+          [15.0, 298, 297, 0],
+          [15.5, 307, 306, 0],
+          [16.0, 318, 317, 0],
+          [16.5, 328, 328, 0],
+          [17.0, 339, 338, 0],
+          [17.5, 349, 349, 0],
+          [18.0, 360, 359, 0],
+          [18.5, 371, 370, 0],
+          [19.0, 381, 380, 0],
+          [19.5, 392, 391, 0],
+          [20.0, 400, 400, 0],
+          [20.5, 410, 409, 0],
+          [21.0, 421, 420, 0],
+          [21.5, 432, 431, 0],
+          [22.0, 442, 441, 0],
+          [22.5, 454, 453, 0],
+          [23.0, 464, 463, 0],
+          [23.5, 475, 474, 0],
+          [24.0, 485, 484, 0],
+          [24.5, 496, 496, 0],
+          [25.0, 502, 501, 0],
+          [25.5, 512, 511, 0],
+          [26.0, 523, 522, 0],
+          [26.5, 533, 532, 0],
+          [27.0, 543, 543, 0],
+          [27.5, 552, 552, 0],
+          [28.0, 561, 561, 0],
+          [28.5, 571, 570, 0],
+          [29.0, 582, 581, 0],
+          [29.5, 592, 591, 0],
+          [30.0, 600, 600, 0],
+          [30.5, 608, 607, 0],
+          [31.0, 618, 617, 0],
+          [31.5, 627, 626, 0],
+          [32.0, 638, 637, 0],
+          [32.5, 648, 647, 0],
+          [33.0, 657, 656, 0],
+          [33.5, 667, 666, 0],
+          [34.0, 676, 675, 0],
+          [34.5, 686, 685, 0],
+          [35.0, 696, 695, 0],
+          [35.5, 700, 700, 0],
+          [36.0, 710, 709, 0],
+          [36.5, 721, 720, 0],
+          [37.0, 733, 732, 0],
+          [37.5, 742, 741, 0],
+          [38.0, 753, 752, 0],
+          [38.5, 763, 762, 0],
+          [39.0, 773, 772, 0],
+          [39.5, 783, 782, 0],
+          [40.0, 793, 792, 0],
+          [40.5, 800, 800, 0],
+          [41.0, 804, 803, 0],
+          [41.5, 814, 813, 0],
+          [42.0, 823, 822, 0],
+          [42.5, 833, 832, 0],
+          [43.0, 843, 842, 0],
+          [43.5, 852, 851, 0],
+          [44.0, 862, 861, 0],
+          [44.5, 870, 870, 0],
+          [45.0, 879, 878, 0],
+          [45.5, 890, 889, 0],
+          [46.0, 899, 898, 0],
+          [46.5, 901, 900, 0],
+          [47.0, 912, 911, 0],
+          [47.5, 922, 921, 0],
+          [48.0, 931, 930, 0],
+          [48.5, 942, 941, 0],
+          [49.0, 952, 951, 0],
+          [49.5, 963, 962, 0],
+          [50.0, 973, 972, 0],
+          [50.5, 982, 981, 0],
+          [51.0, 993, 993, 0],
+          [51.5, 1000, 1000, 0],
+          [52.0, 1000, 1000, 0],
+          [52.5, 1000, 1000, 0],
+          [53.0, 1000, 1000, 0],
+          [53.5, 1000, 1000, 0],
+          [54.0, 1000, 1000, 0],
+          [54.5, 1000, 1000, 0],
+          [55.0, 1000, 1000, 4],
+          [55.5, 1000, 1000, 4],
+          [56.0, 1000, 1000, 6],
+          [56.5, 1000, 1000, 8],
+          [57.0, 1000, 1000, 10],
+          [57.5, 1000, 1000, 10],
+          [58.0, 1000, 1000, 10],
+          [58.218, 1000, 1000, 10]
+        ],
+        "categories": {
+          "Typst evaluation and layout": 30.506352987,
+          "PDF export": 5.57724043,
+          "Cache cleanup": 3.858289524,
+          "Original PDF checks": 2.397676659,
+          "Reports and checkpoints": 2.71395681,
+          "Combining PDFs": 5.90838866,
+          "File hashes": 3.48949623,
+          "Other preparation, file writes and bookkeeping": 3.7670375699999994
+        }
+      }
+    </script>
+    <script>
+      "use strict";
+      const data = JSON.parse(
+        document.getElementById("measurements").textContent,
+      );
+      // These are rounded stage windows, not additive timings. Encryption overlaps.
+      const jobs = [
+        {
+          name: "Prepare inputs",
+          start: 0,
+          end: 0.5,
+          color: "#767044",
+          description:
+            "Read the CSV, chosen notices and project settings. The system supplying the data has already assessed immunization status.",
+        },
+        {
+          name: "Create + check notices",
+          start: 0.5,
+          end: 53.4,
+          color: "#3867d6",
+          description:
+            "Keep one Typst engine warm. For each person, compose the notice, fit its pages, draw any QR code, export a PDF and check the result. Save originals and checkpoints along the way.",
+        },
+        {
+          name: "Protect copies",
+          start: 0.6,
+          end: 53,
+          color: "#a34f79",
+          description:
+            "One background worker makes a separate AES-256 protected copy of each original and checks password access. Most of this work overlaps notice creation. The original stays available.",
+        },
+        {
+          name: "Group original PDFs",
+          start: 53.5,
+          end: 59.5,
+          color: "#248264",
+          description:
+            "Combine original notices into groups, with a CSV listing which pages belong to each person. Four workers can build independent groups. Readable notices with failed checks go into separate review PDFs; held notices stay out.",
+        },
+        {
+          name: "Finish the report",
+          start: 59.6,
+          end: 60,
+          color: "#8061b6",
+          description:
+            "Save the final run record and readable report, then finish the run folder. Open report.html to review findings and PDFs. Earlier checkpoints were also saved during notice creation.",
+        },
+      ];
+      const $ = (id) => document.getElementById(id);
+      const tracks = [];
+      for (const job of jobs) {
+        const lane = document.createElement("div");
+        lane.className = "lane";
+        const label = document.createElement("button");
+        label.type = "button";
+        label.className = "lane-label";
+        label.textContent = job.name;
+        label.addEventListener("click", () => {
+          $("job-title").textContent = job.name;
+          $("job-description").textContent = job.description;
+        });
+        const track = document.createElement("div");
+        track.className = "track";
+        track.setAttribute("aria-hidden", "true");
+        const bar = document.createElement("span");
+        bar.className = "bar";
+        bar.style.left = `${(job.start / 60) * 100}%`;
+        bar.style.width = `${((job.end - job.start) / 60) * 100}%`;
+        bar.style.background = job.color;
+        const done = bar.cloneNode();
+        done.classList.add("done");
+        done.style.width = "0";
+        done.style.minWidth = "0";
+        const head = document.createElement("span");
+        head.className = "playhead";
+        track.append(bar, done, head);
+        lane.append(label, track);
+        $("lanes").append(lane);
+        tracks.push({ job, done, head });
+      }
+      const names = [
+        "Compose and lay out pages",
+        "Write PDF pages",
+        "Clean up reusable work",
+        "Check original PDFs",
+        "Save reports and checkpoints",
+        "Combine notices into groups",
+        "Fingerprint saved files",
+        "Other preparation, saving and bookkeeping",
+      ];
+      Object.values(data.categories).forEach((seconds, index) => {
+        const row = document.createElement("tr");
+        const name = document.createElement("th");
+        name.scope = "row";
+        name.textContent = names[index];
+        const time = document.createElement("td");
+        time.textContent = `${seconds.toFixed(2)} s`;
+        row.append(name, time);
+        $("breakdown").append(row);
+      });
+      let elapsed = 0,
+        playing = false,
+        previous = 0,
+        frame = 0;
+      function render() {
+        $("time").value = elapsed;
+        $("time").setAttribute(
+          "aria-valuetext",
+          `${elapsed.toFixed(1)} seconds of 60`,
+        );
+        $("clock").textContent = `${elapsed.toFixed(1)} / 60 s`;
+        for (const { job, done, head } of tracks) {
+          done.style.width = `${(Math.max(0, Math.min(elapsed, job.end) - job.start) / 60) * 100}%`;
+          head.style.left = `${Math.min((elapsed / 60) * 100, 99.7)}%`;
+        }
+        const recorded = (elapsed / 60) * data.workflow_seconds;
+        let sample = data.samples[0];
+        for (const candidate of data.samples) {
+          if (candidate[0] > recorded + 0.00001) break;
+          sample = candidate;
+        }
+        // The stored final timestamp is rounded to milliseconds.
+        if (elapsed === 60) sample = data.samples[data.samples.length - 1];
+        ["originals", "encrypted", "bundles"].forEach(
+          (id, i) => ($(id).textContent = sample[i + 1].toLocaleString("en")),
+        );
+      }
+      function pause() {
+        playing = false;
+        cancelAnimationFrame(frame);
+        $("play").textContent = "Play";
+      }
+      function tick(now) {
+        if (!playing) return;
+        if (previous)
+          elapsed = Math.min(
+            60,
+            elapsed + ((now - previous) / 1000) * Number($("speed").value),
+          );
+        previous = now;
+        render();
+        if (elapsed === 60) pause();
+        else frame = requestAnimationFrame(tick);
+      }
+      $("play").addEventListener("click", () => {
+        if (playing) {
+          pause();
+          return;
+        }
+        if (elapsed === 60) elapsed = 0;
+        playing = true;
+        previous = 0;
+        $("play").textContent = "Pause";
+        frame = requestAnimationFrame(tick);
+      });
+      $("restart").addEventListener("click", () => {
+        pause();
+        elapsed = 0;
+        render();
+      });
+      $("time").addEventListener("input", () => {
+        pause();
+        elapsed = Number($("time").value);
+        render();
+      });
+      // Start paused, including when reduced motion is preferred. Hidden tabs pause too.
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) pause();
+      });
+      render();
+    </script>
+  </body>
+</html>
