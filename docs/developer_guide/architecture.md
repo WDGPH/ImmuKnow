@@ -62,6 +62,15 @@ imports and downloads are unsupported. The project must contain an unchanged
 copy of the shared library exported by this executable. Projects provide their
 own settings, reference lists, templates, translations and images.
 
+Input preparation preserves the source text while normalizing names, dates,
+histories and reference matches into schema-checked notice facts. The selected
+template, language and row identity accompany those facts. `src/compiler.rs`
+serializes the notice as virtual JSON, exposed through `sys.inputs.at("data")`;
+project setup reads it into the shared Typst components. Components return
+structured findings through placed metadata, rather than Core inferring content
+from extracted PDF text. The [template guide](templates.md) owns the field and
+component contracts.
+
 Typst returns PDF data and invisible check metadata from the same compiled
 document. Core checks the metadata against `schemas/rendering.json`,
 `typst/report.json`, the selected client and the document's page count. The JSON

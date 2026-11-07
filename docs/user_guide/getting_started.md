@@ -23,7 +23,7 @@ backup and retention rules to the whole run.
 [Open diagram at full size](../assets/operator-journey.svg).
 
 Warnings are eligible for normal delivery by default. Readable originals with
-failed checks go to review bundles; notices without a readable original remain
+failed checks or failed requested encryption go to review bundles; notices without a readable original remain
 in the report. Withheld rows enter neither set. Releasing a hold keeps checks in
 force. Grouping must be enabled to produce bundles.
 

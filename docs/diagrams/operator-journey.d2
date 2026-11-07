@@ -9,8 +9,8 @@ run: Run ImmuKnow {class: action}
 project -> input -> run
 report: Inspect report + PDFs {class: action}
 run -> report
-eligible: Pass / warnings only\nNormal bundles {class: files}
-review: Readable + failed checks\nReview bundles {class: files}
+eligible: Pass / warnings only\nRequired copies ready\nNormal bundles {class: files}
+review: Readable + failed checks\nor encryption failure\nReview bundles {class: files}
 missing: Unrenderable notice\nReport only\nFix cause + new run {class: files}
 report -> eligible
 report -> review
