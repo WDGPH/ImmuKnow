@@ -25,7 +25,12 @@ The [getting started guide](docs/user_guide/getting_started.md) walks through th
 
 ## See it run
 
-![CLI demonstration: generate notices for six fictional clients with progress and a completion summary.](docs/assets/notice-demo.gif)
+<picture>
+  <source media="(prefers-reduced-motion: reduce)" srcset="docs/assets/notice-demo.png">
+  <img src="docs/assets/notice-demo.gif" alt="CLI demonstration for six fictional clients: 12 pages, six protected copies and one group. All six notices have warnings to review.">
+</picture>
+
+[Static completion summary](docs/assets/notice-demo.png).
 
 Progress shows the current job and processing speed; the final summary lists the PDFs and findings. This short recording uses the six fictional clients from ImmuKnow Template; the [performance guide](docs/user_guide/performance.md) describes a separate 1,000-notice benchmark. [Recording instructions and VHS tape](docs/developer_guide/documentation.md#recording-the-cli-demo).
 
