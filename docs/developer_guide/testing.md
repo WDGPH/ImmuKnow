@@ -19,7 +19,42 @@ To verify the vendored QR plugin with its pinned toolchain and WebAssembly targe
 typst-plugins/qr/build.sh --check
 ```
 
-`typst-plugins/qr/build.sh` without `--check` rebuilds the vendored artifact. CI packages the release executable and license after the build and tests pass. Each project should test its own behavior and handoffs rather than duplicate another project's complete test suite.
+`typst-plugins/qr/build.sh` without `--check` rebuilds the vendored artifact. CI packages the release executable and license after the build and tests pass. Each project should test its own behavior and handoffs rather than duplicate another project's complete test suite. The [ecosystem guide](../ecosystem.md) owns the cross-project contract.
+
+## Test ownership and execution
+
+| Behavior | Authoritative owner | Consumers | Test level | Verify on change |
+| --- | --- | --- | --- | --- |
+| Input, coordinator, PDF and saved-run behavior | Core | Operators, downstream systems | Small unit tests in `src/`; representative end-to-end cases in `tests/cli.rs` | Row identity, failures, artifacts and bundle decisions |
+| Shared rendering schemas and evidence | Core | Template and Studio projects | Contract cases in `tests/fixtures/render-contract.json` and `src/validation.rs` | Schema and evidence handoff |
+| Shared Typst library and QR component | Core | Templates and Studio | `tests/qr.rs` and QR artifact rebuild check | Rendering and shipped plugin |
+| Settings, reference lists, notice wording and appearance | Template project | Core, operators and recipients | Project unit and representative rendering tests | Both languages and project-specific content |
+| Assessment and assignments | Upstream system | Core and operators | Upstream unit and handoff integration tests | Exported rows and explicit selections |
+| Browser editing and preview | Studio | Template authors | Studio unit and browser integration tests | Editing, preview and shared component behavior |
+| Import and export between projects | Producing and consuming projects | Operators and other projects | Representative integration tests at each handoff | Compatibility and preservation of required fields |
+| Release executable and documentation | Core | Installers and operators | CI release build, `tests/documentation.rs`, manual release review | Packaging, commands, links and representative PDFs |
+
+The Rust workflow in CI runs on Linux with pinned notice fonts and tests the release build; the documentation test is included in the full test command. The QR artifact check runs in a separate path-filtered workflow when plugin or vendored QR files change. Representative PDF inspection is manual and depends on the project’s fonts and content. Run relevant checks on other supported deployment environments when changing platform-dependent behavior; Linux CI alone does not establish Windows compatibility. Check native fonts, paths, locks and extracted release execution on the intended platform.
+
+Prefer focused unit tests for isolated normalization, policy, PDF and queue logic,
+then representative integration cases for their combined behavior. Avoid repeating
+the same malformed-input or encryption cases in every consuming project.
+
+For a Core resource or schema update, run the contract cases, refresh Template's
+complete shared library, then verify representative English/French notices,
+long histories, addresses and branding. Template owns those authored layout
+checks; Core fixtures establish the engine contract. A Studio pin update also
+requires regenerated preview facts/assets, browser import/export and draft
+checks, and a downloaded-project run against the intended native executable.
+Studio's routine CI does not run the full browser/native suite; maintainers must
+select its manual `full_tests` workflow for that handoff. See the
+[Studio development guide](https://github.com/WDGPH/ImmuKnow-Studio/blob/main/docs/development.md).
+
+Before release, extract the archive outside the checkout and exercise its
+executable with a compatible fictional project and installed fonts. Verify
+resources, reports, privacy-sensitive outputs and bundle membership. Operators
+still review findings and actual deliverables for every production run; CI
+cannot approve authored wording or local data handling.
 
 ## Measure the complete command
 

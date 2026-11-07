@@ -8,9 +8,24 @@ You need:
 
 - The `immuknow` executable available in your terminal. Ask your project maintainer for a prepared executable. A developer can build it from the checkout using the instructions in the [contributing guide](../developer_guide/contributing.md#build-the-executable).
 - A CSV containing the people and information for the notices. See the [CSV field reference](input_schema.md).
-- A configured notice project containing a `templates` folder and a `config` folder. [ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template) provides example notices and settings to adapt. Review the wording, branding, contacts, and settings for your organization. The project must be set up for this standalone version; see the [template guide](../developer_guide/templates.md). Install the fonts required by your project on the workstation.
+- A configured notice project containing a `templates` folder and a `config` folder. [ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template) provides example notices and settings to adapt. Review the wording, branding, contacts, and settings for your organization. The project must use resources compatible with your Core executable; see the [template guide](../developer_guide/templates.md). Install the fonts required by your project on the workstation.
 
-Keep the CSV and run folders private: they contain personal information.
+Keep input files and run folders in approved storage with access restricted to
+people who need them. Saved facts, original and encrypted PDFs, reports and bundle
+CSVs may contain personal information. Encryption creates an additional copy;
+it does not protect the remaining artifacts. Apply your organization's transfer,
+backup and retention rules to the whole run.
+
+## Workflow at a glance
+
+[![Obtain a project, supply inputs, run Core and review outcomes. Warnings are eligible for normal bundles; readable failed notices enter review bundles; unrenderable notices stay in the report. Review holds, rebundle, then verify deliverables.](../assets/operator-journey.svg)](../assets/operator-journey.svg)
+
+[Open diagram at full size](../assets/operator-journey.svg).
+
+Warnings are eligible for normal delivery by default. Readable originals with
+failed checks go to review bundles; notices without a readable original remain
+in the report. Withheld rows enter neither set. Releasing a hold keeps checks in
+force. Grouping must be enabled to produce bundles.
 
 ## Create notices
 
@@ -42,7 +57,7 @@ The [configuration guide](configuration.md) explains the selection file and sett
 
 ## Review the results
 
-Open the new folder inside `runs`, then open `report.html` in a browser. Check the findings and review the notices before sending them. The folder retains the input, settings, prepared information, original PDFs, and a machine-readable `run.json` record. A folder ending in `.incomplete` is a run that has not finished.
+Open the new folder inside `runs`, then open `report.html` in a browser. Check the findings and review the notices before sending them. The folder retains the input, settings, prepared information, original PDFs, and a machine-readable `run.json` record. A folder ending in `.incomplete` has not been published as a completed run. A completed run can still contain failed notices.
 
 If grouping is enabled in your settings, `bundles-0001/` contains grouped PDFs named `bundle-*.pdf` for notices eligible to send. Readable notices that failed checks go into separate `review-*.pdf` files for investigation. A CSV beside each grouped PDF lists the input rows and their page ranges. A warning is eligible for sending by default, so review warnings as well as failures. If grouping is disabled, use the report to find the individual results. A run with failures returns an error status; warnings alone do not.
 
@@ -69,3 +84,21 @@ The optional `intended_reader` column can be `student` or `guardian`. If blank, 
 ## For integrations
 
 `immuknow prepare` uses the same CSV, notice selection, settings, and optional encoding to write prepared information and checks as JSON without creating PDFs. See the [command reference](../developer_guide/cli.md).
+
+## Troubleshooting and recovery
+
+| Situation | Evidence and supported next step |
+| --- | --- |
+| Missing fonts or unexpected layout | Install the project's required fonts, inspect English and French examples and create a new run. Browser previews use a different font environment. |
+| Rejected CSV or assignments | Read the reported error and retained `source.csv`. Correct the input or choices and start a new run; rows readable before setup failure remain accounted for when the partial record can be saved. |
+| Missing settings or school references | Check the selected config folder, reference path and health-unit name. Correct the project before running again. |
+| Incompatible shared library | Export resources from the intended executable and replace the complete project library; see [resource compatibility](../ecosystem.md#native-handoff). |
+| Notice compilation fails | Find the row and diagnostic in the report. Other independent notices can still succeed. Fix the template or facts and create a new run. Rebundling cannot create a missing original. |
+| Command interrupted or fatal error | Retain the `.incomplete` folder for investigation. Checkpoints may predate the interruption; there is no resume command. Correct the cause and start a new run. Incomplete runs cannot be rebundled. |
+| Bundle attempt fails on a completed run | Read the error and failed attempt record. Earlier bundles and decisions remain available. Correct the cause and retry `rebundle`; check the new report and membership CSVs. |
+| Run is already in use | Wait for the process operating on that run to finish. Saved-run operations use an operating-system lock; deleting the lock file is not a recovery procedure. |
+
+A zero exit status means the command completed under its checks, not that notice
+wording has been approved. A readable PDF can fail validation, and a warning can
+remain eligible for delivery. Review all four questions: did the command finish,
+was the PDF created, what checks were recorded, and should this notice be sent?

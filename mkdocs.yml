@@ -31,13 +31,14 @@ plugins:
   - search
 nav:
   - Home: index.md
+  - Projects and Contracts: ecosystem.md
   - User Guide:
       - Getting Started: user_guide/getting_started.md
-      - A Minute of ImmuKnow: user_guide/performance.md
       - Configuration: user_guide/configuration.md
       - ImmuKnow Studio: user_guide/studio.md
       - CSV Input Fields: user_guide/input_schema.md
       - PDF Review: user_guide/pdf_validation.md
+      - Performance: user_guide/performance.md
   - Developers and Template Authors:
       - Writing Templates: developer_guide/templates.md
       - Command Reference: developer_guide/cli.md

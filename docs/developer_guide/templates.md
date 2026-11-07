@@ -12,7 +12,8 @@ project exports. This guide owns the native facts and Typst component contract.
 ## Select a complete project
 
 Get a starter project from [ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template)
-or download your authored project from Studio. Template owns the starter letters,
+or use an authored project whose resources match your Core executable. See
+[Studio compatibility](../user_guide/studio.md) before using a browser export. Template owns the starter letters,
 Settings, display translations and example images. Core supplies the shared
 Typst library and native contracts; its package contains no starter project.
 Keep `setup.typ`, `settings.typ`, `presentation.typ`, `assets/`, `translations/` and
@@ -23,7 +24,8 @@ immuknow run clients.csv --template ./my-project/templates/overdue_diseases_v1.e
 immuknow run clients.csv --notice-assignments ./assignments.json --templates ./my-project/templates --config ./my-project/config --output ./runs
 ```
 
-Manifest runs require an explicit `--templates` directory. Single-template runs
+Manifest runs use `--templates`, the `--project` templates folder, or local
+`templates/` when neither is supplied. Single-template runs
 use the selected file's directory. The directory name has no meaning to the CLI.
 Every run stages its own copy and preserves the original authored files.
 

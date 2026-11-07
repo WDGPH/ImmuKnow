@@ -14,7 +14,7 @@ immuknow rebundle RUN_DIR [--policy policy.json] [--withhold ROW_KEY --reason TE
   [--release ROW_KEY] [--bundle-workers N]
 ```
 
-With `--notices` and no explicit project or templates path, Core uses `templates/` and `config/` in the working directory. Legacy relative `--template` paths keep their existing meaning when no project is specified.
+With `--notices` and no explicit project or templates path, Core uses `templates/` and `config/` in the working directory. Without `--project`, relative `--template` paths are resolved from the working directory.
 
 `--project DIR` supplies `DIR/templates` and `DIR/config`. Explicit `--templates` or `--config` paths override those defaults. With a project, relative single-template names are resolved inside its `templates` folder; absolute template paths retain their existing meaning. CSV and assignment-file paths are always relative to the working directory. Selection stays explicit. `--notices` is a visible alias for `--notice-assignments`. The same project shortcut works with `prepare`.
 
@@ -28,25 +28,10 @@ The exported `schemas/input_schema.json` describes CSV fields and `schemas/rende
 
 The [template guide](templates.md) describes fields and component behavior. Studio and Template are separate projects with their own integration requirements.
 
-## Updating an existing integration
-
-Use the standalone commands instead of importing the former Python package.
-`prepare` writes JSON to standard output, `run` prints the saved record path when stdout is redirected,
-and `resources` exports the exact shared library and schemas from the executable.
-A command exits with a nonzero status when its work fails. Review the saved
-report to distinguish failed notices from successful ones.
+## Resource compatibility
 
 Export resources into a new folder when updating Core, then replace the project's
 complete `templates/lib/immuknow/` copy. Do not mix files from different releases.
-The schema files are named `schemas/rendering.json` and `typst/report.json`;
-Git tags identify their release, while JSON `schema_version` fields identify
-the data format. The notice facts remain version 1 and the report remains
-version 2. The report is saved separately from the PDF, without an attachment.
-
-Resource export supplies no example configuration or regional reference lists.
-Projects must provide their own files as described in [configuration](../user_guide/configuration.md).
-When school checking is enabled and no path is set, Core looks for
-`school_reference.json` in the selected configuration folder. It no longer falls
-back to a regional list bundled with Core. Remove retired settings when updating
-a project. Studio and Template integrations need their own corresponding updates;
-this repository does not update those applications automatically.
+See [projects and contracts](../ecosystem.md#native-handoff) for resource identity,
+schema versions and the preparation envelope. Project configuration and reference
+lists are described in [configuration](../user_guide/configuration.md).

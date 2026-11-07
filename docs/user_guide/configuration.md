@@ -54,7 +54,10 @@ ImmuKnow does not add blank pages to meet the count. See [PDF checks and review]
 
 `validation.rules` and `validation.clients` can change only adjustable checks made when creating notices. Each change specifies `enabled` and/or `severity` (`warn` or `fail`), and a nonempty `reason`. To select one row for `validation.clients`, use either `{scheme: panorama, value: "0123456789"}` or `{input_sha256: "<source SHA-256>", row_key: "row-000001"}`. The latter uses the input file's SHA-256 fingerprint and the row key from the run report. Each selector must match exactly one row, and at most one selector may target that row. Row-specific rules take precedence over run-wide rules. The report retains the original observations separately from the results after applying the rules and their reasons.
 
-The settings `typst.bin` and `typst.timeouts_seconds` are retired because the executable includes Typst. Apply any time limit to the whole command using your command runner. `pipeline.after_run.remove_artifacts: true` is unsupported; delete a run folder you own when you no longer need it. Warning acceptance settings are unsupported because notices with warnings are eligible for sending by default. Remove these retired settings when updating an older project.
+The embedded compiler has no per-notice timeout. Apply time limits to the whole
+command through your command runner; interrupted work remains incomplete.
+Run folders are retained until you remove them under your organization's retention
+policy. Warnings are eligible for delivery by default.
 
 ## School validation
 
@@ -82,8 +85,6 @@ You can select another file with `school_validation.reference_file`. If the file
 
 In the CSV, `school_name` can end in ` - FACILITY ID`; ImmuKnow uses the last such separator. It compares names without regard to case or repeated spaces. A matching name and ID passes; a matching name without an ID produces a warning. A conflicting or unknown name or ID fails that row's check, and a readable notice goes into a separate review PDF. School matching does not replace the original name or the separate `school_id` and `board_id` fields. The findings include match details and a fingerprint of the reference file.
 
-The former `school_validation.column_prefix` option is retired; school findings use fixed measurement names. Remove it from older project configuration.
-
 ## Password templates
 
 To create password-protected copies, enable encryption and choose a template. For example, this combines the person's initials and birth date, such as `AB-20100131`:
@@ -95,7 +96,7 @@ encryption:
     template: '{first_initial}{last_initial}-{date_of_birth_iso_compact}'
 ```
 
-You can use `client_id`, `first_name`, `last_name`, `first_initial`, `last_initial`, `name`, `date_of_birth_iso`, `date_of_birth_iso_compact`, `school`, `board`, `street_address`, `city`, `province`, `postal_code`, and `language_code` between braces as placeholders. Initials use the first Unicode character after surrounding spaces are removed from the name. ISO birth dates have the form `YYYY-MM-DD`; compact dates have the form `YYYYMMDD`. Each value used in the template must be present for that notice. Passwords remain in memory and are removed from saved configuration.
+You can use `client_id`, `first_name`, `last_name`, `first_initial`, `last_initial`, `name`, `date_of_birth_iso`, `date_of_birth_iso_compact`, `school`, `board`, `street_address`, `city`, `province`, `postal_code`, and `language_code` between braces as placeholders. Initials use the first Unicode character after surrounding spaces are removed from the name. ISO birth dates have the form `YYYY-MM-DD`; compact dates have the form `YYYYMMDD`. Each value used in the template must be present for that notice. Derived passwords remain in memory; the password template is redacted from saved configuration. Source facts and original PDFs remain sensitive.
 
 ## Notice selection
 

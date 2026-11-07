@@ -4,6 +4,20 @@ ImmuKnow turns a CSV file of immunization information into personalized PDF
 notices. You select the notices; the system that supplied the information is
 responsible for assessing immunization status.
 
+## Three projects, one notice workflow
+
+Core owns native processing and shared components. Template supplies the project
+that your organization adapts. Studio provides browser editing and previews;
+it has not yet adopted standalone Rust Core. Check
+[Studio compatibility](user_guide/studio.md) before using an exported project.
+
+![Upstream data and an authored project enter Core; Template supplies starter resources and Studio edits project files. Core produces PDFs, bundles and reports.](assets/ecosystem.svg)
+
+[Open diagram at full size](assets/ecosystem.svg).
+
+Read [projects and contracts](ecosystem.md) for ownership, file handoffs and
+compatibility. No direct runtime service connects these applications.
+
 ## Create and review notices
 
 Start with [getting started](user_guide/getting_started.md). It explains what you

@@ -14,28 +14,33 @@ The documentation hub consumes this repository's Markdown and `mkdocs.yml`; the 
 
 ## Maintaining the visuals
 
-The [user-facing performance guide](../user_guide/performance.md) owns the plain-language timing explanation. Its proportional time budget rounds the main workflow to 60 seconds; keep precise timings out of the headline and caption. The [library map](../assets/pipeline-libraries.svg) belongs to the architecture guide. Both SVGs render directly on GitHub and in the documentation site without a diagram service.
+The three diagrams have editable D2 sources in `docs/diagrams/` and generated SVGs in `docs/assets/`: `ecosystem`, `operator-journey`, and `processing`. Commit each updated source and its rendered SVG together. The SVGs render on GitHub and in the documentation site without a diagram service.
 
-The [interactive visual](../assets/notice-timing.html) has two views: **Spend the minute**, a Chart.js stopwatch with selectable slices, and **Follow a notice**, with six illustrated steps and a replay of batch completions. The browser library is included locally under `docs/assets/vendor`; no CDN, framework, Node installation or network access is needed to view it. To use the interactive page offline, keep the assets folder together. Its inline `measurements` JSON matches [notice-timings.json](../assets/notice-timings.json). Keep both copies together when updating measurements. The downloaded data retains the finer activity bins for analysis.
+Render with [D2 0.9.0](https://github.com/d2lang/d2/releases/tag/v0.9.0), using
+its bundled open-source ELK layout engine. D2 is an authoring tool only; neither
+Cargo checks nor MkDocs publishing needs it. From the repository root:
 
-The four slices group the measured main-workflow categories:
+```sh
+for name in ecosystem operator-journey processing; do
+  d2 --layout elk --theme 0 --dark-theme 200 --pad 24 \
+    "docs/diagrams/$name.d2" "docs/assets/$name.svg"
+done
+```
 
-| Slice | Measured categories | Rounded seconds |
-| --- | --- | ---: |
-| Create the notices | Typst evaluation/layout, PDF export, cache cleanup | 41 |
-| Prepare, check and save | Other preparation/writes, original PDF checks, file hashes | 10 |
-| Group the notices | Combining PDFs | 6 |
-| Write the report | Reports and checkpoints | 3 |
+Use the same application, document and data shapes across the diagrams. Dashed
+worker edges distinguish jobs and returned results in the processing diagram.
+Keep explanatory text next to each image and useful alternative text. Inspect
+SVGs in a browser, both directly and embedded at documentation width, in light
+and dark system themes and on a narrow screen. SVG dark mode follows the system
+preference; it may differ from a manually selected site theme. Keep diagrams
+static and make their text explanations sufficient without images or JavaScript.
 
-Largest-remainder rounding makes the slices total exactly 60 seconds. Selecting a slice shows its component tasks, rounded within that slice's allowance. Keep the static SVG and the canvas's text alternative consistent with those results. The clock represents aggregate work shares, not a chronological trace: notice work repeats per person, and files and reports are saved throughout. The protected-copy callout is separate because that worker overlaps the main workflow. QR work remains inside Typst layout; it is not invented as a separately measured slice. The walkthrough explains order without inventing per-notice timings. Replay counters use recorded completions, with original completion recorded when its encryption job starts, after saving the original.
+For a local publishing check, provision MkDocs and Material separately and run
+`mkdocs build --strict`. This builds the repository configuration; the hub owns
+its deployment and any surrounding navigation. Inspect the built pages after
+changing navigation or diagrams. Do not commit local build tools or site output.
 
-Chart.js owns the doughnut geometry, resizing, tooltips and pointer selection. A small local drawing hook adds stopwatch ticks, the top button and the total. Native HTML buttons expose the same values and selection to keyboard and screen-reader users; descriptions and component tasks stay in HTML. The chart does not animate; the separate completion replay starts paused and pauses when hidden or when views change. Automatic appearance follows the surrounding documentation theme or the system preference, and repaints the canvas when that preference changes. A static SVG is available without JavaScript and when the library fails to load.
-
-The pinned browser bundle is **Chart.js 4.6.1**, copied unchanged from `package/dist/chart.umd.min.js` in the [published npm package](https://registry.npmjs.org/chart.js/-/chart.js-4.6.1.tgz). Its SHA-256 is `87364cc2b2a76a6684929e7d6b80b18a897794db38400caff1fcf1791c6925d2`. The npm archive was checked against its published SHA-512 integrity value before copying. Preserve the Chart.js MIT license and the MIT license for its bundled **@kurkle/color 0.3.2** dependency. To update, verify the new package integrity, inspect its bundled dependency notices, replace the versioned browser file and licenses, update the HTML script path and these notes, then run the browser checks below. No application dependency changes are required.
-
-The measurements came from production commit `a5bfe974178731629810162f6b99f48f353cf5f8` and profiling commit `81ac287` on `experiment/workflow-profiling`. The uninstrumented command took 57.76 seconds; the profiled command took 58.74 seconds, including 58.22 seconds inside the workflow. Instrumentation is not part of the production application. Main-workflow slices exclude the concurrent encryption worker and must not be added to worker totals.
-
-After editing, check all four slices by clicking both the chart and the HTML buttons, confirm their total and component totals, both views, all six walkthrough steps, and replay play/pause, restart, speed and scrubbing. Final replay counts are 1,000 originals, 1,000 protected copies and 10 groups. Check keyboard use, a narrow screen, Automatic/Light/Dark themes, embedded theme changes, reduced-motion settings, the no-JavaScript and failed-library static fallbacks, offline use with no external requests, SVG clipping, and a strict documentation build. Keep examples fictional.
+The [performance guide](../user_guide/performance.md) owns the timing explanation. Its table groups the measured main-workflow categories and uses largest-remainder rounding to total 60 seconds. Keep the [measurement data](../assets/notice-timings.json), benchmark provenance and overlapping encryption distinction when updating it.
 
 ## Recording the CLI demo
 

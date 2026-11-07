@@ -6,6 +6,19 @@ Notices with warnings can be included in the PDFs for sending under the active r
 
 The numbered `bundles-0001/` directory contains `bundle-*.pdf` for notices ready to send and `review-*.pdf` for notices requiring review. A CSV beside each PDF connects its page ranges and findings to the input rows. The run also retains original PDFs and, if configured, separate encrypted copies. Read the report for actual outcomes and paths; do not infer success from a file's presence alone.
 
+## Know which PDF you are sending
+
+Originals are the source for both normal and review bundles. Encrypted PDFs are
+separate per-person copies; bundles are **not encrypted** by enabling notice
+encryption. If requested encryption fails, a readable original goes to review,
+even if its other checks passed. Review the encryption outcome before using an
+individual copy, and choose your approved delivery method for each artifact.
+
+Bundles retain notice pages and links, but do not combine document-level tags,
+outlines or catalog attachments. Forms are rejected. Keep the original or
+individual encrypted document when document-level accessibility structure is
+required. Inspect the actual delivery files as well as the originals.
+
 ## Rule settings and notice length
 
 `validation.rules` configures supported adjustable rules for a run. Changes use `enabled`, `severity` (`warn` or `fail`), and a nonempty `reason`. Mandatory checks cannot be disabled or downgraded. Use `validation.clients` to change a rule for exactly one input row. The report keeps the observed results in `checks` and the results after applying rules, with reasons, in `effective_checks`. Warnings do not need separate acceptance. Optional `validation.notice_length` sets a required positive page count for sending; no pages are added to reach that count. See [configuration](configuration.md).

@@ -1,0 +1,24 @@
+direction: down
+classes: {
+  action: {style.border-radius: 12}
+  files: {shape: document}
+}
+project: Obtain + review project {class: action}
+input: Supply CSV + explicit\nnotice selections {class: files}
+run: Run ImmuKnow {class: action}
+project -> input -> run
+report: Inspect report + PDFs {class: action}
+run -> report
+eligible: Pass / warnings only\nNormal bundles {class: files}
+review: Readable + failed checks\nReview bundles {class: files}
+missing: Unrenderable notice\nReport only\nFix cause + new run {class: files}
+report -> eligible
+report -> review
+report -> missing
+human: Review findings + content\nWithhold or release holds {class: action}
+eligible -> human
+review -> human
+rebundle: Rebundle saved originals\nNo recompiling or encryption {class: action}
+human -> rebundle
+verify: Verify report, PDF/CSV\nmembership + deliverables {class: action}
+rebundle -> verify

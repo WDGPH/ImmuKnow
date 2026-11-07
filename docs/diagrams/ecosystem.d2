@@ -1,0 +1,21 @@
+direction: down
+classes: {
+  app: {style.border-radius: 12; style.bold: true}
+  files: {shape: document}
+  data: {shape: cylinder}
+}
+source: Upstream system\nAssesses immunization status {class: app}
+csv: CSV + notice selections {class: data}
+source -> csv
+Template: ImmuKnow Template\nStarter notices + settings\nReference lists {class: app}
+project: Authored notice project\nTemplates · config · branding {class: files}
+Template -> project
+Studio: ImmuKnow Studio\nBrowser editing + previews {class: app}
+project <-> Studio: import / export files
+Core: ImmuKnow Core\nNative production processing {class: app}
+project -> Core: local project files
+csv -> Core: supplied facts and choices
+outputs: PDFs · bundles · reports\nReview before delivery {shape: package}
+Core -> outputs
+resources: Core library + schemas\nCopy intact at setup {class: files}
+resources -> project

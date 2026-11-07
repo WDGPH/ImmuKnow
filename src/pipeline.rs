@@ -24,6 +24,10 @@ pub struct RunOptions {
     pub encryption_workers: u8,
     pub bundle_workers: u8,
 }
+/// A published run or saved-run update, which may still contain failed notices.
+///
+/// `succeeded` is false for `completed_with_failures`; warnings alone leave it true.
+/// Fatal processing errors return `Err` instead, retaining staged work when possible.
 pub struct RunResult {
     pub record: PathBuf,
     pub succeeded: bool,
@@ -496,6 +500,8 @@ fn process(
     pool_result
 }
 
+/// Process a batch without progress output. Inspect [`RunResult::succeeded`]
+/// as well as the outer `Result` before treating the run as successful.
 pub fn run(opts: &RunOptions) -> Result<RunResult> {
     run_with_progress(opts, &mut |_| {})
 }
@@ -671,6 +677,10 @@ pub fn run_with_progress(
     }
 }
 
+/// Apply policy and hold decisions to a completed run and assemble fresh bundles.
+///
+/// Acquires the run lock before reading. Uses saved originals without recompiling
+/// or repeating encryption. Assembly errors retain previous bundles and decisions.
 pub fn rebundle(
     run: &Path,
     override_policy: Option<&Path>,

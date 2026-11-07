@@ -1,0 +1,27 @@
+direction: down
+classes: {
+  coordinator: {style.border-radius: 10; style.bold: true}
+  worker: {style.stroke-dash: 5; style.border-radius: 10}
+  store: {shape: cylinder}
+}
+prepare: Coordinator: save source + stable row keys\nPrepare facts and validate payloads {class: coordinator}
+compile: One persistent Typst compiler\nSequential notices: one document → PDF + evidence {style.border-radius: 10}
+inspect: Coordinator: inspect and save each original\nRecord checks and row failures {class: coordinator}
+protect: Encryption workers\nBounded jobs → verified encrypted copies\nOverlaps notice creation {class: worker}
+drain: Coordinator: collect protection results\nAfter notice loop, drain remaining jobs {class: coordinator}
+groups: Coordinator: select bundle membership\nEligible originals + readable review originals {class: coordinator}
+assemble: Bundle workers\nIndependent groups run concurrently\nOriginal pages → grouped PDFs {class: worker}
+publish: Coordinator: write membership CSVs\nApply results, save status and publish {class: coordinator}
+record: run.json + report.html\nPreparation and periodic checkpoints {class: store}
+staged: Unique .incomplete output folders\nExplicit run and bundle-attempt status {class: store}
+prepare -> compile: facts + selected template
+compile -> inspect: same-document PDF + evidence / row error
+inspect -> compile: next independent row
+inspect -> protect: job {style.stroke-dash: 5}
+inspect -> drain: after notice loop
+protect -> drain: row-tagged results {style.stroke-dash: 5}
+drain -> groups
+groups -> assemble: group jobs {style.stroke-dash: 5}
+assemble -> publish: group-tagged results {style.stroke-dash: 5}
+inspect -> record: checkpoints
+publish -> staged: final record and publication
