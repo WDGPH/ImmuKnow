@@ -8,6 +8,13 @@ creates PDF notices and supplies the shared Typst components. See the
 
 ## Compatibility with standalone Core
 
+The native starter project for this Core is in
+[Template PR #16](https://github.com/WDGPH/ImmuKnow-Template/pull/16), on
+`feat/rust-core-project`. Follow that revision's
+[setup instructions](https://github.com/WDGPH/ImmuKnow-Template/blob/feat/rust-core-project/README.md)
+and recorded Core revision. Template's default branch and Studio's pinned
+resource package are separate compatibility targets.
+
 The current Studio integration has **not yet adopted standalone Rust Core**.
 Studio pins an earlier Python Core package and a Template resource package for
 its existing browser previews and downloaded-project workflow. A project
@@ -21,6 +28,6 @@ Studio owns the integration update: adopting the reviewed native executable and
 matching Template resources, preparing preview facts through native commands,
 using the exported schemas and library, and verifying browser previews and a
 downloaded project with the native engine. Template's
-[contributor guide](https://github.com/WDGPH/ImmuKnow-Template/blob/main/CONTRIBUTING.md#starter-resources-for-studio)
+[contributor guide](https://github.com/WDGPH/ImmuKnow-Template/blob/feat/rust-core-project/CONTRIBUTING.md#starter-resources-for-studio)
 describes the required handoff. Core and Template updates do not change Studio's
 pins automatically.
