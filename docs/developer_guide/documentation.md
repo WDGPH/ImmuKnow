@@ -19,7 +19,7 @@ The documentation hub consumes this repository's Markdown and `mkdocs.yml`; the 
 
 ## Maintaining the visuals
 
-The three diagrams have editable D2 sources in `docs/diagrams/` and generated SVGs in `docs/assets/`: `ecosystem`, `operator-journey`, and `processing`. Their shared palette, card dimensions, typography and edge styles live in `docs/diagrams/style.d2`. Commit updated sources and rendered SVGs together. The SVGs render on GitHub and in the documentation site without a diagram service.
+The two workflow diagrams have editable D2 sources in `docs/diagrams/` and generated SVGs in `docs/assets/`: `operator-journey` and `processing`. Their shared palette, card dimensions, typography and edge styles live in `docs/diagrams/style.d2`. Commit updated sources and rendered SVGs together. The SVGs render on GitHub and in the documentation site without a diagram service.
 
 Render with [D2 0.9.0](https://github.com/d2lang/d2/releases/tag/v0.9.0), using
 its bundled open-source ELK layout engine. The imported style supplies the renderer
@@ -27,12 +27,12 @@ configuration, including both theme palettes. D2 is an authoring tool only; neit
 Cargo checks nor MkDocs publishing needs it. From the repository root:
 
 ```sh
-for name in ecosystem operator-journey processing; do
+for name in operator-journey processing; do
   d2 "docs/diagrams/$name.d2" "docs/assets/$name.svg"
 done
 ```
 
-The visual vocabulary follows the [PHIZ Git article](https://github.com/WDGPH/phiz/blob/main/content/posts/2026-10-git-and-github.md): neutral cards, thin borders, slim accent bars and clear text hierarchy. Green identifies applications and coordinator actions, blue identifies project files or PDF workers, and grey identifies data and saved outputs. The operator journey uses amber for review and red for unrenderable notices; every outcome is also named in text.
+The visual vocabulary follows the [PHIZ Git article](https://github.com/WDGPH/phiz/blob/main/content/posts/2026-10-git-and-github.md): neutral cards, thin borders, slim accent bars and clear text hierarchy. Green identifies workflow and coordinator actions, blue identifies PDF workers, and grey identifies data and saved outputs. The operator journey uses amber for review and red for unrenderable notices; every outcome is also named in text.
 
 Use explicit grid cells to keep card edges and phase rows aligned. Declare
 `accent; inset;` before spreading the shared card so local colour overrides do
@@ -59,7 +59,9 @@ The [performance guide](../user_guide/performance.md) owns the timing explanatio
 
 ## Recording the CLI demo
 
-The README uses a real [VHS](https://github.com/charmbracelet/vhs) recording, generated from [notices.tape](../demo/notices.tape). It runs the normal command for six fictional clients at normal playback speed; it is not the 1,000-client benchmark. VHS, `ttyd`, `ffmpeg` and a browser are recording tools only, not application dependencies. Use the VHS installation instructions for your platform.
+The [CLI recording](../assets/notice-demo.gif) and its [static completion summary](../assets/notice-demo.png) show a fictional sample run.
+
+The demo is a real [VHS](https://github.com/charmbracelet/vhs) recording, generated from [notices.tape](../demo/notices.tape). It runs the normal command for six fictional clients at normal playback speed; it is not the 1,000-client benchmark. VHS, `ttyd`, `ffmpeg` and a browser are recording tools only, not application dependencies. Use the VHS installation instructions for your platform.
 
 Install `immuknow`, DejaVu Sans Mono for the recording, and the fonts required by a compatible ImmuKnow Template checkout. From the Core repository root, prepare a scratch directory (replace the Template path):
 
@@ -85,7 +87,5 @@ Watch `notice-demo.gif` and check the generated run's report and all six notice 
 
 After recording, extract its final frame as `notice-demo.png`, for example with
 `ffmpeg -i notice-demo.gif -update 1 notice-demo.png`. Commit the GIF and still
-together after inspecting both. The README's `picture` selects the still for
-`prefers-reduced-motion: reduce`, with an explicit static link for other readers.
-Verify both media preferences in a browser; the getting-started guide remains
-the text explanation.
+together after inspecting both. Link to the static summary alongside the recording so readers can view the
+result without animation. The getting-started guide remains the text explanation.

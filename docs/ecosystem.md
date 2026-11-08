@@ -1,28 +1,15 @@
 # ImmuKnow projects and contracts
 
-ImmuKnow Core, Template and Studio have separate responsibilities. Core is the
-standalone application that prepares supplied client facts, renders notices and
-records findings. Template is a starting project that an organization adapts.
-Studio is a browser workspace for editing notices and previewing fictional
-clients. The system supplying the data assesses immunization status; the
-organization chooses and reviews notices before sending them.
+| Project | Description |
+| --- | --- |
+| Core | Native CSV preparation, validation, Typst compilation, PDF encryption, bundling and reporting. Supplies the shared Typst library and JSON schemas. |
+| Template | Starter notices, wording, translations, settings, branding, project configuration and reference lists. |
+| Studio | Browser editing, previews, local drafts and project import/export. |
 
-<div class="architecture-diagram" markdown="1" tabindex="0" role="region" aria-label="Ecosystem diagram">
-
-[![Template supplies project resources, Studio edits project files, and Core processes an authored project and upstream data into reviewed outputs.](assets/ecosystem.svg)](assets/ecosystem.svg)
-
-</div>
-
-[Open diagram at full size](assets/ecosystem.svg).
-
-| Stage | Owner | Files and responsibility |
-| --- | --- | --- |
-| Build and integration | Core | The executable embeds Typst and exports its shared Typst library, input and rendering schemas, and resource manifest. The manifest identifies each embedded file by SHA-256 and identifies the ordered file list by a digest. |
-| Build and integration | Template | The resource package supplies starter project files and fictional clients to Studio. Its recorded Core revision identifies the executable reviewed with that project. |
-| Build and integration | Studio | Studio pins its dependencies and browser compiler separately, prepares fictional preview data and browser assets, and tests the browser and project handoff. |
-| Authored project | Template and project maintainers | Notices, Settings, translations, branding, configuration and reference lists belong to the project. The shared Core library is copied intact into `templates/lib/immuknow/`; it is not edited there. |
-| Authoring | Studio | The browser editor manages previews, drafts, imports and downloads. Authored project files and relative paths must survive the handoff. |
-| Runtime | Core and the project | The native executable reads a CSV, explicit notice choices, project configuration and templates. It prepares facts, creates notices, records checks and assembles bundles. Workstation fonts are used for native rendering. |
+Your organization adapts an authored notice project from Template. Keep Core's
+shared library intact in `templates/lib/immuknow/`. Core reads the project,
+CSV and explicit notice choices to produce PDFs, bundles and reports. The source
+system assesses immunization status; operators review notices before delivery.
 
 See the [getting started guide](user_guide/getting_started.md) for a native
 project and [Studio](user_guide/studio.md) for the current integration status.
@@ -30,9 +17,8 @@ Template's [native starter instructions](https://github.com/WDGPH/ImmuKnow-Templ
 describe its setup and project files. Each project is updated independently;
 updating Core does not update Studio's pins or a project's reference lists.
 
-Studio has **not yet adopted standalone Rust Core**. The diagram shows ownership
-and file handoffs, not a claim that current Studio exports work with this
-executable. See [Studio compatibility](user_guide/studio.md#compatibility-with-standalone-core)
+Studio has **not yet adopted standalone Rust Core**. Check
+[Studio compatibility](user_guide/studio.md#compatibility-with-standalone-core)
 before exchanging projects.
 
 ## Native handoff

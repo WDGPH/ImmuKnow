@@ -11,16 +11,8 @@ that your organization adapts. Studio provides browser editing and previews;
 it has not yet adopted standalone Rust Core. Check
 [Studio compatibility](user_guide/studio.md) before using an exported project.
 
-<div class="architecture-diagram" markdown="1" tabindex="0" role="region" aria-label="Ecosystem diagram">
-
-![Upstream data and an authored project enter Core; Template supplies starter resources and Studio edits project files. Core produces PDFs, bundles and reports.](assets/ecosystem.svg)
-
-</div>
-
-[Open diagram at full size](assets/ecosystem.svg).
-
-Read [projects and contracts](ecosystem.md) for ownership, file handoffs and
-compatibility. No direct runtime service connects these applications.
+Read [projects and contracts](ecosystem.md) for a description of each project's
+responsibilities and the files they share.
 
 ## Create and review notices
 
