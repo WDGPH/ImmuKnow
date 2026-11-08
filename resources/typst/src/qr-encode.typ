@@ -9,3 +9,5 @@
     encoded.at(1 + row * size + column) == 1
   ))
 }
+
+#let encode-svg(destination, correction, foreground) = encoder.encode_svg(bytes(destination), bytes(correction), bytes(foreground.to-hex()))

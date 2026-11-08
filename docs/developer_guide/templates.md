@@ -454,6 +454,32 @@ the notice's client facts:
 )
 ```
 
+QR presentation options are optional. The defaults keep connected, borderless
+squares, one foreground colour and a four-module white quiet zone.
+
+| Option | Values and meaning |
+| --- | --- |
+| `foreground`, `background` | Dark module colour and quiet-zone/background colour; default black and white. |
+| `corner-foreground` | Colour of the three large finder targets; `auto` inherits `foreground`. |
+| `alignment-foreground` | Colour of smaller internal alignment targets, where present; `auto` inherits `foreground`. Timing and other structural cells retain `foreground`. |
+| `module-shape` | `"square"` connects touching squares; `"separated"` leaves a gap equal to 20% of a cell between data squares; `"dots"` uses circles; `"rounded"` rounds individual data squares. Structural markers retain their shapes. |
+| `corner-style` | `"square"` or `"rounded"` for the three finder targets. |
+| `logo` | Typst image content, or an image/mask dictionary supplied by Studio; default `none`. |
+| `logo-size`, `logo-padding` | Centre image width as 5–30% of the encoded grid, and its clearing border (0–1mm). |
+| `error-correction` | `auto` uses `"l"` without an image and `"h"` with one; explicit `"l"`, `"m"`, `"q"`, `"h"` are also accepted. Images require `"h"`. |
+
+For example, set `module-shape: "separated"` and
+`corner-foreground: rgb("176b78")` in the QR settings dictionary. An authored
+centre graphic can use `logo: image("assets/mark.svg", width: 100%)`.
+An image clearing area that overlaps a structural marker is rejected; reduce its
+size or padding. This check does not guarantee scanning after image occlusion.
+Keep both foreground colours dark against a light background and test actual
+printed output. The library does not automatically assess colour contrast.
+
+Custom styles add drawing work; unstyled RGB/grayscale square codes use a
+compact SVG path generated in Rust. Other foreground colour spaces retain
+native Typst curves. See [QR implementation](qr.md) for the encoder and verification.
+
 The helper percent-encodes query values, adds them before any `#section`, and
 uses the same destination for its code and link. Existing query values are kept.
 The pipeline supplies facts; the authored template defines QR destinations.

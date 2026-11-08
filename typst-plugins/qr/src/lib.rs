@@ -1,4 +1,5 @@
 use qrcodegen::{QrCode, QrCodeEcc, QrSegment, Version};
+use std::fmt::Write;
 use wasm_minimal_protocol::{initiate_protocol, wasm_func};
 
 initiate_protocol!();
@@ -39,6 +40,51 @@ pub fn encode_runs(text: &[u8], correction: &[u8]) -> Result<Vec<u8>, String> {
         }
     }
     Ok(result)
+}
+
+/// Return the matrix width, then a single-path SVG with a four-module quiet zone.
+#[wasm_func]
+pub fn encode_svg(text: &[u8], correction: &[u8], foreground: &[u8]) -> Result<Vec<u8>, String> {
+    let foreground =
+        std::str::from_utf8(foreground).map_err(|_| "QR colour must be hexadecimal RGB or RGBA")?;
+    if !matches!(foreground.len(), 7 | 9)
+        || !foreground.starts_with('#')
+        || !foreground[1..].bytes().all(|b| b.is_ascii_hexdigit())
+    {
+        return Err("QR colour must be hexadecimal RGB or RGBA".into());
+    }
+    let qr = make_qr(text, correction)?;
+    let size = qr.size();
+    let total = size + 8;
+    let mut result = String::with_capacity((size * size * 4) as usize);
+    write!(result, "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 {total} {total}\"><path fill=\"{foreground}\" d=\"").unwrap();
+    for row in 0..size {
+        let mut column = 0;
+        while column < size {
+            if !qr.get_module(column, row) {
+                column += 1;
+                continue;
+            }
+            let start = column;
+            while column < size && qr.get_module(column, row) {
+                column += 1;
+            }
+            write!(
+                result,
+                "M{} {}h{}v1h-{}z",
+                start + 4,
+                row + 4,
+                column - start,
+                column - start
+            )
+            .unwrap();
+        }
+    }
+    result.push_str("\"/></svg>");
+    let mut bytes = Vec::with_capacity(result.len() + 1);
+    bytes.push(size as u8);
+    bytes.extend_from_slice(result.as_bytes());
+    Ok(bytes)
 }
 
 fn make_qr(text: &[u8], correction: &[u8]) -> Result<QrCode, String> {
