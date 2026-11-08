@@ -2,6 +2,11 @@
 
 Keep each contract in its owning guide. [Getting started](../user_guide/getting_started.md) describes a run; [configuration](../user_guide/configuration.md) describes settings; [PDF review](../user_guide/pdf_validation.md) describes bundle decisions; and [template authoring](templates.md) describes the Typst project and facts. The [architecture](architecture.md) explains the native workflow and record. Link to the owning guide when another page needs context.
 
+Use relative links within this repository. For another project's living guides,
+link to its default branch; when compatibility requires a reviewed revision, use
+an immutable commit URL and identify that revision. Avoid feature-branch URLs
+that break when branches are deleted after merge.
+
 Use exact CLI options, paths, schema fields and statuses. Explain behavior for the person performing the task, including the distinction between warnings, failed checks and output failures. Keep user instructions separate from contributor implementation details. Use fictional examples and do not put client information in documentation.
 
 Check source links, commands and key schema references locally:

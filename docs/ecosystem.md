@@ -22,8 +22,8 @@ organization chooses and reviews notices before sending them.
 
 See the [getting started guide](user_guide/getting_started.md) for a native
 project and [Studio](user_guide/studio.md) for the current integration status.
-Template's [native starter instructions](https://github.com/WDGPH/ImmuKnow-Template/blob/feat/rust-core-project/README.md)
-describes its setup and project files. Each project is updated independently;
+Template's [native starter instructions](https://github.com/WDGPH/ImmuKnow-Template/blob/782d8d4543519b6459ad1c1cfb1e0cbcae537581/README.md)
+describe its setup and project files. Each project is updated independently;
 updating Core does not update Studio's pins or a project's reference lists.
 
 Studio has **not yet adopted standalone Rust Core**. The diagram shows ownership
@@ -62,5 +62,5 @@ its pinned compatible engine. Adoption of this standalone Core needs the
 separate [Studio integration checks](user_guide/studio.md). Each project tests its own boundary rather than
 repeating another project's complete validation suite. See Core's
 [testing guide](developer_guide/testing.md), Template's
-[contributor guide](https://github.com/WDGPH/ImmuKnow-Template/blob/feat/rust-core-project/CONTRIBUTING.md),
+[contributor guide](https://github.com/WDGPH/ImmuKnow-Template/blob/782d8d4543519b6459ad1c1cfb1e0cbcae537581/CONTRIBUTING.md),
 and Studio's [development guide](https://github.com/WDGPH/ImmuKnow-Studio/blob/main/docs/development.md).
