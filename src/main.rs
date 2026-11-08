@@ -58,6 +58,7 @@ impl Inputs {
         self,
         output: PathBuf,
         timestamp: Option<i64>,
+        compile_workers: u8,
         encryption_workers: u8,
         bundle_workers: u8,
     ) -> Result<RunOptions> {
@@ -101,6 +102,7 @@ impl Inputs {
             output,
             encoding: self.input_encoding,
             timestamp,
+            compile_workers,
             encryption_workers,
             bundle_workers,
         })
@@ -116,7 +118,11 @@ enum Command {
         output: PathBuf,
         #[arg(long)]
         timestamp: Option<i64>,
-        #[arg(long, default_value_t=1, value_parser=clap::value_parser!(u8).range(0..=16))]
+        /// Persistent notice compilers; defaults to two on four or more available CPUs.
+        #[arg(long, default_value_t=pipeline::default_notice_workers(), value_parser=clap::value_parser!(u8).range(1..=2))]
+        compile_workers: u8,
+        /// Protection workers; zero runs inline, default matches available CPU capacity.
+        #[arg(long, default_value_t=pipeline::default_notice_workers(), value_parser=clap::value_parser!(u8).range(0..=16))]
         encryption_workers: u8,
         #[arg(long, default_value_t=4, value_parser=clap::value_parser!(u8).range(1..=16))]
         bundle_workers: u8,
@@ -160,11 +166,18 @@ fn execute() -> Result<()> {
             inputs,
             output,
             timestamp,
+            compile_workers,
             encryption_workers,
             bundle_workers,
         } => {
             let result = pipeline::run_with_progress(
-                &inputs.options(output, timestamp, encryption_workers, bundle_workers)?,
+                &inputs.options(
+                    output,
+                    timestamp,
+                    compile_workers,
+                    encryption_workers,
+                    bundle_workers,
+                )?,
                 &mut |event| terminal.update(event),
             )?;
             terminal.finish(&result);
@@ -174,7 +187,7 @@ fn execute() -> Result<()> {
             }
         }
         Command::Prepare { inputs } => {
-            let prepared = pipeline::prepare(&inputs.options(PathBuf::new(), None, 0, 1)?)?;
+            let prepared = pipeline::prepare(&inputs.options(PathBuf::new(), None, 1, 0, 1)?)?;
             serde_json::to_writer_pretty(std::io::stdout().lock(), &prepared)?;
             println!();
         }

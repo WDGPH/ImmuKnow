@@ -6,7 +6,7 @@ The standalone `immuknow` executable is the integration boundary. It embeds Typs
 immuknow run CSV --project DIR (--notices JSON | --template FILENAME)
 immuknow run CSV (--notice-assignments JSON --templates DIR | --template FILE)
   --config DIR --output DIR [--input-encoding utf-8-sig|cp1252|latin-1]
-  [--encryption-workers N] [--bundle-workers N] [--timestamp UNIX]
+  [--compile-workers 1|2] [--encryption-workers N] [--bundle-workers N] [--timestamp UNIX]
 immuknow prepare CSV (--notice-assignments JSON --templates DIR | --template FILE)
   --config DIR [--input-encoding utf-8-sig|cp1252|latin-1]
 immuknow resources --output DIR
@@ -20,7 +20,7 @@ With `--notices` and no explicit project or templates path, Core uses `templates
 
 Global display options are `--progress auto|plain|off` and `--emoji`. Progress and summaries use stderr; redirected stdout remains a single saved-record path for `run` and `rebundle`, or JSON for `prepare` and `resources`. Interactive terminals show the readable report path instead of repeating the machine record path. Auto mode redraws a throttled progress line only on a capable terminal; elsewhere it writes plain stage announcements and occasional counts. Plain mode avoids redraws and styling; off hides all progress and summary output. `NO_COLOR` disables styling. Progress receipts contain only counts, not client information. No extra terminal-rendering thread or runtime dependency is introduced.
 
-`run` processes a client list and saves a run directory with source data, resources, facts, originals, findings and grouped PDFs. `prepare` writes JSON to standard output without rendering PDFs. The envelope has `schema_version: 1`, engine and resource identity, `input.sha256`, and `entries`; each entry contains `row_key`, `client_id`, `source`, `assignment`, `notice`, and `checks`. `resources` exports `schemas`, `typst`, and a manifest from the executable. `rebundle` creates another set of grouped PDFs using the saved run. Warnings are eligible for sending by default. A failed notice or requested encryption produces a nonzero run exit; readable originals with failed checks are included in review bundles. The default is one encryption worker and four bundle workers.
+`run` processes a client list and saves a run directory with source data, resources, facts, originals, findings and grouped PDFs. `prepare` writes JSON to standard output without rendering PDFs. The envelope has `schema_version: 1`, engine and resource identity, `input.sha256`, and `entries`; each entry contains `row_key`, `client_id`, `source`, `assignment`, `notice`, and `checks`. `resources` exports `schemas`, `typst`, and a manifest from the executable. `rebundle` creates another set of grouped PDFs using the saved run. Warnings are eligible for sending by default. A failed notice or requested encryption produces a nonzero run exit; readable originals with failed checks are included in review bundles. Compilation and encryption each default to two workers when at least four CPUs are available to the process, otherwise one. `--compile-workers` accepts one or two; `--encryption-workers` accepts zero through 16, with zero running protection inline. Explicit values override these defaults. Bundling defaults to four workers. Compilation may finish out of order, but facts, findings, originals and progress are committed in source-row order.
 
 ## Resources for authoring tools
 

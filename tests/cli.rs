@@ -172,6 +172,92 @@ impl Project {
 }
 
 #[test]
+fn bounded_compilation_matches_one_worker_through_row_failures() {
+    let project = Project::new();
+    let config = project.config.join("parameters.yaml");
+    let contents = fs::read_to_string(&config)
+        .unwrap()
+        .replace("enabled: false\n  password:", "enabled: true\n  password:");
+    fs::write(config, contents).unwrap();
+    let mut records = Vec::new();
+    for workers in ["1", "2"] {
+        let output_dir = project.root.join(format!("workers-{workers}"));
+        let output = cli(
+            &project.root,
+            &[
+                "run",
+                p(&project.csv),
+                "--notice-assignments",
+                p(&project.assignments),
+                "--templates",
+                p(&project.templates),
+                "--config",
+                p(&project.config),
+                "--output",
+                p(&output_dir),
+                "--timestamp",
+                "1793534400",
+                "--compile-workers",
+                workers,
+                "--encryption-workers",
+                workers,
+                "--progress",
+                "off",
+            ],
+        );
+        assert!(
+            !output.status.success(),
+            "deliberate row failures must be reported"
+        );
+        let directory = fs::read_dir(&output_dir)
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap()
+            .path();
+        let record: Value =
+            serde_json::from_slice(&fs::read(directory.join("run.json")).unwrap()).unwrap();
+        assert_eq!(record["status"], "completed_with_failures");
+        records.push(record);
+    }
+    for (before, after) in records[0]["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .zip(records[1]["entries"].as_array().unwrap())
+    {
+        for field in [
+            "row_key",
+            "client_id",
+            "notice",
+            "assignment",
+            "facts",
+            "original",
+            "checks",
+            "effective_checks",
+            "render_report",
+            "routing",
+            "bundle",
+        ] {
+            assert_eq!(
+                before[field], after[field],
+                "row {} field {field}",
+                before["row_key"]
+            );
+        }
+        for field in ["status", "algorithm", "revision"] {
+            assert_eq!(before["encryption"][field], after["encryption"][field]);
+        }
+    }
+    assert_eq!(records[0]["bundles"], records[1]["bundles"]);
+    let rows = records[1]["entries"].as_array().unwrap();
+    assert_eq!(rows.len(), 5);
+    assert_eq!(rows[1]["original"]["status"], "failed");
+    assert_eq!(rows[2]["original"]["status"], "completed");
+    assert_eq!(rows[3]["encryption"]["status"], "completed");
+}
+
+#[test]
 fn exported_resources_work_outside_checkout_and_mixed_rows_remain_associated() {
     let project = Project::new();
     let config = project.config.join("parameters.yaml");

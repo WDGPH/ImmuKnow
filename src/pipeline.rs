@@ -13,6 +13,16 @@ use std::{
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
 
+/// Reserve enough execution capacity for compilation and PDF protection to overlap.
+/// Smaller machines keep one worker of each kind; explicit CLI values override this.
+pub fn default_notice_workers() -> u8 {
+    if std::thread::available_parallelism().is_ok_and(|cpus| cpus.get() >= 4) {
+        2
+    } else {
+        1
+    }
+}
+
 pub struct RunOptions {
     pub csv: PathBuf,
     pub selection: Selection,
@@ -21,6 +31,7 @@ pub struct RunOptions {
     pub output: PathBuf,
     pub encoding: Option<String>,
     pub timestamp: Option<i64>,
+    pub compile_workers: u8,
     pub encryption_workers: u8,
     pub bundle_workers: u8,
 }
@@ -316,6 +327,7 @@ fn process(
     prepared: &[Prepared],
     c: &Config,
     timestamp: i64,
+    compile_workers: u8,
     workers: u8,
     root: &Path,
     progress: &mut impl FnMut(Progress),
@@ -329,10 +341,35 @@ fn process(
     for p in prepared {
         validator.payload(&p.notice)?;
     }
-    let mut compiler = compiler::Compiler::new(
-        dir.join("resources/templates").canonicalize()?,
-        compiler::Compiler::fonts(),
-    );
+    let compiler_root = dir.join("resources/templates").canonicalize()?;
+    let compiler_fonts = compiler::Compiler::fonts();
+    let compile_workers = usize::from(compile_workers.clamp(1, 2));
+    let compile_window = compile_workers * 2;
+    // With two compilers, scan the shared cache every two committed rows.
+    // Halving its generation limit keeps a similar bounded retention window.
+    let evict_every = compile_workers;
+    let make_request = |p: &Prepared| compiler::Request {
+        inputs: BTreeMap::from([
+            (
+                "immuknow-template-path".into(),
+                format!("/{}", p.notice["template"].as_str().unwrap()),
+            ),
+            (
+                "notice-template".into(),
+                p.notice["template"].as_str().unwrap().into(),
+            ),
+            (
+                "notice-version".into(),
+                p.notice["version_id"].as_str().unwrap().into(),
+            ),
+            (
+                "notice-language".into(),
+                p.notice["language"].as_str().unwrap().into(),
+            ),
+        ]),
+        notice: p.notice.clone(),
+        timestamp,
+    };
     let encrypt = |(index, original, destination, password): (usize, PathBuf, PathBuf, String)| {
         let result = pdf::encrypt(&original, &destination, &password)
             .and_then(|()| Ok(crate::hash(&fs::read(&destination)?)));
@@ -345,149 +382,174 @@ fn process(
         (index, value)
     };
     let pool_result = pool::with_pool(usize::from(workers.max(1)), encrypt, |jobs, results| {
-        let mut count = 0usize;
-        let mut protected = 0usize;
-        let mut encryption_done = 0usize;
-        let mut encryption_total = 0usize;
-        let rendering = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-            for (index, p) in prepared.iter().enumerate() {
-                let key = p.notice["row_key"]
-                    .as_str()
-                    .context("Prepared row has no key")?;
-                let original = format!("originals/{key}.pdf");
-                let facts = serde_json::to_vec_pretty(&p.notice)?;
-                crate::atomic(&dir.join(format!("facts/{key}.json")), &facts)?;
-                record["entries"][index]["facts"] =
-                    json!({"path":format!("facts/{key}.json"),"sha256":crate::hash(&facts)});
-                let request = compiler::Request {
-                    inputs: BTreeMap::from([
-                        (
-                            "immuknow-template-path".into(),
-                            format!("/{}", p.notice["template"].as_str().unwrap()),
-                        ),
-                        (
-                            "notice-template".into(),
-                            p.notice["template"].as_str().unwrap().into(),
-                        ),
-                        (
-                            "notice-version".into(),
-                            p.notice["version_id"].as_str().unwrap().into(),
-                        ),
-                        (
-                            "notice-language".into(),
-                            p.notice["language"].as_str().unwrap().into(),
-                        ),
-                    ]),
-                    notice: p.notice.clone(),
-                    timestamp,
-                };
-                let entry = &mut record["entries"][index];
-                match compiler.run(&request) {
-                    Err(error) => {
-                        entry["original"] = json!({"status":"failed","error":error});
-                        add_check(entry, "rendering.failed", "Notice compilation failed");
-                    }
-                    Ok(compiled) => match pdf::inspect(&compiled.pdf) {
-                        Ok(pages) if pages == compiled.pages => {
-                            crate::atomic(&dir.join(&original), &compiled.pdf)?;
-                            entry["original"] = json!({"status":"completed","path":original,"sha256":crate::hash(&compiled.pdf),"pages":pages});
-                            if !compiled.diagnostics.is_empty() {
-                                entry["compiler_diagnostics"] = json!(compiled.diagnostics);
-                            }
-                            let evidence = compiled
-                                .reports
-                                .map_err(anyhow::Error::msg)
-                                .and_then(|v| validator.report(&v, &p.notice, pages));
-                            match evidence {
-                                Ok(value) => {
-                                    entry["checks"]
-                                        .as_array_mut()
-                                        .unwrap()
-                                        .extend(value["checks"].as_array().unwrap().clone());
-                                    entry["render_report"] = value;
+        pool::with_state_pool(
+            compile_workers,
+            || compiler::Compiler::new(compiler_root.clone(), compiler_fonts.clone()),
+            |compiler, (index, request): (usize, compiler::Request)| {
+                (index, compiler.run(&request))
+            },
+            |compile_jobs, compile_results| {
+                // Only this window may be queued, compiling, or awaiting ordered commit.
+                // Refill after committing its first row so a slow row cannot grow the buffer.
+                for (index, p) in prepared.iter().take(compile_window).enumerate() {
+                    compile_jobs
+                        .send((index, make_request(p)))
+                        .context("Compiler worker stopped")?;
+                }
+                let mut pending = BTreeMap::new();
+                let mut count = 0usize;
+                let mut protected = 0usize;
+                let mut encryption_done = 0usize;
+                let mut encryption_total = 0usize;
+                let rendering = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
+                    || -> Result<()> {
+                        for (index, p) in prepared.iter().enumerate() {
+                            let key = p.notice["row_key"]
+                                .as_str()
+                                .context("Prepared row has no key")?;
+                            let original = format!("originals/{key}.pdf");
+                            let facts = serde_json::to_vec_pretty(&p.notice)?;
+                            crate::atomic(&dir.join(format!("facts/{key}.json")), &facts)?;
+                            record["entries"][index]["facts"] = json!({"path":format!("facts/{key}.json"),"sha256":crate::hash(&facts)});
+                            let compiled = loop {
+                                if let Some(result) = pending.remove(&index) {
+                                    break result;
                                 }
+                                let (done, result) = compile_results
+                                    .recv()
+                                    .context("Compiler worker stopped")??;
+                                if done == index {
+                                    break result;
+                                }
+                                pending.insert(done, result);
+                            };
+                            let entry = &mut record["entries"][index];
+                            match compiled {
                                 Err(error) => {
-                                    add_check(entry, "render.evidence_failed", &error.to_string())
+                                    entry["original"] = json!({"status":"failed","error":error});
+                                    add_check(
+                                        entry,
+                                        "rendering.failed",
+                                        "Notice compilation failed",
+                                    );
                                 }
-                            }
-                            if c.encryption.enabled {
-                                match input::password(p, c) {
-                                    Ok(password) => {
-                                        encryption_total += 1;
-                                        let job = (
-                                            index,
-                                            dir.join(&original),
-                                            dir.join(format!("encrypted/{key}.pdf")),
-                                            password,
-                                        );
-                                        if workers == 0 {
-                                            let (_, value) = encrypt(job);
-                                            encryption_done += 1;
-                                            protected +=
-                                                usize::from(value["status"] == "completed");
-                                            entry["encryption"] = value;
-                                        } else {
-                                            entry["encryption"] = json!({"status":"pending"});
-                                            jobs.send(job).context("Encryption worker stopped")?;
-                                            count += 1;
+                                Ok(compiled) => match pdf::inspect(&compiled.pdf) {
+                                    Ok(pages) if pages == compiled.pages => {
+                                        crate::atomic(&dir.join(&original), &compiled.pdf)?;
+                                        entry["original"] = json!({"status":"completed","path":original,"sha256":crate::hash(&compiled.pdf),"pages":pages});
+                                        if !compiled.diagnostics.is_empty() {
+                                            entry["compiler_diagnostics"] =
+                                                json!(compiled.diagnostics);
+                                        }
+                                        let evidence = compiled
+                                            .reports
+                                            .map_err(anyhow::Error::msg)
+                                            .and_then(|v| validator.report(&v, &p.notice, pages));
+                                        match evidence {
+                                            Ok(value) => {
+                                                entry["checks"].as_array_mut().unwrap().extend(
+                                                    value["checks"].as_array().unwrap().clone(),
+                                                );
+                                                entry["render_report"] = value;
+                                            }
+                                            Err(error) => add_check(
+                                                entry,
+                                                "render.evidence_failed",
+                                                &error.to_string(),
+                                            ),
+                                        }
+                                        if c.encryption.enabled {
+                                            match input::password(p, c) {
+                                                Ok(password) => {
+                                                    encryption_total += 1;
+                                                    let job = (
+                                                        index,
+                                                        dir.join(&original),
+                                                        dir.join(format!("encrypted/{key}.pdf")),
+                                                        password,
+                                                    );
+                                                    if workers == 0 {
+                                                        let (_, value) = encrypt(job);
+                                                        encryption_done += 1;
+                                                        protected += usize::from(
+                                                            value["status"] == "completed",
+                                                        );
+                                                        entry["encryption"] = value;
+                                                    } else {
+                                                        entry["encryption"] =
+                                                            json!({"status":"pending"});
+                                                        jobs.send(job)
+                                                            .context("Encryption worker stopped")?;
+                                                        count += 1;
+                                                    }
+                                                }
+                                                Err(_) => {
+                                                    entry["encryption"] = json!({"status":"failed","error":"Information needed for the password is missing"})
+                                                }
+                                            }
                                         }
                                     }
-                                    Err(_) => {
-                                        entry["encryption"] = json!({"status":"failed","error":"Information needed for the password is missing"})
+                                    _ => {
+                                        entry["original"] = json!({"status":"failed","error":"Compiled PDF is unreadable or has inconsistent page count"});
+                                        add_check(
+                                            entry,
+                                            "output.readable",
+                                            "Compiled PDF could not be inspected",
+                                        );
                                     }
-                                }
+                                },
+                            }
+                            if (index + 1) % evict_every == 0 {
+                                comemo::evict(10 / evict_every);
+                            }
+                            for (i, result) in results.try_iter() {
+                                encryption_done += 1;
+                                protected += usize::from(result["status"] == "completed");
+                                record["entries"][i]["encryption"] = result;
+                                count -= 1;
+                            }
+                            progress(Progress::Notices {
+                                done: index + 1,
+                                total: prepared.len(),
+                                protected,
+                            });
+                            if (index + 1) % 100 == 0 {
+                                report::write(dir, record)?;
+                            }
+                            if let Some(p) = prepared.get(index + compile_window) {
+                                compile_jobs
+                                    .send((index + compile_window, make_request(p)))
+                                    .context("Compiler worker stopped")?;
                             }
                         }
-                        _ => {
-                            entry["original"] = json!({"status":"failed","error":"Compiled PDF is unreadable or has inconsistent page count"});
-                            add_check(
-                                entry,
-                                "output.readable",
-                                "Compiled PDF could not be inspected",
-                            );
-                        }
+                        Ok(())
                     },
+                ));
+                drop(compile_jobs);
+                // Finish submitted encryption jobs even when a later notice or checkpoint fails.
+                drop(jobs);
+                if count > 0 {
+                    progress(Progress::Protecting {
+                        done: encryption_done,
+                        total: encryption_total,
+                    });
                 }
-                comemo::evict(10);
-                for (i, result) in results.try_iter() {
+                for (index, value) in results {
                     encryption_done += 1;
-                    protected += usize::from(result["status"] == "completed");
-                    record["entries"][i]["encryption"] = result;
+                    progress(Progress::Protecting {
+                        done: encryption_done,
+                        total: encryption_total,
+                    });
+                    record["entries"][index]["encryption"] = value;
                     count -= 1;
                 }
-                progress(Progress::Notices {
-                    done: index + 1,
-                    total: prepared.len(),
-                    protected,
-                });
-                if (index + 1) % 100 == 0 {
-                    report::write(dir, record)?;
+                ensure!(count == 0, "Encryption worker did not return every result");
+                match rendering {
+                    Ok(result) => result,
+                    Err(_) => bail!("Unexpected rendering error"),
                 }
-            }
-            Ok(())
-        }));
-        // Finish submitted encryption jobs even when a later notice or checkpoint fails.
-        drop(jobs);
-        if count > 0 {
-            progress(Progress::Protecting {
-                done: encryption_done,
-                total: encryption_total,
-            });
-        }
-        for (index, value) in results {
-            encryption_done += 1;
-            progress(Progress::Protecting {
-                done: encryption_done,
-                total: encryption_total,
-            });
-            record["entries"][index]["encryption"] = value;
-            count -= 1;
-        }
-        ensure!(count == 0, "Encryption worker did not return every result");
-        match rendering {
-            Ok(result) => result,
-            Err(_) => bail!("Unexpected rendering error"),
-        }
+            },
+        )
     });
     if let Some(entries) = record["entries"].as_array_mut() {
         for entry in entries {
@@ -623,6 +685,7 @@ pub fn run_with_progress(
             &prepared,
             &c,
             timestamp,
+            opts.compile_workers,
             opts.encryption_workers,
             resource_root.path(),
             progress,

@@ -13,7 +13,7 @@ the selected templates control wording and appearance.
 | `src/main.rs` | Read command options and resolve project folders. |
 | `src/terminal.rs` | Show progress and a readable completion summary. |
 | `src/input.rs` | Read the CSV, project settings and reference lists; prepare client information. |
-| `src/compiler.rs` | Keep one Typst compiler warm and obtain the PDF and checks from the same document. |
+| `src/compiler.rs` | Keep each Typst compiler warm and obtain the PDF and checks from the same document. |
 | `src/validation.rs`, `src/policy.rs` | Check the report and apply permitted rule changes. |
 | `src/pdf.rs` | Encrypt copies and combine PDF pages. |
 | `src/bundles.rs` | Choose which notices go into each grouped PDF and matching CSV. |
@@ -24,7 +24,7 @@ the selected templates control wording and appearance.
 
 <div class="architecture-diagram" markdown="1" tabindex="0" role="region" aria-label="Processing and concurrency diagram">
 
-[![The coordinator owns the record. One sequential Typst compiler supplies PDF and evidence together; encryption overlaps notices, and bundle workers run afterward.](../assets/processing.svg)](../assets/processing.svg)
+[![The coordinator owns the record. One or two persistent Typst compilers supply PDF and evidence together; the coordinator commits source rows in order, encryption overlaps notices, and bundle workers run afterward.](../assets/processing.svg)](../assets/processing.svg)
 
 </div>
 
@@ -36,9 +36,9 @@ The centre column follows the coordinator; compiler calls, worker jobs and saved
 
 `clap` reads command options. `csv` and `encoding_rs` read source text; `serde-saphyr` reads YAML settings. `serde`, `serde_json` and `chrono` support structured information and dates, while `jsonschema` checks the prepared data and template reports.
 
-The official `typst`, `typst-layout`, `typst-kit` and `typst-pdf` libraries handle templates, fonts, page layout and PDF export inside the application. `comemo` lets Typst reuse earlier work. One compiler stays warm across notices. Typst runs the QR WebAssembly plugin through `wasmi`; that plugin uses `qrcodegen` and `wasm-minimal-protocol`. QR encoding currently happens inside that plugin, rather than through a separate native encoder. The same plugin can be used in Studio; see [QR codes](qr.md).
+The official `typst`, `typst-layout`, `typst-kit` and `typst-pdf` libraries handle templates, fonts, page layout and PDF export inside the application. `comemo` lets Typst reuse earlier work. Each compiler stays warm across notices. Typst runs the QR WebAssembly plugin through `wasmi`; that plugin uses `qrcodegen` and `wasm-minimal-protocol`. QR encoding currently happens inside that plugin, rather than through a separate native encoder. The same plugin can be used in Studio; see [QR codes](qr.md).
 
-`lopdf` inspects originals, creates protected copies and combines original pages. `rand` supplies encryption randomness and `sha2` fingerprints saved files. A bounded queue built with Rust's standard library overlaps one encryption worker with notice creation. Four workers can combine independent groups afterward. Other libraries may use threads internally too. Grouped PDFs are built from originals, not the encrypted copies.
+`lopdf` inspects originals, creates protected copies and combines original pages. `rand` supplies encryption randomness and `sha2` fingerprints saved files. Bounded queues built with Rust's standard library overlap compilation, coordinator work and encryption. On four or more available CPUs, compilation and encryption each default to two workers; smaller machines use one of each. Four workers can combine independent groups afterward. Other libraries may use threads internally too. Grouped PDFs are built from originals, not the encrypted copies.
 
 `serde_json`, Rust's HTML formatting and `csv` write the saved record, readable report and page lists. `include_dir` embeds the shared Typst library and schemas so an installed executable can export them. `anyhow`, `tempfile` and diagnostic helpers support errors and temporary files; they do not form extra pipeline stages.
 
@@ -50,9 +50,9 @@ For the elapsed-time picture, see [the benchmark](../user_guide/performance.md).
 
 Rust’s [ownership and borrowing](https://doc.rust-lang.org/book/ch04-00-understanding-ownership.html) rules make the coordinator’s mutable access explicit; [traits](https://doc.rust-lang.org/book/ch10-02-traits.html) describe shared behavior and bounds such as `Send` and `Sync`. The worker pool uses [scoped threads](https://doc.rust-lang.org/std/thread/fn.scope.html), channels and a mutex around the shared job receiver. Workers release that mutex before processing, so independent jobs can run concurrently. See the Rust book’s [concurrency chapter](https://doc.rust-lang.org/book/ch16-00-concurrency.html) for channels and synchronization.
 
-`run_with_progress` is the coordinator; `run` supplies a no-op progress callback for library callers. The coordinator owns the mutable run record. Worker closures receive jobs and return results tagged with their row or group; they do not write the record. `Result` propagates errors that prevent the workflow from continuing, while expected notice and protection failures are recorded against their rows. Keeping decisions in one sequence makes row accounting and failure recovery traceable: workers cannot race to overwrite policy or bundle membership. The bounded job queue provides backpressure when protection cannot keep up with compilation; the result channel is unbounded and drained between notices.
+`run_with_progress` is the coordinator; `run` supplies a no-op progress callback for library callers. The coordinator owns the mutable run record. Each compilation worker owns a persistent compiler and shares the font store. A fixed window of twice the compiler count bounds all queued, active and completed-but-uncommitted notices. The coordinator buffers out-of-order results and advances this window only after committing the next source row. It writes facts and originals, validates evidence, derives passwords and submits encryption jobs. Worker closures return results tagged with their row or group; they do not write the record. Compiler errors remain independent row failures; worker panics wake a waiting coordinator and fail the run after already-submitted encryption is collected. `Result` propagates errors that prevent the workflow from continuing, while expected notice and protection failures are recorded against their rows. Keeping decisions in one sequence makes row accounting and failure recovery traceable: workers cannot race to overwrite policy or bundle membership. The bounded job queue provides backpressure when protection cannot keep up with compilation; the result channel is unbounded and drained between notices.
 
-Embedding the official compiler keeps compilation, PDF export and evidence access inside the same process and document. A warm compiler reuses fonts and memoized layout work across notices. The compiler is reused sequentially, but its file cache is reset for each row so virtual input and project files cannot retain a previous row’s content. PDF export and evidence extraction use the same compiled document. Evidence extraction can fail independently, allowing a readable original to be retained for review.
+Embedding the official compiler keeps compilation, PDF export and evidence access inside the same process and document. Each warm compiler reuses fonts and memoized layout work across notices. A worker uses its compiler sequentially and resets its file cache for each row so virtual input and project files cannot retain a previous row’s content. Two workers share Typst’s thread-safe memoization; the coordinator evicts aged entries every two committed rows with half the generation limit used for one worker, keeping a similar bounded retention window. PDF export and evidence extraction use the same compiled document. Evidence extraction can fail independently, allowing a readable original to be retained for review.
 
 ## Keep each client connected to the right notice
 
@@ -91,7 +91,7 @@ page range in the matching CSV. A required page count never adds blank pages.
 
 Encryption creates a separate AES-256 revision 6 PDF and verifies protection
 and password access. The original remains available. Derived passwords are
-never saved. One encryption worker and up to four bundle workers are used by default;
+never saved. Compilation and encryption each default to two workers on four or more available CPUs, otherwise one; up to four bundle workers are used by default;
 `src/pool.rs` provides the small bounded work queue. The coordinator alone updates
 the saved record and sends count-only progress receipts to the terminal display. Library callers can run without terminal output. The display adds no worker thread. Setting encryption workers to zero runs protection inline; submitted jobs are drained even if a later rendering or checkpoint step fails. Bundling works on a copy of the entries and publishes its staging directory before replacing bundle decisions in memory.
 
