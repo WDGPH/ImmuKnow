@@ -98,6 +98,22 @@ observations, not a statistical performance guarantee.
 Preparation, notice layout, validation and bundling still cost time. Small ten-notice runs were too noisy to establish an improvement.
 These measurements do not establish a hardware-independent speed or maximum throughput.
 
+A subsequent complete-command comparison used the ten newer fictional clients
+repeated with unique IDs: 1,000 two-page notices, 700 containing QR codes, 1,000
+encrypted copies and ten PDF/CSV bundles. Under a shared 4-CPU / 8-GiB quota,
+three paired repetitions measured these process-start-to-final-report times:
+
+| Core | Median | Observed range |
+| --- | ---: | ---: |
+| Before (`7e873ef`) | 54.3 seconds | 54.2–55.9 seconds |
+| SVG path (`c5d8b5a`) | 52.3 seconds | 52.3–53.0 seconds |
+
+The median improvement was 3.7%, or about two seconds. Facts, assignments, QR
+destinations, findings, page counts and delivery decisions matched across all
+six runs. Builds and benchmark verification were outside the timed command;
+encryption, bundling and reporting were included. The fictional input mix and
+shared runner limit how broadly these observations apply.
+
 The current encoder remains `qrcodegen`. An experimental
 [`fast_qr` 0.14](https://github.com/erwanvivien/fast_qr) ASCII path reduced the SVG benchmark to about 0.51 seconds, but required a second
 encoder for explicit Unicode ECI and nearly doubled the WebAssembly artifact.

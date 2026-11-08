@@ -8,8 +8,8 @@ creates PDF notices and supplies the shared Typst components. See the
 
 ## Compatibility with standalone Core
 
-Use the reviewed compatible Template revision, `a5a2411`, and its
-[setup instructions](https://github.com/WDGPH/ImmuKnow-Template/blob/a5a2411f34c1bd41cd0f7adc8db10e46226c545f/README.md)
+Use the reviewed compatible Template revision, `b7be3b9`, and its
+[setup instructions](https://github.com/WDGPH/ImmuKnow-Template/blob/b7be3b916e3028e0b54025af33bc02dc5f65d4b1/README.md)
 and recorded Core revision. These links identify the reviewed project independently
 of branch names. Studio's pinned resource package is a separate compatibility
 target; a newer Template checkout does not update Studio automatically.
@@ -17,7 +17,7 @@ target; a newer Template checkout does not update Studio automatically.
 The published Studio version still targets the earlier Python Core package.
 The native adoption is available in [Studio PR #33](https://github.com/WDGPH/ImmuKnow-Studio/pull/33),
 paired with [Template PR #16](https://github.com/WDGPH/ImmuKnow-Template/pull/16).
-That integration pins Core `7e873ef`, prepares facts with native `prepare`, exports
+That integration pins Core `c5d8b5a`, prepares facts with native `prepare`, exports
 the matching library and schemas, and verifies browser previews and downloaded
 projects with the same executable. Both companions must be adopted together;
 changing a Template pin alone is insufficient. Projects from the published
@@ -30,6 +30,6 @@ Studio owns this handoff: its build verifies the reviewed native executable,
 reads Template's `core-revision.txt`, uses exported schemas and the complete
 library, and records source and resource identity. Its downloaded-project tests
 cover native runs and saved-run holds/releases. Template's
-[contributor guide](https://github.com/WDGPH/ImmuKnow-Template/blob/a5a2411f34c1bd41cd0f7adc8db10e46226c545f/CONTRIBUTING.md#starter-resources-for-studio)
+[contributor guide](https://github.com/WDGPH/ImmuKnow-Template/blob/b7be3b916e3028e0b54025af33bc02dc5f65d4b1/CONTRIBUTING.md#starter-resources-for-studio)
 describes the resource package. Core and Template updates do not change a
 published Studio build automatically.

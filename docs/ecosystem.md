@@ -13,7 +13,7 @@ system assesses immunization status; operators review notices before delivery.
 
 See the [getting started guide](user_guide/getting_started.md) for a native
 project and [Studio](user_guide/studio.md) for the current integration status.
-Template's [native starter instructions](https://github.com/WDGPH/ImmuKnow-Template/blob/a5a2411f34c1bd41cd0f7adc8db10e46226c545f/README.md)
+Template's [native starter instructions](https://github.com/WDGPH/ImmuKnow-Template/blob/b7be3b916e3028e0b54025af33bc02dc5f65d4b1/README.md)
 describe its setup and project files. Each project is updated independently;
 updating Core does not update Studio's pins or a project's reference lists.
 
@@ -54,5 +54,5 @@ its pinned compatible engine. Adoption of this standalone Core needs the
 separate [Studio integration checks](user_guide/studio.md). Each project tests its own boundary rather than
 repeating another project's complete validation suite. See Core's
 [testing guide](developer_guide/testing.md), Template's
-[contributor guide](https://github.com/WDGPH/ImmuKnow-Template/blob/a5a2411f34c1bd41cd0f7adc8db10e46226c545f/CONTRIBUTING.md),
+[contributor guide](https://github.com/WDGPH/ImmuKnow-Template/blob/b7be3b916e3028e0b54025af33bc02dc5f65d4b1/CONTRIBUTING.md),
 and Studio's [development guide](https://github.com/WDGPH/ImmuKnow-Studio/blob/main/docs/development.md).
