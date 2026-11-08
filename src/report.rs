@@ -3,15 +3,28 @@ use anyhow::Result;
 use serde_json::Value;
 use std::{
     fmt::Write,
+    io::{BufWriter, Write as IoWrite},
     path::{Component, Path},
 };
 
 pub fn escaped(text: &str) -> String {
-    text.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
-        .replace('\'', "&#39;")
+    let mut escaped = String::with_capacity(text.len());
+    let mut start = 0;
+    for (index, character) in text.char_indices() {
+        let entity = match character {
+            '&' => "&amp;",
+            '<' => "&lt;",
+            '>' => "&gt;",
+            '"' => "&quot;",
+            '\'' => "&#39;",
+            _ => continue,
+        };
+        escaped.push_str(&text[start..index]);
+        escaped.push_str(entity);
+        start = index + character.len_utf8();
+    }
+    escaped.push_str(&text[start..]);
+    escaped
 }
 fn text<'a>(v: &'a Value, key: &str) -> &'a str {
     v[key].as_str().unwrap_or("")
@@ -336,7 +349,6 @@ fn entry_details(html: &mut String, e: &Value) {
     html.push_str("</details>");
 }
 pub fn write(dir: &Path, record: &Value) -> Result<()> {
-    let json = serde_json::to_vec_pretty(record)?;
     let mut html = String::from(
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>ImmuKnow run report</title><style>",
     );
@@ -470,7 +482,12 @@ pub fn write(dir: &Path, record: &Value) -> Result<()> {
     html.push_str("</tbody></table><p><a href=\"run.json\">Run record (JSON)</a> contains observed checks, effective results, artifact outcomes and recorded delivery attempts.</p></main><script>");
     html.push_str(include_str!("report.js"));
     html.push_str("</script></body></html>");
-    crate::atomic(&dir.join("run.json"), &json)?;
+    crate::atomic_write(&dir.join("run.json"), |writer| {
+        let mut writer = BufWriter::with_capacity(64 * 1024, writer);
+        serde_json::to_writer_pretty(&mut writer, record)?;
+        writer.flush()?;
+        Ok(())
+    })?;
     crate::atomic(&dir.join("report.html"), html.as_bytes())
 }
 
@@ -482,6 +499,10 @@ mod tests {
         assert_eq!(
             escaped("<x a=\"'&\">"),
             "&lt;x a=&quot;&#39;&amp;&quot;&gt;"
+        );
+        assert_eq!(
+            escaped("L'élève 😄 <&amp;>"),
+            "L&#39;élève 😄 &lt;&amp;amp;&gt;"
         );
     }
 

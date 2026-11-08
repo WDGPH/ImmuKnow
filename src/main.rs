@@ -6,7 +6,10 @@ use immuknow::{
     input::Selection,
     pipeline::{self, RunOptions},
 };
-use std::path::PathBuf;
+use std::{
+    io::{BufWriter, Write},
+    path::PathBuf,
+};
 
 #[derive(Parser)]
 #[command(
@@ -188,8 +191,10 @@ fn execute() -> Result<()> {
         }
         Command::Prepare { inputs } => {
             let prepared = pipeline::prepare(&inputs.options(PathBuf::new(), None, 1, 0, 1)?)?;
-            serde_json::to_writer_pretty(std::io::stdout().lock(), &prepared)?;
-            println!();
+            let mut stdout = BufWriter::new(std::io::stdout().lock());
+            serde_json::to_writer_pretty(&mut stdout, &prepared)?;
+            writeln!(stdout)?;
+            stdout.flush()?;
         }
         Command::Resources { output } => {
             immuknow::resources::materialize(&output)?;

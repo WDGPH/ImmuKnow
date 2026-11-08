@@ -3,7 +3,7 @@ use serde_json::{Value, json};
 use std::{
     fs,
     path::{Path, PathBuf},
-    process::{Command, Output},
+    process::{Command, Output, Stdio},
 };
 use tempfile::TempDir;
 
@@ -428,6 +428,43 @@ fn prepare_supports_both_selectors_and_does_not_create_runs() {
         assert_eq!(e["notice"]["row_key"], format!("row-{:06}", i + 1));
         assert_eq!(e["notice"]["client_id"], e["source"]["client_id"]);
     }
+    let mut assignments: Vec<Value> =
+        serde_json::from_slice(&fs::read(&project.assignments).unwrap()).unwrap();
+    assignments.push(json!({"client_id":"9999999999","template":"overdue_agents_v1.en.typ"}));
+    fs::write(
+        &project.assignments,
+        serde_json::to_vec(&assignments).unwrap(),
+    )
+    .unwrap();
+    let extra = cli(
+        &project.root,
+        &[
+            "prepare",
+            p(&project.csv),
+            "--notice-assignments",
+            p(&project.assignments),
+            "--templates",
+            p(&project.templates),
+            "--config",
+            p(&config),
+        ],
+    );
+    success(&extra);
+    let mut with_extra: Value = serde_json::from_slice(&extra.stdout).unwrap();
+    for entry in with_extra["entries"].as_array_mut().unwrap() {
+        let checks = entry["checks"].as_array_mut().unwrap();
+        let warnings: Vec<_> = checks
+            .iter()
+            .filter(|check| check["code"] == "assignment.extra_manifest_row")
+            .collect();
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(warnings[0]["status"], "warn");
+        checks.retain(|check| check["code"] != "assignment.extra_manifest_row");
+    }
+    assert_eq!(
+        with_extra, prepared,
+        "An extra assignment changes only its warning"
+    );
     let template = project.templates.join("overdue_agents_v1.en.typ");
     let single = cli(
         &project.root,
@@ -450,6 +487,35 @@ fn prepare_supports_both_selectors_and_does_not_create_runs() {
             .all(|e| e["assignment"]["template"] == "overdue_agents_v1.en.typ")
     );
     assert!(!project.runs.exists());
+}
+
+#[test]
+fn prepare_reports_stdout_failure() {
+    let project = Project::new();
+    select_first_rows(&project, &["overdue_agents_v1.en.typ"]);
+    let mut child = Command::new(env!("CARGO_BIN_EXE_immuknow"))
+        .current_dir(&project.root)
+        .args([
+            "prepare",
+            p(&project.csv),
+            "--notice-assignments",
+            p(&project.assignments),
+            "--templates",
+            p(&project.templates),
+            "--config",
+            p(&project.config),
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    // No reader remains: buffered output must surface the write/flush error.
+    drop(child.stdout.take());
+    let output = child.wait_with_output().unwrap();
+    assert!(!output.status.success());
+    let diagnostic = String::from_utf8_lossy(&output.stderr);
+    assert!(diagnostic.contains("ImmuKnow:"), "{diagnostic}");
+    assert!(!diagnostic.contains("panicked"), "{diagnostic}");
 }
 
 #[test]

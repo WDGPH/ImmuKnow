@@ -2,14 +2,13 @@
 use anyhow::{Context, Result, ensure};
 use include_dir::{Dir, include_dir};
 use serde_json::{Value, json};
-use sha2::{Digest, Sha256};
 use std::{fs, path::Path};
 
 static RESOURCES: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/resources");
 
 fn collect(dir: &Dir<'_>, files: &mut Vec<Value>) {
     for file in dir.files() {
-        files.push(json!({"path":file.path().to_string_lossy().replace('\\', "/"), "sha256":format!("{:x}", Sha256::digest(file.contents()))}));
+        files.push(json!({"path":file.path().to_string_lossy().replace('\\', "/"), "sha256":crate::hash(file.contents())}));
     }
     for child in dir.dirs() {
         collect(child, files);
@@ -21,10 +20,8 @@ pub fn identity() -> Value {
     let mut files = Vec::new();
     collect(&RESOURCES, &mut files);
     files.sort_by(|a, b| a["path"].as_str().cmp(&b["path"].as_str()));
-    let digest = format!(
-        "{:x}",
-        Sha256::digest(serde_json::to_vec(&files).expect("resource identity is serializable"))
-    );
+    let digest =
+        crate::hash(&serde_json::to_vec(&files).expect("resource identity is serializable"));
     json!({"sha256":digest,"files":files})
 }
 fn export(dir: &Dir<'_>, output: &Path) -> Result<()> {

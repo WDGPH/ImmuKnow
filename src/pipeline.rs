@@ -292,6 +292,7 @@ pub fn prepare(opts: &RunOptions) -> Result<Value> {
     let source = temp.path().join("source.csv");
     fs::write(&source, &bytes)?;
     let mut record = json!({"schema_version":1,"engine":"typst 0.15.1","resources":resources::identity(),"input":{"sha256":crate::hash(&bytes)},"entries":source_entries(&source, opts.encoding.as_deref())?});
+    drop(bytes);
     let c = input::config(&opts.config.join("parameters.yaml"))?;
     validate_project(&opts.templates, temp.path())?;
     let prepared = prepare_data(
@@ -345,9 +346,8 @@ fn process(
     let compiler_fonts = compiler::Compiler::fonts();
     let compile_workers = usize::from(compile_workers.clamp(1, 2));
     let compile_window = compile_workers * 2;
-    // With two compilers, scan the shared cache every two committed rows.
-    // Halving its generation limit keeps a similar bounded retention window.
-    let evict_every = compile_workers;
+    // Amortize global cache sweeps while retaining roughly ten rows of history.
+    let evict_every = if compile_workers == 2 { 5 } else { 1 };
     let make_request = |p: &Prepared| compiler::Request {
         inputs: BTreeMap::from([
             (
@@ -371,8 +371,7 @@ fn process(
         timestamp,
     };
     let encrypt = |(index, original, destination, password): (usize, PathBuf, PathBuf, String)| {
-        let result = pdf::encrypt(&original, &destination, &password)
-            .and_then(|()| Ok(crate::hash(&fs::read(&destination)?)));
+        let result = pdf::encrypt_with_hash(&original, &destination, &password);
         let value = match result {
             Ok(hash) => {
                 json!({"status":"completed","path":format!("encrypted/{}.pdf",original.file_stem().unwrap().to_string_lossy()),"algorithm":"AES-256","revision":6,"sha256":hash})
@@ -433,71 +432,70 @@ fn process(
                                         "Notice compilation failed",
                                     );
                                 }
-                                Ok(compiled) => match pdf::inspect(&compiled.pdf) {
-                                    Ok(pages) if pages == compiled.pages => {
-                                        crate::atomic(&dir.join(&original), &compiled.pdf)?;
-                                        entry["original"] = json!({"status":"completed","path":original,"sha256":crate::hash(&compiled.pdf),"pages":pages});
-                                        if !compiled.diagnostics.is_empty() {
-                                            entry["compiler_diagnostics"] =
-                                                json!(compiled.diagnostics);
-                                        }
-                                        let evidence = compiled
-                                            .reports
-                                            .map_err(anyhow::Error::msg)
-                                            .and_then(|v| validator.report(&v, &p.notice, pages));
-                                        match evidence {
-                                            Ok(value) => {
-                                                entry["checks"].as_array_mut().unwrap().extend(
-                                                    value["checks"].as_array().unwrap().clone(),
-                                                );
-                                                entry["render_report"] = value;
-                                            }
-                                            Err(error) => add_check(
-                                                entry,
-                                                "render.evidence_failed",
-                                                &error.to_string(),
-                                            ),
-                                        }
-                                        if c.encryption.enabled {
-                                            match input::password(p, c) {
-                                                Ok(password) => {
-                                                    encryption_total += 1;
-                                                    let job = (
-                                                        index,
-                                                        dir.join(&original),
-                                                        dir.join(format!("encrypted/{key}.pdf")),
-                                                        password,
-                                                    );
-                                                    if workers == 0 {
-                                                        let (_, value) = encrypt(job);
-                                                        encryption_done += 1;
-                                                        protected += usize::from(
-                                                            value["status"] == "completed",
-                                                        );
-                                                        entry["encryption"] = value;
-                                                    } else {
-                                                        entry["encryption"] =
-                                                            json!({"status":"pending"});
-                                                        jobs.send(job)
-                                                            .context("Encryption worker stopped")?;
-                                                        count += 1;
-                                                    }
-                                                }
-                                                Err(_) => {
-                                                    entry["encryption"] = json!({"status":"failed","error":"Information needed for the password is missing"})
-                                                }
-                                            }
-                                        }
+                                Ok(compiled) if compiled.pages > 0 && !compiled.pdf.is_empty() => {
+                                    // Typst exports the document whose pages were counted;
+                                    // parsing its bytes again would repeat the exporter contract.
+                                    let pages = compiled.pages;
+                                    crate::atomic(&dir.join(&original), &compiled.pdf)?;
+                                    entry["original"] = json!({"status":"completed","path":original,"sha256":crate::hash(&compiled.pdf),"pages":pages});
+                                    if !compiled.diagnostics.is_empty() {
+                                        entry["compiler_diagnostics"] = json!(compiled.diagnostics);
                                     }
-                                    _ => {
-                                        entry["original"] = json!({"status":"failed","error":"Compiled PDF is unreadable or has inconsistent page count"});
-                                        add_check(
+                                    let evidence = compiled
+                                        .reports
+                                        .map_err(anyhow::Error::msg)
+                                        .and_then(|v| validator.report(&v, &p.notice, pages));
+                                    match evidence {
+                                        Ok(value) => {
+                                            entry["checks"].as_array_mut().unwrap().extend(
+                                                value["checks"].as_array().unwrap().clone(),
+                                            );
+                                            entry["render_report"] = value;
+                                        }
+                                        Err(error) => add_check(
                                             entry,
-                                            "output.readable",
-                                            "Compiled PDF could not be inspected",
-                                        );
+                                            "render.evidence_failed",
+                                            &error.to_string(),
+                                        ),
                                     }
-                                },
+                                    if c.encryption.enabled {
+                                        match input::password(p, c) {
+                                            Ok(password) => {
+                                                encryption_total += 1;
+                                                let job = (
+                                                    index,
+                                                    dir.join(&original),
+                                                    dir.join(format!("encrypted/{key}.pdf")),
+                                                    password,
+                                                );
+                                                if workers == 0 {
+                                                    let (_, value) = encrypt(job);
+                                                    encryption_done += 1;
+                                                    protected +=
+                                                        usize::from(value["status"] == "completed");
+                                                    entry["encryption"] = value;
+                                                } else {
+                                                    entry["encryption"] =
+                                                        json!({"status":"pending"});
+                                                    jobs.send(job)
+                                                        .context("Encryption worker stopped")?;
+                                                    count += 1;
+                                                }
+                                            }
+                                            Err(_) => {
+                                                entry["encryption"] = json!({"status":"failed","error":"Information needed for the password is missing"})
+                                            }
+                                        }
+                                    }
+                                }
+                                Ok(_) => {
+                                    entry["original"] = json!({"status":"failed","error":"PDF export returned no pages or no bytes"});
+                                    add_check(
+                                        entry,
+                                        "output.readable",
+                                        "PDF export returned no pages or no bytes",
+                                    );
+                                }
                             }
                             if (index + 1) % evict_every == 0 {
                                 comemo::evict(10 / evict_every);
@@ -608,10 +606,11 @@ pub fn run_with_progress(
         let bytes = fs::read(&opts.csv).context("Unable to read source CSV")?;
         crate::atomic(&dir.join("source.csv"), &bytes)?;
         record["input"] = json!({"path":"source.csv","sha256":crate::hash(&bytes),"requested_encoding":opts.encoding});
+        drop(bytes);
         // Record every readable row before configuration or preparation can fail.
-        record["entries"] = json!(source_entries(
+        record["entries"] = Value::Array(source_entries(
             &dir.join("source.csv"),
-            opts.encoding.as_deref()
+            opts.encoding.as_deref(),
         )?);
         report::write(&dir, &record)?;
         let resource_root = tempfile::tempdir()?;
@@ -690,6 +689,7 @@ pub fn run_with_progress(
             resource_root.path(),
             progress,
         )?;
+        drop(prepared);
         record["timings"]["render_seconds"] = json!(render_start.elapsed().as_secs_f64());
         policy::apply(&mut record, &c, resource_root.path())?;
         let bundling_start = Instant::now();

@@ -2,7 +2,13 @@
 use anyhow::{Result, ensure};
 use lopdf::encryption::crypt_filters::{Aes256CryptFilter, CryptFilter};
 use lopdf::{Document, EncryptionState, EncryptionVersion, Object, Permissions, dictionary};
-use std::{collections::BTreeMap, fs, path::Path, sync::Arc};
+use std::{
+    collections::BTreeMap,
+    fs,
+    io::{self, BufWriter, Write},
+    path::Path,
+    sync::Arc,
+};
 
 pub fn inspect(bytes: &[u8]) -> Result<usize> {
     let doc = Document::load_mem(bytes)?;
@@ -12,6 +18,13 @@ pub fn inspect(bytes: &[u8]) -> Result<usize> {
     Ok(pages)
 }
 pub fn encrypt(source: &Path, destination: &Path, password: &str) -> Result<()> {
+    encrypt_with_hash(source, destination, password).map(|_| ())
+}
+pub(crate) fn encrypt_with_hash(
+    source: &Path,
+    destination: &Path,
+    password: &str,
+) -> Result<String> {
     ensure!(
         !password.trim().is_empty(),
         "Password facts are unavailable"
@@ -57,12 +70,26 @@ pub fn encrypt(source: &Path, destination: &Path, password: &str) -> Result<()> 
     );
     doc.catalog_mut()?.set("Extensions", extensions);
     doc.encrypt(&state)?;
+    check_encryption_settings(&doc)?;
+    // R6's Unicode preparation can map nonempty input (e.g. a soft hyphen)
+    // to empty bytes. Reject that without repeating password authentication.
+    ensure!(
+        !lopdf::encryption::PasswordAlgorithm::try_from(&doc)?
+            .sanitize_password(password)?
+            .is_empty(),
+        "Password is empty after PDF password preparation"
+    );
+    ensure!(
+        doc.get_pages().len() == pages,
+        "Encryption changed page count"
+    );
     let partial = destination.with_extension("partial.pdf");
-    let result = (|| -> Result<()> {
-        doc.save(&partial)?;
-        verify_encrypted(&partial, password, pages)?;
+    let result = (|| -> Result<String> {
+        // Encryption is applied above; the pinned writer reports serialization,
+        // write and buffer-flush failures. Password round trips belong in tests.
+        let digest = save_hashed(&mut doc, fs::File::create(&partial)?)?;
         fs::rename(&partial, destination)?;
-        Ok(())
+        Ok(digest)
     })();
     if partial.exists() {
         fs::remove_file(&partial)?;
@@ -70,12 +97,8 @@ pub fn encrypt(source: &Path, destination: &Path, password: &str) -> Result<()> 
     result
 }
 
-pub fn verify_encrypted(partial: &Path, password: &str, pages: usize) -> Result<()> {
-    let verified = Document::load(partial)?;
-    ensure!(verified.is_encrypted(), "Encrypted output is unprotected");
-    // The passwordless loader attempts the empty password itself and
-    // removes /Encrypt on success. Its remaining /Encrypt proves refusal.
-    let details = verified.get_encrypted()?;
+fn check_encryption_settings(doc: &Document) -> Result<()> {
+    let details = doc.get_encrypted()?;
     ensure!(
         details.get(b"V")?.as_i64()? == 5
             && details.get(b"R")?.as_i64()? == 6
@@ -90,10 +113,17 @@ pub fn verify_encrypted(partial: &Path, password: &str, pages: usize) -> Result<
             && filters.get(b"CFM")?.as_name()? == b"AESV3",
         "Wrong AES encryption filters"
     );
-    // Loading without a password intentionally exposes only the encryption
-    // dictionary. Reopen with a password to materialize the page objects.
-    let readable =
-        Document::load_with_options(partial, lopdf::LoadOptions::with_password(password))?;
+    Ok(())
+}
+
+/// Explicitly audit a saved protected copy. The normal creation path checks the
+/// constructed document and write results instead of repeating this round trip.
+pub fn verify_encrypted(path: &Path, password: &str, pages: usize) -> Result<()> {
+    // Passwordless loading tries the empty password and retains /Encrypt only
+    // when it cannot decrypt the document.
+    let locked = Document::load(path)?;
+    check_encryption_settings(&locked)?;
+    let readable = Document::load_with_options(path, lopdf::LoadOptions::with_password(password))?;
     ensure!(
         readable.was_encrypted() && !readable.is_encrypted() && readable.get_pages().len() == pages,
         "Encryption changed page count"
@@ -206,6 +236,12 @@ fn resolve_named_links(doc: &mut Document) -> Result<()> {
 }
 
 pub fn merge(paths: &[impl AsRef<Path>], destination: &Path) -> Result<usize> {
+    merge_with_hash(paths, destination).map(|(pages, _)| pages)
+}
+pub(crate) fn merge_with_hash(
+    paths: &[impl AsRef<Path>],
+    destination: &Path,
+) -> Result<(usize, String)> {
     let mut merged = Document::with_version("1.7");
     let pages_root = merged.new_object_id();
     let mut kids: Vec<Object> = vec![];
@@ -256,12 +292,23 @@ pub fn merge(paths: &[impl AsRef<Path>], destination: &Path) -> Result<usize> {
     let catalog = merged.add_object(dictionary! {"Type"=>"Catalog","Pages"=>pages_root});
     merged.trailer.set("Root", catalog);
     merged.prune_objects();
-    merged.save(destination)?;
     ensure!(
-        Document::load(destination)?.get_pages().len() == count,
+        merged.get_pages().len() == count,
         "Bundle page count mismatch"
     );
-    Ok(count)
+    let digest = save_hashed(&mut merged, fs::File::create(destination)?)?;
+    Ok((count, digest))
+}
+
+fn save_hashed(doc: &mut Document, output: impl Write) -> io::Result<String> {
+    // save_to is unbuffered. Coalesce serialization writes before hashing them.
+    let mut writer = BufWriter::new(crate::HashingWriter::new(output));
+    doc.save_to(&mut writer)?;
+    writer.flush()?;
+    Ok(writer
+        .into_inner()
+        .map_err(|error| error.into_error())?
+        .into_digest())
 }
 
 #[cfg(test)]
@@ -277,24 +324,125 @@ mod tests {
         d
     }
     #[test]
+    fn saved_digest_requires_successful_flush() {
+        struct FlushFailure;
+        impl Write for FlushFailure {
+            fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+                Ok(bytes.len())
+            }
+            fn flush(&mut self) -> io::Result<()> {
+                Err(io::Error::other("injected flush failure"))
+            }
+        }
+        let error = save_hashed(&mut page(), FlushFailure).unwrap_err();
+        assert_eq!(error.to_string(), "injected flush failure");
+    }
+
+    #[test]
     fn password_and_inherited_pages() -> Result<()> {
         let dir = tempfile::tempdir()?;
         let source = dir.path().join("source.pdf");
         page().save(&source)?;
         let encrypted = dir.path().join("encrypted.pdf");
-        encrypt(&source, &encrypted, "héllo-世界")?;
+        let digest = encrypt_with_hash(&source, &encrypted, "héllo-世界")?;
+        assert_eq!(digest, crate::hash(&fs::read(&encrypted)?));
         assert!(
             Document::load(&encrypted)?
                 .authenticate_password("wrong")
                 .is_err()
         );
         let bundle = dir.path().join("bundle.pdf");
-        assert_eq!(merge(&[&source, &source], &bundle)?, 2);
+        let (pages, digest) = merge_with_hash(&[&source, &source], &bundle)?;
+        assert_eq!(pages, 2);
+        assert_eq!(digest, crate::hash(&fs::read(&bundle)?));
         let d = Document::load(bundle)?;
         for id in d.get_pages().values() {
             let parent = d.get_dictionary(*id)?.get(b"Parent")?.as_reference()?;
             assert!(d.get_dictionary(parent)?.has(b"MediaBox"));
         }
+        Ok(())
+    }
+    #[test]
+    fn protected_copies_round_trip_and_use_fresh_randomness() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let source = dir.path().join("source.pdf");
+        let mut original = page();
+        let content = original.add_object(lopdf::Stream::new(
+            dictionary! {},
+            b"BT /F1 12 Tf (fictional notice) Tj ET".to_vec(),
+        ));
+        let page_id = *original.get_pages().values().next().unwrap();
+        original
+            .get_dictionary_mut(page_id)?
+            .set("Contents", content);
+        let info = original
+            .add_object(dictionary! {"Title" => Object::string_literal("Fictional notice")});
+        original.trailer.set("Info", info);
+        original.save(&source)?;
+        for (index, password) in ["20150102", "héllo-世界"].into_iter().enumerate() {
+            let destination = dir.path().join(format!("encrypted-{index}.pdf"));
+            encrypt(&source, &destination, password)?;
+            let locked = Document::load(&destination)?;
+            // The passwordless loader tries an empty password. Keeping /Encrypt
+            // therefore establishes that this output refuses empty access.
+            assert!(locked.is_encrypted());
+            let settings = locked.get_encrypted()?;
+            assert_eq!(settings.get(b"V")?.as_i64()?, 5);
+            assert_eq!(settings.get(b"R")?.as_i64()?, 6);
+            assert_eq!(settings.get(b"Length")?.as_i64()?, 256);
+            assert_eq!(settings.get(b"Filter")?.as_name()?, b"Standard");
+            for key in [b"StmF", b"StrF"] {
+                assert_eq!(settings.get(key)?.as_name()?, b"StdCF");
+            }
+            assert_eq!(
+                settings
+                    .get(b"CF")?
+                    .as_dict()?
+                    .get(b"StdCF")?
+                    .as_dict()?
+                    .get(b"CFM")?
+                    .as_name()?,
+                b"AESV3"
+            );
+            assert!(
+                Document::load_with_options(
+                    &destination,
+                    lopdf::LoadOptions::with_password("wrong")
+                )
+                .is_err()
+            );
+            let readable = Document::load_with_options(
+                &destination,
+                lopdf::LoadOptions::with_password(password),
+            )?;
+            assert!(readable.was_encrypted() && !readable.is_encrypted());
+            assert_eq!(readable.get_pages(), original.get_pages());
+            assert_eq!(
+                readable.get_object(content)?.as_stream()?.content,
+                original.get_object(content)?.as_stream()?.content
+            );
+            assert_eq!(
+                readable.get_dictionary(info)?.get(b"Title")?.as_str()?,
+                b"Fictional notice"
+            );
+            let another = dir.path().join(format!("another-{index}.pdf"));
+            encrypt(&source, &another, password)?;
+            assert_ne!(fs::read(&destination)?, fs::read(&another)?);
+        }
+        let rejected = dir.path().join("rejected.pdf");
+        for password in ["", " \t\n", "\u{00ad}", "\u{2060}"] {
+            assert!(encrypt(&source, &rejected, password).is_err());
+            assert!(!rejected.exists());
+        }
+        // A failed write is never reported as a protected copy.
+        assert!(
+            encrypt(
+                &source,
+                &dir.path().join("missing/encrypted.pdf"),
+                "20150102"
+            )
+            .is_err()
+        );
         Ok(())
     }
     #[test]
@@ -333,6 +481,7 @@ mod tests {
             let merged = Document::load(output)?;
             assert_eq!(merged.version, version);
             let pages: Vec<_> = merged.get_pages().into_values().collect();
+            assert_eq!(pages.len(), 4);
             for offset in [0, 2] {
                 let annotations = merged
                     .get_dictionary(pages[offset])?

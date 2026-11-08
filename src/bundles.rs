@@ -1,7 +1,6 @@
 //! Create numbered bundle sets from the saved original PDFs.
 use anyhow::{Context, Result, ensure};
 use serde_json::{Value, json};
-use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
@@ -158,7 +157,7 @@ pub(crate) fn bundle_with_progress(
     }
     if config.bundling.bundle_size == 0 {
         progress(0, 0);
-        record["entries"] = json!(entries);
+        record["entries"] = Value::Array(entries);
         record["bundles"] = json!([]);
         return Ok(());
     }
@@ -191,8 +190,7 @@ pub(crate) fn bundle_with_progress(
             let name = format!("{}-{number:04}.pdf", if route == "review" { "review" } else { "bundle" });
             let paths = indices.iter().map(|i| relative_original(dir, &entries[*i])).collect::<Result<Vec<_>>>()?;
             let dest = staging.join(&name);
-            let pages = crate::pdf::merge(&paths, &dest)?;
-            let hash = format!("{:x}", Sha256::digest(fs::read(&dest)?));
+            let (pages, hash) = crate::pdf::merge_with_hash(&paths, &dest)?;
             Ok((number, route, group, indices, pages, hash))
         };
         let mut results = BTreeMap::new();
@@ -274,8 +272,8 @@ pub(crate) fn bundle_with_progress(
     match result {
         Ok(bundles) => {
             fs::rename(&staging, &published)?;
-            record["entries"] = json!(entries);
-            record["bundles"] = json!(bundles);
+            record["entries"] = Value::Array(entries);
+            record["bundles"] = Value::Array(bundles);
             Ok(())
         }
         Err(error) => {

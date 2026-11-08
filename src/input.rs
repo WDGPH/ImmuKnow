@@ -3,7 +3,6 @@ use anyhow::{Context, Result, bail, ensure};
 use chrono::{Datelike, NaiveDate};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
@@ -688,7 +687,7 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>
         );
         Some((
             mapping.clone(),
-            format!("{:x}", Sha256::digest(&bytes)),
+            crate::hash(&bytes),
             path.file_name()
                 .unwrap_or_default()
                 .to_string_lossy()
@@ -711,6 +710,7 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>
         rows.iter().any(|r| !get(r, "oiid").is_empty()),
         rows.iter().any(|r| get(r, "oiid").is_empty()),
     );
+    let extra_manifest_rows = single.is_none() && by_id.keys().any(|id| !ids.contains(id));
     let mut result = vec![];
     for (i, ((r, source), (history, hk, hu))) in rows.iter().zip(sources).zip(histories).enumerate()
     {
@@ -755,7 +755,7 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>
             );
         }
         let mut checks = vec![];
-        if single.is_none() && by_id.keys().any(|id| !ids.contains(id)) {
+        if extra_manifest_rows {
             checks.push(check(
                 "assignment.extra_manifest_row",
                 "warn",

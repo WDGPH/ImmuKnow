@@ -12,6 +12,18 @@ The numbered `bundles-0001/` directory contains `bundle-*.pdf` for notices ready
 
 For explanations and investigation steps for individual codes, see the [finding code reference](findings.md).
 
+## What Core checks during a run
+
+| Check | Purpose | When it runs |
+| --- | --- | --- |
+| Source data, assignments and required password facts | Catch missing, inconsistent or unusable inputs. | Production preparation. |
+| Notice evidence, layout and delivery rules | Check the selected client, content, placement and page count; decide whether the notice can be sent. | Every production notice. |
+| PDF creation and file operations | Require successful Typst export, a nonempty document, successful writes and publication. | Every production notice. |
+| Encryption settings and bundle structure | Require the configured protection, a usable normalized password and consistent page counts. Parse source PDFs when needed to encrypt or combine them. | Every requested protected copy or bundle. |
+| Saved-PDF reopening, password refusal/access and preserved content | Detect regressions in the pinned PDF libraries and Core's integration. | Automated round-trip tests and release acceptance checks. |
+
+Core trusts successful calls to the pinned Typst exporter and PDF writer. It does not reopen every newly written PDF or authenticate every newly encrypted copy during production. Those library contracts do not establish that wording, client information or layout is correct; the notice checks and operator review still apply. Successful file operations also do not promise protection from later storage corruption or modification.
+
 ## Know which PDF you are sending
 
 Originals are the source for both normal and review bundles. Encrypted PDFs are

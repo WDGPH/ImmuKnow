@@ -176,7 +176,7 @@ The PDF was created but its required render evidence was missing, invalid or inc
 
 ### `output.readable` {#output-readable}
 
-The compiled PDF could not be inspected or its page count was inconsistent. Inspect the creation error and template, then regenerate the notice.
+PDF export returned no pages or no bytes. Ask the template maintainer to inspect the creation error and regenerate the notice. Core trusts successful Typst PDF export and uses the page count from the same compiled document; it does not parse the exported bytes again. Older runs also used this code for a failed PDF inspection or inconsistent page count.
 
 ### `encryption.failed` {#encryption-failed}
 
