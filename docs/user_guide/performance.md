@@ -1,5 +1,24 @@
 # Measured notice throughput
 
+## Current work-reduction comparison
+
+The current pipeline created **1,000 notices in a median 25.29 seconds**, compared with **34.75 seconds** for the previously integrated bounded-worker version. Three alternating paired runs used a shared machine limited to four CPUs and 8 GiB RAM. Each command created 2,000 original pages, 1,000 AES-256 revision 6 protected copies and ten PDF/CSV bundles, including 700 QR-bearing notices.
+
+| Measurement | Previously integrated workers | Reduced work |
+| --- | ---: | ---: |
+| Three runs, seconds | 33.83, 34.75, 35.22 | 25.29, 24.19, 25.49 |
+| Median command time | 34.75 seconds | 25.29 seconds |
+| Median child CPU time | 118.10 seconds | 76.11 seconds |
+| Highest sampled process memory | 1.28 GiB | 1.07 GiB |
+
+Elapsed time fell **27.2%**, and aggregate CPU work fell **35.6%**. The equivalent rate is about **142,000 notices/hour for batches of this size**. Neither an hour-long run nor a single 100,000-row batch has been measured.
+
+Both versions used two compilation workers, two encryption workers and four bundle workers. The timed interval includes startup, preparation, compilation, retained notice checks, original writes, protection, grouping, fingerprints and final reports. Builds, profilers and acceptance checks were outside timing; one exclusive lock covered all six measured commands and their comparisons. Filesystem caches were warm. The fixture was recreated from Template's ten fictional clients after the earlier temporary measurement files were lost; compare these paired runs with each other rather than combining their samples with earlier experiments.
+
+Every run completed all artifacts with identical full findings, render evidence, routing, prepared facts, original PDFs and bundled PDFs. All 3,010 recorded artifact hashes were recomputed for each run. Protected copies preserve independent encryption randomness. A separate saved-output acceptance check exercises passwords, encryption settings, decrypted content and bundle membership outside the timed command.
+
+The baseline is [2fedadb](https://github.com/WDGPH/ImmuKnow/commit/2fedadb615762f84e4d37b201920be0d46f9c0b3); the implementation is [e7a8de1](https://github.com/WDGPH/ImmuKnow/commit/e7a8de1c9c54073b02a44c6e36f5ba646d3faf8a). [Measurement data](../assets/work-reduction-benchmark.json) records binary and source hashes, exact workload and font hashes, individual results and acceptance findings. See [testing](../developer_guide/testing.md#measure-the-complete-command) for timing guidance.
+
 ## Initial bounded-worker comparison
 
 The standalone Rust pipeline created **1,000 personalized notices in a median 34.93 seconds** on a shared machine limited to four CPUs and 8 GiB RAM. Each command produced 2,000 original pages, 1,000 separate AES-256 revision 6 protected copies, and 10 PDF/CSV bundles. This is equivalent to about **103,000 notices per hour for batches of this size**; an hour-long run and a single 100,000-row batch have not been measured.
