@@ -33,10 +33,11 @@ compiler: {
   accent
   inset
   ...${card}
+  accent.style.fill: '#2563eb'
   content: |md
-    **One warm Typst compiler**
+    **Warm Typst workers**
 
-    Sequential compilations:\
+    1–2 bounded compilations:\
     one document → PDF + evidence
   |
 }
@@ -47,8 +48,8 @@ rows: {
   content: |md
     **Coordinator · each row**
 
-    Save original + findings,\
-    continue independent rows
+    Commit rows in source order,\
+    save originals + findings
   |
 }
 encrypt: {
@@ -136,7 +137,7 @@ outputs: {
 }
 
 prepare -> rows: {class: flow}
-rows <-> compiler: {class: flow}
+rows <-> compiler: {class: job}
 rows <-> encrypt: {class: job}
 prepare -> record: {class: flow}
 rows -> record: {class: flow}
