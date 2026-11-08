@@ -41,6 +41,7 @@ nav:
       - ImmuKnow Studio: user_guide/studio.md
       - CSV Input Fields: user_guide/input_schema.md
       - PDF Review: user_guide/pdf_validation.md
+      - Finding Code Reference: user_guide/findings.md
       - Performance: user_guide/performance.md
   - Developers and Template Authors:
       - Writing Templates: developer_guide/templates.md

@@ -119,7 +119,7 @@
   layout(size => {
     if type(date-width) == length and type(disease-width) == length {
       let minimum = date-width + view.columns.len() * disease-width + 40pt + if show-age { age-width } else { 0pt }
-      context check("layout.history_width", if size.width >= minimum { "pass" } else { "warn" }, "History column width compared with available space.", component: "history", page: here().page(), measurements: (available_width_pt: size.width.pt(), minimum_width_pt: minimum.pt()))
+      context check("layout.history_width", if size.width >= minimum { "pass" } else { "warn" }, if size.width >= minimum { "History columns fit the available width." } else { "History columns need more width than is available. Reduce the columns or adjust the template widths." }, component: "history", page: here().page(), measurements: (available_width_pt: size.width.pt(), minimum_width_pt: minimum.pt()))
     }
     table(
     columns: widths, inset: inset, stroke: stroke,

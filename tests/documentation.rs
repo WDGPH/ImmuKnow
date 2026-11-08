@@ -103,3 +103,27 @@ fn local_documentation_links_and_cli_commands() {
         }
     }
 }
+
+#[test]
+fn render_findings_have_stable_help_anchors() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let schema: serde_json::Value =
+        serde_json::from_slice(&fs::read(root.join("resources/typst/report.json")).unwrap())
+            .unwrap();
+    let reference = fs::read_to_string(root.join("docs/user_guide/findings.md")).unwrap();
+    for rule in schema["$defs"]["check"]["properties"]["code"]["oneOf"]
+        .as_array()
+        .unwrap()
+    {
+        let code = rule["const"].as_str().unwrap();
+        let anchor = if code.starts_with("component.") && code.ends_with(".absent") {
+            "component-absent".to_owned()
+        } else {
+            code.replace(['.', '_'], "-")
+        };
+        assert!(
+            reference.contains(&format!("{{#{anchor}}}")),
+            "missing help for {code}"
+        );
+    }
+}

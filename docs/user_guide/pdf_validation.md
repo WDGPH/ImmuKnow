@@ -2,9 +2,15 @@
 
 Each run records input preparation, PDF creation and check results in `run.json`, with a readable `report.html`. Inspect the report and representative notices before sending them. Typst components record layout and content findings for the notice actually created.
 
-Notices with warnings can be included in the PDFs for sending under the active rules. A failed check prevents that notice from entering the PDFs for sending. If its original PDF is readable, it goes into a separate review PDF. If no PDF was created or the original is unreadable, the notice appears in the report only. Other notices can still be processed. A run with failures exits with an error; warnings alone do not cause an error exit.
+The report starts with counts of source rows by delivery decision. The warning-row count and filter also include notice creation messages. Warning counts overlap those decisions: a Ready row can still have warnings. Search names, client IDs, schools or finding text, and filter by decision or warnings. Each row shows its main finding; expand **Findings and files** for failures, warnings, next steps and PDF links. Passed, inapplicable and policy-disabled checks are under **Other checks**. Unperformed checks that were not disabled remain prominent because they block the normal bundle. Technical details retain check codes, measurements and any rule change with its original and effective result. Without JavaScript, all rows remain available and browser Find still works.
+
+Ready means eligible under the effective rules, not proof that a bundle was produced. Check the actual bundle links and run errors. Counts describe source rows, not unique people or immunization outcomes. Link checks validate address formats; they do not test whether websites respond.
+
+Notices with warnings can be included in the PDFs for sending under the active rules. A failed check, or a check that was not run and was not disabled, prevents that notice from entering the PDFs for sending. If its original PDF is readable, it goes into a separate review PDF. If no PDF was created or the original is unreadable, the notice appears in the report only. Other notices can still be processed. A run with failures exits with an error; warnings alone do not cause an error exit.
 
 The numbered `bundles-0001/` directory contains `bundle-*.pdf` for notices ready to send and `review-*.pdf` for notices requiring review. A CSV beside each PDF connects its page ranges and findings to the input rows. The run also retains original PDFs and, if configured, separate encrypted copies. Read the report for actual outcomes and paths; do not infer success from a file's presence alone.
+
+For explanations and investigation steps for individual codes, see the [finding code reference](findings.md).
 
 ## Know which PDF you are sending
 

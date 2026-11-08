@@ -784,11 +784,20 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>
                     None => ("fail", "not_found", "", ""),
                 },
             };
-            let mut finding = check(
-                "data.school_match",
-                status,
-                "School reference comparison completed.",
-            );
+            let message = match reason {
+                "exact" => format!("School name and ID match the reference: {raw}."),
+                "name_only" => format!(
+                    "School name matches {matched_name}, but the source has no school ID. The reference ID is {matched_id}."
+                ),
+                "id_mismatch" => format!(
+                    "School ID does not match: {raw}. The reference ID for {matched_name} is {matched_id}."
+                ),
+                "id_only" => format!(
+                    "School ID {id} belongs to {matched_name} in the reference, but the source school name is {name}."
+                ),
+                _ => format!("School was not found in the configured reference: {raw}."),
+            };
+            let mut finding = check("data.school_match", status, &message);
             finding["measurements"] = json!({"reference_file": filename, "reference_sha256": hash, "target_phu":c.school_validation.target_phu, "source_school":raw,"match_type": if reason == "exact" {"exact"} else if reason == "not_found" {"no_match"} else {"inexact"},"reason":reason,"matched_name":matched_name,"matched_id":matched_id});
             checks.push(finding);
         }
@@ -822,20 +831,26 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>
         .filter(|s| !s.is_empty())
         .collect::<Vec<_>>()
         .join(" ");
-        if [
-            &street,
-            get(r, "city"),
-            get(r, "province"),
-            get(r, "postal_code"),
+        let missing_address: Vec<_> = [
+            ("street address", street.as_str()),
+            ("city", get(r, "city")),
+            ("province", get(r, "province")),
+            ("postal code", get(r, "postal_code")),
         ]
-        .contains(&"")
-        {
+        .into_iter()
+        .filter_map(|(name, value)| value.is_empty().then_some(name))
+        .collect();
+        if !missing_address.is_empty() {
             let mut c = check(
                 "source.address_incomplete",
                 "warn",
-                "Source mailing address is incomplete",
+                &format!(
+                    "Source mailing address is incomplete. Missing: {}.",
+                    missing_address.join(", ")
+                ),
             );
             c["component"] = json!("address");
+            c["measurements"] = json!({"missing_fields": missing_address});
             checks.push(c);
         }
         let birth = date(get(r, "date_of_birth")).ok();

@@ -219,7 +219,7 @@
     v(1fr)
     block(breakable: false, width: 100%)[#context {
       component("privacy", measurements: (page: here().page()))
-      check("layout.privacy_page", if here().page() == expected-page { "pass" } else { "warn" }, "Privacy notice placement.", component: "privacy", page: here().page(), measurements: (expected_page: expected-page, actual_page: here().page()))
+      check("layout.privacy_page", if here().page() == expected-page { "pass" } else { "warn" }, if here().page() == expected-page { "Privacy notice is on its expected page." } else { "Privacy notice is on page " + str(here().page()) + "; expected page " + str(expected-page) + ". Review the template page breaks." }, component: "privacy", page: here().page(), measurements: (expected_page: expected-page, actual_page: here().page()))
       set par(justify: true)
       text(size: 7pt, body)
     }]
