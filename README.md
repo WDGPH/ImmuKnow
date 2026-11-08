@@ -7,7 +7,7 @@ You choose the notices; the source system assesses immunization status.
 | --- | --- |
 | ImmuKnow Core | Native processing engine: prepares data, creates PDFs, encrypts copies, assembles bundles and writes reports. |
 | [ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template) | Starter notices, translations, branding, settings and reference files to adapt for your organization. |
-| [ImmuKnow Studio](docs/user_guide/studio.md) | Browser editor and preview environment. It has not yet adopted standalone Rust Core. |
+| [ImmuKnow Studio](docs/user_guide/studio.md) | Browser editor and preview environment. Native adoption is in [Studio #33](https://github.com/WDGPH/ImmuKnow-Studio/pull/33). |
 
 See [projects and contracts](docs/ecosystem.md) for compatibility and resource ownership.
 

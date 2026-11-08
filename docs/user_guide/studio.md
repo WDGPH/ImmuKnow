@@ -8,25 +8,28 @@ creates PDF notices and supplies the shared Typst components. See the
 
 ## Compatibility with standalone Core
 
-Use the reviewed compatible Template revision, `782d8d4`, and its
-[setup instructions](https://github.com/WDGPH/ImmuKnow-Template/blob/782d8d4543519b6459ad1c1cfb1e0cbcae537581/README.md)
+Use the reviewed compatible Template revision, `77ef0f6`, and its
+[setup instructions](https://github.com/WDGPH/ImmuKnow-Template/blob/77ef0f65c783cce4d523953363e6b22f4736ffd4/README.md)
 and recorded Core revision. These links identify the reviewed project independently
 of branch names. Studio's pinned resource package is a separate compatibility
 target; a newer Template checkout does not update Studio automatically.
 
-The current Studio integration has **not yet adopted standalone Rust Core**.
-Studio pins an earlier Python Core package and a Template resource package for
-its existing browser previews and downloaded-project workflow. A project
-downloaded from that Studio version should not be assumed compatible with this
-standalone executable. Check Studio's version instructions and test the complete
-handoff before using the two together. Standalone Core uses fonts installed on
+The published Studio version still targets the earlier Python Core package.
+The native adoption is available in [Studio PR #33](https://github.com/WDGPH/ImmuKnow-Studio/pull/33),
+paired with [Template PR #16](https://github.com/WDGPH/ImmuKnow-Template/pull/16).
+That integration pins Core `7e873ef`, prepares facts with native `prepare`, exports
+the matching library and schemas, and verifies browser previews and downloaded
+projects with the same executable. Both companions must be adopted together;
+changing a Template pin alone is insufficient. Projects from the published
+Python-based Studio should not be assumed compatible with standalone Core.
+Check the Studio build identity and its own setup instructions. Standalone Core uses fonts installed on
 the workstation; see [getting started](getting_started.md) and
 [template authoring](../developer_guide/templates.md).
 
-Studio owns the integration update: adopting the reviewed native executable and
-matching Template resources, preparing preview facts through native commands,
-using the exported schemas and library, and verifying browser previews and a
-downloaded project with the native engine. Template's
-[contributor guide](https://github.com/WDGPH/ImmuKnow-Template/blob/782d8d4543519b6459ad1c1cfb1e0cbcae537581/CONTRIBUTING.md#starter-resources-for-studio)
-describes the required handoff. Core and Template updates do not change Studio's
-pins automatically.
+Studio owns this handoff: its build verifies the reviewed native executable,
+reads Template's `core-revision.txt`, uses exported schemas and the complete
+library, and records source and resource identity. Its downloaded-project tests
+cover native runs and saved-run holds/releases. Template's
+[contributor guide](https://github.com/WDGPH/ImmuKnow-Template/blob/77ef0f65c783cce4d523953363e6b22f4736ffd4/CONTRIBUTING.md#starter-resources-for-studio)
+describes the resource package. Core and Template updates do not change a
+published Studio build automatically.
