@@ -1,27 +1,149 @@
-direction: down
-classes: {
-  coordinator: {style.border-radius: 10; style.bold: true}
-  worker: {style.stroke-dash: 5; style.border-radius: 10}
-  store: {shape: cylinder}
+...@style
+# Each row is a phase. The coordinator stays in the centre throughout.
+grid-rows: 5
+grid-columns: 3
+horizontal-gap: 48
+vertical-gap: 54
+
+space1: ${blank}
+prepare: {
+  accent
+  inset
+  ...${card}
+  content: |md
+    **Coordinator · prepare**
+
+    Stable row keys,\
+    schema-checked facts
+  |
 }
-prepare: Coordinator: save source + stable row keys\nPrepare facts and validate payloads {class: coordinator}
-compile: One persistent Typst compiler\nSequential notices: one document → PDF + evidence {style.border-radius: 10}
-inspect: Coordinator: inspect and save each original\nRecord checks and row failures {class: coordinator}
-protect: Encryption workers\nBounded jobs → verified encrypted copies\nOverlaps notice creation {class: worker}
-drain: Coordinator: collect protection results\nAfter notice loop, drain remaining jobs {class: coordinator}
-groups: Coordinator: select bundle membership\nEligible originals + readable review originals {class: coordinator}
-assemble: Bundle workers\nIndependent groups run concurrently\nOriginal pages → grouped PDFs {class: worker}
-publish: Coordinator: write membership CSVs\nApply results, save status and publish {class: coordinator}
-record: run.json + report.html\nPreparation and periodic checkpoints {class: store}
-staged: Unique .incomplete output folders\nExplicit run and bundle-attempt status {class: store}
-prepare -> compile: facts + selected template
-compile -> inspect: same-document PDF + evidence / row error
-inspect -> compile: next independent row
-inspect -> protect: job {style.stroke-dash: 5}
-inspect -> drain: after notice loop
-protect -> drain: row-tagged results {style.stroke-dash: 5}
-drain -> groups
-groups -> assemble: group jobs {style.stroke-dash: 5}
-assemble -> publish: group-tagged results {style.stroke-dash: 5}
-inspect -> record: checkpoints
-publish -> staged: final record and publication
+record: {
+  accent
+  inset
+  ...${card}
+  accent.style.fill: '#78716c'
+  content: |md
+    **Run record**
+
+    run.json + report.html\
+    Preparation + checkpoints
+  |
+}
+compiler: {
+  accent
+  inset
+  ...${card}
+  content: |md
+    **One warm Typst compiler**
+
+    Sequential compilations:\
+    one document → PDF + evidence
+  |
+}
+rows: {
+  accent
+  inset
+  ...${card}
+  content: |md
+    **Coordinator · each row**
+
+    Save original + findings,\
+    continue independent rows
+  |
+}
+encrypt: {
+  accent
+  inset
+  ...${card}
+  accent.style.fill: '#2563eb'
+  content: |md
+    **Encryption workers**
+
+    Verified copies + receipts,\
+    bounded jobs overlap rows
+  |
+}
+space7: ${blank}
+drain: {
+  accent
+  inset
+  ...${card}
+  content: |md
+    **Coordinator · finish rows**
+
+    Drain remaining results
+  |
+}
+space9: ${blank}
+space10: ${blank}
+groups: {
+  accent
+  inset
+  ...${card}
+  content: |md
+    **Coordinator · plan bundles**
+
+    Normal + review membership
+  |
+}
+bundles: {
+  accent
+  inset
+  ...${card}
+  accent.style.fill: '#2563eb'
+  content: |md
+    **Bundle workers**
+
+    Independent PDF assemblies\
+    run concurrently afterward
+  |
+}
+failure: {
+  accent
+  inset
+  ...${card}
+  accent.style.fill: '#78716c'
+  style.stroke-dash: 4
+  content: |md
+    **Failure boundaries**
+
+    Notice failure → next row\
+    Fatal → drain; keep .incomplete
+  |
+}
+publish: {
+  accent
+  inset
+  ...${card}
+  content: |md
+    **Coordinator · publish**
+
+    Membership CSVs,\
+    final record and status
+  |
+}
+outputs: {
+  accent
+  inset
+  ...${card}
+  accent.style.fill: '#78716c'
+  content: |md
+    **Staged outputs**
+
+    .incomplete → finished run\
+    Explicit completion status
+  |
+}
+
+prepare -> rows: {class: flow}
+rows <-> compiler: {class: flow}
+rows <-> encrypt: {class: job}
+prepare -> record: {class: flow}
+rows -> record: {class: flow}
+rows -> drain: after notice loop {class: flow}
+encrypt -> drain: results {class: job}
+drain -> groups: {class: flow}
+groups -> bundles: jobs {class: job}
+bundles -> publish: results {class: job}
+groups -> publish: {class: flow}
+publish -> outputs: {class: flow}

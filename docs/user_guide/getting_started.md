@@ -18,7 +18,11 @@ backup and retention rules to the whole run.
 
 ## Workflow at a glance
 
+<div class="architecture-diagram" markdown="1" tabindex="0" role="region" aria-label="Operator workflow diagram">
+
 [![Obtain a project, supply inputs, run Core and review outcomes. Warnings are eligible for normal bundles; readable failed notices enter review bundles; unrenderable notices stay in the report. Review holds, rebundle, then verify deliverables.](../assets/operator-journey.svg)](../assets/operator-journey.svg)
+
+</div>
 
 [Open diagram at full size](../assets/operator-journey.svg).
 

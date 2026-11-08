@@ -20,7 +20,10 @@ theme:
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
+extra_css:
+  - assets/diagrams.css
 markdown_extensions:
+  - md_in_html
   - attr_list
   - admonition
   - tables

@@ -19,21 +19,31 @@ The documentation hub consumes this repository's Markdown and `mkdocs.yml`; the 
 
 ## Maintaining the visuals
 
-The three diagrams have editable D2 sources in `docs/diagrams/` and generated SVGs in `docs/assets/`: `ecosystem`, `operator-journey`, and `processing`. Commit each updated source and its rendered SVG together. The SVGs render on GitHub and in the documentation site without a diagram service.
+The three diagrams have editable D2 sources in `docs/diagrams/` and generated SVGs in `docs/assets/`: `ecosystem`, `operator-journey`, and `processing`. Their shared palette, card dimensions, typography and edge styles live in `docs/diagrams/style.d2`. Commit updated sources and rendered SVGs together. The SVGs render on GitHub and in the documentation site without a diagram service.
 
 Render with [D2 0.9.0](https://github.com/d2lang/d2/releases/tag/v0.9.0), using
-its bundled open-source ELK layout engine. D2 is an authoring tool only; neither
+its bundled open-source ELK layout engine. The imported style supplies the renderer
+configuration, including both theme palettes. D2 is an authoring tool only; neither
 Cargo checks nor MkDocs publishing needs it. From the repository root:
 
 ```sh
 for name in ecosystem operator-journey processing; do
-  d2 --layout elk --theme 0 --dark-theme 200 --pad 24 \
-    "docs/diagrams/$name.d2" "docs/assets/$name.svg"
+  d2 "docs/diagrams/$name.d2" "docs/assets/$name.svg"
 done
 ```
 
-Use the same application, document and data shapes across the diagrams. Dashed
-worker edges distinguish jobs and returned results in the processing diagram.
+The visual vocabulary follows the [PHIZ Git article](https://github.com/WDGPH/phiz/blob/main/content/posts/2026-10-git-and-github.md): neutral cards, thin borders, slim accent bars and clear text hierarchy. Green identifies applications and coordinator actions, blue identifies project files or PDF workers, and grey identifies data and saved outputs. The operator journey uses amber for review and red for unrenderable notices; every outcome is also named in text.
+
+Use explicit grid cells to keep card edges and phase rows aligned. Declare
+`accent; inset;` before spreading the shared card so local colour overrides do
+not reorder its children. Use Markdown hard breaks (`\` at the end of a line)
+inside labels; ordinary newlines fold into long text. Dashed worker edges carry
+jobs and returned results in the processing diagram.
+
+The `architecture-diagram` region and `assets/diagrams.css` keep a readable
+minimum image width on narrow screens. Verify keyboard and touch scrolling
+without page overflow; retain the full-size link for GitHub and other readers.
+
 Keep explanatory text next to each image and useful alternative text. Inspect
 SVGs in a browser, both directly and embedded at documentation width, in light
 and dark system themes and on a narrow screen. SVG dark mode follows the system

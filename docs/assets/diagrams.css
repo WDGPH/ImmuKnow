@@ -1,0 +1,27 @@
+/* Keep labels readable on narrow screens; the region supports keyboard scrolling. */
+.architecture-diagram {
+  overflow-x: auto;
+  margin: 1.5rem 0;
+}
+.architecture-diagram img {
+  display: block;
+  min-width: 660px;
+  max-width: 100%;
+  height: auto;
+}
+.architecture-diagram:focus-visible {
+  outline: 2px solid var(--md-accent-fg-color, #2563eb);
+  outline-offset: 3px;
+}
+@media (max-width: 44rem) {
+  .architecture-diagram::before {
+    content: "Scroll sideways to see the full diagram. Arrow keys also work.";
+    display: block;
+    position: sticky;
+    left: 0;
+    width: 100%;
+    margin-bottom: 0.75rem;
+    color: var(--md-default-fg-color--light);
+    font-size: 0.7rem;
+  }
+}

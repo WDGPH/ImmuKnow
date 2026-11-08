@@ -7,7 +7,11 @@ Studio is a browser workspace for editing notices and previewing fictional
 clients. The system supplying the data assesses immunization status; the
 organization chooses and reviews notices before sending them.
 
+<div class="architecture-diagram" markdown="1" tabindex="0" role="region" aria-label="Ecosystem diagram">
+
 [![Template supplies project resources, Studio edits project files, and Core processes an authored project and upstream data into reviewed outputs.](assets/ecosystem.svg)](assets/ecosystem.svg)
+
+</div>
 
 [Open diagram at full size](assets/ecosystem.svg).
 

@@ -1,24 +1,107 @@
-direction: down
-classes: {
-  action: {style.border-radius: 12}
-  files: {shape: document}
+...@style
+grid-rows: 4
+grid-columns: 3
+horizontal-gap: 28
+vertical-gap: 48
+
+space1: ${blank}
+prepare: {
+  accent
+  inset
+  ...${card}
+  content: |md
+    **1 · Prepare inputs**
+
+    Reviewed project, CSV,\
+    explicit notice selections
+  |
 }
-project: Obtain + review project {class: action}
-input: Supply CSV + explicit\nnotice selections {class: files}
-run: Run ImmuKnow {class: action}
-project -> input -> run
-report: Inspect report + PDFs {class: action}
-run -> report
-eligible: Pass / warnings only\nRequired copies ready\nNormal bundles {class: files}
-review: Readable + failed checks\nor encryption failure\nReview bundles {class: files}
-missing: Unrenderable notice\nReport only\nFix cause + new run {class: files}
-report -> eligible
-report -> review
-report -> missing
-human: Review findings + content\nWithhold or release holds {class: action}
-eligible -> human
-review -> human
-rebundle: Rebundle saved originals\nNo recompiling or encryption {class: action}
-human -> rebundle
-verify: Verify report, PDF/CSV\nmembership + deliverables {class: action}
-rebundle -> verify
+space3: ${blank}
+space4: ${blank}
+run: {
+  accent
+  inset
+  ...${card}
+  content: |md
+    **2 · Run and inspect**
+
+    Open report + original PDFs
+  |
+}
+space6: ${blank}
+normal: {
+  accent
+  inset
+  ...${card}
+  content: |md
+    **Normal bundles**
+
+    Pass / warnings only,\
+    requested copies ready
+  |
+}
+review: {
+  accent
+  inset
+  ...${card}
+  accent.style.fill: '#d97706'
+  content: |md
+    **Review bundles**
+
+    Readable original with failed\
+    checks or encryption failure
+  |
+}
+missing: {
+  accent
+  inset
+  ...${card}
+  accent.style.fill: '#dc2626'
+  content: |md
+    **Report only**
+
+    Unrenderable notice:\
+    fix cause and start a new run
+  |
+}
+decide: {
+  accent
+  inset
+  ...${card}
+  content: |md
+    **3 · Review and decide**
+
+    Holds exclude both routes.\
+    Release keeps checks.
+  |
+}
+rebundle: {
+  accent
+  inset
+  ...${card}
+  content: |md
+    **4 · Rebundle originals**
+
+    No compiling or encryption
+  |
+}
+verify: {
+  accent
+  inset
+  ...${card}
+  content: |md
+    **5 · Verify delivery**
+
+    Check report and PDF/CSV\
+    membership before sending
+  |
+}
+
+prepare -> run: {class: flow}
+run -> normal: {class: flow}
+run -> review: {class: flow}
+run -> missing: {class: flow}
+normal -> decide: {class: flow}
+review -> decide: {class: flow}
+decide -> rebundle: {class: flow}
+rebundle -> verify: {class: flow}

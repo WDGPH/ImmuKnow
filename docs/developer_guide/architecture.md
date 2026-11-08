@@ -22,13 +22,17 @@ the selected templates control wording and appearance.
 
 ## Processing and concurrency
 
+<div class="architecture-diagram" markdown="1" tabindex="0" role="region" aria-label="Processing and concurrency diagram">
+
 [![The coordinator owns the record. One sequential Typst compiler supplies PDF and evidence together; encryption overlaps notices, and bundle workers run afterward.](../assets/processing.svg)](../assets/processing.svg)
+
+</div>
 
 [Open diagram at full size](../assets/processing.svg).
 
 Solid arrows show processing and persistence; dashed arrows carry worker jobs and returned results. Workers write artifacts but return outcomes to the coordinator, which alone updates the run record.
 
-The diagram follows the processing path. The libraries below are the main direct dependencies, not an exhaustive dependency list. Exact versions are in `Cargo.lock` and `typst-plugins/qr/Cargo.lock`. For ownership and contracts across projects, see [the ecosystem guide](../ecosystem.md).
+The centre column follows the coordinator; compiler calls, worker jobs and saved outputs sit alongside it. The libraries below are the main direct dependencies, not an exhaustive dependency list. Exact versions are in `Cargo.lock` and `typst-plugins/qr/Cargo.lock`. For ownership and contracts across projects, see [the ecosystem guide](../ecosystem.md).
 
 `clap` reads command options. `csv` and `encoding_rs` read source text; `serde-saphyr` reads YAML settings. `serde`, `serde_json` and `chrono` support structured information and dates, while `jsonschema` checks the prepared data and template reports.
 

@@ -1,21 +1,101 @@
-direction: down
-classes: {
-  app: {style.border-radius: 12; style.bold: true}
-  files: {shape: document}
-  data: {shape: cylinder}
+...@style
+# Explicit cells keep ownership and file handoffs aligned at prose-column width.
+grid-rows: 3
+grid-columns: 3
+horizontal-gap: 32
+vertical-gap: 48
+
+template: {
+  accent
+  inset
+  ...${card}
+  content: |md
+    **ImmuKnow Template**
+
+    Notices, settings, references
+  |
 }
-source: Upstream system\nAssesses immunization status {class: app}
-csv: CSV + notice selections {class: data}
-source -> csv
-Template: ImmuKnow Template\nStarter notices + settings\nReference lists {class: app}
-project: Authored notice project\nTemplates · config · branding {class: files}
-Template -> project
-Studio: ImmuKnow Studio\nBrowser editing + previews {class: app}
-project <-> Studio: import / export files
-Core: ImmuKnow Core\nNative production processing {class: app}
-project -> Core: local project files
-csv -> Core: supplied facts and choices
-outputs: PDFs · bundles · reports\nReview before delivery {shape: package}
-Core -> outputs
-resources: Core library + schemas\nCopy intact at setup {class: files}
-resources -> project
+resources: {
+  accent
+  inset
+  ...${card}
+  accent.style.fill: '#78716c'
+  content: |md
+    **Core library + schemas**
+
+    Copy intact at project setup
+  |
+}
+upstream: {
+  accent
+  inset
+  ...${card}
+  accent.style.fill: '#78716c'
+  content: |md
+    **Upstream system**
+
+    Assesses immunization status
+  |
+}
+studio: {
+  accent
+  inset
+  ...${card}
+  content: |md
+    **ImmuKnow Studio**
+
+    Browser editing + previews
+  |
+}
+project: {
+  accent
+  inset
+  ...${card}
+  accent.style.fill: '#2563eb'
+  content: |md
+    **Authored project**
+
+    Templates, config, branding
+  |
+}
+input: {
+  accent
+  inset
+  ...${card}
+  accent.style.fill: '#78716c'
+  content: |md
+    **CSV + notice selections**
+
+    Supplied facts and choices
+  |
+}
+space7: ${blank}
+core: {
+  accent
+  inset
+  ...${card}
+  content: |md
+    **ImmuKnow Core**
+
+    Native production processing
+  |
+}
+outputs: {
+  accent
+  inset
+  ...${card}
+  accent.style.fill: '#78716c'
+  content: |md
+    **PDFs, bundles, reports**
+
+    Review before delivery
+  |
+}
+
+template -> project: starter files {class: flow}
+resources -> project: {class: flow}
+upstream -> input: {class: flow}
+studio <-> project: {class: flow}
+project -> core: {class: flow}
+input -> core: {class: flow}
+core -> outputs: {class: flow}
