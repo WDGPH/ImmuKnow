@@ -97,7 +97,7 @@ the saved record and sends count-only progress receipts to the terminal display.
 ## Save runs and later changes
 
 A new run or bundle set starts in a uniquely named folder ending in `.incomplete`.
-A run that reaches final reporting receives its final name even when individual notices failed (`completed_with_failures`). A fatal processing failure retains its `.incomplete` directory and a partial record when reporting succeeds. The coordinator checkpoints after preparation and every 100 notices. `run.json` is the saved record and
+A run that reaches final reporting receives its final name even when individual notices failed (`completed_with_failures`). A fatal processing failure retains its `.incomplete` directory and a partial record when reporting succeeds. The coordinator checkpoints after preparation, then after 100 completed notices and at doubling row counts. If 30 seconds pass first, it checkpoints at the next completed row and doubles from that row count. The interval starts again after a successful report write; setup, a slow row or a report write can extend the wall-clock gap. Final and caught-error reports are written independently. Every checkpoint retains the full observed checks and artifact outcomes; there is no separate journal or resume command. `run.json` is the saved record and
 `report.html` is its escaped HTML view. These files and PDFs contain personal
 information and should be kept private.
 

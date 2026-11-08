@@ -10,7 +10,7 @@ use std::{
     collections::BTreeMap,
     fs::{self, File},
     path::{Path, PathBuf},
-    time::{Instant, SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 /// Reserve enough execution capacity for compilation and PDF protection to overlap.
@@ -322,6 +322,29 @@ fn add_check(entry: &mut Value, code: &str, message: &str) {
         .unwrap()
         .push(json!({"code":code,"stage":"render","status":"fail","message":message}));
 }
+/// Save early progress, then double the row interval to avoid rewriting the full
+/// record every 100 notices. Slow batches still save at the next row boundary
+/// after 30 seconds. Final and error reports are written independently.
+struct NoticeCheckpoint {
+    next_row: usize,
+    saved_at: Instant,
+}
+impl NoticeCheckpoint {
+    fn new(now: Instant) -> Self {
+        Self {
+            next_row: 100,
+            saved_at: now,
+        }
+    }
+    fn due(&self, done: usize, now: Instant) -> bool {
+        done >= self.next_row || now.duration_since(self.saved_at) >= Duration::from_secs(30)
+    }
+    fn saved(&mut self, done: usize, now: Instant) {
+        self.next_row = done.saturating_mul(2);
+        self.saved_at = now;
+    }
+}
+
 fn process(
     dir: &Path,
     record: &mut Value,
@@ -395,6 +418,7 @@ fn process(
                         .send((index, make_request(p)))
                         .context("Compiler worker stopped")?;
                 }
+                let mut checkpoint = NoticeCheckpoint::new(Instant::now());
                 let mut pending = BTreeMap::new();
                 let mut count = 0usize;
                 let mut protected = 0usize;
@@ -511,8 +535,9 @@ fn process(
                                 total: prepared.len(),
                                 protected,
                             });
-                            if (index + 1) % 100 == 0 {
+                            if checkpoint.due(index + 1, Instant::now()) {
                                 report::write(dir, record)?;
+                                checkpoint.saved(index + 1, Instant::now());
                             }
                             if let Some(p) = prepared.get(index + compile_window) {
                                 compile_jobs
@@ -831,4 +856,31 @@ pub fn rebundle(
         succeeded: record["status"] != "completed_with_failures",
         summary: RunSummary::from_record(&record),
     })
+}
+
+#[cfg(test)]
+mod checkpoint_tests {
+    use super::*;
+
+    #[test]
+    fn early_then_doubling_checkpoints_and_time_limit() {
+        let start = Instant::now();
+        let mut checkpoint = NoticeCheckpoint::new(start);
+        assert!(!checkpoint.due(99, start + Duration::from_secs(1)));
+        assert!(checkpoint.due(100, start + Duration::from_secs(1)));
+        checkpoint.saved(100, start + Duration::from_secs(1));
+        assert!(!checkpoint.due(199, start + Duration::from_secs(2)));
+        assert!(checkpoint.due(200, start + Duration::from_secs(2)));
+        checkpoint.saved(200, start + Duration::from_secs(2));
+        assert!(!checkpoint.due(399, start + Duration::from_secs(3)));
+        assert!(checkpoint.due(400, start + Duration::from_secs(3)));
+        // A slow first 100 rows also need a useful partial report.
+        let checkpoint = NoticeCheckpoint::new(start);
+        assert!(!checkpoint.due(20, start + Duration::from_secs(29)));
+        assert!(checkpoint.due(20, start + Duration::from_secs(30)));
+        let mut checkpoint = checkpoint;
+        checkpoint.saved(20, start + Duration::from_secs(31));
+        assert!(!checkpoint.due(21, start + Duration::from_secs(60)));
+        assert!(checkpoint.due(21, start + Duration::from_secs(61)));
+    }
 }

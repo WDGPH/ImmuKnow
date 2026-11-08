@@ -1,8 +1,25 @@
 # Measured notice throughput
 
-## Current work-reduction comparison
+## Current checkpoint and parsing comparisons
 
-The current pipeline created **1,000 notices in a median 25.29 seconds**, compared with **34.75 seconds** for the previously integrated bounded-worker version. Three alternating paired runs used a shared machine limited to four CPUs and 8 GiB RAM. Each command created 2,000 original pages, 1,000 AES-256 revision 6 protected copies and ten PDF/CSV bundles, including 700 QR-bearing notices.
+Fresh comparisons use the reduced pipeline below as their baseline. Three alternating paired commands at each batch size changed the report checkpoint schedule while retaining full passing-check details:
+
+| Notices | Every 100 notices | Adaptive checkpoints | Elapsed reduction |
+| --- | ---: | ---: | ---: |
+| 1,000 | 25.20 s | 23.31 s | 7.5% |
+| 5,000 | 175.83 s | 121.44 s | 30.9% |
+
+At 5,000 notices, median process CPU time fell from 432.80 to 381.27 seconds. The highest process peak RSS was 2.34 GiB for both schedules. The final report, findings, source-row identity, routing, original PDFs and bundles matched; randomized encryption fingerprints and timings were excluded from record equality. Every run's artifact hashes were checked after timing.
+
+The coordinator now saves after the first 100 notices, then at doubling row counts, or at the next completed row after 30 seconds since the previous successful save. Setup, slow rows and report writes can extend that interval. Final and caught-error reports remain independent. Interrupted snapshots can be older than with the previous 100-row schedule; the saved record and HTML retain full detail. See [recovery](getting_started.md) and [saved-run behavior](../developer_guide/architecture.md#save-runs-and-later-changes).
+
+A separate three-pair comparison on the reduced pipeline retained serial `lopdf` parsing: median elapsed time was 25.31 seconds versus 26.48 with its internal Rayon pool. Serial parsing used 76.50 CPU seconds versus 83.44, with peak RSS 1.07 versus 1.04 GiB. Outer compilation, encryption and bundle workers stayed fixed at 2, 2 and 4.
+
+Profiling, compact-detail experiments, history preparation versus native table layout, QR styles and payloads, and remaining limits are in the [experiment report](../developer_guide/performance_experiments.md). [Measurement data](../assets/current-pipeline-benchmark.json) includes individual runs, binary and source hashes, component profiles and acceptance results. These results apply to this fictional workload on a shared machine limited to four CPUs and 8 GiB RAM. The comparisons measure separate changes and their percentages must not be added to each other or to historical results.
+
+## Earlier work-reduction comparison
+
+The earlier work-reduction comparison created **1,000 notices in a median 25.29 seconds**, compared with **34.75 seconds** for the previously integrated bounded-worker version. Three alternating paired runs used a shared machine limited to four CPUs and 8 GiB RAM. Each command created 2,000 original pages, 1,000 AES-256 revision 6 protected copies and ten PDF/CSV bundles, including 700 QR-bearing notices.
 
 | Measurement | Previously integrated workers | Reduced work |
 | --- | ---: | ---: |
@@ -58,6 +75,6 @@ A three-compiler experiment was slower than two on this four-CPU workload; the e
 
 ## Applying the result
 
-These measurements establish repeatable improvement for this 1,000-row fixture, not a capacity guarantee for other documents or machines. Page counts, history lengths, font choices, encryption, storage and available CPUs affect performance. The existing report checkpoints rewrite the complete saved record and HTML every 100 notices; much larger single batches therefore have different reporting and memory costs. Measure the intended batch size and template mix before extrapolating capacity.
+These measurements establish repeatable improvement for this 1,000-row fixture, not a capacity guarantee for other documents or machines. Page counts, history lengths, font choices, encryption, storage and available CPUs affect performance. The earlier comparisons used a complete saved-record and HTML rewrite every 100 notices. The adaptive schedule above reduces repeated serialization, but each checkpoint still writes the full report and large single batches retain different reporting and memory costs. Measure the intended batch size and template mix before extrapolating capacity.
 
 An [earlier profile](../assets/notice-timings.json) used six fictional cases and the prior sequential workflow. Its activity shares describe that older workload and should not be added to the overlapping worker times above.

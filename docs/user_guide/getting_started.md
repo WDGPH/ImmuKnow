@@ -98,7 +98,7 @@ The optional `intended_reader` column can be `student` or `guardian`. If blank, 
 | Missing settings or school references | Check the selected config folder, reference path and health-unit name. Correct the project before running again. |
 | Incompatible shared library | Export resources from the intended executable and replace the complete project library; see [resource compatibility](../ecosystem.md#native-handoff). |
 | Notice compilation fails | Find the row and diagnostic in the report. Other independent notices can still succeed. Fix the template or facts and create a new run. Rebundling cannot create a missing original. |
-| Command interrupted or fatal error | Retain the `.incomplete` folder for investigation. Checkpoints may predate the interruption; there is no resume command. Correct the cause and start a new run. Incomplete runs cannot be rebundled. |
+| Command interrupted or fatal error | Retain the `.incomplete` folder for investigation. Checkpoints may predate the interruption. During notice creation they save after the first 100 notices, then at doubling row counts, or at the next completed row after 30 seconds since the previous save. Setup, slow rows and report writes can extend that interval. There is no resume command. Correct the cause and start a new run. Incomplete runs cannot be rebundled. |
 | Bundle attempt fails on a completed run | Read the error and failed attempt record. Earlier bundles and decisions remain available. Correct the cause and retry `rebundle`; check the new report and membership CSVs. |
 | Run is already in use | Wait for the process operating on that run to finish. Saved-run operations use an operating-system lock; deleting the lock file is not a recovery procedure. |
 

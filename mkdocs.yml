@@ -50,4 +50,5 @@ nav:
       - QR Codes: developer_guide/qr.md
       - Contributing: developer_guide/contributing.md
       - Testing: developer_guide/testing.md
+      - Performance Experiments: developer_guide/performance_experiments.md
       - Documentation: developer_guide/documentation.md
