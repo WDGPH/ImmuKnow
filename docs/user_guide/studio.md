@@ -8,8 +8,8 @@ creates PDF notices and supplies the shared Typst components. See the
 
 ## Compatibility with standalone Core
 
-Use the reviewed compatible Template revision, `77ef0f6`, and its
-[setup instructions](https://github.com/WDGPH/ImmuKnow-Template/blob/77ef0f65c783cce4d523953363e6b22f4736ffd4/README.md)
+Use the reviewed compatible Template revision, `a5a2411`, and its
+[setup instructions](https://github.com/WDGPH/ImmuKnow-Template/blob/a5a2411f34c1bd41cd0f7adc8db10e46226c545f/README.md)
 and recorded Core revision. These links identify the reviewed project independently
 of branch names. Studio's pinned resource package is a separate compatibility
 target; a newer Template checkout does not update Studio automatically.
@@ -30,6 +30,6 @@ Studio owns this handoff: its build verifies the reviewed native executable,
 reads Template's `core-revision.txt`, uses exported schemas and the complete
 library, and records source and resource identity. Its downloaded-project tests
 cover native runs and saved-run holds/releases. Template's
-[contributor guide](https://github.com/WDGPH/ImmuKnow-Template/blob/77ef0f65c783cce4d523953363e6b22f4736ffd4/CONTRIBUTING.md#starter-resources-for-studio)
+[contributor guide](https://github.com/WDGPH/ImmuKnow-Template/blob/a5a2411f34c1bd41cd0f7adc8db10e46226c545f/CONTRIBUTING.md#starter-resources-for-studio)
 describes the resource package. Core and Template updates do not change a
 published Studio build automatically.
