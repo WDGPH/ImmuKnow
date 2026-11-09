@@ -1,6 +1,6 @@
 # Cross-repository execution plan
 
-Filename templates are implemented across Core, Template and Studio. Reference fixes are committed in Template and await Studio adoption. Grouping safeguards and optional sorting are implemented and verified in Core; downstream adoption remains. The remaining work follows the milestones below. Three Terra scouts inspected the repositories. The investigation evidence comes from source, not a replay of the private production run.
+Filename templates and reference fixes are implemented across Core, Template and Studio. Grouping safeguards and optional sorting are implemented and verified in Core; downstream adoption remains. The remaining work follows the milestones below. Three Terra scouts inspected the repositories. The investigation evidence comes from source, not a replay of the private production run.
 
 This tracked file is the shared source of truth for scope, status, execution order and cross-repo decisions. Core’s implementation checklist follows the shared plan below. Consumer work lists: [Template](../ImmuKnow-Template/plan.md), [Studio](../ImmuKnow-Studio/plan.md). Keep shared-contract changes consistent across those files.
 
@@ -18,29 +18,29 @@ Initial investigation baselines (historical, before filename implementation):
 | ImmuKnow-Template | `9f098ab9ec3569d3fa5463b15ccd1842aa3fe16d` | Authored settings, references, notices, labels and fictional examples |
 | ImmuKnow-Studio | `b2a3e8e132b43b204c38992916acaa8afb98baf8` | Editor, browser previews, project import/export and pinned resource consumption |
 
-These SHAs explain the initial investigation; they are not checkout targets for execution. Filename work has since landed locally. The currently adopted runtime pins are Core `f2f3c3a11e20f12caff85e8531529180e8fdc797` and Template `dbe9ed2f0233395970f63cc357c36fe271525c28`. Template's reference fixes are committed at `b129c7a286483261332d3403e51d064b476f4711` and await consumer adoption. Start from current source and retain completed filename behavior.
+These SHAs explain the initial investigation; they are not checkout targets for execution. The currently adopted runtime pins are Core `f2f3c3a11e20f12caff85e8531529180e8fdc797` and Template `b129c7a286483261332d3403e51d064b476f4711`, adopted in Studio `e851bb0ef752c1d6f052fff73daebe18f7aaf7da`. Later Core grouping/sorting changes await the next coordinated engine adoption. Start from current source and retain completed behavior. These commits are local; publishing pinned revisions remains necessary before fresh external installs.
 
 ## Execution status and order
 
 | ID | Status | Owner / consumers | Deliverable |
 | --- | --- | --- | --- |
 | F0 | Complete | Core + Template → Studio | Configurable individual/protected and normal/review bundle filenames |
-| R1 | Template complete; Studio adoption pending | Template → Studio | Meningococcal/TIg reference and display fixes |
-| R2a | Contract draft under critical review | Core, with Template/Studio consumers | Freeze executable fixtures for notice-local requirements and deferred preparation |
+| R1 | Complete | Template → Studio | Meningococcal/TIg reference and display fixes |
+| R2a | Complete; isolated contract/schema fixtures verified | Core, with Template/Studio consumers | Notice-local requirements and deferred preparation contract |
 | R2b | After R2a | Core + Template → Studio | Implement that contract, remove notice YAML, retain readable failed notices for review, detect empty agent displays |
 | G1 | Core complete; consumer adoption pending | Core; upstream export owner | Safe grouping for missing/conflicting school identity |
-| W1 | Ready; independent of R2/G1 | Core | Structured per-link evidence and run-level warning aggregation |
-| W2 | Design task after W1 | Core; Studio consumes relevant evidence | Define and implement run-scoped warning acknowledgment without changing delivery |
+| W1 | Core complete; consumer adoption pending | Core | Structured per-link evidence and run-level warning aggregation |
+| W2 | Core complete | Core; Studio consumes relevant evidence | Run-scoped warning acknowledgment without changing delivery |
 | S1 | Core complete; consumer adoption pending | Core + Template; Studio handoff | Optional last-name/DOB ordering within bundles |
-| D1 | Explore | Core + Template + Studio | Disease identity/alias/label catalog; unrelated to removing the notice catalog |
-| H1 | Later | Core | Measured, lossless report-size improvement |
+| D1 | Exploration recorded; migration deferred | Core + Template + Studio | Disease identity/alias/label catalog; unrelated to removing the notice catalog |
+| H1 | Prototype measured; production deferred | Core | Measured, lossless report-size improvement |
 | PR1 | Low priority | Core operator/developer workflow | Profile the real native workload |
 
-Complete R1's Studio adoption independently. R2a is a finite design-and-fixture task, not permission to let three implementations invent different contracts. R2b starts once its schema/examples and expected outcomes are written and reviewed. G1 and W1 may proceed independently. W2, D1, H1 and PR1 are explicitly not implementation-ready feature specifications yet.
+R1 is complete. R2a's reviewed contract and proposed schemas are isolated from production under [the requirements fixtures](tests/fixtures/requirements-contract.md); R2b can now implement them. G1/S1 and W1/W2 are verified in Core and await the indicated consumer handoffs. D1 migration, H1 production optimization and PR1 private-run measurement retain their explicit exploration/measurement boundaries.
 
 ## 1. Reference fixes: preserve what worked
 
-The user's successful project edits are now committed in Template; Studio still needs to adopt that resource revision:
+The user's successful project edits are committed in Template and adopted in Studio:
 
 - Add `"Meningococcal disease": "Meningococcal"` to disease normalization. All 14 meningococcal-related agent entries already map to `Meningococcal`; leave those mappings alone.
 - Add `"TIg": ["Tetanus"]` to the agent reference. Add `TIg` to both history `ignore-agents` and overdue-agent exclusions. Recognized in facts does not mean displayed as a vaccine.
@@ -121,7 +121,11 @@ For URL checks:
 4. Personalized QR destinations can contain client ID/DOB. Do not strip those values to make different links appear identical. Exact matching is safe for the initial design. A future authored-link identity would need its own validated template/resource scope before it can stand for many personalized destinations.
 5. New links, changed templates, changed check semantics and unrelated findings must remain visible. Acknowledged details remain expandable and the decision survives report regeneration/rebundling without modifying originals.
 
-W2 is not ready for production implementation until its short contract specifies the operator action (prefer a native CLI command for a saved local run), a revoke/undo action, lock-protected persistence/audit, report refresh, and accessible presentation. Acknowledgment should not trigger recompilation, encryption or new bundles. Exercise acknowledgment/revocation through report regeneration and rebundle; no cross-run carryover is included. Broad error-override infrastructure remains separate exploration.
+W2's reviewed operator contract uses `immuknow warnings RUN` to list current distinct URL issues, `immuknow acknowledge RUN ISSUE --reason TEXT` to acknowledge one, and the same command with `--revoke` to undo it with a reason. `warnings RUN --refresh` regenerates the HTML without another review event. Acknowledgment triggers no recompilation, encryption or bundle writes, and changes no finding, routing or severity-based exit status. Broad error-override infrastructure remains separate exploration.
+
+Persist optional versioned `warning_reviews.history` in the run record, with full issue ID, action, reason and UTC time. Derive current state from append order, validating strict fields/types, lowercase SHA256 IDs, nonblank reasons, valid UTC times and legal alternating acknowledge/revoke transitions. Existing runs without history have no acknowledgments. Validate history before every saved-run mutation, including rebundle. Hold the existing run lock while reading, validating and saving. IDs hash a versioned deterministic serialization of saved resource/template scope, code, subject kind and exact sorted destination strings. Missing fingerprints, malformed subject evidence and missing effective findings are ineligible for mutation; tolerant legacy display counts do not authorize acknowledgment. A subject occurring as both warning and failure has only its effective warning memberships acknowledged.
+
+Publish the authoritative record atomically, then the HTML view. Distinguish record-save failure from a saved review whose HTML refresh failed; the latter can be repaired with `warnings RUN --refresh` without adding a duplicate event. Keep active and inactive historical acknowledgments discoverable by ID for revocation. Show affected rows, total issues, acknowledged issues and outstanding issues separately with escaped reasons and privacy-safe labels, usable offline without JavaScript. Test refresh/rebundle persistence, revoke, stale/forged IDs, changed destinations/resources, malformed history, locking and both publication failure stages. No cross-run carryover is included.
 
 A general framework should share finding identities, scopes and observed/effective history, **not make every error overridable**. Define an explicit registry of mandatory versus adjustable checks and supported scopes. Consider selected preparation checks only after they become row findings. Identity/evidence corruption, unusable originals, requested encryption failures, unsafe paths and write failures remain blocking. Do not use blanket code suppression to implement per-link acceptance.
 
@@ -155,11 +159,35 @@ Normalization and display labels solve different problems. A common catalog coul
 
 Explore stable disease IDs with aliases and labels indexed by language **and context** (`chart`, `notice/overdue`). Core owns the schema/resolution contract; Template owns editable disease/agent data and wording; Studio preserves and consumes authored files. Retain alias passthrough/unknown handling, detect ambiguous aliases and duplicated canonical/alias label keys, and provide an explicit migration path from existing files and agent mappings. Keep catalog work separate from the small reference fixes. Adding languages beyond en/fr also requires changes to native template identity checks, shared localization and Studio; moving files alone does not add language support.
 
+### D1 exploration findings
+
+The current Template has six exact aliases, 105 agent names mapping to 15 distinct reference values, and four label dictionaries (English/French × chart/overdue). Combination-agent counts overlap. `Other`, used by 32 agents, is a chart category and must not become an invented clinical disease. French dictionaries currently repeat `Meningococcal` and its alias with identical labels; customized projects may have conflicting values.
+
+A small candidate is a project-authored JSON catalog with immutable disease IDs as keys. Each entry holds an explicit `legacy_name`, exact `aliases`, and `labels[language][context]`. Agent mappings remain separate and eventually reference IDs. For example, ID `meningococcal` bridges legacy `Meningococcal`, alias `Meningococcal disease`, and independently editable English/French chart/overdue labels. Labels never determine identity; changing wording must not change an ID.
+
+Migration has three material risks:
+
+- Forecast coverage normalizes reference values today, but history retains them verbatim. Compare those paths separately rather than silently changing history behavior.
+- ISPA selection compares canonical English names. Migrating prepared facts to IDs requires versioned changes to those rules and boundary fixtures, not a data-file rename.
+- A missing whole language/context dictionary uses shared defaults; a missing key within a supplied dictionary shows the source name and emits `content.translation_missing`. Preserve both behaviors, authored per-call overrides and chart order.
+
+A future migration tool should inventory originals, produce a deterministic candidate plus a conflict/diff report, and leave authored bytes untouched. Reject duplicate IDs/JSON keys, conflicting alias ownership, canonical-name shadowing and disagreeing alias/canonical labels. Preserve exact trim/case behavior, combination order, empty mappings, unknown source names and warning evidence; never map unknowns to `Other`. Compare prepared facts, coverage, history, ISPA selection, labels and rendered English/French text before adoption. Core owns the resolver/schema and shared helpers; Template owns data/wording; Studio preserves and consumes both project formats through explicit migration.
+
+Before production implementation, choose the ID namespace, `Other` representation, unknown-value shape, per-call override bridge, coexistence rules and saved-evidence version boundary. Keeping current formats is deliberate while these choices remain open. This completes the requested exploration; catalog migration is a separate feature and does not gate R2.
+
 ## 7. Large HTML reports: later, with a measurable target
 
 The reported ~110 MB HTML is plausible: existing Core evidence documents ~97 MB HTML / ~177 MB JSON for a different 5,000-notice workload. Current reports render full effective checks, technical JSON and repeated help/action text for every row. Adaptive checkpoints already reduce repeated writes; they do not shrink the final view.
 
 First measure bytes by section, report-generation time, peak memory, browser open/search/expand time and DOM size. Prototype shared help text and lossless repeated-detail encoding with an accessible readable fallback. Preserve one authoritative run record, safe escaping/paths, every finding and artifact link, offline local-file use and no-JavaScript access. Simply collapsing `<details>` does not reduce bytes or DOM size. Additional files, lazy loading or report segmentation require an explicit offline/recovery contract decision. Do not remove passing evidence by default: a previous compact-detail experiment was not adopted because it lost explanations and measurements. Set a size/responsiveness target after measuring this workload.
+
+### H1 measured prototype
+
+An existing fictional 5,000-notice report contains 97,033,958 HTML bytes and 177,079,593 JSON bytes. Its 126,500 technical-detail blocks occupy 58,449,500 HTML bytes but contain only 47 distinct blocks (29,162 bytes). A scratch prototype replaces repeated blocks with ordinary links to one shared copy inside the same HTML. Expanding those references reconstructs the original HTML byte for byte; the source run and authoritative JSON remain untouched.
+
+The prototype is 49,524,205 bytes (48.96% smaller). HTML element count falls only from 1,164,607 to 1,038,297, so this is not a complete DOM-size solution. One exploratory Chromium comparison measured load at 34.6 versus 9.1 seconds, row filtering at 835 versus 450 ms, and expansion at 1,362 versus 1,257 ms. These are single samples during other development work, not controlled performance claims or measurements of the private run.
+
+Production adoption remains deferred. Shared details must retain useful row search semantics, clear navigation back to the row, offline/no-JavaScript access and artifact links. The current row filter searches row text; moving technical JSON out of rows changes measurement-key searches unless an explicit shared-evidence search index is added. Repeat alternating trials and record peak memory/report-generation cost before selecting a final design. A useful first size target is at most half the current HTML bytes for this fixed fictional fixture, preserving all evidence.
 
 ## 8. Profile a real run: low priority
 
@@ -173,10 +201,10 @@ Done means the next real run can explain the observed 384.5 seconds by measured 
 
 ## Delivery sequence and verification
 
-1. F0 is complete. Start R1 in Template, verify the resource package/sample, then update Studio's Template pin. No engine change is needed for the reference data.
-2. Complete R2a's contract fixture patch first. Then implement R2b in Core, update Template's library/notices and remove YAML resources, and adopt matching pins/validators/examples in Studio. Treat the three-repo handoff as one v2.0 acceptance milestone; do not leave broken intermediate pins for consumers.
-3. G1 is a separate Core change with group/membership/routing tests. It can run alongside R2; include it explicitly before S1 sorting. Coordinate Template guidance and Studio pins only if adopted engine behavior changes.
-4. W1 aggregates structured URL findings and counts. W2 first freezes its CLI/report/persistence/revoke contract, then implements run-scoped acknowledgment. Neither gates R1/R2/G1.
+1. F0 and R1 are complete across the three repositories.
+2. R2a's reviewed contract/schema fixture patch is complete. Implement R2b in Core, update Template's library/notices and remove YAML resources, and adopt matching pins/validators/examples in Studio. Treat the three-repo handoff as one v2.0 acceptance milestone; do not leave broken intermediate pins for consumers.
+3. G1 and S1 are verified in Core, including grouping/routing and actual PDF/CSV order. Include them in the next coordinated engine adoption, with Template configuration guidance and Studio's matching pin.
+4. W1/W2 are verified in Core: structured URL issue aggregation plus run-scoped acknowledgment/revocation. Adopt the new subject field through generated consumer contracts with the next engine handoff.
 5. S1 ordering, D1 disease-catalog exploration, H1 report-size experiments and PR1 real-run profiling remain separate. Do not expand their scope while implementing the earlier milestones.
 
 Core owns malformed-input, shared schemas/helpers, policy, PDF and routing tests. Template owns reference data, wording/layout and packaging. Studio owns example generation, deferred/current finding presentation, authoring preservation and downloaded native handoffs. Use fictional fixtures. Verify English/French normal, warning, review and unrenderable outcomes, stable source-row identity, expected actual bundle membership, and rebundle using saved observations. Run each repo's stated checks; a pin bump also needs a fresh build and selected browser/native tests. Avoid repeating the entire Core validation suite in consumers.
