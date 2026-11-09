@@ -104,15 +104,9 @@ fn native_project_journey_without_python_or_uv() {
     assert!(!library.join("unexpected.typ").exists());
     assert_eq!(fs::read(&authored).unwrap(), before);
     success(&native(&["project", "check", "--project", root]));
-    success(&native(&[
-        "project",
-        "check",
-        "--project",
-        root,
-        "--sample",
-        "--progress",
-        "off",
-    ]));
+    let checked = native(&["project", "check", "--project", root, "--sample"]);
+    success(&checked);
+    assert!(!String::from_utf8_lossy(&checked.stderr).contains("report.html"));
     assert!(!project.join("runs").exists());
     let prepared = native(&["prepare", "--sample", "--project", root]);
     success(&prepared);

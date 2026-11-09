@@ -224,9 +224,16 @@ fn execute() -> Result<()> {
                     bundle_workers: 4,
                 };
                 if sample {
-                    let result =
-                        pipeline::run_with_progress(&options, &mut |event| terminal.update(event))?;
-                    terminal.finish(&result);
+                    // A check removes its output, so do not print the normal
+                    // run summary's report link to a temporary file.
+                    let result = pipeline::run(&options)?;
+                    println!(
+                        "Sample: {}/{} PDFs created; {} notices with warnings; {} failed.",
+                        result.summary.originals,
+                        result.summary.rows,
+                        result.summary.warnings,
+                        result.summary.failed,
+                    );
                     ensure!(
                         result.succeeded,
                         "Sample run failed; run immuknow run --sample --project {} to retain its report",
