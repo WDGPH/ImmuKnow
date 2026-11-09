@@ -1,6 +1,6 @@
 # Cross-repository execution plan
 
-Filename templates are implemented across Core, Template and Studio; the other work below remains planned. Three Terra scouts inspected the repositories. The investigation evidence comes from source, not a replay of the private production run.
+Filename templates are implemented across Core, Template and Studio. Reference fixes are committed in Template and await Studio adoption; grouping and sorting are under verification. The remaining work follows the milestones below. Three Terra scouts inspected the repositories. The investigation evidence comes from source, not a replay of the private production run.
 
 This tracked file is the shared source of truth for scope, status, execution order and cross-repo decisions. Core’s implementation checklist follows the shared plan below. Consumer work lists: [Template](../ImmuKnow-Template/plan.md), [Studio](../ImmuKnow-Studio/plan.md). Keep shared-contract changes consistent across those files.
 
@@ -18,29 +18,29 @@ Initial investigation baselines (historical, before filename implementation):
 | ImmuKnow-Template | `9f098ab9ec3569d3fa5463b15ccd1842aa3fe16d` | Authored settings, references, notices, labels and fictional examples |
 | ImmuKnow-Studio | `b2a3e8e132b43b204c38992916acaa8afb98baf8` | Editor, browser previews, project import/export and pinned resource consumption |
 
-These SHAs explain the initial investigation; they are not checkout targets for execution. Filename work has since landed locally. The currently adopted runtime pins are Core `f2f3c3a11e20f12caff85e8531529180e8fdc797` and Template `dbe9ed2f0233395970f63cc357c36fe271525c28`; later commits have changed plans only. Start from current source and retain completed filename behavior.
+These SHAs explain the initial investigation; they are not checkout targets for execution. Filename work has since landed locally. The currently adopted runtime pins are Core `f2f3c3a11e20f12caff85e8531529180e8fdc797` and Template `dbe9ed2f0233395970f63cc357c36fe271525c28`. Template's reference fixes are committed at `b129c7a286483261332d3403e51d064b476f4711` and await consumer adoption. Start from current source and retain completed filename behavior.
 
 ## Execution status and order
 
 | ID | Status | Owner / consumers | Deliverable |
 | --- | --- | --- | --- |
 | F0 | Complete | Core + Template → Studio | Configurable individual/protected and normal/review bundle filenames |
-| R1 | Ready; next small change | Template → Studio | Meningococcal/TIg reference and display fixes |
-| R2a | Ready as a contract task | Core, with Template/Studio consumers | Freeze executable fixtures for notice-local requirements and deferred preparation |
+| R1 | Template complete; Studio adoption pending | Template → Studio | Meningococcal/TIg reference and display fixes |
+| R2a | Contract draft under critical review | Core, with Template/Studio consumers | Freeze executable fixtures for notice-local requirements and deferred preparation |
 | R2b | After R2a | Core + Template → Studio | Implement that contract, remove notice YAML, retain readable failed notices for review, detect empty agent displays |
-| G1 | Ready; independent of R2 | Core; upstream export owner | Safe grouping for missing/conflicting school identity |
+| G1 | Implementation under verification | Core; upstream export owner | Safe grouping for missing/conflicting school identity |
 | W1 | Ready; independent of R2/G1 | Core | Structured per-link evidence and run-level warning aggregation |
 | W2 | Design task after W1 | Core; Studio consumes relevant evidence | Define and implement run-scoped warning acknowledgment without changing delivery |
-| S1 | P2, after G1 | Core + Template; Studio handoff | Optional last-name/DOB ordering within bundles |
+| S1 | Implementation under verification with G1 | Core + Template; Studio handoff | Optional last-name/DOB ordering within bundles |
 | D1 | Explore | Core + Template + Studio | Disease identity/alias/label catalog; unrelated to removing the notice catalog |
 | H1 | Later | Core | Measured, lossless report-size improvement |
 | PR1 | Low priority | Core operator/developer workflow | Profile the real native workload |
 
-R1 can run now. R2a is a finite design-and-fixture task, not permission to let three implementations invent different contracts. R2b starts once its schema/examples and expected outcomes are written. G1 and W1 may proceed independently. W2, D1, H1 and PR1 are explicitly not implementation-ready feature specifications yet.
+Complete R1's Studio adoption independently. R2a is a finite design-and-fixture task, not permission to let three implementations invent different contracts. R2b starts once its schema/examples and expected outcomes are written and reviewed. G1 and W1 may proceed independently. W2, D1, H1 and PR1 are explicitly not implementation-ready feature specifications yet.
 
 ## 1. Reference fixes: preserve what worked
 
-The user's successful project already has these edits. They are **absent from the inspected Template checkout**, so treat them as changes to carry upstream, not work already committed here:
+The user's successful project edits are now committed in Template; Studio still needs to adopt that resource revision:
 
 - Add `"Meningococcal disease": "Meningococcal"` to disease normalization. All 14 meningococcal-related agent entries already map to `Meningococcal`; leave those mappings alone.
 - Add `"TIg": ["Tetanus"]` to the agent reference. Add `TIg` to both history `ignore-agents` and overdue-agent exclusions. Recognized in facts does not mean displayed as a vaccine.
@@ -86,7 +86,7 @@ The evaluator split above is decided. Before R2b production changes, add the pro
 - Require exactly one **placed** active requirements declaration for a verified report, including an explicit neutral declaration when no condition applies. A missing, duplicate (even identical), malformed or contradictory declaration produces a mandatory structured requirements failure; the report contract must represent that failed outcome. Preserve the readable original for native review and the rendered browser preview with a failure indication. Do not turn a declaration problem into a Typst assertion/compilation failure. A conditional template emits only its active branch’s declaration; unplaced content cannot supply it. Do not scan source text.
 - Distinguish declaration failures within otherwise source-matched evidence from genuinely corrupt/malformed report envelopes or wrong-row identity. The latter rejects claimed findings and produces mandatory `render.evidence_failed`. Artifact retention is independent: an already rendered readable PDF/preview remains available with an explicit failure, never a verified/ready indication. R2a needs absent/duplicate/malformed declaration and corrupt-identity cases with expected native/browser artifact retention.
 - Specify the declaration field names/enums, coverage measurement shape and affected schema/envelope versions in the fixture patch. Current preparation/payload/report versions are 1/1/2; advance affected versions together for the breaking contract, updating shared identity guards and consumers. Do not overload `notice_variant` or reintroduce redundant catalog `kind` defaults.
-- `prepare` returns an explicit per-entry deferred-check list **outside** observed `checks`. Eligibility/coverage absent from `checks` does not mean passed. Do not put placeholder `pass`, `warn` or `not_run` findings into the authoritative observations. Final compiled evidence must supply exactly one result for each required check before policy/routing; an unresolved final requirement is a mandatory failure, not policy-disableable.
+- `prepare` returns an explicit per-entry deferred-check list **outside** observed `checks`. Eligibility/coverage absent from `checks` does not mean passed. Do not put placeholder findings into authoritative observations. After validated compilation, a valid declaration supplies `notice.requirements: pass` and exactly one result for each dependent eligibility/coverage/display check. An invalid declaration supplies mandatory `notice.requirements: fail`, with the dependent check codes and blocking reason in `blocked_checks` outside observations. Clear deferred checks when compilation is resolved; blocked is distinct from pending or not applicable. Corrupt evidence still produces mandatory `render.evidence_failed`. Neither failed branch can route as ready.
 - Studio preserves that deferred list in generated examples, permits rendering of those examples, and shows a neutral “Checked when the notice compiles” advisory until a current validated result exists. Deferred checks do not increase warning counts. Keep last-successful/stale-preview labeling intact. Validate all final findings through the shared exported contract.
 - Eligibility mismatch defaults to a structured failure. Convert the affirmative and suspension **eligibility assertions** to findings so readable PDFs reach review. Keep fundamental schema/input/layout assertions when no trustworthy PDF can be rendered. Preserve the current affirmative predicate and existing ISPA selection semantics; do not add new clinical rules.
 - The fixture patch must include a maintained-notice table: eligibility predicate, agent/disease/neutral coverage basis, and intentional no-records/alternative-text branches for each notice/language. Determine those branches from the authored behavior, not the deleted YAML. An intentional replacement is not an accidentally empty recommendation; the display component must record that distinction.
@@ -208,7 +208,7 @@ Filename settings, supported fields, safe normalization/collisions, original/pro
 
 - [ ] Use the shared plan's R2a evaluator split: Core prepares trusted coverage measurements; the shared Typst helper evaluates notice-local requirements for native and browser; Core validates evidence and applies policy. Do not implement a second JS/Rust content-rule evaluator.
 - [ ] Write the shared schema/fixture patch before production changes: declaration fields/enums, version changes, exactly-one placed declaration, source identity and required finding cardinality, conditional/no-records branches, mandatory missing/invalid evidence failures, and expected eligibility/coverage/display statuses.
-- [ ] Define a per-entry deferred-check list outside observed `checks` for `prepare`; document it for Studio generation/UI. Placeholder findings must not masquerade as completed observations, and no deferred requirement may remain unresolved in final routing.
+- [ ] Define a per-entry deferred-check list outside observed `checks` for `prepare`; document it for Studio generation/UI. Define the completed valid/invalid-declaration branches above, including `blocked_checks` for checks that cannot be evaluated. Placeholder findings must not masquerade as completed observations, and no unresolved requirement may route as ready.
 - [ ] Make requirements/cardinality errors mandatory structured findings within an otherwise usable report, retaining readable originals/previews. Distinguish them from corrupt report/identity evidence (`render.evidence_failed`), whose claimed findings are rejected while rendered artifacts are retained independently. Include missing/duplicate/malformed declaration and wrong-row-identity fixture cases with native/browser expected outcomes.
 - [ ] Include the explicit maintained-notice predicate/replacement table with Template. Eligibility mismatches default to structured failure; preserve existing affirmative/ISPA semantics. Keep new check codes non-adjustable initially.
 
