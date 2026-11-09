@@ -16,6 +16,7 @@ pub struct Config {
     pub date_of_delivery: String,
     pub date_due: Option<String>,
     pub date_of_suspension: Option<String>,
+    pub allowed_duplicate_client_ids: Vec<String>,
     pub bundling: Bundling,
     pub encryption: Encryption,
     pub school_validation: School,
@@ -113,8 +114,20 @@ pub fn check(code: &str, status: &str, message: &str) -> Value {
     json!({"code":code,"stage":"preparation","status":status,"message":message})
 }
 pub fn config(path: &Path) -> Result<Config> {
-    let c: Config = parse_yaml(&fs::read_to_string(path)?)?;
+    let source = fs::read_to_string(path)?;
+    // String deserialization can coerce YAML numbers; inspect their native types
+    // first so an unquoted ID cannot silently lose leading zeros.
+    let value: Value = parse_yaml(&source)?;
+    if let Some(ids) = value.get("allowed_duplicate_client_ids") {
+        ensure!(
+            ids.as_array()
+                .is_some_and(|items| items.iter().all(Value::is_string)),
+            "allowed_duplicate_client_ids must be a list of strings; quote numeric IDs"
+        );
+    }
+    let c: Config = parse_yaml(&source)?;
     validate_dates(&c)?;
+    validate_allowed_duplicates(&c)?;
     ensure!(
         !c.pipeline.after_run.remove_artifacts,
         "pipeline.after_run.remove_artifacts is retired; remove the run directory manually when appropriate"
@@ -145,6 +158,17 @@ pub fn config(path: &Path) -> Result<Config> {
     validate_bundling(&c)?;
 
     Ok(c)
+}
+
+fn validate_allowed_duplicates(config: &Config) -> Result<()> {
+    let mut seen = BTreeSet::new();
+    for id in &config.allowed_duplicate_client_ids {
+        ensure!(
+            !id.is_empty() && id.trim() == id && seen.insert(id),
+            "allowed_duplicate_client_ids must contain unique nonblank strings without surrounding whitespace"
+        );
+    }
+    Ok(())
 }
 
 /// Compare the dates that are actually supplied, including across omitted fields.
@@ -629,16 +653,21 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>
         .collect();
     let sources: Vec<Value> = sources.into_iter().map(|source| json!(source)).collect();
     ensure!(!rows.is_empty(), "CSV contains no clients");
-    let mut ids = BTreeSet::new();
+    let mut counts = BTreeMap::<String, usize>::new();
     for r in &rows {
         let id = get(r, "client_id");
-        ensure!(
-            id.is_empty() || ids.insert(id.to_string()),
-            "Duplicate nonblank client_id"
-        );
+        if !id.is_empty() {
+            *counts.entry(id.to_owned()).or_default() += 1;
+        }
         ensure!(
             matches!(get(r, "intended_reader"), "" | "student" | "guardian"),
             "Invalid intended_reader"
+        );
+    }
+    for (id, count) in &counts {
+        ensure!(
+            *count < 2 || c.allowed_duplicate_client_ids.contains(id),
+            "Duplicate nonblank client_id {id}; add an intentional duplicate to allowed_duplicate_client_ids"
         );
     }
     let mut by_id = BTreeMap::new();
@@ -739,7 +768,7 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>
         rows.iter().any(|r| !get(r, "oiid").is_empty()),
         rows.iter().any(|r| get(r, "oiid").is_empty()),
     );
-    let extra_manifest_rows = single.is_none() && by_id.keys().any(|id| !ids.contains(id));
+    let extra_manifest_rows = single.is_none() && by_id.keys().any(|id| !counts.contains_key(id));
     let mut result = vec![];
     for (i, ((r, source), (history, hk, hu))) in rows.iter().zip(sources).zip(histories).enumerate()
     {
@@ -784,6 +813,13 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>
             );
         }
         let mut checks = vec![];
+        if let Some(count) = counts.get(id).filter(|count| **count > 1) {
+            checks.push(check(
+                "data.duplicate_client_id",
+                "warn",
+                &format!("This allowed client ID appears in {count} source rows. All rows are retained and share the same notice assignment; review each row."),
+            ));
+        }
         if extra_manifest_rows {
             checks.push(check(
                 "assignment.extra_manifest_row",
@@ -1085,6 +1121,29 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn duplicate_id_allowlist_requires_unique_trimmed_strings() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("parameters.yaml");
+        for source in [
+            "{}",
+            "allowed_duplicate_client_ids: ['0000000001', '0000000002']",
+        ] {
+            fs::write(&path, source).unwrap();
+            assert!(config(&path).is_ok(), "rejected {source}");
+        }
+        for source in [
+            "allowed_duplicate_client_ids: ['']",
+            "allowed_duplicate_client_ids: ['   ']",
+            "allowed_duplicate_client_ids: [' 0000000001']",
+            "allowed_duplicate_client_ids: ['0000000001', '0000000001']",
+            "allowed_duplicate_client_ids: [1234567890]",
+            "allowed_duplicate_client_ids: null",
+        ] {
+            fs::write(&path, source).unwrap();
+            assert!(config(&path).is_err(), "accepted {source}");
+        }
+    }
     #[test]
     fn project_dates_are_optional_but_ordered_when_present() {
         for source in [

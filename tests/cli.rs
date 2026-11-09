@@ -1370,3 +1370,179 @@ fn duplicate_nonblank_client_ids_reject_run_and_keep_all_readable_rows() {
         fs::read(&project.csv).unwrap()
     );
 }
+
+fn allow_duplicate_fixture(project: &Project) {
+    select_first_rows(project, &["overdue_agents_v1.en.typ"; 3]);
+    let mut reader = csv::Reader::from_path(&project.csv).unwrap();
+    let headers = reader.headers().unwrap().clone();
+    let id = headers.iter().position(|name| name == "client_id").unwrap();
+    let first_name = headers
+        .iter()
+        .position(|name| name == "first_name")
+        .unwrap();
+    let rows: Vec<_> = reader.records().map(Result::unwrap).collect();
+    drop(reader);
+    let mut writer = csv::Writer::from_path(&project.csv).unwrap();
+    writer.write_record(&headers).unwrap();
+    for (index, row) in rows.iter().enumerate() {
+        let mut values: Vec<_> = row.iter().collect();
+        if index == 1 {
+            values[id] = " 0000000001 ";
+            values[first_name] = "Bob";
+        }
+        writer.write_record(values).unwrap();
+    }
+    writer.flush().unwrap();
+    fs::write(&project.assignments, serde_json::to_vec(&json!([
+        {"client_id":"0000000001", "template":"overdue_agents_v1.en.typ", "experiment_id":"fictional", "experiment_arm":"A"},
+        {"client_id":"0000000003", "template":"overdue_agents_v1.en.typ"}
+    ])).unwrap()).unwrap();
+    let parameters = project.config.join("parameters.yaml");
+    let source = fs::read_to_string(&parameters).unwrap();
+    fs::write(
+        parameters,
+        format!("{source}\nallowed_duplicate_client_ids: ['0000000001']\n"),
+    )
+    .unwrap();
+}
+
+#[test]
+fn allowed_duplicate_ids_keep_distinct_rows_and_share_manifest_assignment() {
+    let project = Project::new();
+    allow_duplicate_fixture(&project);
+    success(&project.run());
+    let (run, record) = project.record();
+    assert_eq!(
+        fs::read(run.join("source.csv")).unwrap(),
+        fs::read(&project.csv).unwrap()
+    );
+    assert_eq!(record["status"], "completed_with_warnings");
+    let rows = record["entries"].as_array().unwrap();
+    assert_eq!(rows.len(), 3);
+    assert_eq!(rows[0]["assignment"], rows[1]["assignment"]);
+    assert_eq!(rows[1]["source"]["client_id"], " 0000000001 ");
+    assert_eq!(rows[0]["notice"]["client_data"]["first_name"], "Alice");
+    assert_eq!(rows[1]["notice"]["client_data"]["first_name"], "Bob");
+    assert_eq!(rows[0]["assignment"]["experiment_arm"], "A");
+    for (index, row) in rows.iter().enumerate() {
+        let key = format!("row-{:06}", index + 1);
+        assert_eq!(row["row_key"], key);
+        assert_eq!(row["original"]["status"], "completed");
+        assert_eq!(row["routing"], "deliverable");
+        assert!(run.join(format!("originals/{key}.pdf")).is_file());
+        assert!(run.join(format!("facts/{key}.json")).is_file());
+        let warnings: Vec<_> = row["effective_checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|c| c["code"] == "data.duplicate_client_id")
+            .collect();
+        assert_eq!(warnings.len(), usize::from(index < 2));
+        if index < 2 {
+            assert_eq!(warnings[0]["status"], "warn");
+            assert!(
+                warnings[0]["message"]
+                    .as_str()
+                    .unwrap()
+                    .contains("2 source rows")
+            );
+        }
+    }
+    assert_eq!(
+        record["bundles"][0]["members"],
+        json!(["row-000001", "row-000002", "row-000003"])
+    );
+    let policy = project.root.join("policy.json");
+    let rules = json!({"content.link_https":{"severity":"warn","reason":"Example"}});
+    fs::write(&policy, serde_json::to_vec(&json!({"clients":[{"selector":{"scheme":"panorama","value":"0000000001"},"rules":rules}]})).unwrap()).unwrap();
+    let rejected = cli(
+        &project.root,
+        &["rebundle", p(&run), "--policy", p(&policy)],
+    );
+    assert!(!rejected.status.success());
+    assert!(
+        String::from_utf8_lossy(&rejected.stderr)
+            .contains("Validation selector must match exactly one source row")
+    );
+    fs::write(&policy, serde_json::to_vec(&json!({"clients":[{"selector":{"input_sha256":record["input"]["sha256"],"row_key":"row-000001"},"rules":rules}]})).unwrap()).unwrap();
+    let result = cli(
+        &project.root,
+        &[
+            "rebundle",
+            p(&run),
+            "--policy",
+            p(&policy),
+            "--withhold",
+            "row-000002",
+            "--reason",
+            "Review this row",
+        ],
+    );
+    success(&result);
+    let after: Value = serde_json::from_slice(&fs::read(run.join("run.json")).unwrap()).unwrap();
+    assert_eq!(after["entries"][1]["routing"], "withheld");
+    assert_eq!(after["entries"][0]["routing"], "deliverable");
+    assert_eq!(
+        after["bundles"][0]["members"],
+        json!(["row-000001", "row-000003"])
+    );
+}
+
+#[test]
+fn allowed_duplicate_ids_work_with_a_single_template() {
+    let project = Project::new();
+    allow_duplicate_fixture(&project);
+    let template = project.templates.join("overdue_agents_v1.en.typ");
+    let output = cli(
+        &project.root,
+        &[
+            "run",
+            p(&project.csv),
+            "--template",
+            p(&template),
+            "--config",
+            p(&project.config),
+            "--output",
+            p(&project.runs),
+        ],
+    );
+    success(&output);
+    let (_, record) = project.record();
+    let rows = record["entries"].as_array().unwrap();
+    assert_eq!(rows.len(), 3);
+    assert_eq!(
+        rows[0]["assignment"]["template"],
+        rows[1]["assignment"]["template"]
+    );
+    assert!(rows[..2].iter().all(|row| {
+        row["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c["code"] == "data.duplicate_client_id" && c["status"] == "warn")
+    }));
+    assert_eq!(
+        record["bundles"][0]["members"],
+        json!(["row-000001", "row-000002", "row-000003"])
+    );
+}
+
+#[test]
+fn duplicate_id_not_on_allowlist_still_rejects_input() {
+    let project = Project::new();
+    allow_duplicate_fixture(&project);
+    let parameters = project.config.join("parameters.yaml");
+    let config = fs::read_to_string(&parameters).unwrap().replace(
+        "allowed_duplicate_client_ids: ['0000000001']",
+        "allowed_duplicate_client_ids: ['0000000003']",
+    );
+    fs::write(parameters, config).unwrap();
+    let output = project.run();
+    assert!(!output.status.success());
+    let message = String::from_utf8_lossy(&output.stderr);
+    assert!(message.contains("Duplicate nonblank client_id 0000000001"));
+    assert!(message.contains("allowed_duplicate_client_ids"));
+    let (_, record) = project.record();
+    assert_eq!(record["status"], "failed");
+    assert_eq!(record["entries"].as_array().unwrap().len(), 3);
+}

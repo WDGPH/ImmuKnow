@@ -2,6 +2,8 @@
 
 Use these column names in your CSV. A required column must be present, even when some rows have missing values. Missing information may produce warnings or failed checks. A vaccine “agent” is the name or code used for a vaccine in your source system. See [getting started](getting_started.md) for cases that reject the whole input file.
 
+Nonblank client IDs must be unique unless explicitly allowed in [configuration](configuration.md#notice-selection). Allowed repeated IDs retain all rows and produce a warning for each occurrence.
+
 | Field | Required column | Description |
 | --- | --- | --- |
 | `school_name` | Yes | School name, optionally followed by a facility ID in the format 'SCHOOL NAME - FACILITY ID' |

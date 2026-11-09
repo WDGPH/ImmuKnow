@@ -48,6 +48,10 @@ An overdue disease, dose, or agent fragment could not be interpreted fully. Comp
 
 The source school name and ID were compared with the configured reference. A name-only match warns; mismatched IDs, an ID associated with another name, or no match fail. Compare the source and the referenced snapshot and correct the appropriate file before rerunning.
 
+### `data.duplicate_client_id` {#data-duplicate-client-id}
+
+This ID occurs on multiple rows and was explicitly allowed in configuration. All rows are retained and use the same notice assignment. Review each row and its notice before sending; warnings are eligible for delivery.
+
 ### `data.forecast_coverage` {#data-forecast-coverage}
 
 The configured agent lookup compares forecasted agents with supplied overdue diseases. Extra diseases or unmapped agents warn; no supplied diseases or agents is not applicable. Review the source and lookup measurements. Missing disease coverage can instead stop preparation with a run error; inspect that error and correct the inputs or reference.

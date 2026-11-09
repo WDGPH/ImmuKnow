@@ -20,6 +20,7 @@ Edit `parameters.yaml` to set the following options:
 | --- | --- |
 | `date_as_of`, `date_of_delivery` | Assessment and delivery dates in `YYYY-MM-DD` format. |
 | `date_due`, `date_of_suspension` | Optional update deadline and suspension start, in `YYYY-MM-DD` format; omitted, null or blank means unset. |
+| `allowed_duplicate_client_ids` | Optional list of explicitly accepted repeated client IDs, quoted as strings. |
 | `bundling.bundle_size` | Maximum notices in each combined PDF. Set to zero to turn off grouping. |
 | `bundling.group_by` | Optionally group by `school`, `board`, `language`, `page_count`, or `notice_variant`, using one value or a list. `size` or null groups by size only. |
 | `encryption.enabled` | Create password-protected copies for sending while keeping the original PDFs. |
@@ -114,7 +115,22 @@ Choose one `<version_id>.<language>.typ` file for everyone in the client list, o
 ]
 ```
 
-Use `--notice-assignments assignments.json --templates ./project/templates` with the run command. Each `template` value is a filename in the `--templates` folder, without a path. Surrounding spaces are removed from IDs and filenames; leading zeros are kept. Missing or ambiguous choices and duplicate nonblank client IDs in the CSV reject the input. Extra rows in the selection file produce warnings. A conflict with the source version, an unavailable catalog check, or a choice that conflicts with the catalog produces a warning and keeps the selected template. Only `en` and `fr` are supported.
+Use `--notice-assignments assignments.json --templates ./project/templates` with the run command. Each `template` value is a filename in the `--templates` folder, without a path. Surrounding spaces are removed from IDs and filenames; leading zeros are kept. Missing or ambiguous choices and unlisted duplicate nonblank client IDs in the CSV reject the input. Extra rows in the selection file produce warnings. A conflict with the source version, an unavailable catalog check, or a choice that conflicts with the catalog produces a warning and keeps the selected template. Only `en` and `fr` are supported.
+
+To accept a known repeated client ID, add it explicitly to `parameters.yaml`:
+
+```yaml
+allowed_duplicate_client_ids:
+  - '0123456789'
+```
+
+Entries must be unique, nonblank strings without surrounding whitespace. Quote
+each ID to preserve leading zeros. The setting applies to every run using this
+configuration. Each occurrence of a repeated ID is retained and receives a warning; all
+rows sharing the ID use the same selected template and experiment assignment.
+Review each row before sending. Unlisted duplicates still reject the input.
+For row-specific validation rules on a repeated ID, use the input SHA-256 and
+row key selector; a Panorama ID selector is ambiguous and rejected.
 
 The notice catalog, `notice_versions.yaml`, has `schema_version: 1` and `versions` entries with `kind` (`overdue`, `affirmative`, or `informational`) and optional `requires` (`has_overdue`, `has_overdue_agents`, `no_overdue`, or `any`). It checks whether the chosen notice applies; it does not choose a notice or assess immunization status.
 
