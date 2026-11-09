@@ -157,6 +157,24 @@ enum Command {
         #[arg(long)]
         output: PathBuf,
     },
+    /// List distinct URL warnings in a completed saved run.
+    Warnings {
+        run: PathBuf,
+        /// Regenerate the HTML view from the saved record.
+        #[arg(long)]
+        refresh: bool,
+    },
+    /// Record or revoke review of an exact warning issue.
+    Acknowledge {
+        run: PathBuf,
+        issue: String,
+        /// Explain the review decision; avoid client information.
+        #[arg(long)]
+        reason: String,
+        /// Revoke an existing acknowledgment.
+        #[arg(long)]
+        revoke: bool,
+    },
     /// Make new bundles from a saved run without rebuilding notices.
     Rebundle {
         run: PathBuf,
@@ -304,6 +322,17 @@ fn execute() -> Result<()> {
                 &immuknow::resources::identity(),
             )?;
             println!();
+        }
+        Command::Warnings { run, refresh } => {
+            immuknow::warning_review::list(&run, refresh)?;
+        }
+        Command::Acknowledge {
+            run,
+            issue,
+            reason,
+            revoke,
+        } => {
+            immuknow::warning_review::acknowledge(&run, &issue, &reason, revoke)?;
         }
         Command::Rebundle {
             run,

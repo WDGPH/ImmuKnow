@@ -122,7 +122,7 @@ impl RunSummary {
     }
 }
 
-fn lock(dir: &Path) -> Result<File> {
+pub(crate) fn lock(dir: &Path) -> Result<File> {
     let f = fs::OpenOptions::new()
         .read(true)
         .write(true)
@@ -833,6 +833,7 @@ pub fn rebundle_with_filenames(
     // Read the record only after taking the lock so two attempts cannot overwrite each other.
     let _lock = lock(&dir)?;
     let mut record: Value = crate::read_json(&dir.join("run.json"))?;
+    crate::warning_review::validate(&record)?;
     ensure!(
         record["run_schema_version"] == 1,
         "Unsupported run record version"

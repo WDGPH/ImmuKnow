@@ -1,5 +1,5 @@
 //! Persist a run and render an escaped, browsable HTML report.
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde_json::Value;
 use std::{
     fmt::Write,
@@ -279,6 +279,138 @@ fn checks(html: &mut String, items: &[Value]) {
         html.push_str("</ul></details>");
     }
 }
+fn warning_rows(html: &mut String, rows: &std::collections::BTreeSet<usize>) {
+    html.push_str("<details><summary>Show affected source rows</summary><p>");
+    for (index, row) in rows.iter().enumerate() {
+        if index > 0 {
+            html.push_str(", ");
+        }
+        let _ = write!(html, "<a href=\"#notice-row-{row}\">Source row {row}</a>");
+    }
+    html.push_str("</p></details>");
+}
+
+fn warning_summary(html: &mut String, record: &Value) {
+    let summary = crate::warnings::summarize(record);
+    let reviews = crate::warning_review::validate(record);
+    let active = reviews
+        .as_ref()
+        .map(|reviews| reviews.active_ids())
+        .unwrap_or_default();
+    html.push_str("<h2>Warning summary</h2><p>Effective warnings are grouped below. Link issues distinguish exact destinations or destination sets; labels omit addresses. Expand a group to reach each affected source row. Notice creation messages are counted separately.</p>");
+    let _ = write!(
+        html,
+        "<p><strong>{}</strong> distinct structured link issues</p>",
+        summary.link_issues.len()
+    );
+    if reviews.is_ok() {
+        let current: std::collections::BTreeSet<_> = summary
+            .link_issues
+            .iter()
+            .filter_map(|issue| issue.id.as_deref())
+            .collect();
+        let acknowledged = current.iter().filter(|id| active.contains(**id)).count();
+        let inactive = active
+            .iter()
+            .filter(|id| !current.contains(id.as_str()))
+            .count();
+        let _ = write!(
+            html,
+            "<p>{acknowledged} acknowledged · {} outstanding · {inactive} inactive acknowledgments</p>",
+            summary.link_issues.len() - acknowledged
+        );
+        html.push_str("<p>Review acknowledgments record attention only; they do not change warnings, delivery decisions, or exit status. Use <code>immuknow warnings RUN</code> to list issue IDs and manage reviews.</p>");
+        if inactive > 0 {
+            html.push_str("<details><summary>Inactive acknowledgments</summary><p>These reviewed issues no longer have effective warnings. To close a review, use <code>immuknow acknowledge RUN ISSUE_ID --revoke --reason TEXT</code>.</p><ul>");
+            for id in active.iter().filter(|id| !current.contains(id.as_str())) {
+                let _ = write!(html, "<li><code>{}</code></li>", escaped(id));
+            }
+            html.push_str("</ul></details>");
+        }
+    } else {
+        html.push_str("<p class=\"fail\">Warning review history is invalid; acknowledgment status is unavailable. Inspect the saved run before changing reviews.</p>");
+    }
+    if !summary.link_issues.is_empty() {
+        html.push_str("<ul>");
+        for (index, issue) in summary.link_issues.iter().enumerate() {
+            let _ = write!(
+                html,
+                "<li data-issue-id=\"{}\">Link issue {} · <code>{}</code> · {} affected rows · {} occurrences",
+                issue.id.as_deref().unwrap_or(""),
+                index + 1,
+                escaped(&issue.code),
+                issue.count.rows.len(),
+                issue.count.occurrences
+            );
+            if reviews.is_ok() {
+                let state = if issue.id.as_ref().is_some_and(|id| active.contains(id)) {
+                    "Acknowledged"
+                } else {
+                    "Outstanding"
+                };
+                let _ = write!(html, " · {state}");
+            }
+            if let Some(id) = &issue.id {
+                let _ = write!(
+                    html,
+                    "<small>Issue ID: <code>{}</code></small>",
+                    escaped(id)
+                );
+            } else {
+                html.push_str(
+                    "<small>Issue ID unavailable; this finding cannot be acknowledged.</small>",
+                );
+            }
+            warning_rows(html, &issue.count.rows);
+            html.push_str("</li>");
+        }
+        html.push_str("</ul>");
+    }
+    if let Ok(reviews) = &reviews {
+        if !reviews.history.is_empty() {
+            html.push_str("<details><summary>Warning review history</summary><ul>");
+            for event in &reviews.history {
+                let action = match event.action {
+                    crate::warning_review::Action::Acknowledge => "Acknowledged",
+                    crate::warning_review::Action::Revoke => "Revoked",
+                };
+                let _ = write!(
+                    html,
+                    "<li>{} · <code>{}</code> · {} · {}</li>",
+                    action,
+                    escaped(&event.issue_id),
+                    escaped(&event.at),
+                    escaped(&event.reason)
+                );
+            }
+            html.push_str("</ul></details>");
+        }
+    }
+    if !summary.other.is_empty() {
+        html.push_str("<h3>Other warnings by check</h3><p>Counts by check do not identify distinct causes. Older link findings without structured subjects appear here.</p><ul>");
+        for (code, count) in &summary.other {
+            let _ = write!(
+                html,
+                "<li><code>{}</code> · {} affected rows · {} occurrences",
+                escaped(code),
+                count.rows.len(),
+                count.occurrences
+            );
+            warning_rows(html, &count.rows);
+            html.push_str("</li>");
+        }
+        html.push_str("</ul>");
+    }
+    let _ = write!(
+        html,
+        "<h3>Notice creation messages</h3><p>{} affected rows</p>",
+        summary.diagnostics.len()
+    );
+    if !summary.diagnostics.is_empty() {
+        warning_rows(html, &summary.diagnostics);
+    }
+}
+
 fn route(entry: &Value) -> &str {
     match text(entry, "routing") {
         "deliverable" => "deliverable",
@@ -398,6 +530,7 @@ pub fn write(dir: &Path, record: &Value) -> Result<()> {
         entries.len()
     );
     html.push_str("<p class=\"muted\">Review findings and representative PDFs before sending. These checks validate supplied information and document output; the source system assesses immunization status. Link checks examine address formats, not whether destinations are reachable.</p>");
+    warning_summary(&mut html, record);
     if let Some(items) = record["checks"].as_array().filter(|c| !c.is_empty()) {
         html.push_str("<h2>Run checks</h2>");
         checks(&mut html, items);
@@ -438,7 +571,7 @@ pub fn write(dir: &Path, record: &Value) -> Result<()> {
         );
     }
     html.push_str("</div><h2>Notices</h2><p>Failure blocks the normal bundle. Warning permits inclusion under the effective rules. Not applicable means the check does not apply; Not run blocks the normal bundle unless the check was explicitly disabled by policy.</p><div id=\"controls\" class=\"controls\" hidden><label for=\"search\">Search names, IDs, schools or findings<input id=\"search\" type=\"search\"></label><label for=\"filter\">Show<select id=\"filter\"><option value=\"all\">All source rows</option><option value=\"review\">Needs review</option><option value=\"failed\">Failed</option><option value=\"warnings\">With warnings (any decision)</option><option value=\"withheld\">Withheld</option><option value=\"deliverable\">Ready</option><option value=\"undecided\">Not decided</option></select></label></div><p id=\"shown\" role=\"status\" aria-live=\"polite\"></p><noscript><p>All source rows are shown. Use your browser’s Find command to search.</p></noscript><p id=\"no-matches\" hidden>No matching source rows. Clear the search or change the filter.</p><table><caption>Source rows and effective findings</caption><thead><tr><th scope=\"col\">Person / source row</th><th scope=\"col\">School / notice</th><th scope=\"col\">Delivery decision</th><th scope=\"col\">Findings and files</th></tr></thead><tbody>");
-    for e in entries {
+    for (index, e) in entries.iter().enumerate() {
         let findings = effective(e);
         let warnings = count(findings, "warn");
         let available = e.get("effective_checks").unwrap_or(&e["checks"]).is_array();
@@ -449,7 +582,8 @@ pub fn write(dir: &Path, record: &Value) -> Result<()> {
         };
         let _ = write!(
             html,
-            "<tr data-route=\"{}\" data-warnings=\"{}\"><td data-label=\"Person / source row\"><strong>{}</strong><small>Client ID: {}</small><small>{}</small></td><td data-label=\"School / notice\">{}<small>{}</small></td><td data-label=\"Delivery decision\"><strong>{}</strong><small>Blocking findings: {failures} · Warnings: {warnings}</small></td><td data-label=\"Findings and files\">",
+            "<tr id=\"notice-row-{}\" data-route=\"{}\" data-warnings=\"{}\"><td data-label=\"Person / source row\"><strong>{}</strong><small>Client ID: {}</small><small>{}</small></td><td data-label=\"School / notice\">{}<small>{}</small></td><td data-label=\"Delivery decision\"><strong>{}</strong><small>Blocking findings: {failures} · Warnings: {warnings}</small></td><td data-label=\"Findings and files\">",
+            index + 1,
             route(e),
             has_warning(e),
             escaped(&name(e)),
@@ -494,11 +628,48 @@ pub fn write(dir: &Path, record: &Value) -> Result<()> {
         Ok(())
     })?;
     crate::atomic(&dir.join("report.html"), html.as_bytes())
+        .context("Run record saved, but HTML report refresh failed")
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn warning_review_status_and_history_are_visible_and_escaped() {
+        let mut record = serde_json::json!({"resources":{"sha256":"a".repeat(64)},"project_resources":{"templates":{"letter.typ":"b".repeat(64)}},"entries":[{"effective_checks":[{"code":"content.link_https","status":"warn","subjects":[{"kind":"url","urls":["http://example.test/?id=secret"]}]}]}]});
+        let id = crate::warnings::reviewable(&record).unwrap().link_issues[0]
+            .id
+            .clone()
+            .unwrap();
+        record["warning_reviews"] = serde_json::json!({"schema_version":1,"history":[{"issue_id":id,"action":"acknowledge","reason":"<reviewed>","at":"2026-01-01T00:00:00Z"}]});
+        let mut html = String::new();
+        warning_summary(&mut html, &record);
+        assert!(html.contains("1 acknowledged · 0 outstanding"));
+        assert!(html.contains(" · Acknowledged"));
+        assert!(html.contains("&lt;reviewed&gt;"));
+        assert!(!html.contains("id=secret"));
+        record["entries"][0]["effective_checks"][0]["status"] = serde_json::json!("fail");
+        html.clear();
+        warning_summary(&mut html, &record);
+        assert!(html.contains("1 inactive acknowledgments"));
+    }
+
+    #[test]
+    fn summary_hides_destinations_and_links_to_affected_rows() {
+        let record = serde_json::json!({"entries":[
+            {"effective_checks":[{"code":"content.link_https","status":"warn","subjects":[{"kind":"url","urls":["http://example.test/?private=secret"]}]}]},
+            {"effective_checks":[{"code":"content.link_https","status":"warn","subjects":[{"kind":"url","urls":["http://example.test/?private=secret"]}]}],"compiler_diagnostics":"separate"}
+        ]});
+        let mut html = String::new();
+        warning_summary(&mut html, &record);
+        assert!(html.contains("1</strong> distinct structured link issues"));
+        assert!(html.contains("2 affected rows · 2 occurrences"));
+        assert!(html.contains("href=\"#notice-row-1\""));
+        assert!(html.contains("href=\"#notice-row-2\""));
+        assert!(!html.contains("private=secret"));
+        assert!(html.contains("Notice creation messages</h3><p>1 affected rows"));
+    }
+
     #[test]
     fn escapes_untrusted_content() {
         assert_eq!(

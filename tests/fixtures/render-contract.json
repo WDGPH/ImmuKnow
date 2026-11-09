@@ -422,6 +422,204 @@
     }
   },
   "cases": [
+      {
+        "name": "link set with exact destinations",
+        "valid": true,
+        "changes": [
+          {
+            "target": "report",
+            "path": [
+              "checks",
+              10
+            ],
+            "value": {
+              "code": "content.multiple_links",
+              "stage": "render",
+              "status": "warn",
+              "message": "Review",
+              "subjects": [
+                {
+                  "kind": "url_set",
+                  "urls": [
+                    "http://a",
+                    "https://b"
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "wrong subject kind for link check",
+        "valid": false,
+        "changes": [
+          {
+            "target": "report",
+            "path": [
+              "checks",
+              10
+            ],
+            "value": {
+              "code": "content.link_https",
+              "stage": "render",
+              "status": "warn",
+              "message": "Review",
+              "subjects": [
+                {
+                  "kind": "url_set",
+                  "urls": [
+                    "http://a",
+                    "https://b"
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "subjects on non-link check",
+        "valid": false,
+        "changes": [
+          {
+            "target": "report",
+            "path": [
+              "checks",
+              10
+            ],
+            "value": {
+              "code": "layout.envelope_window_missing",
+              "stage": "render",
+              "status": "warn",
+              "message": "Review",
+              "component": "address",
+              "page": 1,
+              "subjects": [
+                {
+                  "kind": "url",
+                  "urls": [
+                    "http://a"
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+,
+      {
+        "name": "link warning with exact subject",
+        "valid": true,
+        "changes": [
+          {
+            "target": "report",
+            "path": [
+              "checks",
+              10
+            ],
+            "value": {
+              "code": "content.link_https",
+              "stage": "render",
+              "status": "warn",
+              "message": "Review link",
+              "subjects": [
+                {
+                  "kind": "url",
+                  "urls": [
+                    "http://example.org/?id=1#part"
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "link subject wrong cardinality",
+        "valid": false,
+        "changes": [
+          {
+            "target": "report",
+            "path": [
+              "checks",
+              10
+            ],
+            "value": {
+              "code": "content.link_https",
+              "stage": "render",
+              "status": "warn",
+              "message": "Review link",
+              "subjects": [
+                {
+                  "kind": "url",
+                  "urls": [
+                    "a",
+                    "b"
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "link set duplicate destinations",
+        "valid": false,
+        "changes": [
+          {
+            "target": "report",
+            "path": [
+              "checks",
+              10
+            ],
+            "value": {
+              "code": "content.link_https",
+              "stage": "render",
+              "status": "warn",
+              "message": "Review link",
+              "subjects": [
+                {
+                  "kind": "url_set",
+                  "urls": [
+                    "a",
+                    "a"
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "link subject extra field",
+        "valid": false,
+        "changes": [
+          {
+            "target": "report",
+            "path": [
+              "checks",
+              10
+            ],
+            "value": {
+              "code": "content.link_https",
+              "stage": "render",
+              "status": "warn",
+              "message": "Review link",
+              "subjects": [
+                {
+                  "kind": "url",
+                  "urls": [
+                    "a"
+                  ],
+                  "extra": true
+                }
+              ]
+            }
+          }
+        ]
+      }
+,
     {
       "name": "current report",
       "valid": true,

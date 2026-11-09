@@ -907,6 +907,29 @@
         },
         "measurements": {
           "$ref": "#/$defs/measurements"
+        },
+        "subjects": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": { "enum": ["url", "url_set"] },
+              "urls": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": { "type": "string" }
+              }
+            },
+            "oneOf": [
+              { "properties": { "kind": { "const": "url" }, "urls": { "maxItems": 1 } } },
+              { "properties": { "kind": { "const": "url_set" }, "urls": { "minItems": 2 } } }
+            ],
+            "required": ["kind", "urls"],
+            "additionalProperties": false
+          }
         }
       },
       "required": [
@@ -914,6 +937,17 @@
         "stage",
         "status",
         "message"
+      ],
+      "allOf": [
+        {
+          "if": { "required": ["subjects"] },
+          "then": { "properties": { "code": { "enum": ["content.link_https", "content.link_destination", "content.multiple_links"] } } }
+        },
+        {
+          "if": { "properties": { "code": { "const": "content.multiple_links" } } },
+          "then": { "properties": { "subjects": { "maxItems": 1, "items": { "properties": { "kind": { "const": "url_set" } } } } } },
+          "else": { "properties": { "subjects": { "items": { "properties": { "kind": { "const": "url" } } } } } }
+        }
       ],
       "additionalProperties": false
     },

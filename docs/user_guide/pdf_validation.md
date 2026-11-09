@@ -2,7 +2,7 @@
 
 Each run records input preparation, PDF creation and check results in `run.json`, with a readable `report.html`. Inspect the report and representative notices before sending them. Typst components record layout and content findings for the notice actually created.
 
-The report starts with counts of source rows by delivery decision. The warning-row count and filter also include notice creation messages. Warning counts overlap those decisions: a Ready row can still have warnings. Search names, client IDs, schools or finding text, and filter by decision or warnings. Each row shows its main finding; expand **Findings and files** for failures, warnings, next steps and PDF links. Passed, inapplicable and policy-disabled checks are under **Other checks**. Unperformed checks that were not disabled remain prominent because they block the normal bundle. Technical details retain check codes, measurements and any rule change with its original and effective result. Without JavaScript, all rows remain available and browser Find still works.
+The report starts with counts of source rows by delivery decision. Its warning summary groups repeated link warnings by exact destination or destination set, counts affected rows and occurrences, and links back to each source row. Summary labels omit destination values; the original findings retain their evidence. Other warnings are counted by check code, and notice creation messages are counted separately. The summary uses effective warnings, so a finding changed to failure or disabled by policy is not counted as a warning. Older saved runs without structured link subjects show those warnings by check code. These counts do not change delivery decisions. The warning-row count and filter also include notice creation messages. Warning counts overlap those decisions: a Ready row can still have warnings. Search names, client IDs, schools or finding text, and filter by decision or warnings. Each row shows its main finding; expand **Findings and files** for failures, warnings, next steps and PDF links. Passed, inapplicable and policy-disabled checks are under **Other checks**. Unperformed checks that were not disabled remain prominent because they block the normal bundle. Technical details retain check codes, measurements and any rule change with its original and effective result. Without JavaScript, all rows remain available and browser Find still works.
 
 Ready means eligible under the effective rules, not proof that a bundle was produced. Check the actual bundle links and run errors. Counts describe source rows, not unique people or immunization outcomes. Link checks validate address formats; they do not test whether websites respond.
 
@@ -11,6 +11,30 @@ Notices with warnings can be included in the PDFs for sending under the active r
 The numbered `bundles-0001/` directory contains PDFs for notices ready to send and separate review PDFs. Defaults are `bundle-*.pdf` and `review-*.pdf`; [filename templates](configuration.md#filename-templates) can customize them. A CSV beside each PDF connects its page ranges and findings to the input rows. The run also retains original PDFs and, if configured, separate encrypted copies. Read the report for actual outcomes and paths; do not infer success from a file's presence alone.
 
 For explanations and investigation steps for individual codes, see the [finding code reference](findings.md).
+
+## Record review of a link warning
+
+List the current distinct URL issues and their full issue IDs from a completed
+run. The report shows the same IDs and affected source rows. Then record or
+revoke a review with a reason that does not contain client information:
+
+```sh
+immuknow warnings runs/example-run
+immuknow acknowledge runs/example-run ISSUE_ID --reason "Reviewed destination"
+immuknow acknowledge runs/example-run ISSUE_ID --reason "Review withdrawn" --revoke
+```
+
+An acknowledgment applies to that exact issue in that saved run, including
+later rebundles. A changed destination or destination set is a different issue;
+a new run starts with no acknowledgments. The report retains the review history
+and shows current and inactive acknowledgments. Acknowledgment records attention:
+it does not alter findings, severity, routing, exit status, PDFs or bundles.
+Warnings without structured subjects, including older runs, remain visible by
+check code but cannot be acknowledged as exact link issues.
+
+If the run record was saved but the HTML view could not be refreshed, repair the
+output problem and run `immuknow warnings runs/example-run --refresh`. This
+regenerates the view without creating PDFs or changing the review history.
 
 ## What Core checks during a run
 
@@ -39,7 +63,9 @@ required. Inspect the actual delivery files as well as the originals.
 
 ## Rule settings and notice length
 
-`validation.rules` configures supported adjustable rules for a run. Changes use `enabled`, `severity` (`warn` or `fail`), and a nonempty `reason`. Mandatory checks cannot be disabled or downgraded. Use `validation.clients` to change a rule for exactly one input row. The report keeps the observed results in `checks` and the results after applying rules, with reasons, in `effective_checks`. Warnings do not need separate acceptance. Optional `validation.notice_length` sets a required positive page count for sending; no pages are added to reach that count. See [configuration](configuration.md).
+`validation.rules` configures supported adjustable rules for a run. Changes use `enabled`, `severity` (`warn` or `fail`), and a nonempty `reason`. Mandatory checks cannot be disabled or downgraded. Use `validation.clients` to change a rule for exactly one input row. The report keeps the observed results in `checks` and the results after applying rules, with reasons, in `effective_checks`. Warnings do not need separate acceptance for delivery. Optional `validation.notice_length` sets a required positive page count for sending; no pages are added to reach that count. See [configuration](configuration.md).
+
+To record attention without changing rules, use [link warning review](#record-review-of-a-link-warning).
 
 ## Rebuild bundles
 

@@ -933,6 +933,65 @@ fn rebundle_applies_global_and_client_policy_without_changing_observations() {
             "{row}"
         );
     }
+    for row in record["entries"].as_array().unwrap() {
+        let check = row["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["code"] == "content.link_https")
+            .unwrap();
+        assert_eq!(
+            check["subjects"],
+            json!([{"kind":"url", "urls":["http://example.org/records"]}])
+        );
+        let checks = row["checks"].as_array().unwrap();
+        let malformed = checks
+            .iter()
+            .find(|c| c["code"] == "content.link_destination")
+            .unwrap();
+        assert_eq!(
+            malformed["subjects"],
+            json!([{"kind":"url", "urls":["http://example.org/records"]}])
+        );
+        let multiple = checks
+            .iter()
+            .find(|c| c["code"] == "content.multiple_links")
+            .unwrap();
+        let qr = row["render_report"]["qr_urls"][0].as_str().unwrap();
+        assert_eq!(
+            multiple["subjects"],
+            json!([{"kind":"url_set", "urls":["http://example.org/records", qr]}])
+        );
+    }
+    let html = fs::read_to_string(run.join("report.html")).unwrap();
+    assert!(html.contains("2 affected rows · 2 occurrences"));
+    let listing = cli(&project.root, &["warnings", p(&run)]);
+    success(&listing);
+    let listing = String::from_utf8(listing.stdout).unwrap();
+    let issue = listing
+        .lines()
+        .find(|line| line.contains("content.link_https"))
+        .unwrap()
+        .split_whitespace()
+        .next()
+        .unwrap();
+    success(&cli(
+        &project.root,
+        &[
+            "acknowledge",
+            p(&run),
+            issue,
+            "--reason",
+            "Reviewed static link",
+        ],
+    ));
+    let acknowledged: Value =
+        serde_json::from_slice(&fs::read(run.join("run.json")).unwrap()).unwrap();
+    assert_eq!(acknowledged["entries"], record["entries"]);
+    assert_eq!(
+        acknowledged["delivery_attempts"],
+        record["delivery_attempts"]
+    );
     let policy = project.root.join("policy.json");
     fs::write(&policy, serde_json::to_vec(&json!({
         "rules":{"content.link_https":{"severity":"fail","reason":"Require HTTPS"}},
@@ -961,6 +1020,15 @@ fn rebundle_applies_global_and_client_policy_without_changing_observations() {
         );
     }
     assert_eq!(updated["entries"][1]["routing"], "review");
+    assert_eq!(updated["warning_reviews"], acknowledged["warning_reviews"]);
+    let listing = cli(&project.root, &["warnings", p(&run)]);
+    success(&listing);
+    let listing = String::from_utf8(listing.stdout).unwrap();
+    let reviewed = listing
+        .lines()
+        .find(|line| line.starts_with(issue))
+        .unwrap();
+    assert!(reviewed.contains("1 row(s)  acknowledged"));
     fs::write(&policy, serde_json::to_vec(&json!({"rules":{"content.link_https":{"enabled":false,"reason":"Not applicable to this delivery"}}})).unwrap()).unwrap();
     let _ = cli(
         &project.root,
@@ -978,6 +1046,28 @@ fn rebundle_applies_global_and_client_policy_without_changing_observations() {
     );
     let report = fs::read_to_string(run.join("report.html")).unwrap();
     assert!(report.contains("content.link_https"));
+    assert!(report.contains("Inactive acknowledgments"));
+    success(&cli(
+        &project.root,
+        &[
+            "acknowledge",
+            p(&run),
+            issue,
+            "--revoke",
+            "--reason",
+            "Policy changed",
+        ],
+    ));
+    let revoked: Value = serde_json::from_slice(&fs::read(run.join("run.json")).unwrap()).unwrap();
+    assert_eq!(revoked["entries"], updated["entries"]);
+    assert_eq!(revoked["delivery_attempts"], updated["delivery_attempts"]);
+    assert_eq!(
+        revoked["warning_reviews"]["history"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
 }
 
 #[test]
