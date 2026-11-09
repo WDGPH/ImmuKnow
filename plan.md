@@ -1,6 +1,6 @@
 # Cross-repository execution plan
 
-Filename templates are implemented across Core, Template and Studio. Reference fixes are committed in Template and await Studio adoption; grouping and sorting are under verification. The remaining work follows the milestones below. Three Terra scouts inspected the repositories. The investigation evidence comes from source, not a replay of the private production run.
+Filename templates are implemented across Core, Template and Studio. Reference fixes are committed in Template and await Studio adoption. Grouping safeguards and optional sorting are implemented and verified in Core; downstream adoption remains. The remaining work follows the milestones below. Three Terra scouts inspected the repositories. The investigation evidence comes from source, not a replay of the private production run.
 
 This tracked file is the shared source of truth for scope, status, execution order and cross-repo decisions. Core’s implementation checklist follows the shared plan below. Consumer work lists: [Template](../ImmuKnow-Template/plan.md), [Studio](../ImmuKnow-Studio/plan.md). Keep shared-contract changes consistent across those files.
 
@@ -28,10 +28,10 @@ These SHAs explain the initial investigation; they are not checkout targets for 
 | R1 | Template complete; Studio adoption pending | Template → Studio | Meningococcal/TIg reference and display fixes |
 | R2a | Contract draft under critical review | Core, with Template/Studio consumers | Freeze executable fixtures for notice-local requirements and deferred preparation |
 | R2b | After R2a | Core + Template → Studio | Implement that contract, remove notice YAML, retain readable failed notices for review, detect empty agent displays |
-| G1 | Implementation under verification | Core; upstream export owner | Safe grouping for missing/conflicting school identity |
+| G1 | Core complete; consumer adoption pending | Core; upstream export owner | Safe grouping for missing/conflicting school identity |
 | W1 | Ready; independent of R2/G1 | Core | Structured per-link evidence and run-level warning aggregation |
 | W2 | Design task after W1 | Core; Studio consumes relevant evidence | Define and implement run-scoped warning acknowledgment without changing delivery |
-| S1 | Implementation under verification with G1 | Core + Template; Studio handoff | Optional last-name/DOB ordering within bundles |
+| S1 | Core complete; consumer adoption pending | Core + Template; Studio handoff | Optional last-name/DOB ordering within bundles |
 | D1 | Explore | Core + Template + Studio | Disease identity/alias/label catalog; unrelated to removing the notice catalog |
 | H1 | Later | Core | Measured, lossless report-size improvement |
 | PR1 | Low priority | Core operator/developer workflow | Profile the real native workload |
@@ -145,9 +145,9 @@ F0 is complete. [Template's active settings](../ImmuKnow-Template/config/paramet
 
 `{last_name}_{first_name}_{client_id}_{notice_variant}` and `{school}_{notice_variant}_{bundle_number}` are supported **custom examples**, not the shipped defaults. A school/variant pattern requires consistent member values; set grouping appropriately, for example `[school, notice_variant, language]`. Completed filename work did not change grouping or sorting.
 
-Core currently groups school/board by ID, falling back to an empty string, so unrelated names with blank IDs can share a group. Review the upstream export for missing and conflicting IDs. Use namespaced identity derived from normalized board/school names when IDs are absent and report that fallback. Entirely unknown school identity must not become one normal school group. Detect contradictory names for the same ID. Display names are filename inputs, not grouping identifiers. G1 default outcomes: missing IDs with usable names warn and use normalized, namespaced board/school fallback keys; no usable identity fails and keeps each row separate for review; one ID associated with conflicting normalized names fails all affected rows and keeps conflicting identities apart. Different nonblank IDs remain separate even when names match. No fuzzy school matching. Apply these findings only when the affected dimension participates in grouping.
+Core previously grouped school/board by ID, falling back to an empty string. G1 now uses namespaced identity derived from normalized board/school names when IDs are absent and reports that fallback. Review the upstream export for missing and conflicting IDs. Entirely unknown school identity no longer becomes one normal school group. Display names remain filename inputs, not grouping identifiers. G1 outcomes: missing IDs with usable names warn and use normalized, namespaced board/school fallback keys; no usable identity fails and keeps each row separate for review; one ID associated with conflicting normalized names fails all affected rows and keeps conflicting identities apart. Different nonblank IDs remain separate even when names match. No fuzzy school matching. These findings apply only when the affected dimension participates in grouping.
 
-Keep configurable ordering a separate P2 improvement **within each group, before splitting into bundle-size chunks**: last name, then parsed ISO DOB ascending, then source row key as a stable tie-break; missing/invalid values last. Source order remains the backward-compatible default. Source row keys and run record order remain unchanged, and PDF/CSV/page membership must agree after sorting and rebundling.
+S1 adds `bundling.sort_by: last_name_dob` **within each group, before splitting into bundle-size chunks**: normalized last name, then parsed ISO DOB ascending, then source row key as a stable tie-break; missing/invalid values last. Source order remains the backward-compatible default (`source`). Source row keys and run record order remain unchanged. Verified PDF/CSV/page membership agrees after sorting and rebundling; rebundle uses the saved sorting setting.
 
 ## 6. Catalog and language exploration
 
@@ -181,7 +181,7 @@ Done means the next real run can explain the observed 384.5 seconds by measured 
 
 Core owns malformed-input, shared schemas/helpers, policy, PDF and routing tests. Template owns reference data, wording/layout and packaging. Studio owns example generation, deferred/current finding presentation, authoring preservation and downloaded native handoffs. Use fictional fixtures. Verify English/French normal, warning, review and unrenderable outcomes, stable source-row identity, expected actual bundle membership, and rebundle using saved observations. Run each repo's stated checks; a pin bump also needs a fresh build and selected browser/native tests. Avoid repeating the entire Core validation suite in consumers.
 
-Execution readiness is per work item: R1, G1 and W1 have concrete outcomes; R2a is a concrete prerequisite task for R2b; W2 and the later experiments need their specified design/measurement outputs first. Schema names/enums and the maintained-notice predicate/replacement table are R2a outputs, not hidden decisions for three implementers to make separately. No runtime behavior changes are included in this plan review.
+Execution readiness is per work item: R1 adoption and W1 have concrete outcomes; G1/S1 are verified in Core; R2a is a concrete prerequisite task for R2b; W2 and the later experiments need their specified design/measurement outputs first. Schema names/enums and the maintained-notice predicate/replacement table are R2a outputs, not hidden decisions for three implementers to make separately.
 
 ## Core implementation checklist
 
@@ -254,12 +254,13 @@ Acceptance cases: one static bad link across many rows is one review subject wit
 
 ### G1: group identity; S1: optional ordering afterward
 
-- [ ] Fix blank-ID grouping first. Namespace ID versus fallback-name keys; include board scope in a missing-school-ID fallback. Emit findings for fallback and contradictory identity. Entirely unknown school identity must not merge into a normal catch-all school bundle. Review upstream ID export as a separate source issue.
-- [ ] Use the shared G1 outcomes: name fallback warns; no usable identity fails each row into a separate review group; conflicting normalized names under one ID fail affected rows and stay apart; different IDs never merge solely because their names match. Apply to configured grouping dimensions, with no fuzzy matching. Keep structured grouping identity distinct from filename labels.
-- [ ] Supply validated group labels to the existing filename-template resolver. Group identity stays separate from filename display values; mixed/missing group fields need explicit fallback diagnostics. Collision handling must disambiguate all configured grouping dimensions even when the pattern omits them.
-- [ ] S1, after G1: add a validated within-group ordering option; keep source order as the default. Opt-in order: normalized last name, parsed ISO DOB ascending, source row key tie-break; absent/invalid values last. Choose deterministic case/accent rules. Sort before chunking and preserve source record order/keys.
-- [ ] Update the existing delivery record/attempt handling to retain effective grouping/naming/order settings. Preserve old originals and attempts; decide how rebundle selects new settings without mutating source identities.
-- [ ] Update artifact links, hashes, CSV page ranges and any documented filename assumptions. Delivery disposition comes from the record, not a filename prefix.
+- [x] Fix blank-ID grouping. Namespace ID versus fallback-name keys; include board scope in a missing-school-ID fallback. Emit findings for fallback and contradictory identity. Entirely unknown school identity does not merge into a normal catch-all school bundle.
+- [ ] Review upstream ID export with its owner; this is separate from the completed native safeguard.
+- [x] Use the shared G1 outcomes: name fallback warns; no usable identity fails each row into a separate review group; conflicting normalized names under one ID fail affected rows and stay apart; different IDs never merge solely because their names match. Apply to configured grouping dimensions, with no fuzzy matching. Keep structured grouping identity distinct from filename labels.
+- [x] Preserve the existing filename-template resolver and fallback diagnostics. Group identity stays separate from filename display values; mixed/missing group fields trigger explicit fallback diagnostics. Collision handling disambiguates all configured grouping dimensions even when the pattern omits them.
+- [x] Add validated `bundling.sort_by`, defaulting to `source`. Opt-in `last_name_dob` uses normalized last name, parsed ISO DOB ascending, source row key tie-break; absent/invalid values last. Case and repeated whitespace normalize with Unicode NFC, preserving accents. Sort before chunking and preserve source record order/keys.
+- [x] Retain effective grouping/naming/order settings in the saved record. Rebundle uses saved sorting; old originals and attempts remain available without mutating source identities.
+- [x] Verify artifact links, CSV page ranges and actual PDF/member order. Delivery disposition comes from the record, not a filename prefix. All 68 release tests, formatting and release build passed.
 
 Acceptance cases: different blank-ID schools remain separate; unknown school identity cannot silently send as one group; conflicting IDs/names are visible; slug collisions/accents/long/reserved names are safe; chunks numbered consistently; same group under different routes/dimensions cannot overwrite; equal/missing names or DOBs sort stably; PDF/CSV/member/page order agree; old saved runs and repeated rebundle attempts work. Inspect representative bundles outside the test harness.
 

@@ -152,6 +152,11 @@ fn action(code: &str) -> &str {
             "Review the original PDF and the required page count. Correct the template or page-count setting and rebuild the output."
         }
         "delivery.original_unusable" => "Create the notice again before rebuilding bundles.",
+        _ if code.starts_with("delivery.school_identity_")
+            || code.starts_with("delivery.board_identity_") =>
+        {
+            "Review the source school and board names and IDs. Correct missing or conflicting identities and run again; name fallbacks use normalized grouping."
+        }
         "encryption.failed" => {
             "Check the encryption settings and required password fields, then create the protected copy again."
         }

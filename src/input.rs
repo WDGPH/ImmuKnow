@@ -30,12 +30,14 @@ pub struct Config {
 pub struct Bundling {
     pub bundle_size: usize,
     pub group_by: Value,
+    pub sort_by: String,
 }
 impl Default for Bundling {
     fn default() -> Self {
         Self {
             bundle_size: 0,
             group_by: Value::Null,
+            sort_by: "source".into(),
         }
     }
 }
@@ -289,6 +291,10 @@ pub fn validate_bundling(config: &Config) -> Result<()> {
     );
     config.filenames.validate()?;
     grouping_fields(&config.bundling.group_by)?;
+    ensure!(
+        matches!(config.bundling.sort_by.as_str(), "source" | "last_name_dob"),
+        "bundling.sort_by must be source or last_name_dob"
+    );
     fixed_pages(config)?;
     Ok(())
 }
@@ -1246,6 +1252,19 @@ mod tests {
         assert!(format_password("{date_of_birth}", &values, false).is_err());
         assert!(format_password("{first_name}", &values, true).is_err());
         assert!(format_password("{client_id", &values, false).is_err());
+    }
+    #[test]
+    fn bundle_order_is_explicit_and_survives_saved_settings() {
+        let mut config: Config = serde_json::from_value(json!({})).unwrap();
+        assert_eq!(config.bundling.sort_by, "source");
+        assert!(validate_bundling(&config).is_ok());
+        config.bundling.sort_by = "last_name_dob".into();
+        let saved = serde_json::to_value(&config).unwrap();
+        let restored: Config = serde_json::from_value(saved).unwrap();
+        assert_eq!(restored.bundling.sort_by, "last_name_dob");
+        assert!(validate_bundling(&restored).is_ok());
+        config.bundling.sort_by = "last_name".into();
+        assert!(validate_bundling(&config).is_err());
     }
     #[test]
     fn yaml_rejects_nested_duplicates_and_merges() {

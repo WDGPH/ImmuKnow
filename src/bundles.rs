@@ -6,6 +6,121 @@ use std::{
     fs,
     path::{Component, Path, PathBuf},
 };
+use unicode_normalization::UnicodeNormalization;
+
+// Names are compared consistently, without guessing that different names refer to
+// the same institution. NFC retains accents while ignoring case and extra spaces.
+fn normalized_name(value: &str) -> String {
+    value
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .nfc()
+        .collect::<String>()
+        .to_lowercase()
+}
+
+fn institution(entry: &Value, field: &str) -> (String, String) {
+    let node = &entry["notice"][field];
+    (
+        node["id"].as_str().unwrap_or("").trim().to_owned(),
+        normalized_name(node["name"].as_str().unwrap_or("")),
+    )
+}
+
+// A conflict is determined across the entire run, not only a single route or chunk.
+fn conflicting_ids(entries: &[Value], field: &str) -> BTreeSet<String> {
+    let mut names: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    for entry in entries {
+        let (id, name) = institution(entry, field);
+        if !id.is_empty() && !name.is_empty() {
+            names.entry(id).or_default().insert(name);
+        }
+    }
+    names
+        .into_iter()
+        .filter_map(|(id, names)| (names.len() > 1).then_some(id))
+        .collect()
+}
+
+fn group_institution(
+    entry: &Value,
+    field: &str,
+    conflicts: &BTreeSet<String>,
+    board_conflicts: &BTreeSet<String>,
+) -> (String, Option<Value>) {
+    let (id, name) = institution(entry, field);
+    let row = entry["row_key"].as_str().unwrap_or("");
+    if !id.is_empty() && conflicts.contains(&id) {
+        let key = if name.is_empty() {
+            format!("unknown:{row}")
+        } else {
+            json!(["conflict", id, name]).to_string()
+        };
+        return (
+            key,
+            Some(
+                json!({"code":format!("delivery.{field}_identity_conflict"),"stage":"delivery","status":"fail","message":format!("The same {field} ID has conflicting names; review this group")}),
+            ),
+        );
+    }
+    if !id.is_empty() {
+        return (format!("id:{id}"), None);
+    }
+    if name.is_empty() {
+        return (
+            format!("unknown:{row}"),
+            Some(
+                json!({"code":format!("delivery.{field}_identity_missing"),"stage":"delivery","status":"fail","message":format!("The {field} has no usable ID or name; review this notice")}),
+            ),
+        );
+    }
+    // Qualify a school name by its board when available, avoiding collisions
+    // between schools of the same name in different boards.
+    let board = if field == "school" {
+        let (id, name) = institution(entry, "board");
+        if !id.is_empty() && board_conflicts.contains(&id) {
+            if name.is_empty() {
+                json!(["unknown", row]).to_string()
+            } else {
+                json!(["conflict", id, name]).to_string()
+            }
+        } else if !id.is_empty() {
+            json!(["id", id]).to_string()
+        } else {
+            json!(["name", name]).to_string()
+        }
+    } else {
+        String::new()
+    };
+    (
+        json!(["name", board, name]).to_string(),
+        Some(
+            json!({"code":format!("delivery.{field}_identity_fallback"),"stage":"delivery","status":"warn","message":format!("The {field} ID is missing; grouping by normalized name")}),
+        ),
+    )
+}
+
+fn sort_key(entry: &Value) -> (bool, String, bool, String, String) {
+    let name = normalized_name(
+        entry["notice"]["client_data"]["last_name"]
+            .as_str()
+            .unwrap_or(""),
+    );
+    let dob = entry["notice"]["client_data"]["date_of_birth_iso"]
+        .as_str()
+        .unwrap_or("");
+    let valid_dob = chrono::NaiveDate::parse_from_str(dob, "%Y-%m-%d")
+        .ok()
+        .filter(|date| date.format("%Y-%m-%d").to_string() == dob);
+    (
+        name.is_empty(),
+        name,
+        valid_dob.is_none(),
+        valid_dob.map(|date| date.to_string()).unwrap_or_default(),
+        entry["row_key"].as_str().unwrap_or("").to_owned(),
+    )
+}
 
 struct BundleJob {
     number: usize,
@@ -106,6 +221,8 @@ pub(crate) fn bundle_with_progress(
         .context("Missing run entries")?
         .clone();
     let mut groups: BTreeMap<(String, Vec<String>), Vec<usize>> = BTreeMap::new();
+    let school_conflicts = conflicting_ids(&entries, "school");
+    let board_conflicts = conflicting_ids(&entries, "board");
     let mut row_keys = BTreeSet::new();
     for (i, e) in entries.iter_mut().enumerate() {
         let key = e["row_key"].as_str().context("Missing row key")?.to_owned();
@@ -116,6 +233,11 @@ pub(crate) fn bundle_with_progress(
                 checks.retain(|c| {
                     c["code"] != "delivery.notice_length"
                         && c["code"] != "delivery.original_unusable"
+                        && !c["code"].as_str().is_some_and(|code| {
+                            ["delivery.school_identity_", "delivery.board_identity_"]
+                                .iter()
+                                .any(|prefix| code.starts_with(prefix))
+                        })
                 });
             }
         }
@@ -142,17 +264,31 @@ pub(crate) fn bundle_with_progress(
                 e["effective_checks"].as_array_mut().unwrap().push(json!({"code":"delivery.notice_length","stage":"delivery","status":"fail","message":format!("Expected {expected} pages; found {pages}")}));
             }
         }
-        // Readable notices with failures stay available in a separate review bundle.
-        let route = if severity(e) == "fail" || e["encryption"]["status"] == "failed" {
-            "review"
-        } else {
-            "deliverable"
-        };
-        e["routing"] = json!(route);
-        let key = fields
-            .iter()
-            .map(|f| match f.as_str() {
-                "school" | "board" => e["notice"][f]["id"].as_str().unwrap_or("").to_owned(),
+        let mut key = Vec::new();
+        for field in &fields {
+            let value = match field.as_str() {
+                "school" | "board" if config.bundling.bundle_size > 0 => {
+                    let conflicts = if field == "school" {
+                        &school_conflicts
+                    } else {
+                        &board_conflicts
+                    };
+                    let (value, check) = group_institution(e, field, conflicts, &board_conflicts);
+                    if let Some(check) = check {
+                        // These findings are recomputed for every new attempt; policy cannot
+                        // waive them and the observed and effective records both retain them.
+                        e["checks"]
+                            .as_array_mut()
+                            .context("Missing observed checks")?
+                            .push(check.clone());
+                        e["effective_checks"]
+                            .as_array_mut()
+                            .context("Missing effective checks")?
+                            .push(check);
+                    }
+                    value
+                }
+                "school" | "board" => String::new(),
                 "language" => e["assignment"]["language"]
                     .as_str()
                     .or_else(|| e["notice"]["language"].as_str())
@@ -163,8 +299,16 @@ pub(crate) fn bundle_with_progress(
                     .unwrap_or("")
                     .to_owned(),
                 _ => pages.to_string(),
-            })
-            .collect();
+            };
+            key.push(value);
+        }
+        // Readable notices with failures stay available in a separate review bundle.
+        let route = if severity(e) == "fail" || e["encryption"]["status"] == "failed" {
+            "review"
+        } else {
+            "deliverable"
+        };
+        e["routing"] = json!(route);
         groups.entry((route.to_owned(), key)).or_default().push(i);
     }
     if config.bundling.bundle_size == 0 {
@@ -188,7 +332,10 @@ pub(crate) fn bundle_with_progress(
         let mut jobs = Vec::new();
         let mut serial = 0usize;
         let mut names = crate::filenames::Names::default();
-        for ((route, group), indices) in groups {
+        for ((route, group), mut indices) in groups {
+            if config.bundling.sort_by == "last_name_dob" {
+                indices.sort_by_cached_key(|&index| sort_key(&entries[index]));
+            }
             for (chunk_number, chunk) in indices.chunks(config.bundling.bundle_size).enumerate() {
                 serial += 1;
                 let fallback = format!(

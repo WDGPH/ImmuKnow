@@ -23,6 +23,7 @@ Edit `parameters.yaml` to set the following options:
 | `allowed_duplicate_client_ids` | Optional list of explicitly accepted repeated client IDs, quoted as strings. |
 | `bundling.bundle_size` | Maximum notices in each combined PDF. Set to zero to turn off grouping. |
 | `bundling.group_by` | Optionally group by `school`, `board`, `language`, `page_count`, or `notice_variant`, using one value or a list. `size` or null groups by size only. |
+| `bundling.sort_by` | `source` (default) preserves input order within each group. `last_name_dob` orders by last name, birth date and row key before splitting bundles. |
 | `filenames.individual.template` | Filename stem for original and protected copies; omitted keeps row-key names. |
 | `filenames.bundle.template` | Filename stem for normal bundle PDFs and companion CSVs. |
 | `filenames.review_bundle.template` | Optional review stem; defaults to the bundle template with `review_` prefixed. |
@@ -48,6 +49,24 @@ date_of_delivery: '2025-09-01'
 To separate selected notice versions and languages, use
 `group_by: [notice_variant, language]`. `notice_variant` uses the version ID
 from the selected template; group by `language` separately when needed.
+
+When grouping by school or board, a missing ID with a usable name produces a
+warning and groups by normalized name. School-name fallback also uses board
+identity when available. A missing ID and name fails the grouping check and
+keeps that notice in its own review group. Conflicting names for the same ID
+fail affected notices and keep the different names apart. Different nonblank
+IDs remain separate even when names match. Name comparison ignores case and
+repeated whitespace and uses Unicode NFC; it preserves accents. These checks
+apply only to dimensions selected for grouping. They are recalculated when
+bundles are rebuilt; they do not change the original input or PDF.
+
+Set `sort_by: last_name_dob` under `bundling` to order notices within each
+route and group before splitting by bundle size. Last names use the same case,
+space and Unicode normalization; accents remain distinct. Dates sort ascending,
+with row key as the final tie-break. Missing names and missing or invalid dates
+sort last for their respective field. Source order remains the default and the
+saved source rows retain their original order. Rebuilding bundles uses the
+sorting setting saved with the run.
 
 To require notices to have exactly two pages when sending them, enable grouping and add:
 
