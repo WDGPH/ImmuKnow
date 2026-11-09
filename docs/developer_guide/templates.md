@@ -170,7 +170,7 @@ it before compilation; strings remain literal data rather than executable source
 | `overdue_agents` | Source vaccine agent names |
 | `forecast_coverage` | Sorted unique `missing_diseases`, `extra_diseases`, and `unmapped_agents` measured from complete source facts before display exclusions |
 | `history` | Normalized administrations with ISO `date_given`, `agent`, `display_name`, configured `diseases`, `validity` and boolean `mapping_known` |
-| `validity_coverage` | Whole-file `all_present`, `all_absent` or `mixed` |
+| `validity_coverage` | Whole-file `all_present`, `all_absent` or `mixed`; `incomplete` if any source history could not be parsed |
 | `has_immunization_records` | Whether the source contains any administrations before exclusions or deduplication |
 | `history_validity_coverage` | Per-history source flag coverage, before exclusions and deduplication: `all_present`, `all_absent` or `mixed` |
 
@@ -422,8 +422,9 @@ fails rendering even if deduplication or display exclusions would hide the
 missing flags; correct the source or explicitly
 set `show-validity: false`. There is no separate marker or legend for missing
 validity flags. Notices still warn when validity coverage varies across their
-cohort. Invalid source history rejects input before rendering; its fragments
-remain in the run report. Omitted components produce
+cohort. Invalid source history fails its source row without producing notice facts
+or a PDF; its exact fragments remain in the run report. Other valid rows continue.
+Omitted components produce
 no component checks, but do not bypass source validation.
 
 Each placed history table checks the prepared agents against its own evaluated

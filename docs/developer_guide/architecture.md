@@ -1,7 +1,7 @@
 # How the application works
 
 Core follows one main path in `src/pipeline.rs`. It saves the supplied CSV, prepares
-one set of client information per row, creates the selected notices with Typst,
+trusted client information for each renderable row, creates the selected notices with Typst,
 checks their reports, makes requested encrypted copies, groups PDFs, and writes
 the final report. The system supplying the CSV assesses immunization status;
 the selected templates control wording and appearance.
@@ -58,13 +58,36 @@ Embedding the official compiler keeps compilation, PDF export and evidence acces
 
 Every readable source row receives a key such as `row-000001`, in input order.
 That key connects the source values, selected template, prepared information,
-checks and PDFs. Filenames use these keys rather than personal identifiers.
-A compilation, PDF export or password failure on one row does not stop later independent rows. Payload validation happens before rendering; setup, filesystem, checkpoint and worker errors can stop the run. The source rows are recorded before configuration and preparation, so a partial record accounts for rows successfully read before those later failures.
+checks and PDFs. Configurable filenames may use supported facts, while row keys remain the source identity.
+Invalid source history and intended-reader values remain failed report entries with no invented facts or PDF. They do not stop later independent rows. A compilation, PDF export or password failure is likewise isolated. Payload validation happens before rendering; setup, filesystem, checkpoint and worker errors can stop the run. The source rows are recorded before configuration and preparation, so a partial record accounts for rows successfully read before those later failures.
 
 The compiler reads only the supplied project and local dependencies. Package
 imports and downloads are unsupported. The project must contain an unchanged
 copy of the shared library exported by this executable. Projects provide their
 own settings, reference lists, templates, translations and images.
+
+## Check ownership and permitted changes
+
+The shared report schema is the authoritative registry for render checks.
+Each code's `x-adjustable` flag controls whether `validation.rules` or an exact-row
+`validation.clients` rule may change it. `src/policy.rs` reads that registry,
+requires a reason and preserves observed checks separately from effective results.
+Codes outside the adjustable registry cannot be overridden through those settings.
+
+| Boundary | Owner | Supported review or change |
+| --- | --- | --- |
+| Source, references and assignments | `src/input.rs` | Correct the source or project configuration and rerun. Preparation findings have no rule override. |
+| Wording, links and layout | Shared Typst components | Only schema-marked adjustable checks support run-wide or exact-row rule changes. |
+| Requirements and source/evidence identity | Shared helper, schema and `src/validation.rs` | Mandatory. Correct the notice or its inputs; readable originals remain available for review. |
+| PDF creation and requested protection | Compiler, PDF writer and pipeline | Mandatory artifact outcomes. Acknowledgment cannot replace a missing original or protected copy. |
+| Group identity, page count and bundling | `src/bundles.rs` | Correct the source/settings or withhold the row. Releasing a hold leaves failures in force. |
+| Reviewed link warnings | `src/warnings.rs`, `src/warning_review.rs` | Run-scoped acknowledgment/revocation records attention to an exact issue; it changes no status or routing. |
+| Storage, path, lock and worker failures | Coordinator and filesystem operations | Operational errors stop the affected workflow and retain its recoverable record. |
+
+This boundary supports per-client review without making every error overridable.
+Readable failed notices can enter review bundles; preparation failures that cannot
+produce trustworthy facts remain report-only. Saved-run changes use the existing
+lock and audit history rather than a separate acceptance engine.
 
 Input preparation preserves the source text while normalizing names, dates,
 histories and reference matches into schema-checked notice facts. The selected

@@ -226,7 +226,8 @@
       "enum": [
         "all_present",
         "all_absent",
-        "mixed"
+        "mixed",
+        "incomplete"
       ]
     },
     "row_key": {

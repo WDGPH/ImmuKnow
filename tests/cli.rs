@@ -2247,3 +2247,331 @@ fn missing_requirements_keep_a_review_pdf_and_rebundle_saved_observations() {
     );
     assert_eq!(fs::read(pdf).unwrap(), bytes);
 }
+
+fn set_row_values(project: &Project, updates: &[(usize, &str, &str)]) {
+    let mut reader = csv::Reader::from_path(&project.csv).unwrap();
+    let mut headers = reader.headers().unwrap().clone();
+    let mut rows: Vec<Vec<String>> = reader
+        .records()
+        .map(|r| r.unwrap().iter().map(str::to_owned).collect())
+        .collect();
+    drop(reader);
+    for &(_, field, _) in updates {
+        if !headers.iter().any(|h| h == field) {
+            headers.push_field(field);
+            for row in &mut rows {
+                row.push(String::new());
+            }
+        }
+    }
+    for &(row, field, value) in updates {
+        let col = headers.iter().position(|h| h == field).unwrap();
+        rows[row][col] = value.to_owned();
+    }
+    let mut writer = csv::Writer::from_path(&project.csv).unwrap();
+    writer.write_record(&headers).unwrap();
+    for row in rows {
+        writer.write_record(row).unwrap();
+    }
+    writer.flush().unwrap();
+}
+
+#[test]
+fn row_preparation_failures_keep_source_indices_through_workers_and_rebundle() {
+    let project = Project::new();
+    let mut reader = csv::Reader::from_path(&project.csv).unwrap();
+    let headers = reader.headers().unwrap().clone();
+    let mut rows: Vec<Vec<String>> = reader
+        .records()
+        .map(|r| r.unwrap().iter().map(str::to_owned).collect())
+        .collect();
+    drop(reader);
+    let id_col = headers.iter().position(|h| h == "client_id").unwrap();
+    let mut sixth = rows[0].clone();
+    sixth[id_col] = "0000000006".into();
+    rows.push(sixth);
+    let mut writer = csv::Writer::from_path(&project.csv).unwrap();
+    writer.write_record(&headers).unwrap();
+    for row in rows {
+        writer.write_record(row).unwrap();
+    }
+    writer.flush().unwrap();
+    drop(writer);
+    select_first_rows(&project, &["overdue_agents_v1.en.typ"; 6]);
+    set_row_values(
+        &project,
+        &[
+            (1, "immunizations_given", "not a history"),
+            (1, "intended_reader", "invalid"),
+        ],
+    );
+    let config = project.config.join("parameters.yaml");
+    let settings = fs::read_to_string(&config).unwrap().replace(
+        "encryption:\n  enabled: false",
+        "encryption:\n  enabled: true",
+    );
+    fs::write(config, settings).unwrap();
+    let prepared = cli(
+        &project.root,
+        &[
+            "prepare",
+            p(&project.csv),
+            "--notice-assignments",
+            p(&project.assignments),
+            "--templates",
+            p(&project.templates),
+            "--config",
+            p(&project.config),
+        ],
+    );
+    success(&prepared);
+    let data: Value = serde_json::from_slice(&prepared.stdout).unwrap();
+    let row = &data["entries"][1];
+    assert_eq!(row["row_key"], "row-000002");
+    assert_eq!(row["source"]["immunizations_given"], "not a history");
+    assert!(row.get("notice").is_none() && row.get("blocked_checks").is_none());
+    assert_eq!(row["assignment"]["template"], "overdue_agents_v1.en.typ");
+    assert_eq!(row["deferred_checks"].as_array().unwrap().len(), 4);
+    for code in ["source.history_unusable", "source.intended_reader_invalid"] {
+        assert!(
+            row["checks"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|c| c["code"] == code && c["status"] == "fail")
+        );
+    }
+    assert_eq!(data["checks"][0]["code"], "data.history_cohort_incomplete");
+    assert_eq!(
+        data["checks"][0]["measurements"],
+        json!({"total_rows":6,"failed_history_rows":1})
+    );
+    assert!(
+        data["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| *i != 1)
+            .all(|(_, r)| r["notice"]["validity_coverage"] == "incomplete")
+    );
+    let run = cli(
+        &project.root,
+        &[
+            "run",
+            p(&project.csv),
+            "--notice-assignments",
+            p(&project.assignments),
+            "--templates",
+            p(&project.templates),
+            "--config",
+            p(&project.config),
+            "--output",
+            p(&project.runs),
+            "--compile-workers",
+            "2",
+            "--encryption-workers",
+            "2",
+        ],
+    );
+    assert!(!run.status.success());
+    let (dir, record) = project.record();
+    assert_eq!(record["status"], "completed_with_failures");
+    for (i, entry) in record["entries"].as_array().unwrap().iter().enumerate() {
+        assert_eq!(entry["row_key"], format!("row-{:06}", i + 1));
+        if i == 1 {
+            assert_eq!(entry["routing"], "failed");
+            assert_eq!(entry["original"]["status"], "not_run");
+            assert!(entry.get("notice").is_none() && entry.get("facts").is_none());
+        } else {
+            assert_eq!(entry["original"]["status"], "completed");
+            assert_eq!(entry["encryption"]["status"], "completed");
+            assert_eq!(
+                entry["render_report"]["identity"]["row_key"],
+                entry["row_key"]
+            );
+            assert_eq!(
+                entry["render_report"]["identity"]["client_id"],
+                entry["client_id"]
+            );
+            let original_path = dir.join(entry["original"]["path"].as_str().unwrap());
+            let encrypted_path = dir.join(entry["encryption"]["path"].as_str().unwrap());
+            assert_eq!(original_path.file_name(), encrypted_path.file_name());
+            let original = lopdf::Document::load(&original_path).unwrap();
+            let protected = lopdf::Document::load_with_options(
+                &encrypted_path,
+                lopdf::LoadOptions::with_password("20150102"),
+            )
+            .unwrap();
+            let original_pages: Vec<_> = original.get_pages().into_values().collect();
+            let protected_pages: Vec<_> = protected.get_pages().into_values().collect();
+            assert_eq!(original_pages.len(), protected_pages.len());
+            for (a, b) in original_pages.iter().zip(&protected_pages) {
+                assert_eq!(
+                    original.get_page_content(*a),
+                    protected.get_page_content(*b)
+                );
+            }
+            assert!(
+                dir.join(entry["original"]["path"].as_str().unwrap())
+                    .is_file()
+            );
+            assert!(
+                dir.join(entry["encryption"]["path"].as_str().unwrap())
+                    .is_file()
+            );
+        }
+    }
+    let members: Vec<_> = record["bundles"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|b| b["members"].as_array().unwrap())
+        .collect();
+    assert_eq!(members.len(), 5);
+    assert!(!members.contains(&&json!("row-000002")));
+    let rebundle = cli(&project.root, &["rebundle", p(&dir)]);
+    assert!(!rebundle.status.success());
+    let updated: Value = serde_json::from_slice(&fs::read(dir.join("run.json")).unwrap()).unwrap();
+    assert_eq!(
+        updated["entries"][1]["checks"],
+        record["entries"][1]["checks"]
+    );
+    assert_eq!(updated["entries"][1]["routing"], "failed");
+}
+
+#[test]
+fn all_failed_rows_skip_compilation_and_report_completed_progress() {
+    let project = Project::new();
+    select_first_rows(&project, &["overdue_agents_v1.en.typ"; 3]);
+    set_row_values(
+        &project,
+        &[
+            (0, "immunizations_given", "bad"),
+            (1, "immunizations_given", "2020-02-30 - MMR;"),
+            (2, "immunizations_given", "2020-01-01 - MMR - Maybe;"),
+        ],
+    );
+    let run = cli(
+        &project.root,
+        &[
+            "run",
+            p(&project.csv),
+            "--notice-assignments",
+            p(&project.assignments),
+            "--templates",
+            p(&project.templates),
+            "--config",
+            p(&project.config),
+            "--output",
+            p(&project.runs),
+            "--progress",
+            "plain",
+        ],
+    );
+    assert!(!run.status.success());
+    assert!(String::from_utf8_lossy(&run.stderr).contains("3/3 processed"));
+    let (dir, record) = project.record();
+    assert_eq!(record["status"], "completed_with_failures");
+    assert_eq!(
+        record["checks"][0]["measurements"],
+        json!({"total_rows":3,"failed_history_rows":3})
+    );
+    assert!(
+        record["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|r| r["original"]["status"] == "not_run"
+                && r["routing"] == "failed"
+                && r.get("facts").is_none())
+    );
+    assert_eq!(fs::read_dir(dir.join("originals")).unwrap().count(), 0);
+    assert_eq!(fs::read_dir(dir.join("facts")).unwrap().count(), 0);
+}
+
+#[test]
+fn reader_failure_preserves_cohort_history_and_all_row_positions() {
+    for bad in [0, 2, 4] {
+        let project = Project::new();
+        select_first_rows(&project, &["overdue_agents_v1.en.typ"; 5]);
+        set_row_values(
+            &project,
+            &[
+                (bad, "intended_reader", "other"),
+                (bad, "immunizations_given", "2020-05-01 - MMR;"),
+            ],
+        );
+        let prepared = cli(
+            &project.root,
+            &[
+                "prepare",
+                p(&project.csv),
+                "--notice-assignments",
+                p(&project.assignments),
+                "--templates",
+                p(&project.templates),
+                "--config",
+                p(&project.config),
+            ],
+        );
+        success(&prepared);
+        let value: Value = serde_json::from_slice(&prepared.stdout).unwrap();
+        assert!(value["checks"].as_array().unwrap().is_empty());
+        for (i, e) in value["entries"].as_array().unwrap().iter().enumerate() {
+            assert_eq!(e["row_key"], format!("row-{:06}", i + 1));
+            if i == bad {
+                assert!(e.get("notice").is_none());
+                assert!(
+                    e["checks"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .any(|c| c["code"] == "source.intended_reader_invalid")
+                );
+            } else {
+                assert_eq!(e["notice"]["validity_coverage"], "mixed");
+            }
+        }
+    }
+}
+
+#[test]
+fn failed_rows_do_not_bypass_shared_reference_or_assignment_validation() {
+    let project = Project::new();
+    select_first_rows(&project, &["overdue_agents_v1.en.typ"; 2]);
+    set_row_values(&project, &[(0, "immunizations_given", "bad")]);
+    let reference = project.config.join("vaccine_reference.json");
+    let original = fs::read(&reference).unwrap();
+    fs::write(&reference, br#"{"MMR": 5}"#).unwrap();
+    let prepare = || {
+        cli(
+            &project.root,
+            &[
+                "prepare",
+                p(&project.csv),
+                "--notice-assignments",
+                p(&project.assignments),
+                "--templates",
+                p(&project.templates),
+                "--config",
+                p(&project.config),
+            ],
+        )
+    };
+    let invalid = prepare();
+    assert!(!invalid.status.success());
+    assert!(String::from_utf8_lossy(&invalid.stderr).contains("Invalid vaccine reference"));
+    fs::write(reference, original).unwrap();
+    fs::write(
+        &project.assignments,
+        serde_json::to_vec(
+            &json!([{"client_id":"0000000002","template":"overdue_agents_v1.en.typ"}]),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    let missing = prepare();
+    assert!(!missing.status.success());
+    assert!(String::from_utf8_lossy(&missing.stderr).contains("Missing assignment for row-000001"));
+}

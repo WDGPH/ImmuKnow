@@ -91,6 +91,15 @@ struct Assignment {
     experiment_id: Option<String>,
     experiment_arm: Option<String>,
 }
+pub enum RowPreparation {
+    Ready(Prepared),
+    Failed {
+        row_key: String,
+        assignment: Value,
+        checks: Vec<Value>,
+    },
+}
+
 pub struct Prepared {
     pub source: Value,
     pub notice: Value,
@@ -600,7 +609,7 @@ pub fn source_rows(path: &Path, encoding: Option<&str>) -> Result<Vec<Value>> {
         .map(|row| json!(row))
         .collect())
 }
-pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>> {
+pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<RowPreparation>> {
     let config_dir = options.config_dir;
     let templates = options.templates;
     let schema: Value = crate::read_json(&options.resources.join("schemas/input_schema.json"))?;
@@ -640,10 +649,6 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>
         if !id.is_empty() {
             *counts.entry(id.to_owned()).or_default() += 1;
         }
-        ensure!(
-            matches!(get(r, "intended_reader"), "" | "student" | "guardian"),
-            "Invalid intended_reader"
-        );
     }
     for (id, count) in &counts {
         ensure!(
@@ -730,22 +735,26 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>
     };
     let mut histories = vec![];
     let (mut known, mut unknown) = (false, false);
-    for (i, r) in rows.iter().enumerate() {
-        let (h, k, u) = history(get(r, "immunizations_given"), &reference)
-            .with_context(|| format!("Source row {}", i + 1))?;
-        histories.push((h, k, u));
-        known |= k;
-        unknown |= u;
+    for r in &rows {
+        let parsed = history(get(r, "immunizations_given"), &reference);
+        if let Ok((_, k, u)) = &parsed {
+            known |= *k;
+            unknown |= *u;
+        }
+        histories.push(parsed);
     }
-    let dataset_coverage = coverage(known, unknown);
+    let dataset_coverage = if histories.iter().any(Result::is_err) {
+        "incomplete"
+    } else {
+        coverage(known, unknown)
+    };
     let oiid_coverage = coverage(
         rows.iter().any(|r| !get(r, "oiid").is_empty()),
         rows.iter().any(|r| get(r, "oiid").is_empty()),
     );
     let extra_manifest_rows = single.is_none() && by_id.keys().any(|id| !counts.contains_key(id));
     let mut result = vec![];
-    for (i, ((r, source), (history, hk, hu))) in rows.iter().zip(sources).zip(histories).enumerate()
-    {
+    for (i, ((r, source), history_result)) in rows.iter().zip(sources).zip(histories).enumerate() {
         let id = get(r, "client_id");
         let row_key = format!("row-{:06}", i + 1);
         let a = match &single {
@@ -778,6 +787,31 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>
             },
             "Assigned template is missing"
         );
+        let assignment = json!({"template":a.template,"version_id":version,"language":language,"experiment_id":a.experiment_id,"experiment_arm":a.experiment_arm});
+        let mut failures = vec![];
+        if let Err(error) = &history_result {
+            failures.push(check(
+                "source.history_unusable",
+                "fail",
+                &format!("Invalid immunization history: {error}"),
+            ));
+        }
+        if !matches!(get(r, "intended_reader"), "" | "student" | "guardian") {
+            failures.push(check(
+                "source.intended_reader_invalid",
+                "fail",
+                "Intended reader must be student, guardian, or blank.",
+            ));
+        }
+        if !failures.is_empty() {
+            result.push(RowPreparation::Failed {
+                row_key,
+                assignment,
+                checks: failures,
+            });
+            continue;
+        }
+        let (history, hk, hu) = history_result.expect("History failure was recorded");
         let mut checks = vec![];
         if let Some(count) = counts.get(id).filter(|count| **count > 1) {
             checks.push(check(
@@ -1073,7 +1107,12 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>
             "validity_coverage": dataset_coverage,
             "history_validity_coverage": coverage(hk, hu)
         });
-        result.push(Prepared{source,notice,checks,assignment:json!({"template":a.template,"version_id":version,"language":language,"experiment_id":a.experiment_id,"experiment_arm":a.experiment_arm})});
+        result.push(RowPreparation::Ready(Prepared {
+            source,
+            notice,
+            checks,
+            assignment,
+        }));
     }
     Ok(result)
 }

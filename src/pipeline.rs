@@ -1,7 +1,7 @@
 //! Prepare client information, create notices, and save bundles and reports.
 use crate::{
     bundles, compiler,
-    input::{self, Config, PrepareOptions, Prepared, Selection},
+    input::{self, Config, PrepareOptions, Prepared, RowPreparation, Selection},
     pdf, policy, pool, report, resources, validation,
 };
 use anyhow::{Context, Result, bail, ensure};
@@ -227,25 +227,59 @@ fn source_entries(path: &Path, encoding: Option<&str>) -> Result<Vec<Value>> {
         })
         .collect())
 }
-fn assign_entries(record: &mut Value, prepared: &[Prepared], encryption: bool) {
-    for (entry, p) in record["entries"]
+fn assign_entries(record: &mut Value, prepared: &[RowPreparation], encryption: bool) -> Result<()> {
+    let entries = record["entries"]
         .as_array_mut()
-        .unwrap()
-        .iter_mut()
-        .zip(prepared)
-    {
-        entry["notice"] = p.notice.clone();
-        entry["assignment"] = p.assignment.clone();
-        entry["checks"] = json!(p.checks);
+        .context("Missing source entries")?;
+    ensure!(
+        entries.len() == prepared.len(),
+        "Preparation did not account for every source row"
+    );
+    let mut failed_history_rows = 0usize;
+    for (entry, outcome) in entries.iter_mut().zip(prepared) {
+        let (key, checks) = match outcome {
+            RowPreparation::Ready(p) => {
+                entry["notice"] = p.notice.clone();
+                entry["assignment"] = p.assignment.clone();
+                entry["blocked_checks"] = json!([]);
+                (p.notice["row_key"].clone(), &p.checks)
+            }
+            RowPreparation::Failed {
+                row_key,
+                assignment,
+                checks,
+            } => {
+                entry["assignment"] = assignment.clone();
+                failed_history_rows += usize::from(
+                    checks
+                        .iter()
+                        .any(|c| c["code"] == "source.history_unusable"),
+                );
+                ensure!(
+                    entry["row_key"] == *row_key,
+                    "Prepared row identity mismatch"
+                );
+                (json!(row_key), checks)
+            }
+        };
+        ensure!(entry["row_key"] == key, "Prepared row identity mismatch");
+        entry["checks"] = json!(checks);
         entry["deferred_checks"] = json!([
             "notice.requirements",
             "notice.eligibility",
             "data.forecast_coverage",
             "content.agent_display"
         ]);
-        entry["blocked_checks"] = json!([]);
         entry["encryption"] = json!({"status": if encryption {"not_run"} else {"not_requested"}});
     }
+    let total_rows = prepared.len();
+    if failed_history_rows > 0 {
+        let checks = record["checks"]
+            .as_array_mut()
+            .context("Missing run checks")?;
+        checks.push(json!({"code":"data.history_cohort_incomplete","stage":"preparation","status":"warn","message":"Some histories could not be parsed; cohort validity coverage is incomplete.","measurements":{"total_rows":total_rows,"failed_history_rows":failed_history_rows}}));
+    }
+    Ok(())
 }
 fn options<'a>(
     source: &'a Path,
@@ -279,7 +313,7 @@ fn prepare_data(
     config_path: &Path,
     templates: &Path,
     c: &Config,
-) -> Result<Vec<Prepared>> {
+) -> Result<Vec<RowPreparation>> {
     input::prepare(
         &options(
             source,
@@ -298,7 +332,7 @@ pub fn prepare(opts: &RunOptions) -> Result<Value> {
     let bytes = fs::read(&opts.csv)?;
     let source = temp.path().join("source.csv");
     fs::write(&source, &bytes)?;
-    let mut record = json!({"schema_version":2,"engine":"typst 0.15.1","resources":resources::identity(),"input":{"sha256":crate::hash(&bytes)},"entries":source_entries(&source, opts.encoding.as_deref())?});
+    let mut record = json!({"schema_version":2,"engine":"typst 0.15.1","resources":resources::identity(),"input":{"sha256":crate::hash(&bytes)},"checks":[],"entries":source_entries(&source, opts.encoding.as_deref())?});
     drop(bytes);
     let c = input::config(&opts.config.join("parameters.yaml"))?;
     validate_project(&opts.templates, temp.path())?;
@@ -312,10 +346,12 @@ pub fn prepare(opts: &RunOptions) -> Result<Value> {
         &c,
     )?;
     let validator = validation::Validator::new(temp.path())?;
-    for p in &prepared {
-        validator.payload(&p.notice)?;
+    for outcome in &prepared {
+        if let RowPreparation::Ready(p) = outcome {
+            validator.payload(&p.notice)?;
+        }
     }
-    assign_entries(&mut record, &prepared, c.encryption.enabled);
+    assign_entries(&mut record, &prepared, c.encryption.enabled)?;
     policy::validate(&record, &c, temp.path())?;
     for e in record["entries"].as_array_mut().unwrap() {
         e.as_object_mut().unwrap().remove("original");
@@ -355,7 +391,7 @@ impl NoticeCheckpoint {
 fn process(
     dir: &Path,
     record: &mut Value,
-    prepared: &[Prepared],
+    prepared: &[RowPreparation],
     c: &Config,
     timestamp: i64,
     compile_workers: u8,
@@ -363,14 +399,26 @@ fn process(
     root: &Path,
     progress: &mut impl FnMut(Progress),
 ) -> Result<()> {
+    let ready: Vec<(usize, &Prepared)> = prepared
+        .iter()
+        .enumerate()
+        .filter_map(|(i, outcome)| match outcome {
+            RowPreparation::Ready(p) => Some((i, p)),
+            RowPreparation::Failed { .. } => None,
+        })
+        .collect();
+    let failed = prepared.len() - ready.len();
     progress(Progress::Notices {
-        done: 0,
+        done: failed,
         total: prepared.len(),
         protected: 0,
     });
+    if ready.is_empty() {
+        return Ok(());
+    }
     let mut names = crate::filenames::Names::default();
     let mut stems = Vec::with_capacity(prepared.len());
-    for (index, p) in prepared.iter().enumerate() {
+    for &(index, p) in &ready {
         let key = p.notice["row_key"]
             .as_str()
             .context("Prepared row has no key")?;
@@ -397,7 +445,7 @@ fn process(
         stems.push(name.stem);
     }
     let validator = validation::Validator::new(root)?;
-    for p in prepared {
+    for &(_, p) in &ready {
         validator.payload(&p.notice)?;
     }
     let compiler_root = dir.join("resources/templates").canonicalize()?;
@@ -448,7 +496,7 @@ fn process(
             |compile_jobs, compile_results| {
                 // Only this window may be queued, compiling, or awaiting ordered commit.
                 // Refill after committing its first row so a slow row cannot grow the buffer.
-                for (index, p) in prepared.iter().take(compile_window).enumerate() {
+                for &(index, p) in ready.iter().take(compile_window) {
                     compile_jobs
                         .send((index, make_request(p)))
                         .context("Compiler worker stopped")?;
@@ -461,11 +509,11 @@ fn process(
                 let mut encryption_total = 0usize;
                 let rendering = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
                     || -> Result<()> {
-                        for (index, p) in prepared.iter().enumerate() {
+                        for (position, &(index, p)) in ready.iter().enumerate() {
                             let key = p.notice["row_key"]
                                 .as_str()
                                 .context("Prepared row has no key")?;
-                            let original = format!("originals/{}.pdf", stems[index]);
+                            let original = format!("originals/{}.pdf", stems[position]);
                             let facts = serde_json::to_vec_pretty(&p.notice)?;
                             crate::atomic(&dir.join(format!("facts/{key}.json")), &facts)?;
                             record["entries"][index]["facts"] = json!({"path":format!("facts/{key}.json"),"sha256":crate::hash(&facts)});
@@ -529,7 +577,7 @@ fn process(
                                                     dir.join(&original),
                                                     dir.join(format!(
                                                         "encrypted/{}.pdf",
-                                                        stems[index]
+                                                        stems[position]
                                                     )),
                                                     password,
                                                 );
@@ -562,7 +610,7 @@ fn process(
                                     );
                                 }
                             }
-                            if (index + 1) % evict_every == 0 {
+                            if (position + 1) % evict_every == 0 {
                                 comemo::evict(10 / evict_every);
                             }
                             for (i, result) in results.try_iter() {
@@ -572,17 +620,17 @@ fn process(
                                 count -= 1;
                             }
                             progress(Progress::Notices {
-                                done: index + 1,
+                                done: failed + position + 1,
                                 total: prepared.len(),
                                 protected,
                             });
-                            if checkpoint.due(index + 1, Instant::now()) {
+                            if checkpoint.due(failed + position + 1, Instant::now()) {
                                 report::write(dir, record)?;
-                                checkpoint.saved(index + 1, Instant::now());
+                                checkpoint.saved(failed + position + 1, Instant::now());
                             }
-                            if let Some(p) = prepared.get(index + compile_window) {
+                            if let Some(&(next_index, p)) = ready.get(position + compile_window) {
                                 compile_jobs
-                                    .send((index + compile_window, make_request(p)))
+                                    .send((next_index, make_request(p)))
                                     .context("Compiler worker stopped")?;
                             }
                         }
@@ -739,7 +787,7 @@ pub fn run_with_progress(
             prepared.len() == record["entries"].as_array().unwrap().len(),
             "Preparation did not account for every source row"
         );
-        assign_entries(&mut record, &prepared, c.encryption.enabled);
+        assign_entries(&mut record, &prepared, c.encryption.enabled)?;
         policy::validate(&record, &c, resource_root.path())?;
         record["timings"]["preparation_seconds"] = json!(started.elapsed().as_secs_f64());
         report::write(&dir, &record)?;

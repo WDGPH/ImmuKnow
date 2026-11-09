@@ -8,6 +8,25 @@ The entries below explain issue outcomes; many of the same checks also produce a
 
 ## Source and reference
 
+### `source.history_unusable` {#source-history-unusable}
+
+The source immunization history cannot be parsed safely. Correct its dates,
+agent names, validity values or separators and run again. The source row remains
+in the report without invented facts or a PDF; other valid rows continue.
+
+### `source.intended_reader_invalid` {#source-intended-reader-invalid}
+
+The intended reader must be blank, `student` or `guardian`. Correct this source
+value and run again. This row has no prepared notice or PDF; other valid rows
+continue.
+
+### `data.history_cohort_incomplete` {#data-history-cohort-incomplete}
+
+Some source histories could not be parsed. The run reports the total row count
+and failed-history count once, and marks cohort validity coverage as incomplete.
+Each invalid source row has its own failure. Successfully parsed histories remain
+available for the other notices.
+
 ### `source.client_id_missing` {#source-client-id-missing}
 
 The source client ID is empty. Verify the person and supply the correct ID in the source before rerunning.

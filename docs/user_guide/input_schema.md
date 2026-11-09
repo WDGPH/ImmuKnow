@@ -28,7 +28,7 @@ the new column.
 | `board_id` | No | School board identifier |
 | `school_id` | No | School identifier |
 | `version_id` | No | Version identifier |
-| `intended_reader` | No | Intended reader: student or guardian. Leave blank to use the age default (student at 16 or older, guardian under 16). Unknown age without a reader uses neutral wording. Invalid values reject the whole input file. Supply the intended mailing destination in the address columns. |
+| `intended_reader` | No | Intended reader: student or guardian. Leave blank to use the age default (student at 16 or older, guardian under 16). Unknown age without a reader uses neutral wording. Invalid values fail that source row without creating a PDF; other valid rows continue. Supply the intended mailing destination in the address columns. |
 
 ## Vaccination history example
 
@@ -42,7 +42,7 @@ Each entry has the form `YYYY-MM-DD - Agent`, optionally followed by ` - Valid`
 or ` - Invalid`. Keep the spaces around each hyphen. Months and days need two
 digits, and dates must exist. The status words are case-sensitive. Spaces,
 tabs and line breaks may surround entries, but extra fields or empty entries
-(such as `;;`) reject the whole input file.
+(such as `;;`) fail that source row. The report retains its original history without inventing facts or a PDF; other valid rows continue.
 
 Use agent names exactly as they appear in your project's `vaccine_reference.json`.
 When a notice shows a history table, an unknown agent fails its check unless the

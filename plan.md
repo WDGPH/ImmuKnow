@@ -18,7 +18,7 @@ Initial investigation baselines (historical, before filename implementation):
 | ImmuKnow-Template | `9f098ab9ec3569d3fa5463b15ccd1842aa3fe16d` | Authored settings, references, notices, labels and fictional examples |
 | ImmuKnow-Studio | `b2a3e8e132b43b204c38992916acaa8afb98baf8` | Editor, browser previews, project import/export and pinned resource consumption |
 
-These SHAs explain the initial investigation; they are not checkout targets for execution. The currently adopted runtime pins are Core `f2f3c3a11e20f12caff85e8531529180e8fdc797` and Template `b129c7a286483261332d3403e51d064b476f4711`, adopted in Studio `e851bb0ef752c1d6f052fff73daebe18f7aaf7da`. Later Core grouping/sorting changes await the next coordinated engine adoption. Start from current source and retain completed behavior. These commits are local; publishing pinned revisions remains necessary before fresh external installs.
+These SHAs explain the initial investigation; they are not checkout targets for execution. The verified R2 runtime pins are Core `78b8d9b8672f14afa0b1223b72c8fa0e9903c082` and Template `bd776612d978e349f62159c1309c63bc728405ed`, adopted in Studio `02fb2dc`. They include grouping, sorting and warning subjects. R3 row isolation is verified in Core and awaits its final consumer pin update. Start from current source and retain completed behavior. These commits are local; publishing pinned revisions remains necessary before fresh external installs.
 
 ## Execution status and order
 
@@ -27,16 +27,17 @@ These SHAs explain the initial investigation; they are not checkout targets for 
 | F0 | Complete | Core + Template → Studio | Configurable individual/protected and normal/review bundle filenames |
 | R1 | Complete | Template → Studio | Meningococcal/TIg reference and display fixes |
 | R2a | Complete; active contract fixtures verified | Core, with Template/Studio consumers | Notice-local requirements and deferred preparation contract |
-| R2b | Core complete; consumer adoption in progress | Core + Template → Studio | Implement that contract, remove notice YAML, retain readable failed notices for review, detect empty agent displays |
-| G1 | Core complete; consumer adoption pending | Core; upstream export owner | Safe grouping for missing/conflicting school identity |
-| W1 | Core complete; consumer adoption pending | Core | Structured per-link evidence and run-level warning aggregation |
+| R2b | Complete across all three repos | Core + Template → Studio | Implement that contract, remove notice YAML, retain readable failed notices for review, detect empty agent displays |
+| R3 | Core complete; consumer adoption pending | Core → Template + Studio | Keep invalid history/reader rows report-only while valid rows continue |
+| G1 | Complete; upstream export review remains external | Core; upstream export owner | Safe grouping for missing/conflicting school identity |
+| W1 | Complete | Core | Structured per-link evidence and run-level warning aggregation |
 | W2 | Core complete | Core; Studio consumes relevant evidence | Run-scoped warning acknowledgment without changing delivery |
-| S1 | Core complete; consumer adoption pending | Core + Template; Studio handoff | Optional last-name/DOB ordering within bundles |
+| S1 | Complete | Core + Template; Studio handoff | Optional last-name/DOB ordering within bundles |
 | D1 | Exploration recorded; migration deferred | Core + Template + Studio | Disease identity/alias/label catalog; unrelated to removing the notice catalog |
 | H1 | Prototype measured; production deferred | Core | Measured, lossless report-size improvement |
-| PR1 | Low priority | Core operator/developer workflow | Profile the real native workload |
+| PR1 | Deferred at the user's request | Core operator/developer workflow | Profile the real native workload |
 
-R1 is complete. R2a's reviewed [requirements contract](tests/fixtures/requirements-contract.md) is implemented in Core with 85 passing release tests. Template and Studio source changes are ready for the coordinated pin/build acceptance; production behavior is not yet adopted through those pins. G1/S1 and W1/W2 are verified in Core and await the indicated consumer handoffs. D1 migration, H1 production optimization and PR1 private-run measurement retain their explicit exploration/measurement boundaries.
+R1 is complete. R2a's reviewed [requirements contract](tests/fixtures/requirements-contract.md) is implemented in Core with 85 passing release tests. Template passed 58 tests and packaging checks; Studio passed 235 unit tests and 26 selected browser/native tests against matching pins. R3 then passed all 89 Core release tests, including sparse worker/encryption identity and all-failed progress; its consumer pin handoff is next. G1/S1 and W1/W2 are adopted in the verified R2 handoff. D1 migration, H1 production optimization and PR1 private-run measurement retain their explicit exploration/measurement boundaries.
 
 ## 1. Reference fixes: preserve what worked
 
@@ -143,6 +144,23 @@ A general framework should share finding identities, scopes and observed/effecti
 
 Audit other preparation `?`/`ensure!` exits after fixing coverage. Separate shared setup failures from expected row failures; global configuration/resource/manifest ambiguity and storage failures can still stop a run. A bad row that cannot yield trustworthy render facts should remain a failed report entry while later independent rows proceed. Never fabricate a PDF solely to place a row in review. Preserve source-row identity and partial-run accounting throughout.
 
+The follow-up audit identified invalid history syntax/date/validity and invalid
+`intended_reader` as two remaining row-local aborts. R3 isolates those cases with
+one typed ready/failed preparation outcome per original row. Failed rows retain
+their source and mandatory findings, have no invented notice/facts/PDF, and stay
+report-only through rebundling. Existing CSV, reference, duplicate-ID and
+assignment/template validation remains run-wide. Compiler jobs and artifact
+updates retain original source indices even when only ready rows are submitted.
+
+If any history cannot be parsed, mark cohort `validity_coverage` explicitly
+`incomplete` and emit one top-level `data.history_cohort_incomplete` warning with
+total/failed-history row counts. Parsed histories from reader-invalid rows still
+contribute to cohort facts; OIID uses every readable row. `prepare` returns its
+complete v2 envelope with exit 0 and source failures in entries; `run` and project
+checks retain failure exits. All-failed cohorts finish progress without compiler
+work. This uses the existing mandatory/adjustable boundary rather than adding an
+override framework.
+
 ## 5. Completed filenames; remaining grouping and ordering
 
 F0 is complete. [Template's active settings](../ImmuKnow-Template/config/parameters.yaml) use individual `{client_id}_{notice_variant}_{language_code}`, normal bundle `{route}_{bundle_number}`, and review bundle `review_{bundle_number}`. Those work with the starter's size-only grouping. [Core's filename guide](docs/user_guide/configuration.md#filename-templates) owns supported fields, normalization/collisions, fallback warnings and `rebundle --filenames`; do not reimplement them.
@@ -191,6 +209,9 @@ Production adoption remains deferred. Shared details must retain useful row sear
 
 ## 8. Profile a real run: low priority
 
+Deferred at the user's request. The workflow below is retained for later; real-run
+timing and warning diagnosis are not required for this implementation handoff.
+
 Use the actual release executable, project, fonts, assignments and configuration in an approved local workspace. Do not rebuild or change workload inside the timing interval. First analyze existing `run.json` stage timings and finding totals; rerun only when more detail is needed.
 
 On Linux, wrap the normal command with `/usr/bin/time -v -o /private/path/process-time.txt` and retain its exit status. On other platforms use an equivalent process wall/CPU/peak-memory tool. Keep exact command arguments, binary/resource hashes, worker counts, CPU/RAM limits, storage type and report/artifact sizes locally. Existing `timings.total_seconds` stops before final report publication and process exit; external elapsed is authoritative for complete command time. Render spans can include overlapping encryption; do not add worker spans as elapsed-time shares.
@@ -209,7 +230,7 @@ Done means the next real run can explain the observed 384.5 seconds by measured 
 
 Core owns malformed-input, shared schemas/helpers, policy, PDF and routing tests. Template owns reference data, wording/layout and packaging. Studio owns example generation, deferred/current finding presentation, authoring preservation and downloaded native handoffs. Use fictional fixtures. Verify English/French normal, warning, review and unrenderable outcomes, stable source-row identity, expected actual bundle membership, and rebundle using saved observations. Run each repo's stated checks; a pin bump also needs a fresh build and selected browser/native tests. Avoid repeating the entire Core validation suite in consumers.
 
-The next acceptance gate is the coordinated Core → Template → Studio adoption. Core behavior and the shared contract are verified; consumer source changes still need matching pins, regenerated assets and native/browser acceptance. Later exploration and external-workload measurements keep their separate boundaries.
+The R2 coordinated Core → Template → Studio adoption is verified. The next gate is the same exact-pin handoff for R3 row isolation. Later exploration and external-workload measurements keep their separate boundaries.
 
 ## Core implementation checklist
 
@@ -255,7 +276,7 @@ Agreed direction for the prerelease v2.0 breaking release: requirements belong b
 - [x] Emit structured warnings/failures so readable failed originals reach review bundles and other rows continue. Retain assertions for conditions where a PDF must not be produced. Unrenderable rows remain report-only.
 - [x] Preserve declared requirements and observations in the run's compiled evidence. Rebundling uses saved results/policy without recompiling or silently changing the original requirements.
 - [x] Keep display exclusions separate from source coverage and assignment eligibility. Preserve upstream assessment rather than deriving clinical status or switching the selected notice automatically.
-- [ ] Audit neighboring preparation exits incrementally, distinguishing expected row problems from shared configuration, manifest identity and storage failures.
+- [x] Audit neighboring preparation exits. R3 isolates invalid history and intended-reader values while preserving shared configuration, manifest identity and storage failures. Source-indexed worker and encrypted-content tests cover the boundary.
 - [x] Remove the YAML catalog from Core fixtures and references in configuration, authoring, preparation and finding/review guides. Update setup/readiness assumptions, report contracts and tests together with Template/Studio adoption. Describe this as the v2.0 contract, without a legacy path.
 
 Acceptance cases: a mixed cohort with one agent mismatch completes other rows and retains that PDF for review; a disease notice warns for the same mismatch; structured eligibility failure retains a readable PDF while a deliberate assertion yields report-only; valid local requirements run without YAML; an obsolete/contradictory YAML file cannot influence results; missing/malformed/contradictory local metadata fails visibly without fallback; conditional declarations match placed content; preparation explains deferred checks; saved-run rebundling preserves requirements/observations. Update fixtures and cover both languages/source-row identity at the appropriate owning boundary. No legacy catalog acceptance tests or compatibility fixtures are needed.
@@ -278,7 +299,7 @@ Test zero/one/all excluded agents, duplicates, TIg, flu/COVID, no-records replac
 - [x] Scope issue identity by code, check/resource definition and exact destination or destination set. Store fingerprints for indexing, protected evidence for inspection, reason and time. Preserve meaningful URL path/query/fragment changes. A new run or new destination requires new review.
 - [x] Keep personalized QR values out of aggregate labels/shared logs. Do not remove query values to merge personalized URLs. Defer authored-link identities and cross-run allowlists until their trust/migration contract is designed.
 - [x] Reconcile [AGENTS.md](AGENTS.md) with the selected behavior if needed. It currently prohibits warning-waiver machinery, but acknowledgment that preserves findings/routing need not be a waiver. The user’s request takes precedence; updating guidance is not a permission gate for this investigation.
-- [ ] Inventory preparation/render/artifact/delivery rules in an explicit mandatory/adjustable registry before extending policy beyond render checks. Reuse observed/effective history and exact-row reasons. Decide separately whether coverage can be downgraded for one row; do not quietly make it adjustable.
+- [x] Inventory preparation/render/artifact/delivery rules in [the ownership and permitted-change table](docs/developer_guide/architecture.md#check-ownership-and-permitted-changes). The shared schema remains the render registry; other findings remain mandatory. No policy expansion or extra registry is needed. Coverage remains non-adjustable.
 - [x] Preserve mandatory evidence/identity, unusable-original, encryption and file-operation failures. Holds remain exclusion from both bundle routes; release does not mean acceptance.
 
 Acceptance cases: one static bad link across many rows is one review subject with every row traceable; a second link and a changed link-set remain outstanding; acknowledgment survives rebundle, not a new run; changed resources invalidate matching; broad code disable cannot masquerade as per-link acceptance; forged/stale identities and unknown policy codes are rejected; no new disclosure in summary labels. Keep old saved runs readable when acknowledgment fields are absent.
