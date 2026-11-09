@@ -38,6 +38,187 @@ fn copy_tree(source: &Path, destination: &Path) {
 fn p(path: &Path) -> &str {
     path.to_str().unwrap()
 }
+
+#[test]
+fn native_project_journey_without_python_or_uv() {
+    let fixture = Project::new();
+    let project = fixture.root.join("Relocated projet Élodie");
+    copy_tree(&fixture.config, &project.join("config"));
+    copy_tree(&fixture.templates, &project.join("templates"));
+    fs::remove_dir_all(project.join("templates/lib/immuknow")).unwrap();
+    let input = project.join("input/sample");
+    fs::create_dir_all(&input).unwrap();
+    let mut reader = csv::Reader::from_path(&fixture.csv).unwrap();
+    let mut writer = csv::Writer::from_path(input.join("sample_students.csv")).unwrap();
+    writer.write_record(reader.headers().unwrap()).unwrap();
+    writer
+        .write_record(&reader.records().next().unwrap().unwrap())
+        .unwrap();
+    writer.flush().unwrap();
+    fs::write(
+        input.join("sample_assignments.json"),
+        serde_json::to_vec(&json!([
+            {"client_id":"0000000001","template":"overdue_agents_v1.en.typ"}
+        ]))
+        .unwrap(),
+    )
+    .unwrap();
+    let native = |args: &[&str]| {
+        Command::new(env!("CARGO_BIN_EXE_immuknow"))
+            .current_dir(&fixture.root)
+            .env("PATH", "")
+            .args(args)
+            .output()
+            .unwrap()
+    };
+    let root = p(&project);
+    assert!(
+        !native(&["project", "check", "--project", root])
+            .status
+            .success()
+    );
+    success(&native(&["project", "sync", "--project", root]));
+    success(&native(&["project", "sync", "--project", root]));
+    let authored = project.join("templates/overdue_agents_v1.en.typ");
+    let before = fs::read(&authored).unwrap();
+    let library = project.join("templates/lib/immuknow");
+    fs::write(library.join("unexpected.typ"), "Extra file").unwrap();
+    assert!(
+        !native(&["project", "check", "--project", root])
+            .status
+            .success()
+    );
+    assert!(
+        !native(&["project", "sync", "--project", root])
+            .status
+            .success()
+    );
+    assert!(library.join("unexpected.typ").exists());
+    success(&native(&[
+        "project",
+        "sync",
+        "--project",
+        root,
+        "--replace",
+    ]));
+    assert!(!library.join("unexpected.typ").exists());
+    assert_eq!(fs::read(&authored).unwrap(), before);
+    success(&native(&["project", "check", "--project", root]));
+    success(&native(&[
+        "project",
+        "check",
+        "--project",
+        root,
+        "--sample",
+        "--progress",
+        "off",
+    ]));
+    assert!(!project.join("runs").exists());
+    let prepared = native(&["prepare", "--sample", "--project", root]);
+    success(&prepared);
+    let value: Value = serde_json::from_slice(&prepared.stdout).unwrap();
+    assert_eq!(value["entries"].as_array().unwrap().len(), 1);
+    let output = project.join("runs");
+    success(&native(&[
+        "run",
+        "--sample",
+        "--project",
+        root,
+        "--output",
+        p(&output),
+        "--progress",
+        "off",
+    ]));
+    let [run]: [PathBuf; 1] = fs::read_dir(&output)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .collect::<Vec<_>>()
+        .try_into()
+        .unwrap();
+    let record: Value = serde_json::from_slice(&fs::read(run.join("run.json")).unwrap()).unwrap();
+    assert!(matches!(
+        record["status"].as_str(),
+        Some("completed" | "completed_with_warnings")
+    ));
+    assert_eq!(record["entries"][0]["original"]["status"], "completed");
+    assert!(!project.join(".venv").exists());
+
+    fs::write(project.join("sample.json"), r#"{"csv":"input/sample/sample_students.csv","assignments":"input/sample/sample_assignments.json"}"#).unwrap();
+    success(&native(&["prepare", "--sample", "--project", root]));
+    assert!(
+        !native(&[
+            "run",
+            "--sample",
+            "--project",
+            root,
+            "--template",
+            "anything.typ"
+        ])
+        .status
+        .success()
+    );
+    assert!(
+        !native(&["run", "--sample", "--project", root, "clients.csv"])
+            .status
+            .success()
+    );
+    for invalid in [
+        "../input.csv",
+        "/input.csv",
+        "C:/input.csv",
+        "..\\input.csv",
+        "",
+        "missing.csv",
+    ] {
+        fs::write(
+            project.join("sample.json"),
+            serde_json::to_vec(
+                &json!({"csv": invalid,"assignments":"input/sample/sample_assignments.json"}),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert!(
+            !native(&["prepare", "--sample", "--project", root])
+                .status
+                .success(),
+            "accepted {invalid}"
+        );
+    }
+    fs::write(project.join("sample.json"), r#"{"csv":"input/sample/sample_students.csv","csv":"input/sample/sample_students.csv","assignments":"input/sample/sample_assignments.json"}"#).unwrap();
+    assert!(
+        !native(&["prepare", "--sample", "--project", root])
+            .status
+            .success()
+    );
+
+    #[cfg(unix)]
+    {
+        fs::remove_dir_all(&library).unwrap();
+        std::os::unix::fs::symlink(&fixture.templates, &library).unwrap();
+        assert!(
+            !native(&["project", "sync", "--project", root, "--replace"])
+                .status
+                .success()
+        );
+        assert!(
+            !native(&["project", "check", "--project", root])
+                .status
+                .success()
+        );
+        fs::write(
+            project.join("sample.json"),
+            r#"{"csv":"linked.csv","assignments":"input/sample/sample_assignments.json"}"#,
+        )
+        .unwrap();
+        std::os::unix::fs::symlink(&fixture.csv, project.join("linked.csv")).unwrap();
+        assert!(
+            !native(&["prepare", "--sample", "--project", root])
+                .status
+                .success()
+        );
+    }
+}
 struct Project {
     _temp: TempDir,
     root: PathBuf,

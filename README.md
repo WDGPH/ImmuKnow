@@ -32,6 +32,14 @@ Install Rust 1.92 or later, then build the executable:
 cargo install --path . --locked
 ```
 
+Project setup and sample checks also run without Python:
+
+```sh
+immuknow project sync --project project
+immuknow project check --project project --sample
+immuknow run --sample --project project
+```
+
 `immuknow resources` exports shared components and schemas; `immuknow prepare`
 produces prepared data without PDFs; `immuknow rebundle` uses a saved run's originals.
 

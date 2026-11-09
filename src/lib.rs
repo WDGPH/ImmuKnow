@@ -6,6 +6,7 @@ pub mod pdf;
 pub mod pipeline;
 pub mod policy;
 pub mod pool;
+pub mod project;
 pub mod report;
 pub mod resources;
 pub mod validation;

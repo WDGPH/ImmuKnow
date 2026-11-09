@@ -35,3 +35,38 @@ complete `templates/lib/immuknow/` copy. Do not mix files from different release
 See [projects and contracts](../ecosystem.md#native-handoff) for resource identity,
 schema versions and the preparation envelope. Project configuration and reference
 lists are described in [configuration](../user_guide/configuration.md).
+
+## Native project setup and samples
+
+```sh
+immuknow project sync --project project
+immuknow project check --project project
+immuknow project check --project project --sample
+immuknow prepare --sample --project project
+immuknow run --sample --project project
+```
+
+`project sync` installs the complete embedded Typst library into
+`templates/lib/immuknow/`. It accepts identical files and refuses a different
+library unless `--replace` is supplied. Replacement affects only that directory;
+authored notices and configuration are preserved. Linked library paths are
+rejected. `project check` compares the complete library and prepares the
+project's fictional sample without modifying authored files. With `--sample`, it
+also renders the sample in a temporary folder and removes the output afterwards.
+Use `run --sample` to retain output and inspect its report. Warnings alone do
+not fail a check; failures return a nonzero status. Check and sync print a short
+text result; the existing run/prepare stdout formats are unchanged.
+
+Project commands default to the current folder. `run` and `prepare` accept
+`--sample` instead of a CSV and explicit notice selection. Sample paths come
+from `sample.json` with exactly `csv` and `assignments` fields. If absent, the
+conventional paths are `input/sample/sample_students.csv` and
+`input/sample/sample_assignments.json`. Paths must name existing files inside
+the project; absolute paths, parent traversal and links outside the project are
+rejected. `--sample` cannot be combined with explicit input, selection, template
+or configuration overrides. `--output` remains relative to the current working
+folder, defaulting to `runs/`, just as for an explicit CSV run.
+
+These commands need no Python, uv or project environment. Template owns the
+sample records, authored notices, settings and reference lists; Core supplies
+only the generic setup and sample-selection behavior.

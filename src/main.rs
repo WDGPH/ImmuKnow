@@ -31,17 +31,21 @@ struct Cli {
 #[group(required = false)]
 struct Inputs {
     /// CSV file containing client information.
-    csv: PathBuf,
+    #[arg(required_unless_present = "sample", conflicts_with = "sample")]
+    csv: Option<PathBuf>,
+    /// Use sample.json, or the conventional fictional sample, inside the project.
+    #[arg(long, conflicts_with_all = ["csv", "notice_assignments", "template", "templates", "config"])]
+    sample: bool,
     /// JSON file matching each client ID to a template filename.
     #[arg(
         long,
         visible_alias = "notices",
         conflicts_with = "template",
-        required_unless_present = "template"
+        required_unless_present_any = ["template", "sample"]
     )]
     notice_assignments: Option<PathBuf>,
     /// One template file to use for every client.
-    #[arg(long, conflicts_with_all=["notice_assignments", "templates"], required_unless_present="notice_assignments")]
+    #[arg(long, conflicts_with_all=["notice_assignments", "templates"], required_unless_present_any=["notice_assignments", "sample"])]
     template: Option<PathBuf>,
     /// Directory containing the templates named in the assignment file.
     #[arg(long)]
@@ -58,13 +62,19 @@ struct Inputs {
 }
 impl Inputs {
     fn options(
-        self,
+        mut self,
         output: PathBuf,
         timestamp: Option<i64>,
         compile_workers: u8,
         encryption_workers: u8,
         bundle_workers: u8,
     ) -> Result<RunOptions> {
+        if self.sample {
+            let project = self.project.as_deref().unwrap_or(std::path::Path::new("."));
+            let (csv, assignments) = immuknow::project::sample_paths(project)?;
+            self.csv = Some(csv);
+            self.notice_assignments = Some(assignments);
+        }
         let (selection, templates) = match (self.notice_assignments, self.template) {
             (Some(manifest), None) => (
                 Selection::Manifest(manifest),
@@ -95,7 +105,9 @@ impl Inputs {
             _ => anyhow::bail!("Select exactly one of --template or --notice-assignments"),
         };
         Ok(RunOptions {
-            csv: self.csv,
+            csv: self
+                .csv
+                .expect("Clap requires a CSV unless --sample resolves it"),
             selection,
             templates,
             config: self.config.unwrap_or_else(|| {
@@ -113,6 +125,11 @@ impl Inputs {
 }
 #[derive(Subcommand)]
 enum Command {
+    /// Set up or check a configured notice project without Python.
+    Project {
+        #[command(subcommand)]
+        command: ProjectCommand,
+    },
     /// Generate notices, encrypted copies, bundles and a saved report.
     Run {
         #[command(flatten)]
@@ -155,6 +172,26 @@ enum Command {
         bundle_workers: u8,
     },
 }
+
+#[derive(Subcommand)]
+enum ProjectCommand {
+    /// Install the executable's shared library into templates/lib/immuknow.
+    Sync {
+        #[arg(long, default_value = ".")]
+        project: PathBuf,
+        /// Replace an existing library that differs; authored files are untouched.
+        #[arg(long)]
+        replace: bool,
+    },
+    /// Verify the shared library and prepare the project's fictional sample.
+    Check {
+        #[arg(long, default_value = ".")]
+        project: PathBuf,
+        /// Also render the sample in a temporary folder, removed after checking.
+        #[arg(long)]
+        sample: bool,
+    },
+}
 fn main() {
     if let Err(error) = execute() {
         eprintln!("ImmuKnow: {error:#}");
@@ -165,6 +202,60 @@ fn execute() -> Result<()> {
     let cli = Cli::parse();
     let mut terminal = terminal::Terminal::new(cli.progress, cli.emoji);
     match cli.command {
+        Command::Project { command } => match command {
+            ProjectCommand::Sync { project, replace } => {
+                immuknow::project::sync_library(&project, replace)?;
+                println!("Shared library matches this ImmuKnow executable.");
+            }
+            ProjectCommand::Check { project, sample } => {
+                immuknow::project::check_library(&project)?;
+                let (csv, assignments) = immuknow::project::sample_paths(&project)?;
+                let temporary = tempfile::tempdir()?;
+                let options = RunOptions {
+                    csv,
+                    selection: Selection::Manifest(assignments),
+                    templates: project.join("templates"),
+                    config: project.join("config"),
+                    output: temporary.path().join("runs"),
+                    encoding: None,
+                    timestamp: None,
+                    compile_workers: pipeline::default_notice_workers(),
+                    encryption_workers: pipeline::default_notice_workers(),
+                    bundle_workers: 4,
+                };
+                if sample {
+                    let result =
+                        pipeline::run_with_progress(&options, &mut |event| terminal.update(event))?;
+                    terminal.finish(&result);
+                    ensure!(
+                        result.succeeded,
+                        "Sample run failed; run immuknow run --sample --project {} to retain its report",
+                        project.display()
+                    );
+                    println!(
+                        "Project checked: {}/{} sample PDFs created. Temporary output removed.",
+                        result.summary.originals, result.summary.rows
+                    );
+                } else {
+                    let prepared = pipeline::prepare(&options)?;
+                    let failed = prepared["entries"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .flat_map(|entry| entry["checks"].as_array().into_iter().flatten())
+                        .any(|check| check["status"] == "fail");
+                    ensure!(
+                        !failed,
+                        "Sample preparation contains failures; use immuknow prepare --sample --project {} for findings",
+                        project.display()
+                    );
+                    println!(
+                        "Project checked: shared library matches; {} sample rows prepared.",
+                        prepared["entries"].as_array().map_or(0, Vec::len)
+                    );
+                }
+            }
+        },
         Command::Run {
             inputs,
             output,

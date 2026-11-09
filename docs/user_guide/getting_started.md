@@ -31,6 +31,24 @@ failed checks or failed requested encryption go to review bundles; notices witho
 in the report. Withheld rows enter neither set. Releasing a hold keeps checks in
 force. Grouping must be enabled to produce bundles.
 
+## Set up and check a project
+
+From a configured Template or Studio project folder, install the shared library
+and check the fictional sample:
+
+```sh
+immuknow project sync
+immuknow project check --sample
+immuknow run --sample
+```
+
+The check removes its temporary output; the run keeps notices and a report under
+`runs/`. Setup and sample commands require no Python or uv. A project without
+fictional inputs can still run your own CSV and notice selection below.
+Use `--project /path/to/project` when running from another folder. See the
+[command reference](../developer_guide/cli.md#native-project-setup-and-samples)
+for sample paths and refreshing the complete shared library after a Core update.
+
 ## Create notices
 
 Open a terminal. To use one notice for everyone in the CSV, run this command, replacing the paths with your own:

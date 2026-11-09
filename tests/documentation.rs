@@ -23,6 +23,8 @@ fn local_documentation_links_and_cli_commands() {
         "immuknow prepare",
         "immuknow resources",
         "immuknow rebundle",
+        "immuknow project sync",
+        "immuknow project check",
     ] {
         assert!(
             readme.contains(command),
