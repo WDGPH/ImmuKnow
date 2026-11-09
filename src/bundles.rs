@@ -150,6 +150,10 @@ pub(crate) fn bundle_with_progress(
                     .or_else(|| e["notice"]["language"].as_str())
                     .unwrap_or("")
                     .to_owned(),
+                "notice_variant" => e["assignment"]["version_id"]
+                    .as_str()
+                    .unwrap_or("")
+                    .to_owned(),
                 _ => pages.to_string(),
             })
             .collect();

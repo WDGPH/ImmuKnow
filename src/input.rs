@@ -14,6 +14,8 @@ use std::{
 pub struct Config {
     pub date_as_of: String,
     pub date_of_delivery: String,
+    pub date_due: Option<String>,
+    pub date_of_suspension: Option<String>,
     pub bundling: Bundling,
     pub encryption: Encryption,
     pub school_validation: School,
@@ -112,11 +114,7 @@ pub fn check(code: &str, status: &str, message: &str) -> Value {
 }
 pub fn config(path: &Path) -> Result<Config> {
     let c: Config = parse_yaml(&fs::read_to_string(path)?)?;
-    for d in [&c.date_as_of, &c.date_of_delivery] {
-        if !d.is_empty() {
-            date(d)?;
-        }
-    }
+    validate_dates(&c)?;
     ensure!(
         !c.pipeline.after_run.remove_artifacts,
         "pipeline.after_run.remove_artifacts is retired; remove the run directory manually when appropriate"
@@ -148,6 +146,37 @@ pub fn config(path: &Path) -> Result<Config> {
 
     Ok(c)
 }
+
+/// Compare the dates that are actually supplied, including across omitted fields.
+fn validate_dates(config: &Config) -> Result<()> {
+    let dates = [
+        ("date_as_of", Some(config.date_as_of.as_str())),
+        ("date_of_delivery", Some(config.date_of_delivery.as_str())),
+        ("date_due", config.date_due.as_deref()),
+        ("date_of_suspension", config.date_of_suspension.as_deref()),
+    ];
+    let mut previous = None;
+    for (name, value) in dates {
+        let Some(value) = value.filter(|value| !value.is_empty()) else {
+            continue;
+        };
+        let parsed = date(value).with_context(|| format!("Invalid {name}"))?;
+        if let Some((earlier_name, earlier)) = previous {
+            let same_day_delivery = earlier_name == "date_as_of" && name == "date_of_delivery";
+            ensure!(
+                parsed > earlier || (same_day_delivery && parsed == earlier),
+                "{name} must be {} {earlier_name}",
+                if same_day_delivery {
+                    "on or after"
+                } else {
+                    "after"
+                }
+            );
+        }
+        previous = Some((name, parsed));
+    }
+    Ok(())
+}
 /// Parse the fields used to group notices into bundles.
 pub fn grouping_fields(value: &Value) -> Result<Vec<String>> {
     let fields: Vec<&str> = match value {
@@ -168,7 +197,7 @@ pub fn grouping_fields(value: &Value) -> Result<Vec<String>> {
             ensure!(
                 matches!(
                     field.as_str(),
-                    "school" | "board" | "language" | "page_count"
+                    "school" | "board" | "language" | "page_count" | "notice_variant"
                 ),
                 "Unknown grouping field: {field}"
             );
@@ -1039,6 +1068,8 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>
             "board": {"name": get(r, "board_name"), "id": get(r, "board_id")},
             "date_of_delivery": c.date_of_delivery,
             "date_as_of": c.date_as_of,
+            "date_due": c.date_due,
+            "date_of_suspension": c.date_of_suspension,
             "overdue_diseases": overdue,
             "overdue_agents": agents,
             "history": history,
@@ -1054,6 +1085,32 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn project_dates_are_optional_but_ordered_when_present() {
+        for source in [
+            "{}",
+            "date_as_of: '2026-11-01'\ndate_of_delivery: '2026-11-01'",
+            "date_due: null\ndate_of_suspension: null",
+            "date_due: ''\ndate_of_suspension: ''",
+            "date_as_of: '2026-11-01'\ndate_of_delivery: '2026-11-15'\ndate_due: '2026-11-30'\ndate_of_suspension: '2026-12-01'",
+            "date_of_delivery: '2026-11-15'\ndate_of_suspension: '2026-12-01'",
+        ] {
+            let config: Config = parse_yaml(source).unwrap();
+            assert!(validate_dates(&config).is_ok(), "rejected {source}");
+        }
+        for source in [
+            "date_as_of: '2026-11-15'\ndate_of_delivery: '2026-11-01'",
+            "date_of_delivery: '2026-11-15'\ndate_due: '2026-11-15'",
+            "date_due: '2026-12-01'\ndate_of_suspension: '2026-11-30'",
+            "date_of_delivery: '2026-12-01'\ndate_of_suspension: '2026-11-30'",
+            "date_as_of: '2026-12-01'\ndate_due: '2026-11-30'",
+            "date_due: '2026-02-30'",
+            "date_of_suspension: '2026-13-01'",
+        ] {
+            let config: Config = parse_yaml(source).unwrap();
+            assert!(validate_dates(&config).is_err(), "accepted {source}");
+        }
+    }
     #[test]
     fn history_syntax_and_dedup() {
         let r = BTreeMap::new();

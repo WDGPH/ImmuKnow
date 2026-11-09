@@ -14,8 +14,9 @@
   body
 }
 
-#let notice-header(logo: none, title: [], logo-width: 6cm, title-size: 20pt, fill: black, placement: "left", spacing: 12pt) = {
+#let notice-header(logo: none, title: [], logo-width: 6cm, title-size: 20pt, title-align: center, fill: black, placement: "left", spacing: 12pt) = {
   assert(placement in ("left", "right"), message: "Header placement must be left or right")
+  assert(title-align in (left, center, right), message: "title-align must be left, center, or right")
   layout(size => {
     let brand-width = if logo == none { 0pt } else { logo-width }
     let gap = if logo == none { 0pt } else { spacing }
@@ -33,9 +34,9 @@
       if height <= maximum + 0.1pt { "Title fits within three lines." } else { "Title exceeds three lines." },
       component: "header", page: here().page(), measurements: (title_height_pt: height.pt(), three_line_height_pt: maximum.pt()))
     let brand = box(width: brand-width, logo)
-    if logo == none { align(center, heading) }
-    else if placement == "left" { grid(columns: (brand-width, 1fr), gutter: gap, align: horizon, brand, align(center, heading)) }
-    else { grid(columns: (1fr, brand-width), gutter: gap, align: horizon, align(center, heading), brand) }
+    if logo == none { align(title-align, heading) }
+    else if placement == "left" { grid(columns: (brand-width, 1fr), gutter: gap, align: horizon, brand, align(title-align, heading)) }
+    else { grid(columns: (1fr, brand-width), gutter: gap, align: horizon, align(title-align, heading), brand) }
   })
 }
 
@@ -226,12 +227,12 @@
   }
 }
 
-#let notice-section(title, body, logo: none, logo-width: 6cm, title-size: 20pt, fill: black, heading-above: 0.2cm, heading-below: 0.5cm, allow-overflow: false) = {
+#let notice-section(title, body, logo: none, logo-width: 6cm, title-size: 20pt, title-align: center, fill: black, heading-above: 0.2cm, heading-below: 0.5cm, allow-overflow: false) = {
   assert(type(allow-overflow) == bool, message: "allow-overflow must be boolean")
   pagebreak(weak: true)
   [#metadata(none) <immuknow-section-start>]
   v(heading-above)
-  notice-header(logo: logo, logo-width: logo-width, title-size: title-size, fill: fill, title: title)
+  notice-header(logo: logo, logo-width: logo-width, title-size: title-size, title-align: title-align, fill: fill, title: title)
   v(heading-below)
   body
   [#metadata(none) <immuknow-section-end>]

@@ -47,8 +47,10 @@ display-default adapter or separate layout-settings file.
   cohorts, `date_as_of`. Missing required facts fail the ISPA-specific operation.
 - `notice-dates(notice)` returns localized delivery, as-of, and birth dates.
   `long-date(iso, language, required: false)` leaves unknown dates blank.
-- `notice-header(title: ..., logo: ...)` centers the title beside the logo and
-  warns when it exceeds three lines.
+- `notice-header(title: ..., logo: ..., title-align: center)` places the title
+  beside the logo and warns when it exceeds three lines. Set `title-align` to
+  `left`, `center`, or `right` to align the title within its column. The same
+  option is available on `notice-section`.
 - `client-block(notice, window: envelope-preset)` places the address and labeled
   client ID, with details beside the address or below it (`details: "below"`).
   `id-label: "Record number"` changes the label. Each placed ID records its
@@ -65,7 +67,9 @@ display-default adapter or separate layout-settings file.
   and reports a warning when the signature moves or spans pages. Its
   `allow-overflow: true` option declares intentional continuation.
 - `overdue-diseases(notice, include-dose: false)` and `overdue-agents(notice)`
-  produce bullets or comma-separated lists. Dose numbering describes the
+  produce bullets or comma-separated lists. Repeated exact agent names display
+  once in their first-occurrence order; the supplied facts remain unchanged.
+  Dose numbering describes the
   overdue requirement. Both helpers accept `no-records: auto` to replace their
   list with an English/Canadian French request for records when the source
   contains no administrations. A string or content overrides the message;

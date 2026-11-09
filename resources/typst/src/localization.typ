@@ -28,6 +28,8 @@
 #let notice-dates(notice) = (
   date_of_delivery: long-date(notice.date_of_delivery, notice.language, required: false),
   date_as_of: long-date(notice.date_as_of, notice.language, required: false),
+  date_due: long-date(notice.at("date_due", default: none), notice.language, required: false),
+  date_of_suspension: long-date(notice.at("date_of_suspension", default: none), notice.language, required: false),
   date_of_birth: long-date(notice.client_data.date_of_birth_iso, notice.language, required: false),
 )
 

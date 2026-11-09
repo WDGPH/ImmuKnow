@@ -47,6 +47,10 @@
   let replacement = records-replacement(notice, no-records, lang)
   component("overdue_agents", notice: notice)
   if replacement != none { replacement } else {
-    items-grid(notice.overdue_agents, columns, spacing, row-spacing, empty, style, indent)
+    // The source can repeat an agent for each disease it covers. Keep the
+    // original facts for evidence and display each exact agent once, in order.
+    let agents = notice.overdue_agents.fold((), (items, agent) =>
+      if agent in items { items } else { items + (agent,) })
+    items-grid(agents, columns, spacing, row-spacing, empty, style, indent)
   }
 }

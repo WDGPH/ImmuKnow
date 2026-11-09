@@ -222,6 +222,49 @@ struct Project {
     assignments: PathBuf,
     runs: PathBuf,
 }
+
+#[test]
+fn optional_deadlines_reach_prepared_facts_and_bad_order_preserves_source_rows() {
+    let project = Project::new();
+    let parameters = project.config.join("parameters.yaml");
+    let original = fs::read_to_string(&parameters).unwrap();
+    fs::write(
+        &parameters,
+        format!("{original}\ndate_due: '2025-04-20'\ndate_of_suspension: '2025-05-01'\n"),
+    )
+    .unwrap();
+    let prepared = cli(
+        &project.root,
+        &[
+            "prepare",
+            p(&project.csv),
+            "--template",
+            p(&project.templates.join("overdue_agents_v1.en.typ")),
+            "--config",
+            p(&project.config),
+        ],
+    );
+    success(&prepared);
+    let record: Value = serde_json::from_slice(&prepared.stdout).unwrap();
+    for entry in record["entries"].as_array().unwrap() {
+        assert_eq!(entry["notice"]["date_due"], "2025-04-20");
+        assert_eq!(entry["notice"]["date_of_suspension"], "2025-05-01");
+    }
+    // A due date is optional; skipping it still compares delivery to suspension.
+    fs::write(
+        &parameters,
+        format!("{original}\ndate_of_suspension: '2025-04-07'\n"),
+    )
+    .unwrap();
+    let failed = project.run();
+    assert!(!failed.status.success());
+    assert!(
+        String::from_utf8_lossy(&failed.stderr)
+            .contains("date_of_suspension must be after date_of_delivery")
+    );
+    let (_, record) = project.record();
+    assert_eq!(record["entries"].as_array().unwrap().len(), 5);
+}
 impl Project {
     fn new() -> Self {
         let temp = tempfile::tempdir().unwrap();
@@ -1220,4 +1263,58 @@ fn project_shortcut_supports_explicit_choices_overrides_and_quiet_output() {
     let saved = PathBuf::from(String::from_utf8(quiet.stdout).unwrap().trim());
     let record: Value = serde_json::from_slice(&fs::read(saved).unwrap()).unwrap();
     assert_eq!(record["entries"].as_array().unwrap().len(), 1);
+}
+
+#[test]
+fn bundles_group_selected_notice_variant_and_optionally_language() {
+    for (group_by, expected) in [
+        (
+            "notice_variant",
+            json!([
+                {"group": ["overdue_agents_v1"], "members": ["row-000001", "row-000002", "row-000005"]},
+                {"group": ["overdue_diseases_v1"], "members": ["row-000003", "row-000004"]}
+            ]),
+        ),
+        (
+            "[notice_variant, language]",
+            json!([
+                {"group": ["overdue_agents_v1", "en"], "members": ["row-000001", "row-000005"]},
+                {"group": ["overdue_agents_v1", "fr"], "members": ["row-000002"]},
+                {"group": ["overdue_diseases_v1", "en"], "members": ["row-000003"]},
+                {"group": ["overdue_diseases_v1", "fr"], "members": ["row-000004"]}
+            ]),
+        ),
+    ] {
+        let project = Project::new();
+        fs::copy(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("tests/fixtures/templates/overdue_agents_v1.fr.typ"),
+            project.templates.join("overdue_agents_v1.fr.typ"),
+        )
+        .unwrap();
+        select_first_rows(
+            &project,
+            &[
+                "overdue_agents_v1.en.typ",
+                "overdue_agents_v1.fr.typ",
+                "overdue_diseases_v1.en.typ",
+                "overdue_diseases_v1.fr.typ",
+                "overdue_agents_v1.en.typ",
+            ],
+        );
+        let parameters = project.config.join("parameters.yaml");
+        let config = fs::read_to_string(&parameters)
+            .unwrap()
+            .replace("group_by: null", &format!("group_by: {group_by}"));
+        fs::write(parameters, config).unwrap();
+        success(&project.run());
+        let (_, record) = project.record();
+        let actual: Vec<_> = record["bundles"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|bundle| json!({"group": bundle["group"], "members": bundle["members"]}))
+            .collect();
+        assert_eq!(json!(actual), expected);
+    }
 }

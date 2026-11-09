@@ -285,6 +285,36 @@
         null
       ],
       "description": "Optional intended-reader override. Null or absent uses the age default in Typst."
+    },
+    "date_due": {
+      "description": "Optional configured notice date; omitted dates are not inferred.",
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "const": ""
+        },
+        {
+          "type": "string",
+          "format": "date"
+        }
+      ]
+    },
+    "date_of_suspension": {
+      "description": "Optional configured notice date; omitted dates are not inferred.",
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "const": ""
+        },
+        {
+          "type": "string",
+          "format": "date"
+        }
+      ]
     }
   },
   "additionalProperties": false

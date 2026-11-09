@@ -18,9 +18,10 @@ Edit `parameters.yaml` to set the following options:
 
 | Setting | Purpose |
 | --- | --- |
-| `date_as_of`, `date_of_delivery` | Dates in `YYYY-MM-DD` format used in the prepared information. |
+| `date_as_of`, `date_of_delivery` | Assessment and delivery dates in `YYYY-MM-DD` format. |
+| `date_due`, `date_of_suspension` | Optional update deadline and suspension start, in `YYYY-MM-DD` format; omitted, null or blank means unset. |
 | `bundling.bundle_size` | Maximum notices in each combined PDF. Set to zero to turn off grouping. |
-| `bundling.group_by` | Optionally group by `school`, `board`, `language`, or `page_count`, using one value or a list. `size` or null groups by size only. |
+| `bundling.group_by` | Optionally group by `school`, `board`, `language`, `page_count`, or `notice_variant`, using one value or a list. `size` or null groups by size only. |
 | `encryption.enabled` | Create password-protected copies for sending while keeping the original PDFs. |
 | `encryption.password.template` | A nonempty password template, required when encryption is enabled. |
 | `school_validation.enabled` | Compare school names and facility IDs in the CSV with your health unit's school list. |
@@ -39,6 +40,10 @@ bundling:
 date_as_of: '2025-08-31'
 date_of_delivery: '2025-09-01'
 ```
+
+To separate selected notice versions and languages, use
+`group_by: [notice_variant, language]`. `notice_variant` uses the version ID
+from the selected template; group by `language` separately when needed.
 
 To require notices to have exactly two pages when sending them, enable grouping and add:
 
@@ -122,3 +127,23 @@ History entries use exact agent names from `vaccine_reference.json`. Every entry
 ## Fonts
 
 The standalone executable includes Typst 0.15.1 and its shared components. It uses fonts installed on the workstation. Install the fonts specified by your project and inspect example English and French notices. A separate Typst executable and Python runtime are not required.
+
+## Notice dates
+
+Use the existing `date_as_of` and `date_of_delivery` names for assessment and
+planned delivery. `date_due` and `date_of_suspension` are optional project dates.
+Core validates each supplied date and compares the dates that are present, in
+this order:
+
+```text
+date_as_of <= date_of_delivery < date_due < date_of_suspension
+```
+
+Assessment and delivery may share a day. Other supplied dates must be later;
+if the due date is omitted, suspension must still be later than delivery.
+Omit an optional date or set it to `null` or `''` when it does not apply. Invalid
+calendar dates or inconsistent ordering stop preparation with the field names
+in the error. Core does not infer a deadline, a suspension date or school days.
+Templates decide where these dates appear. Starter letters print the localized
+delivery date, overdue letters show a supplied deadline, and the suspension
+starter uses the supplied start instead of fixed calendar dates.

@@ -4,7 +4,7 @@ bundling:
 school_validation:
   enabled: false
   target_phu: Example Health Unit
-date_as_of: '2025-08-31'
+date_as_of: '2025-04-01'
 date_of_delivery: '2025-04-08'
 encryption:
   enabled: false

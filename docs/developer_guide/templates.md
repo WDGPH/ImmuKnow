@@ -95,7 +95,8 @@ in the Template where they appear. Keep notice-specific choices there too,
 including suspension dates and whether that notice shows a QR code.
 Omit helper options when their defaults already express what you want. Its configured
 `immuknow.notice-page` helper supplies the header and section styling. Dates are bound
-as `date_of_delivery`, `date_as_of` and `date_of_birth`. History remains a lazy
+as `date_of_delivery`, `date_as_of`, `date_due`, `date_of_suspension` and
+`date_of_birth`. Unset optional dates format as an empty string. History remains a lazy
 function so a suspension order can omit it without evaluating history display
 requirements. The configured `immuknow.immunization-history` and `immuknow.notice-page` helpers accept
 named options for one call, after the shared defaults. See
@@ -161,6 +162,7 @@ it before compilation; strings remain literal data rather than executable source
 | `client_data` | Client names, initials, mailing address, school, birth date and age |
 | `school`, `board` | Source name and identifier |
 | `date_of_delivery`, `date_as_of` | ISO dates or blank |
+| `date_due`, `date_of_suspension` | Optional ISO dates, null or blank; absent on older payloads |
 | `overdue_diseases` | `{disease, dose}` facts; invalid numeric doses retain `dose_raw` |
 | `overdue_agents` | Source vaccine agent names |
 | `history` | Normalized administrations with ISO `date_given`, `agent`, `display_name`, configured `diseases`, `validity` and boolean `mapping_known` |
@@ -505,3 +507,19 @@ Keep the printed name directly in the signature call. It may include credentials
 for example `name: "Dr. Annie Body, MD"`. The suspension order defines a separate
 `order-signatory-name` in its Template for the legal wording, without requiring
 the printed signature to use exactly the same text.
+
+## Page title alignment
+
+Set `title-align` to `left`, `center` or `right` in project Settings. The starter
+`notice-page` wrapper passes this choice to the shared header. A named override
+changes only one page:
+
+```typst
+#immuknow.notice-page("Immunization Record", title-align: left)[
+  #immuknow.immunization-history()
+]
+```
+
+Alignment applies within the title's existing column; it does not move the logo.
+The logo-free header aligns within the full width. Header height and title-line
+checks continue to use the rendered heading.
