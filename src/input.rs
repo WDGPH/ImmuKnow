@@ -633,6 +633,10 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>
     let (headers, sources) = read_source(options.csv, options.encoding)?;
     let seen: BTreeSet<_> = headers.iter().cloned().collect();
     ensure!(!seen.contains("reader"), "Rename reader to intended_reader");
+    ensure!(
+        !seen.contains("imms_given"),
+        "Rename the CSV column imms_given to immunizations_given; do not include both columns"
+    );
     for f in fields {
         if f["constraints"]["required"] == true {
             ensure!(
@@ -757,7 +761,7 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>
     let mut histories = vec![];
     let (mut known, mut unknown) = (false, false);
     for (i, r) in rows.iter().enumerate() {
-        let (h, k, u) = history(get(r, "imms_given"), &reference)
+        let (h, k, u) = history(get(r, "immunizations_given"), &reference)
             .with_context(|| format!("Source row {}", i + 1))?;
         histories.push((h, k, u));
         known |= k;
@@ -934,6 +938,7 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>
             ));
         }
         let mut overdue = vec![];
+        let mut disease_occurrences = BTreeMap::<String, Vec<String>>::new();
         for token in tokens(get(r, "overdue_disease")) {
             if token.is_empty() {
                 checks.push(check(
@@ -953,6 +958,10 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>
                     ));
                     continue;
                 }
+                disease_occurrences
+                    .entry(d.clone())
+                    .or_default()
+                    .push(token.clone());
                 if let Ok(n) = dose.trim().parse::<u64>() {
                     if n > 0 {
                         overdue.push(json!({"disease":d,"dose":n}));
@@ -966,7 +975,12 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>
                 ));
                 overdue.push(json!({"disease":d,"dose":null,"dose_raw":dose.trim()}));
             } else {
-                overdue.push(json!({"disease":normalize(&token,&normalization),"dose":null}));
+                let disease = normalize(&token, &normalization);
+                disease_occurrences
+                    .entry(disease.clone())
+                    .or_default()
+                    .push(token.clone());
+                overdue.push(json!({"disease":disease,"dose":null}));
             }
         }
         let agents: Vec<_> = tokens(get(r, "overdue_agent"))
@@ -984,6 +998,39 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>
                 }
             })
             .collect();
+        let disease_repeats: Vec<_> = disease_occurrences.into_iter()
+            .filter(|(_, fragments)| fragments.len() > 1)
+            .map(|(disease, fragments)| json!({"normalized_disease":disease,"count":fragments.len(),"source_fragments":fragments}))
+            .collect();
+        if !disease_repeats.is_empty() {
+            let mut warning = check(
+                "data.duplicate_overdue_diseases",
+                "warn",
+                "Some overdue diseases appear more than once after normalization. Review the source entries, including dose numbers.",
+            );
+            warning["measurements"] =
+                json!({"source_value":source["overdue_disease"],"groups":disease_repeats});
+            checks.push(warning);
+        }
+        let mut agent_counts = BTreeMap::<&str, usize>::new();
+        for agent in &agents {
+            *agent_counts.entry(agent).or_default() += 1;
+        }
+        let agent_repeats: Vec<_> = agent_counts
+            .into_iter()
+            .filter(|(_, count)| *count > 1)
+            .map(|(agent, count)| json!({"agent":agent,"count":count}))
+            .collect();
+        if !agent_repeats.is_empty() {
+            let mut warning = check(
+                "data.duplicate_overdue_agents",
+                "warn",
+                "Some overdue agents appear more than once. Repetition may be expected when an agent covers multiple diseases; review the source entries.",
+            );
+            warning["measurements"] =
+                json!({"source_value":source["overdue_agent"],"groups":agent_repeats});
+            checks.push(warning);
+        }
         let required: BTreeSet<_> = overdue
             .iter()
             .map(|d| d["disease"].as_str().unwrap().to_string())

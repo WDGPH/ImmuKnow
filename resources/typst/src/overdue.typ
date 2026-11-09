@@ -35,7 +35,16 @@
   let replacement = records-replacement(notice, no-records, lang)
   component("overdue_diseases", notice: notice)
   if replacement != none { replacement } else {
-    let items = entries.map(entry => overdue-label(entry, doses, lang, labels: labels))
+    let unique = ()
+    let keys = ()
+    for entry in entries {
+      let key = (entry.disease, if doses { entry.dose } else { none })
+      if key not in keys {
+        keys.push(key)
+        unique.push(entry)
+      }
+    }
+    let items = unique.map(entry => overdue-label(entry, doses, lang, labels: labels))
     items-grid(items, columns, spacing, row-spacing, empty, style, indent)
   }
 }

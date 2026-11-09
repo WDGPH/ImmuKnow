@@ -299,7 +299,7 @@ impl Project {
             "postal_code",
             "overdue_disease",
             "overdue_agent",
-            "imms_given",
+            "immunizations_given",
         ])
         .unwrap();
         for i in 1..=5 {
@@ -1545,4 +1545,219 @@ fn duplicate_id_not_on_allowlist_still_rejects_input() {
     let (_, record) = project.record();
     assert_eq!(record["status"], "failed");
     assert_eq!(record["entries"].as_array().unwrap().len(), 3);
+}
+
+#[test]
+fn immunizations_given_produces_history_and_preserves_source() {
+    let project = Project::new();
+    select_first_rows(&project, &["overdue_agents_v1.en.typ"]);
+    success(&project.run());
+    let (run, record) = project.record();
+    assert_eq!(
+        fs::read(run.join("source.csv")).unwrap(),
+        fs::read(&project.csv).unwrap()
+    );
+    let row = &record["entries"][0];
+    assert_eq!(
+        row["source"]["immunizations_given"],
+        "2020-05-01 - MMR - Valid;"
+    );
+    assert!(row["source"].get("imms_given").is_none());
+    assert_eq!(row["notice"]["history"][0]["agent"], "MMR");
+    assert_eq!(row["notice"]["history"][0]["date_given"], "2020-05-01");
+    assert_eq!(row["notice"]["history"][0]["validity"], "valid");
+    assert_eq!(row["original"]["status"], "completed");
+    assert!(row["checks"].as_array().unwrap().iter().all(|check| {
+        check["code"] != "data.duplicate_overdue_agents"
+            && check["code"] != "data.duplicate_overdue_diseases"
+    }));
+}
+
+#[test]
+fn old_history_column_is_rejected_and_all_readable_rows_are_retained() {
+    for both in [false, true] {
+        let project = Project::new();
+        let mut reader = csv::Reader::from_path(&project.csv).unwrap();
+        let headers = reader.headers().unwrap().clone();
+        let rows: Vec<_> = reader.records().map(Result::unwrap).collect();
+        drop(reader);
+        let mut writer = csv::Writer::from_path(&project.csv).unwrap();
+        let mut renamed: Vec<_> = headers
+            .iter()
+            .map(|header| {
+                if header == "immunizations_given" && !both {
+                    "imms_given"
+                } else {
+                    header
+                }
+            })
+            .collect();
+        if both {
+            renamed.push("imms_given");
+        }
+        writer.write_record(renamed).unwrap();
+        for row in &rows {
+            let mut values: Vec<_> = row.iter().collect();
+            if both {
+                values.push("2021-01-01 - Different;");
+            }
+            writer.write_record(values).unwrap();
+        }
+        writer.flush().unwrap();
+        drop(writer);
+        let output = project.run();
+        assert!(!output.status.success());
+        let error = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            error.contains("Rename the CSV column imms_given to immunizations_given"),
+            "{error}"
+        );
+        let (run, record) = project.record();
+        assert_eq!(record["status"], "failed");
+        assert!(
+            run.file_name()
+                .unwrap()
+                .to_string_lossy()
+                .ends_with(".incomplete")
+        );
+        assert_eq!(
+            fs::read(run.join("source.csv")).unwrap(),
+            fs::read(&project.csv).unwrap()
+        );
+        let entries = record["entries"].as_array().unwrap();
+        assert_eq!(entries.len(), rows.len());
+        assert_eq!(
+            entries[0]["source"]["imms_given"],
+            if both {
+                "2021-01-01 - Different;"
+            } else {
+                "2020-05-01 - MMR - Valid;"
+            }
+        );
+        if both {
+            assert_eq!(
+                entries[0]["source"]["immunizations_given"],
+                "2020-05-01 - MMR - Valid;"
+            );
+        }
+        assert!(
+            entries
+                .iter()
+                .all(|row| row["original"]["status"] == "not_run")
+        );
+        assert!(record["bundles"].as_array().unwrap().is_empty());
+    }
+}
+
+#[test]
+fn repeated_overdue_facts_warn_before_display_filters_and_remain_deliverable() {
+    let project = Project::new();
+    select_first_rows(&project, &["overdue_agents_v1.en.typ"]);
+    let mut reader = csv::Reader::from_path(&project.csv).unwrap();
+    let headers = reader.headers().unwrap().clone();
+    let row = reader.records().next().unwrap().unwrap();
+    drop(reader);
+    let mut values: Vec<_> = row.iter().map(str::to_owned).collect();
+    for (name, value) in [
+        (
+            "overdue_disease",
+            "Poliomyelitis - 1; Polio - 2; Measles - 2",
+        ),
+        ("overdue_agent", "PV; MMR; PV; MMR"),
+        ("immunizations_given", ""),
+    ] {
+        values[headers.iter().position(|h| h == name).unwrap()] = value.into();
+    }
+    let mut writer = csv::Writer::from_path(&project.csv).unwrap();
+    writer.write_record(&headers).unwrap();
+    writer.write_record(&values).unwrap();
+    writer.flush().unwrap();
+    drop(writer);
+    fs::write(
+        project.config.join("vaccine_reference.json"),
+        serde_json::to_vec(&json!({"PV":"Polio", "MMR":"Measles"})).unwrap(),
+    )
+    .unwrap();
+    let template = project.templates.join("overdue_agents_v1.en.typ");
+    let content = fs::read_to_string(&template).unwrap().replace(
+        "#immuknow.overdue-agents(notice, columns: 1)",
+        "#immuknow.overdue-agents(notice, ignore-agents: (\"PV\",), no-records: [Send records])\n  #immuknow.overdue-diseases(notice, ispa-only: true, no-records: [Send records])",
+    );
+    fs::write(&template, content).unwrap();
+    let prepared = cli(
+        &project.root,
+        &[
+            "prepare",
+            p(&project.csv),
+            "--template",
+            p(&template),
+            "--config",
+            p(&project.config),
+        ],
+    );
+    success(&prepared);
+    let envelope: Value = serde_json::from_slice(&prepared.stdout).unwrap();
+    let entry = &envelope["entries"][0];
+    let disease = entry["checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["code"] == "data.duplicate_overdue_diseases")
+        .unwrap();
+    assert_eq!(disease["status"], "warn");
+    assert_eq!(
+        disease["measurements"]["groups"],
+        json!([{"normalized_disease":"Polio", "count":2, "source_fragments":["Poliomyelitis - 1", "Polio - 2"]}])
+    );
+    let agent = entry["checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["code"] == "data.duplicate_overdue_agents")
+        .unwrap();
+    assert_eq!(agent["status"], "warn");
+    assert_eq!(
+        agent["measurements"]["groups"],
+        json!([{"agent":"MMR", "count":2}, {"agent":"PV", "count":2}])
+    );
+    assert_eq!(
+        entry["notice"]["overdue_diseases"],
+        json!([{"disease":"Polio","dose":1},{"disease":"Polio","dose":2},{"disease":"Measles","dose":2}])
+    );
+    assert_eq!(
+        entry["notice"]["overdue_agents"],
+        json!(["PV", "MMR", "PV", "MMR"])
+    );
+    let output = cli(
+        &project.root,
+        &[
+            "run",
+            p(&project.csv),
+            "--template",
+            p(&template),
+            "--config",
+            p(&project.config),
+            "--output",
+            p(&project.runs),
+        ],
+    );
+    success(&output);
+    let (_, record) = project.record();
+    let row = &record["entries"][0];
+    assert_eq!(row["routing"], "deliverable");
+    for code in [
+        "data.duplicate_overdue_agents",
+        "data.duplicate_overdue_diseases",
+    ] {
+        assert!(
+            row["effective_checks"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|c| c["code"] == code && c["status"] == "warn")
+        );
+    }
+    assert_eq!(row["render_report"]["components"]["overdue_agents"], true);
+    assert_eq!(row["render_report"]["components"]["overdue_diseases"], true);
+    assert_eq!(record["bundles"][0]["members"], json!(["row-000001"]));
 }

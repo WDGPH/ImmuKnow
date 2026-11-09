@@ -4,6 +4,10 @@ Use these column names in your CSV. A required column must be present, even when
 
 Nonblank client IDs must be unique unless explicitly allowed in [configuration](configuration.md#notice-selection). Allowed repeated IDs retain all rows and produce a warning for each occurrence.
 
+Rename the former `imms_given` column to `immunizations_given` before running.
+Files containing `imms_given` are rejected, including files that also contain
+the new column.
+
 | Field | Required column | Description |
 | --- | --- | --- |
 | `school_name` | Yes | School name, optionally followed by a facility ID in the format 'SCHOOL NAME - FACILITY ID' |
@@ -19,7 +23,7 @@ Nonblank client IDs must be unique unless explicitly allowed in [configuration](
 | `postal_code` | No | Postal code of client address |
 | `overdue_disease` | No | Semicolon-separated overdue diseases. Each disease may be followed by ' - N', where N is the next dose number as a positive whole number, for example 'Measles - 2; Polio;'. A dose suffix that is not a positive whole number produces a warning, and the disease is shown without a number. Whether dose numbers appear on notices is set by include-dose in Settings. |
 | `overdue_agent` | No | Semicolon-separated list of overdue agents for the client |
-| `imms_given` | Yes | Recorded vaccinations. Use the date, vaccine agent and optional validity result for each entry; see the example below. |
+| `immunizations_given` | Yes | Recorded vaccinations. Use the date, vaccine agent and optional validity result for each entry; see the example below. |
 | `board_name` | No | School board name |
 | `board_id` | No | School board identifier |
 | `school_id` | No | School identifier |
@@ -28,7 +32,7 @@ Nonblank client IDs must be unique unless explicitly allowed in [configuration](
 
 ## Vaccination history example
 
-In `imms_given`, separate entries with semicolons and include the final semicolon:
+In `immunizations_given`, separate entries with semicolons and include the final semicolon:
 
 ```text
 2020-05-01 - MMR - Valid;2021-06-02 - Tdap;

@@ -248,6 +248,12 @@ there are no source records. This is separate from `empty`, which supplies
 content when the overdue list itself is empty. Prepared overdue lists, facts,
 notice assignments and bundle checks remain intact.
 
+Repeated normalized diseases display once in their first-occurrence order when
+dose numbers are hidden. With `include-dose: true`, entries with different
+dose numbers remain distinct. Repeated exact agent names also display once.
+The supplied facts are unchanged, and preparation warns about repeated
+diseases or agents independently of display filters and no-records messages.
+
 To omit particular vaccine names from an overdue-agent list, pass exact source
 names, for example `overdue-agents(ignore-agents: ("Example vaccine",))`.
 Matching is case-sensitive. The option affects this list only; the history

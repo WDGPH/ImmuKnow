@@ -69,6 +69,8 @@ display-default adapter or separate layout-settings file.
 - `overdue-diseases(notice, include-dose: false)` and `overdue-agents(notice)`
   produce bullets or comma-separated lists. Repeated exact agent names display
   once in their first-occurrence order; the supplied facts remain unchanged.
+  Disease names also display once in first-occurrence order; when `include-dose`
+  is true, entries with different dose numbers remain distinct.
   `overdue-agents(..., ignore-agents: ("name",))` omits exact matching agent
   names from that list; it is independent of the history table's `ignore-agents`.
   If all agents are omitted, `empty` supplies the optional replacement.

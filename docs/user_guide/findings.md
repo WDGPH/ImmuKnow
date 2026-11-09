@@ -52,6 +52,14 @@ The source school name and ID were compared with the configured reference. A nam
 
 This ID occurs on multiple rows and was explicitly allowed in configuration. All rows are retained and use the same notice assignment. Review each row and its notice before sending; warnings are eligible for delivery.
 
+### `data.duplicate_overdue_agents` {#data-duplicate-overdue-agents}
+
+An overdue agent appears more than once in the source. Repetition can be expected when one agent covers several diseases. Review the source and notice; the facts are retained and this warning allows delivery.
+
+### `data.duplicate_overdue_diseases` {#data-duplicate-overdue-diseases}
+
+An overdue disease appears more than once after disease names are standardized, even if the dose numbers differ. Review the source and dose numbers; the facts are retained and this warning allows delivery.
+
 ### `data.forecast_coverage` {#data-forecast-coverage}
 
 The configured agent lookup compares forecasted agents with supplied overdue diseases. Extra diseases or unmapped agents warn; no supplied diseases or agents is not applicable. Review the source and lookup measurements. Missing disease coverage can instead stop preparation with a run error; inspect that error and correct the inputs or reference.
