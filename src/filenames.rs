@@ -164,6 +164,11 @@ fn truncate(value: &mut String, max: usize) {
     }
     value.truncate(end);
 }
+// Uppercase also unifies final sigma, dotless i and micro-sign variants that
+// lowercase alone misses on case-insensitive filesystems. Over-reservation is safe.
+fn collision_key(stem: &str) -> String {
+    stem.nfc().flat_map(char::to_uppercase).collect()
+}
 #[derive(Default)]
 pub(crate) struct Names {
     used: BTreeSet<String>,
@@ -207,7 +212,7 @@ impl Names {
                 }
             }
         };
-        if !self.used.insert(stem.to_lowercase()) {
+        if !self.used.insert(collision_key(&stem)) {
             let base = stem.clone();
             let suffix = safe_stem(identity);
             let mut attempt = 0usize;
@@ -220,7 +225,7 @@ impl Names {
                 let mut prefix = base.clone();
                 truncate(&mut prefix, 160usize.saturating_sub(suffix.len() + 1));
                 stem = format!("{prefix}_{suffix}");
-                if self.used.insert(stem.to_lowercase()) {
+                if self.used.insert(collision_key(&stem)) {
                     break;
                 }
                 attempt += 1;
@@ -303,6 +308,16 @@ mod tests {
         assert!(first.stem.len() <= 160 && second.stem.len() <= 160);
         assert_ne!(first.stem, second.stem);
         assert_eq!(safe_stem("É"), safe_stem("E\u{301}"));
+        for (first, second) in [("i", "ı"), ("σ", "ς"), ("μ", "µ")] {
+            let mut names = Names::default();
+            let original = names.resolve(Some(first), &values, "row-1", "row-1");
+            let duplicate = names.resolve(Some(second), &values, "row-2", "row-2");
+            assert_ne!(
+                collision_key(&original.stem),
+                collision_key(&duplicate.stem)
+            );
+            assert!(duplicate.stem.ends_with("_row-2"));
+        }
     }
     #[test]
     fn mixed_bundle_facts_do_not_use_the_first_member() {
