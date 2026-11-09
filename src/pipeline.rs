@@ -361,6 +361,34 @@ fn process(
         total: prepared.len(),
         protected: 0,
     });
+    let mut names = crate::filenames::Names::default();
+    let mut stems = Vec::with_capacity(prepared.len());
+    for (index, p) in prepared.iter().enumerate() {
+        let key = p.notice["row_key"]
+            .as_str()
+            .context("Prepared row has no key")?;
+        let values = if c.filenames.individual.is_some() {
+            crate::filenames::values(&p.notice)
+        } else {
+            BTreeMap::new()
+        };
+        let name = names.resolve(
+            c.filenames.individual.as_ref().map(|p| p.template.as_str()),
+            &values,
+            key,
+            key,
+        );
+        if let Some(message) = name.warning {
+            record["entries"][index]["checks"]
+                .as_array_mut()
+                .unwrap()
+                .push(crate::filenames::warning(
+                    &message,
+                    &format!("originals/{}.pdf", name.stem),
+                ));
+        }
+        stems.push(name.stem);
+    }
     let validator = validation::Validator::new(root)?;
     for p in prepared {
         validator.payload(&p.notice)?;
@@ -397,7 +425,7 @@ fn process(
         let result = pdf::encrypt_with_hash(&original, &destination, &password);
         let value = match result {
             Ok(hash) => {
-                json!({"status":"completed","path":format!("encrypted/{}.pdf",original.file_stem().unwrap().to_string_lossy()),"algorithm":"AES-256","revision":6,"sha256":hash})
+                json!({"status":"completed","path":format!("encrypted/{}",destination.file_name().unwrap().to_string_lossy()),"algorithm":"AES-256","revision":6,"sha256":hash})
             }
             Err(_) => json!({"status":"failed","error":"Encryption failed"}),
         };
@@ -430,7 +458,7 @@ fn process(
                             let key = p.notice["row_key"]
                                 .as_str()
                                 .context("Prepared row has no key")?;
-                            let original = format!("originals/{key}.pdf");
+                            let original = format!("originals/{}.pdf", stems[index]);
                             let facts = serde_json::to_vec_pretty(&p.notice)?;
                             crate::atomic(&dir.join(format!("facts/{key}.json")), &facts)?;
                             record["entries"][index]["facts"] = json!({"path":format!("facts/{key}.json"),"sha256":crate::hash(&facts)});
@@ -489,7 +517,10 @@ fn process(
                                                 let job = (
                                                     index,
                                                     dir.join(&original),
-                                                    dir.join(format!("encrypted/{key}.pdf")),
+                                                    dir.join(format!(
+                                                        "encrypted/{}.pdf",
+                                                        stems[index]
+                                                    )),
                                                     password,
                                                 );
                                                 if workers == 0 {
@@ -765,13 +796,34 @@ pub fn run_with_progress(
     }
 }
 
+/// Rebuild saved bundles using their configured filenames.
+pub fn rebundle(
+    run: &Path,
+    override_policy: Option<&Path>,
+    withhold: &[String],
+    reason: Option<&str>,
+    release: &[String],
+    workers: usize,
+) -> Result<RunResult> {
+    rebundle_with_filenames(
+        run,
+        override_policy,
+        None,
+        withhold,
+        reason,
+        release,
+        workers,
+    )
+}
+
 /// Apply policy and hold decisions to a completed run and assemble fresh bundles.
 ///
 /// Acquires the run lock before reading. Uses saved originals without recompiling
 /// or repeating encryption. Assembly errors retain previous bundles and decisions.
-pub fn rebundle(
+pub fn rebundle_with_filenames(
     run: &Path,
     override_policy: Option<&Path>,
+    filename_settings: Option<&Path>,
     withhold: &[String],
     reason: Option<&str>,
     release: &[String],
@@ -797,6 +849,16 @@ pub fn rebundle(
     if let Some(path) = override_policy {
         let value: Value = crate::read_json(path)?;
         c.validation = serde_json::from_value(value).context("Policy must be an object")?;
+    }
+    if let Some(path) = filename_settings {
+        let settings: crate::filenames::Settings = crate::read_json(path)?;
+        settings.validate()?;
+        ensure!(
+            settings.individual.is_none(),
+            "Individual filenames cannot change when rebundling"
+        );
+        c.filenames.bundle = settings.bundle;
+        c.filenames.review_bundle = settings.review_bundle;
     }
     let resource_root = tempfile::tempdir()?;
     resources::materialize(resource_root.path())?;
@@ -829,7 +891,7 @@ pub fn rebundle(
     policy::validate(&next, &c, resource_root.path())?;
     policy::apply(&mut next, &c, resource_root.path())?;
     if let Err(error) = bundles::bundle(&dir, &mut next, &c, workers) {
-        let attempt = json!({"status":"failed","error":format!("{error:#}"),"validation":c.validation,"withhold":withhold,"release":release,"reason":reason});
+        let attempt = json!({"status":"failed","error":format!("{error:#}"),"validation":c.validation,"filenames":c.filenames,"withhold":withhold,"release":release,"reason":reason});
         record["delivery_attempts"]
             .as_array_mut()
             .context("Missing bundle attempts")?
@@ -841,7 +903,7 @@ pub fn rebundle(
     }
     next["configured_settings"] = redacted(&c)?;
     next["status"] = json!(bundles::outcome(&next));
-    let attempt = json!({"bundles":next["bundles"],"validation":c.validation,"withhold":withhold,"release":release,"reason":reason,"status":next["status"]});
+    let attempt = json!({"bundles":next["bundles"],"validation":c.validation,"filenames":c.filenames,"withhold":withhold,"release":release,"reason":reason,"status":next["status"]});
     if !next["delivery_attempts"].is_array() {
         next["delivery_attempts"] = json!([]);
     }

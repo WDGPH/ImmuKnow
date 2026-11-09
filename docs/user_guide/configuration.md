@@ -23,6 +23,9 @@ Edit `parameters.yaml` to set the following options:
 | `allowed_duplicate_client_ids` | Optional list of explicitly accepted repeated client IDs, quoted as strings. |
 | `bundling.bundle_size` | Maximum notices in each combined PDF. Set to zero to turn off grouping. |
 | `bundling.group_by` | Optionally group by `school`, `board`, `language`, `page_count`, or `notice_variant`, using one value or a list. `size` or null groups by size only. |
+| `filenames.individual.template` | Filename stem for original and protected copies; omitted keeps row-key names. |
+| `filenames.bundle.template` | Filename stem for normal bundle PDFs and companion CSVs. |
+| `filenames.review_bundle.template` | Optional review stem; defaults to the bundle template with `review_` prefixed. |
 | `encryption.enabled` | Create password-protected copies for sending while keeping the original PDFs. |
 | `encryption.password.template` | A nonempty password template, required when encryption is enabled. |
 | `school_validation.enabled` | Compare school names and facility IDs in the CSV with your health unit's school list. |
@@ -90,6 +93,72 @@ school_validation:
 You can select another file with `school_validation.reference_file`. If the file is missing or does not contain the selected health unit, preparation fails. Each saved run keeps a copy of the selected list and its source path.
 
 In the CSV, `school_name` can end in ` - FACILITY ID`; ImmuKnow uses the last such separator. It compares names without regard to case or repeated spaces. A matching name and ID passes; a matching name without an ID produces a warning. A conflicting or unknown name or ID fails that row's check, and a readable notice goes into a separate review PDF. School matching does not replace the original name or the separate `school_id` and `board_id` fields. The findings include match details and a fingerprint of the reference file.
+
+## Filename templates
+
+Set filename stems in `parameters.yaml` using `{field}` placeholders, as with
+password templates. Core appends `.pdf` or `.csv`; do not include extensions or
+directory paths. For example:
+
+```yaml
+bundling:
+  bundle_size: 100
+  group_by: [school, notice_variant, language]
+filenames:
+  individual:
+    template: '{last_name}_{first_name}_{client_id}_{notice_variant}'
+  bundle:
+    template: '{school}_{notice_variant}_{bundle_number}'
+  # Optional: otherwise Core prefixes the bundle pattern with review_.
+  review_bundle:
+    template: 'review_{school}_{notice_variant}_{bundle_number}'
+```
+
+This can produce `example_school_overdue_agents_01.pdf` and a CSV with the same
+stem. Individual originals and protected copies share a stem in separate
+`originals/` and `encrypted/` directories. Encryption still uses its own password
+template. Filename settings are saved in the run; derived passwords are not.
+
+| Scope | Supported fields |
+| --- | --- |
+| Individual | `client_id`, `first_name`, `last_name`, `first_initial`, `last_initial`, `name`, `date_of_birth_iso`, `date_of_birth_iso_compact`, `school`, `board`, `street_address`, `city`, `province`, `postal_code`, `language_code`, `row_key`, `school_id`, `board_id`, `notice_variant` |
+| Bundle and review bundle | `school`, `school_id`, `board`, `board_id`, `language_code`, `notice_variant`, `bundle_number`, `route` |
+
+Fields shared with password templates have the same source values. `school` is
+the supplied school name, including any facility-ID suffix; `school_id` is the
+separate source ID. `notice_variant` is the assigned version, such as
+`overdue_agents`. `route` is `deliverable` or `review`. `bundle_number` starts at
+`01` within each group and route, and grows past two digits when needed.
+
+A bundle fact field must be present and identical across its actual members.
+Choose grouping that makes the fields you use consistent. A pattern containing
+only `{route}_{bundle_number}` works with size-only grouping. Naming does not
+change groups, notice order, source identities or delivery decisions.
+
+Names are lowercase and Unicode-normalized. Letters, digits, hyphens and
+underscores remain; other character runs become underscores. Core trims edge
+separators, protects reserved device names, limits stems to 160 UTF-8 bytes and
+adds deterministic row/bundle suffixes for collisions, including patterns that
+omit a chunk number. No artifact is overwritten because two expanded names
+match. `{{` and `}}` escape braces; escaped literals still undergo filename
+normalization. Expressions, format specifiers and arbitrary CSV fields are not
+supported.
+
+Malformed placeholders, unsupported fields, paths, control characters and file
+extensions reject configuration before PDFs are created. A missing/mixed field
+or a stem with no usable characters instead uses a deterministic fallback and
+records `output.filename_fallback`; usable PDFs remain available. Read recorded
+paths in the report rather than inferring names. Names and selected personal
+fields are visible in the filesystem; choose the fields appropriate to your
+workflow.
+
+When filename settings are omitted, existing `row-*.pdf`, `bundle-*.pdf` and
+`review-*.pdf` naming remains. Filename fields do not change grouping identity. If one bundle
+contains several different school names, a `{school}` pattern uses a fallback
+rather than naming the bundle after one arbitrary member.
+
+To change bundle names in an existing run, see [rebundling](pdf_validation.md#rebuild-bundles).
+Individual originals retain their recorded names.
 
 ## Password templates
 

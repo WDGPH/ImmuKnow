@@ -201,3 +201,13 @@ The original PDF is missing or unreadable during bundle assembly. Restore or reg
 ### `delivery.notice_length` {#delivery-notice-length}
 
 The original page count differs from the configured required notice length. Inspect the original and the setting; correct the template or setting and rebuild. Pages are not added to meet the count.
+
+## Artifact filenames and grouping
+
+### `output.filename_fallback` {#output-filename-fallback}
+
+A filename template referenced a missing value, a value that differs across
+bundle members, or produced no usable filename characters. A deterministic
+fallback was used and the artifact remains available. Review the recorded path,
+pattern and grouping; supply the value or choose a supported consistent field.
+This warning does not change delivery eligibility.

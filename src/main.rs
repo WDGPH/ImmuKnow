@@ -162,6 +162,9 @@ enum Command {
         run: PathBuf,
         #[arg(long)]
         policy: Option<PathBuf>,
+        /// JSON bundle/review filename templates; originals retain their saved names.
+        #[arg(long)]
+        filenames: Option<PathBuf>,
         #[arg(long, requires = "reason")]
         withhold: Vec<String>,
         #[arg(long)]
@@ -305,6 +308,7 @@ fn execute() -> Result<()> {
         Command::Rebundle {
             run,
             policy,
+            filenames,
             withhold,
             reason,
             release,
@@ -314,9 +318,10 @@ fn execute() -> Result<()> {
                 withhold.is_empty() || reason.as_ref().is_some_and(|s| !s.trim().is_empty()),
                 "Withholding requires a nonempty reason"
             );
-            let result = pipeline::rebundle(
+            let result = pipeline::rebundle_with_filenames(
                 &run,
                 policy.as_deref(),
+                filenames.as_deref(),
                 &withhold,
                 reason.as_deref(),
                 &release,

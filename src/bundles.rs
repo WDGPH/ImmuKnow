@@ -7,6 +7,13 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
+struct BundleJob {
+    number: usize,
+    route: String,
+    group: Vec<String>,
+    indices: Vec<usize>,
+    name: crate::filenames::Name,
+}
 fn relative_original(dir: &Path, entry: &Value) -> Result<PathBuf> {
     let path = Path::new(
         entry["original"]["path"]
@@ -90,6 +97,7 @@ pub(crate) fn bundle_with_progress(
     workers: usize,
     progress: &mut impl FnMut(usize, usize),
 ) -> Result<()> {
+    config.filenames.validate()?;
     let fields = crate::input::grouping_fields(&config.bundling.group_by)?;
     let fixed = crate::input::fixed_pages(config)?;
     // Work on a copy so a failed bundle attempt leaves the saved decisions intact.
@@ -179,23 +187,43 @@ pub(crate) fn bundle_with_progress(
     let result = (|| -> Result<Vec<Value>> {
         let mut jobs = Vec::new();
         let mut serial = 0usize;
+        let mut names = crate::filenames::Names::default();
         for ((route, group), indices) in groups {
-            let size = if config.bundling.bundle_size == 0 {
-                indices.len().max(1)
-            } else {
-                config.bundling.bundle_size
-            };
-            for chunk in indices.chunks(size) {
+            for (chunk_number, chunk) in indices.chunks(config.bundling.bundle_size).enumerate() {
                 serial += 1;
-                jobs.push((serial, route.clone(), group.clone(), chunk.to_vec()));
+                let fallback = format!(
+                    "{}-{serial:04}",
+                    if route == "review" {
+                        "review"
+                    } else {
+                        "bundle"
+                    }
+                );
+                let template = config.filenames.bundle_template(route == "review");
+                let values = if template.is_some() {
+                    crate::filenames::bundle_values(&entries, chunk, chunk_number + 1, &route)
+                } else {
+                    BTreeMap::new()
+                };
+                let name = names.resolve(template.as_deref(), &values, &fallback, &fallback);
+                jobs.push(BundleJob {
+                    number: serial,
+                    route: route.clone(),
+                    group: group.clone(),
+                    indices: chunk.to_vec(),
+                    name,
+                });
             }
         }
-        let work = |(number, route, group, indices): (usize, String, Vec<String>, Vec<usize>)| -> Result<(usize, String, Vec<String>, Vec<usize>, usize, String)> {
-            let name = format!("{}-{number:04}.pdf", if route == "review" { "review" } else { "bundle" });
-            let paths = indices.iter().map(|i| relative_original(dir, &entries[*i])).collect::<Result<Vec<_>>>()?;
-            let dest = staging.join(&name);
+        let work = |job: BundleJob| -> Result<(BundleJob, usize, String)> {
+            let paths = job
+                .indices
+                .iter()
+                .map(|i| relative_original(dir, &entries[*i]))
+                .collect::<Result<Vec<_>>>()?;
+            let dest = staging.join(format!("{}.pdf", job.name.stem));
             let (pages, hash) = crate::pdf::merge_with_hash(&paths, &dest)?;
-            Ok((number, route, group, indices, pages, hash))
+            Ok((job, pages, hash))
         };
         let mut results = BTreeMap::new();
         let total = jobs.len();
@@ -209,29 +237,29 @@ pub(crate) fn bundle_with_progress(
                     // Collect ready receipts while submitting larger sets too.
                     for result in receiver.try_iter() {
                         let item = result?;
-                        results.insert(item.0, item);
+                        results.insert(item.0.number, item);
                         progress(results.len(), total);
                     }
                 }
                 drop(sender);
                 for result in receiver {
                     let item = result?;
-                    results.insert(item.0, item);
+                    results.insert(item.0.number, item);
                     progress(results.len(), total);
                 }
                 Ok(())
             },
         )?;
         let mut bundles = Vec::new();
-        for (number, route, group, indices, pages, hash) in results.into_values() {
-            let stem = format!(
-                "{}-{number:04}",
-                if route == "review" {
-                    "review"
-                } else {
-                    "bundle"
-                }
-            );
+        for (job, pages, hash) in results.into_values() {
+            let BundleJob {
+                route,
+                group,
+                indices,
+                name,
+                ..
+            } = job;
+            let stem = name.stem;
             let path = format!("{prefix}/{stem}.pdf");
             let mut csv = csv::Writer::from_path(staging.join(format!("{stem}.csv")))?;
             csv.write_record([
@@ -269,13 +297,24 @@ pub(crate) fn bundle_with_progress(
             }
             csv.flush()?;
             ensure!(pages as u64 == cursor - 1, "Bundle page count mismatch");
-            bundles.push(json!({"path":path,"csv":format!("{prefix}/{stem}.csv"),"route":route,"group":group,"pages":pages,"members":members,"sha256":hash}));
+            bundles.push(json!({"path":path,"csv":format!("{prefix}/{stem}.csv"),"route":route,"group":group,"pages":pages,"members":members,"sha256":hash,"filename_warning":name.warning}));
         }
         Ok(bundles)
     })();
     match result {
         Ok(bundles) => {
             fs::rename(&staging, &published)?;
+            let mut checks = record["checks"].as_array().cloned().unwrap_or_default();
+            checks.retain(|c| c["code"] != "output.filename_fallback");
+            for bundle in &bundles {
+                if let Some(message) = bundle["filename_warning"].as_str() {
+                    checks.push(crate::filenames::warning(
+                        message,
+                        bundle["path"].as_str().unwrap(),
+                    ));
+                }
+            }
+            record["checks"] = Value::Array(checks);
             record["entries"] = Value::Array(entries);
             record["bundles"] = Value::Array(bundles);
             Ok(())

@@ -18,6 +18,7 @@ pub struct Config {
     pub date_of_suspension: Option<String>,
     pub allowed_duplicate_client_ids: Vec<String>,
     pub bundling: Bundling,
+    pub filenames: crate::filenames::Settings,
     pub encryption: Encryption,
     pub school_validation: School,
     pub pipeline: Pipeline,
@@ -286,6 +287,7 @@ pub fn validate_bundling(config: &Config) -> Result<()> {
             .all(|k| matches!(k.as_str(), "rules" | "clients" | "notice_length")),
         "validation supports only rules, clients and notice_length"
     );
+    config.filenames.validate()?;
     grouping_fields(&config.bundling.group_by)?;
     fixed_pages(config)?;
     Ok(())
@@ -320,55 +322,30 @@ fn format_password(
     values: &BTreeMap<&str, String>,
     require_values: bool,
 ) -> Result<String> {
-    let mut chars = template.chars().peekable();
-    let mut out = String::new();
-    while let Some(ch) = chars.next() {
-        match ch {
-            '{' if chars.peek() == Some(&'{') => {
-                chars.next();
-                out.push('{');
-            }
-            '}' if chars.peek() == Some(&'}') => {
-                chars.next();
-                out.push('}');
-            }
-            '{' => {
-                let mut field = String::new();
-                let mut closed = false;
-                for c in chars.by_ref() {
-                    if c == '}' {
-                        closed = true;
-                        break;
-                    }
-                    field.push(c);
-                }
-                ensure!(
-                    closed && PASSWORD_FIELDS.contains(&field.as_str()),
-                    "Invalid password template fields or formatting"
-                );
-                let value = values.get(field.as_str()).map(String::as_str).unwrap_or("");
-                ensure!(
-                    !require_values || !value.is_empty(),
-                    "A required password field is missing"
-                );
-                out.push_str(value);
-            }
-            '}' => bail!("Invalid password template formatting"),
-            c => out.push(c),
-        }
-    }
+    let out = crate::formatting::expand(template, |field| {
+        ensure!(
+            PASSWORD_FIELDS.contains(&field),
+            "Invalid password template fields or formatting"
+        );
+        let value = values.get(field).map(String::as_str).unwrap_or("");
+        ensure!(
+            !require_values || !value.is_empty(),
+            "A required password field is missing"
+        );
+        Ok(value.to_owned())
+    })
+    .context("Invalid password template fields or formatting")?;
     ensure!(
         !require_values || !out.is_empty(),
         "The generated password is empty"
     );
     Ok(out)
 }
-pub fn password(prepared: &Prepared, config: &Config) -> Result<String> {
-    let n = &prepared.notice;
+pub(crate) fn password_values(n: &Value) -> BTreeMap<&'static str, String> {
     let d = &n["client_data"];
     let v = |x: &Value| x.as_str().unwrap_or("").to_owned();
     let dob = v(&d["date_of_birth_iso"]);
-    let values = BTreeMap::from([
+    BTreeMap::from([
         ("client_id", v(&n["client_id"])),
         ("first_name", v(&d["first_name"])),
         ("last_name", v(&d["last_name"])),
@@ -384,8 +361,14 @@ pub fn password(prepared: &Prepared, config: &Config) -> Result<String> {
         ("province", v(&d["province"])),
         ("postal_code", v(&d["postal_code"])),
         ("language_code", v(&n["language"])),
-    ]);
-    format_password(&config.encryption.password.template, &values, true)
+    ])
+}
+pub fn password(prepared: &Prepared, config: &Config) -> Result<String> {
+    format_password(
+        &config.encryption.password.template,
+        &password_values(&prepared.notice),
+        true,
+    )
 }
 fn decode_csv(bytes: &[u8], encoding: Option<&str>) -> Result<String> {
     let utf = || std::str::from_utf8(bytes).map(str::to_owned).ok();

@@ -1761,3 +1761,225 @@ fn repeated_overdue_facts_warn_before_display_filters_and_remain_deliverable() {
     assert_eq!(row["render_report"]["components"]["overdue_diseases"], true);
     assert_eq!(record["bundles"][0]["members"], json!(["row-000001"]));
 }
+
+#[test]
+fn filename_templates_preserve_artifacts_and_rebundle_recorded_paths() {
+    let project = Project::new();
+    let parameters = project.config.join("parameters.yaml");
+    let settings = fs::read_to_string(&parameters)
+        .unwrap()
+        .replace("bundle_size: 100", "bundle_size: 1")
+        .replace("group_by: null", "group_by: [school, notice_variant]")
+        .replace("enabled: false\n  password:", "enabled: true\n  password:");
+    fs::write(&parameters, format!("{settings}\nfilenames:\n  individual:\n    template: '{{last_name}}_{{first_name}}'\n  bundle:\n    template: '{{school}}_{{notice_variant}}_{{bundle_number}}'\n")).unwrap();
+    let output = project.run();
+    assert!(!output.status.success()); // Deliberate rendering/evidence failures remain failures.
+    let (run, record) = project.record();
+    let entries = record["entries"].as_array().unwrap();
+    let mut originals = Vec::new();
+    let mut paths = std::collections::BTreeSet::new();
+    for index in [0, 2, 3] {
+        let entry = &entries[index];
+        let path = entry["original"]["path"].as_str().unwrap();
+        assert!(path.starts_with("originals/example_alice"));
+        assert!(paths.insert(path));
+        let bytes = fs::read(run.join(path)).unwrap();
+        assert_eq!(immuknow::hash(&bytes), entry["original"]["sha256"]);
+        originals.push((path.to_owned(), bytes));
+        let protected = entry["encryption"]["path"].as_str().unwrap();
+        assert_eq!(
+            Path::new(path).file_name(),
+            Path::new(protected).file_name()
+        );
+        assert_eq!(
+            immuknow::hash(&fs::read(run.join(protected)).unwrap()),
+            entry["encryption"]["sha256"]
+        );
+        let pdf = lopdf::Document::load_with_options(
+            run.join(protected),
+            lopdf::LoadOptions::with_password("20150102"),
+        )
+        .unwrap();
+        assert!(!pdf.get_pages().is_empty());
+    }
+    let bundles = record["bundles"].as_array().unwrap();
+    assert_eq!(bundles.len(), 3);
+    assert!(
+        bundles
+            .iter()
+            .any(|b| b["path"].as_str().unwrap().ends_with("_02.pdf"))
+    );
+    for bundle in bundles {
+        let path = bundle["path"].as_str().unwrap();
+        assert_eq!(
+            Path::new(path).file_stem(),
+            Path::new(bundle["csv"].as_str().unwrap()).file_stem()
+        );
+        assert_eq!(
+            immuknow::hash(&fs::read(run.join(path)).unwrap()),
+            bundle["sha256"]
+        );
+        assert_eq!(path.contains("/review_"), bundle["route"] == "review");
+        let csv = fs::read_to_string(run.join(bundle["csv"].as_str().unwrap())).unwrap();
+        for member in bundle["members"].as_array().unwrap() {
+            assert!(csv.contains(member.as_str().unwrap()));
+        }
+    }
+    let html = fs::read_to_string(run.join("report.html")).unwrap();
+    assert!(html.contains("originals/example_alice.pdf"));
+    assert!(
+        !serde_json::to_string(&record["configured_settings"])
+            .unwrap()
+            .contains("date_of_birth_iso_compact")
+    );
+    // Saved templates survive an ordinary rebundle.
+    let again = cli(&project.root, &["rebundle", p(&run)]);
+    assert!(!again.status.success());
+    let next: Value = serde_json::from_slice(&fs::read(run.join("run.json")).unwrap()).unwrap();
+    for (old, new) in bundles.iter().zip(next["bundles"].as_array().unwrap()) {
+        assert_eq!(
+            Path::new(old["path"].as_str().unwrap()).file_name(),
+            Path::new(new["path"].as_str().unwrap()).file_name()
+        );
+        assert!(run.join(old["path"].as_str().unwrap()).exists());
+        assert!(run.join(new["path"].as_str().unwrap()).exists());
+    }
+    // A new naming policy changes only the next bundle attempt, including old run records.
+    let mut legacy = next;
+    legacy["configured_settings"]
+        .as_object_mut()
+        .unwrap()
+        .remove("filenames");
+    fs::write(
+        run.join("run.json"),
+        serde_json::to_vec_pretty(&legacy).unwrap(),
+    )
+    .unwrap();
+    let naming = project.root.join("filenames.json");
+    fs::write(
+        &naming,
+        r#"{"bundle":{"template":"batch_{bundle_number}"}}"#,
+    )
+    .unwrap();
+    let renamed = cli(
+        &project.root,
+        &["rebundle", p(&run), "--filenames", p(&naming)],
+    );
+    assert!(!renamed.status.success());
+    let final_record: Value =
+        serde_json::from_slice(&fs::read(run.join("run.json")).unwrap()).unwrap();
+    assert_eq!(
+        final_record["delivery_attempts"].as_array().unwrap().len(),
+        3
+    );
+    assert_eq!(
+        final_record["delivery_attempts"][2]["filenames"]["bundle"]["template"],
+        "batch_{bundle_number}"
+    );
+    assert!(
+        final_record["bundles"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|b| b["path"].as_str().unwrap().contains("batch_"))
+    );
+    let before = fs::read(run.join("run.json")).unwrap();
+    fs::write(&naming, r#"{"individual":{"template":"cannot-rename"}}"#).unwrap();
+    let rejected = cli(
+        &project.root,
+        &["rebundle", p(&run), "--filenames", p(&naming)],
+    );
+    assert!(!rejected.status.success());
+    assert!(
+        String::from_utf8_lossy(&rejected.stderr).contains("Individual filenames cannot change")
+    );
+    assert_eq!(fs::read(run.join("run.json")).unwrap(), before);
+    for (path, bytes) in originals {
+        assert_eq!(fs::read(run.join(path)).unwrap(), bytes);
+    }
+}
+
+#[test]
+fn filename_templates_reject_invalid_configuration_before_writing_pdfs() {
+    for pattern in ["{last_name", "{unknown}", "../{client_id}", "name.pdf"] {
+        let project = Project::new();
+        let parameters = project.config.join("parameters.yaml");
+        let settings = fs::read_to_string(&parameters).unwrap();
+        fs::write(
+            parameters,
+            format!("{settings}\nfilenames:\n  individual:\n    template: '{pattern}'\n"),
+        )
+        .unwrap();
+        assert!(!project.run().status.success());
+        let (run, record) = project.record();
+        assert_eq!(record["status"], "failed");
+        assert!(!run.join("originals").exists());
+        assert_eq!(record["entries"].as_array().unwrap().len(), 5);
+    }
+}
+
+#[test]
+fn filename_fallbacks_report_missing_or_mixed_fields_without_changing_groups() {
+    let project = Project::new();
+    select_first_rows(&project, &["overdue_agents_v1.en.typ"; 3]);
+    let parameters = project.config.join("parameters.yaml");
+    let settings = fs::read_to_string(&parameters).unwrap();
+    fs::write(&parameters, format!("{settings}\nfilenames:\n  individual:\n    template: '{{board_id}}'\n  bundle:\n    template: '{{school}}_{{bundle_number}}'\n")).unwrap();
+    let mut reader = csv::Reader::from_path(&project.csv).unwrap();
+    let headers = reader.headers().unwrap().clone();
+    let school = headers.iter().position(|h| h == "school_name").unwrap();
+    let rows: Vec<_> = reader.records().map(Result::unwrap).collect();
+    drop(reader);
+    let mut writer = csv::Writer::from_path(&project.csv).unwrap();
+    writer.write_record(&headers).unwrap();
+    for (index, row) in rows.iter().enumerate() {
+        let mut row: Vec<String> = row.iter().map(str::to_owned).collect();
+        row[school] = ["School A", "School B", ""][index].into();
+        writer.write_record(&row).unwrap();
+    }
+    writer.flush().unwrap();
+    drop(writer);
+    success(&project.run());
+    let (run, record) = project.record();
+    assert_eq!(record["bundles"].as_array().unwrap().len(), 1);
+    assert!(
+        record["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c["code"] == "output.filename_fallback")
+    );
+    for entry in record["entries"].as_array().unwrap() {
+        assert!(
+            entry["checks"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|c| c["code"] == "output.filename_fallback")
+        );
+        assert!(
+            run.join(entry["original"]["path"].as_str().unwrap())
+                .exists()
+        );
+    }
+    // A replacement naming policy clears stale fallback warnings without changing routing or membership.
+    let naming = project.root.join("filenames.json");
+    fs::write(
+        &naming,
+        r#"{"bundle":{"template":"{route}_{bundle_number}"}}"#,
+    )
+    .unwrap();
+    success(&cli(
+        &project.root,
+        &["rebundle", p(&run), "--filenames", p(&naming)],
+    ));
+    let renamed: Value = serde_json::from_slice(&fs::read(run.join("run.json")).unwrap()).unwrap();
+    assert_eq!(
+        renamed["bundles"][0]["members"],
+        record["bundles"][0]["members"]
+    );
+    assert!(renamed["checks"].as_array().unwrap().is_empty());
+    for entry in renamed["entries"].as_array().unwrap() {
+        assert_eq!(entry["routing"], "deliverable");
+    }
+}

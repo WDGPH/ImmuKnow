@@ -11,7 +11,7 @@ immuknow prepare CSV (--notice-assignments JSON --templates DIR | --template FIL
   --config DIR [--input-encoding utf-8-sig|cp1252|latin-1]
 immuknow resources --output DIR
 immuknow rebundle RUN_DIR [--policy policy.json] [--withhold ROW_KEY --reason TEXT]
-  [--release ROW_KEY] [--bundle-workers N]
+  [--release ROW_KEY] [--bundle-workers N] [--filenames filenames.json]
 ```
 
 With `--notices` and no explicit project or templates path, Core uses `templates/` and `config/` in the working directory. Without `--project`, relative `--template` paths are resolved from the working directory.

@@ -8,7 +8,7 @@ Ready means eligible under the effective rules, not proof that a bundle was prod
 
 Notices with warnings can be included in the PDFs for sending under the active rules. A failed check, or a check that was not run and was not disabled, prevents that notice from entering the PDFs for sending. If its original PDF is readable, it goes into a separate review PDF. If no PDF was created or the original is unreadable, the notice appears in the report only. Other notices can still be processed. A run with failures exits with an error; warnings alone do not cause an error exit.
 
-The numbered `bundles-0001/` directory contains `bundle-*.pdf` for notices ready to send and `review-*.pdf` for notices requiring review. A CSV beside each PDF connects its page ranges and findings to the input rows. The run also retains original PDFs and, if configured, separate encrypted copies. Read the report for actual outcomes and paths; do not infer success from a file's presence alone.
+The numbered `bundles-0001/` directory contains PDFs for notices ready to send and separate review PDFs. Defaults are `bundle-*.pdf` and `review-*.pdf`; [filename templates](configuration.md#filename-templates) can customize them. A CSV beside each PDF connects its page ranges and findings to the input rows. The run also retains original PDFs and, if configured, separate encrypted copies. Read the report for actual outcomes and paths; do not infer success from a file's presence alone.
 
 For explanations and investigation steps for individual codes, see the [finding code reference](findings.md).
 
@@ -52,3 +52,22 @@ immuknow rebundle ./runs/<run-id> --release row-000001
 ```
 
 Use `--policy policy.json` to apply a rules file and `--bundle-workers 4` to set the number of workers assembling PDFs. A held notice is excluded from both the PDFs for sending and the review PDFs. Releasing a hold leaves its checks in force. Each attempt records outcomes and creates a new numbered bundle directory. Review the new report and matching CSV before sending notices.
+
+To change only the next bundle attempt's names, supply `--filenames filenames.json`:
+
+```json
+{
+  "bundle": {"template": "{school}_{notice_variant}_{bundle_number}"},
+  "review_bundle": {"template": "review_{school}_{notice_variant}_{bundle_number}"}
+}
+```
+
+```sh
+immuknow rebundle ./runs/<run-id> --filenames filenames.json
+```
+
+The file replaces bundle/review filename settings; omit `review_bundle` for the
+automatic review prefix, or use `{}` to restore legacy bundle names. Individual
+settings are rejected here because saved originals and protected copies retain
+their paths. Previous bundle attempts remain. The run records the effective
+filename settings, resolved paths and any fallback warnings for the new attempt.
