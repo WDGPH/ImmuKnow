@@ -1,6 +1,6 @@
 # Cross-repository execution plan
 
-Filename templates and reference fixes are implemented across Core, Template and Studio. Grouping safeguards and optional sorting are implemented and verified in Core; downstream adoption remains. The remaining work follows the milestones below. Three Terra scouts inspected the repositories. The investigation evidence comes from source, not a replay of the private production run.
+Filename templates, reference fixes, notice-local requirements, grouping safeguards, optional sorting and distinct-link review are implemented across Core, Template and Studio. The final row-isolation handoff is verified against matching pins. Three Terra scouts inspected the repositories. The investigation evidence comes from source and fictional checks, not a replay of the private production run.
 
 This tracked file is the shared source of truth for scope, status, execution order and cross-repo decisions. Core’s implementation checklist follows the shared plan below. Consumer work lists: [Template](../ImmuKnow-Template/plan.md), [Studio](../ImmuKnow-Studio/plan.md). Keep shared-contract changes consistent across those files.
 
@@ -8,7 +8,7 @@ This tracked file is the shared source of truth for scope, status, execution ord
 
 The reported run finished in **384.5 seconds**, created **5,837 notices / 11,674 pages**, requested no protected copies, and produced **60 ready bundles / 1 review bundle**. Its terminal summary reported **5,836 rows with warnings, 1 failed and 0 held**. The terminal warning figure counts rows whose highest effective severity is warning, not distinct warnings; the HTML warning filter can also include warning-bearing failed rows. A review-bundle count is a count of PDFs, not clients.
 
-This establishes that a large run completed. It does not identify the failed check or prove that the repeated warnings all concern URLs. First inspect a local aggregate of finding code, observed/effective status, affected-row count and compiler diagnostics. Keep client details and full personalized URLs out of the plan and any shared profiling output.
+This establishes that a large run completed. It does not identify the failed check or prove that the repeated warnings all concern URLs. Private-run investigation is deferred at the user’s request. When resumed, start with a local aggregate of finding code, observed/effective status, affected-row count and compiler diagnostics. Keep client details and full personalized URLs out of shared results.
 
 Initial investigation baselines (historical, before filename implementation):
 
@@ -18,7 +18,7 @@ Initial investigation baselines (historical, before filename implementation):
 | ImmuKnow-Template | `9f098ab9ec3569d3fa5463b15ccd1842aa3fe16d` | Authored settings, references, notices, labels and fictional examples |
 | ImmuKnow-Studio | `b2a3e8e132b43b204c38992916acaa8afb98baf8` | Editor, browser previews, project import/export and pinned resource consumption |
 
-These SHAs explain the initial investigation; they are not checkout targets for execution. The verified R2 runtime pins are Core `78b8d9b8672f14afa0b1223b72c8fa0e9903c082` and Template `bd776612d978e349f62159c1309c63bc728405ed`, adopted in Studio `02fb2dc`. They include grouping, sorting and warning subjects. R3 row isolation is verified in Core and awaits its final consumer pin update. Start from current source and retain completed behavior. These commits are local; publishing pinned revisions remains necessary before fresh external installs.
+These SHAs explain the initial investigation; they are not checkout targets for execution. The current verified project update pair is Core `16792decc1e4fb405f63d2780ed87d5f46dba37c` and Template `91c5b1cf5e573d8c8f234d71252ea65bfbe6d9fb`. Template records that exact Core pin. These include filename templates, grouping, sorting, warning subjects, notice-local requirements and row isolation. Studio adopts that pair in `4c4c98d2f57e0042c9fc8349c274eb64a663c9fc`. Start from current source and retain completed behavior. These commits are local; publishing pinned revisions remains necessary before fresh external installs.
 
 ## Execution status and order
 
@@ -28,7 +28,7 @@ These SHAs explain the initial investigation; they are not checkout targets for 
 | R1 | Complete | Template → Studio | Meningococcal/TIg reference and display fixes |
 | R2a | Complete; active contract fixtures verified | Core, with Template/Studio consumers | Notice-local requirements and deferred preparation contract |
 | R2b | Complete across all three repos | Core + Template → Studio | Implement that contract, remove notice YAML, retain readable failed notices for review, detect empty agent displays |
-| R3 | Core complete; consumer adoption pending | Core → Template + Studio | Keep invalid history/reader rows report-only while valid rows continue |
+| R3 | Complete across all three repos | Core → Template + Studio | Keep invalid history/reader rows report-only while valid rows continue |
 | G1 | Complete; upstream export review remains external | Core; upstream export owner | Safe grouping for missing/conflicting school identity |
 | W1 | Complete | Core | Structured per-link evidence and run-level warning aggregation |
 | W2 | Core complete | Core; Studio consumes relevant evidence | Run-scoped warning acknowledgment without changing delivery |
@@ -37,7 +37,7 @@ These SHAs explain the initial investigation; they are not checkout targets for 
 | H1 | Prototype measured; production deferred | Core | Measured, lossless report-size improvement |
 | PR1 | Deferred at the user's request | Core operator/developer workflow | Profile the real native workload |
 
-R1 is complete. R2a's reviewed [requirements contract](tests/fixtures/requirements-contract.md) is implemented in Core with 85 passing release tests. Template passed 58 tests and packaging checks; Studio passed 235 unit tests and 26 selected browser/native tests against matching pins. R3 then passed all 89 Core release tests, including sparse worker/encryption identity and all-failed progress; its consumer pin handoff is next. G1/S1 and W1/W2 are adopted in the verified R2 handoff. D1 migration, H1 production optimization and PR1 private-run measurement retain their explicit exploration/measurement boundaries.
+R1 and R2 are complete against the reviewed [requirements contract](tests/fixtures/requirements-contract.md). R3 passed all 89 Core release tests, including sparse worker/encryption identity and all-failed progress; Template passed all 59 tests, Ruff and package checks with the matching pin. Studio’s final R3 handoff passed 236 unit tests, six Python tests, type/lint/format checks, strict docs, a fresh site build, and two targeted browser/native tests. Its earlier R2 handoff passed 26 selected browser/native tests; that full selection was not repeated for R3. G1/S1 and W1/W2 are already adopted. D1 migration, H1 production optimization and PR1 private-run measurement retain their explicit exploration/measurement boundaries.
 
 ## 1. Reference fixes: preserve what worked
 
@@ -81,19 +81,19 @@ The optional future disease catalog for aliases/labels is a separate concern; th
 
 ### R2a: shared contract milestone
 
-The evaluator split above is decided. Before R2b production changes, add the proposed schema/example cases to the shared render-contract fixtures and document these concrete boundaries:
+The evaluator split above is implemented. The active schemas and shared fixtures establish these boundaries:
 
 - Core adds trusted coverage measurements to the prepared notice so the shared helper can evaluate them. Template declares intent; the shared helper owns eligibility/coverage finding generation; native/browser validators enforce schema, identity, required-check presence and consistency. Core retains source parsing, explicit assignment identity/version-conflict checks and delivery policy. Remove catalog-only fields/checks, not unrelated assignment safeguards.
 - Require exactly one **placed** active requirements declaration for a verified report, including an explicit neutral declaration when no condition applies. A missing, duplicate (even identical), malformed or contradictory declaration produces a mandatory structured requirements failure; the report contract must represent that failed outcome. Preserve the readable original for native review and the rendered browser preview with a failure indication. Do not turn a declaration problem into a Typst assertion/compilation failure. A conditional template emits only its active branch’s declaration; unplaced content cannot supply it. Do not scan source text.
 - Distinguish declaration failures within otherwise source-matched evidence from genuinely corrupt/malformed report envelopes or wrong-row identity. The latter rejects claimed findings and produces mandatory `render.evidence_failed`. Artifact retention is independent: an already rendered readable PDF/preview remains available with an explicit failure, never a verified/ready indication. R2a needs absent/duplicate/malformed declaration and corrupt-identity cases with expected native/browser artifact retention.
-- Specify the declaration field names/enums, coverage measurement shape and affected schema/envelope versions in the fixture patch. Current preparation/payload/report versions are 1/1/2; advance affected versions together for the breaking contract, updating shared identity guards and consumers. Do not overload `notice_variant` or reintroduce redundant catalog `kind` defaults.
+- Specify the declaration field names/enums, coverage measurement shape and affected schema/envelope versions in the fixture patch. Preparation/payload/report versions advanced together from 1/1/2 to 2/2/3, with matching identity guards and consumers. Do not overload `notice_variant` or reintroduce redundant catalog `kind` defaults.
 - `prepare` returns an explicit per-entry deferred-check list **outside** observed `checks`. Eligibility/coverage absent from `checks` does not mean passed. Do not put placeholder findings into authoritative observations. After validated compilation, a valid declaration supplies `notice.requirements: pass` and exactly one result for each dependent eligibility/coverage/display check. An invalid declaration supplies mandatory `notice.requirements: fail`, with the dependent check codes and blocking reason in `blocked_checks` outside observations. Clear deferred checks when compilation is resolved; blocked is distinct from pending or not applicable. Corrupt evidence still produces mandatory `render.evidence_failed`. Neither failed branch can route as ready.
 - Studio preserves that deferred list in generated examples, permits rendering of those examples, and shows a neutral “Checked when the notice compiles” advisory until a current validated result exists. Deferred checks do not increase warning counts. Keep last-successful/stale-preview labeling intact. Validate all final findings through the shared exported contract.
 - Eligibility mismatch defaults to a structured failure. Convert the affirmative and suspension **eligibility assertions** to findings so readable PDFs reach review. Keep fundamental schema/input/layout assertions when no trustworthy PDF can be rendered. Preserve the current affirmative predicate and existing ISPA selection semantics; do not add new clinical rules.
 - The fixture patch must include a maintained-notice table: eligibility predicate, agent/disease/neutral coverage basis, and intentional no-records/alternative-text branches for each notice/language. Determine those branches from the authored behavior, not the deleted YAML. An intentional replacement is not an accidentally empty recommendation; the display component must record that distinction.
 - Keep new requirements/coverage/display failure codes non-adjustable initially. Expanding acceptance/override eligibility is separate work. Record final observations and requirements in saved evidence; rebundling applies policy to those saved results without compiling or reevaluating edited notices.
 
-R2a is done when these fixture cases and their expected native/browser outcomes are unambiguous. R2b implements them with one shared evaluator; it must not make fresh schema/severity choices independently in each repo.
+R2a and R2b are complete: these fixtures establish native/browser outcomes, and one shared evaluator supplies the findings. Consumers validate the shared contract without separate clinical rules.
 
 
 Keep three questions separate: what upstream says is overdue, whether an assignment fits the facts, and what the notice actually displays. Flu/COVID display exclusions must not remove clients or change source coverage. Do not automatically switch notice types.
@@ -105,7 +105,7 @@ The shared `overdue-agents` helper now records placed source/displayed counts, e
 Existing infrastructure is useful but partial:
 
 - Core keeps observed `checks` separately from `effective_checks`.
-- Global and exact-row rule changes support enabled/severity plus a reason, but only for render codes marked `x-adjustable`. `data.forecast_coverage` is a preparation check and is not currently adjustable.
+- Global and exact-row rule changes support enabled/severity plus a reason, but only for render codes marked `x-adjustable`. `data.forecast_coverage` is now a rendered notice-dependent check and remains non-adjustable.
 - Saved runs support policy changes, holds/releases and fresh numbered bundle attempts. Releasing a hold does not override a failed check.
 - Warnings already permit normal delivery. Readable originals with failures go to review; no usable original means report-only.
 - Raw compiler diagnostics are a separate warning source and must remain distinguishable.
@@ -132,7 +132,7 @@ A general framework should share finding identities, scopes and observed/effecti
 
 ## 4. Where checks belong and what can go to review
 
-| Stage | Current location | Proposed boundary |
+| Stage | Current location | Implemented boundary |
 | --- | --- | --- |
 | Source parsing, normalization, references, coverage and assignments | Core `input.rs` / `pipeline.rs` | Isolate row problems when trustworthy identity and facts can still be retained; coverage is the first concrete fix |
 | Placed content, links, layout and render evidence | Core shared Typst library + `validation.rs` | Validate the actual notice; emit row findings with structured subjects |
@@ -161,7 +161,7 @@ checks retain failure exits. All-failed cohorts finish progress without compiler
 work. This uses the existing mandatory/adjustable boundary rather than adding an
 override framework.
 
-## 5. Completed filenames; remaining grouping and ordering
+## 5. Completed filenames, grouping and ordering
 
 F0 is complete. [Template's active settings](../ImmuKnow-Template/config/parameters.yaml) use individual `{client_id}_{notice_variant}_{language_code}`, normal bundle `{route}_{bundle_number}`, and review bundle `review_{bundle_number}`. Those work with the starter's size-only grouping. [Core's filename guide](docs/user_guide/configuration.md#filename-templates) owns supported fields, normalization/collisions, fallback warnings and `rebundle --filenames`; do not reimplement them.
 
@@ -223,18 +223,19 @@ Done means the next real run can explain the observed 384.5 seconds by measured 
 ## Delivery sequence and verification
 
 1. F0 and R1 are complete across the three repositories.
-2. R2a's reviewed contract/schema fixture patch is complete. Implement R2b in Core, update Template's library/notices and remove YAML resources, and adopt matching pins/validators/examples in Studio. Treat the three-repo handoff as one v2.0 acceptance milestone; do not leave broken intermediate pins for consumers.
-3. G1 and S1 are verified in Core, including grouping/routing and actual PDF/CSV order. Include them in the next coordinated engine adoption, with Template configuration guidance and Studio's matching pin.
-4. W1/W2 are verified in Core: structured URL issue aggregation plus run-scoped acknowledgment/revocation. Adopt the new subject field through generated consumer contracts with the next engine handoff.
-5. S1 ordering, D1 disease-catalog exploration, H1 report-size experiments and PR1 real-run profiling remain separate. Do not expand their scope while implementing the earlier milestones.
+2. R2a/R2b are complete: one shared requirements evaluator, maintained notice declarations, no notice YAML catalog, and matching native/browser contracts.
+3. G1/S1 are adopted, with verified grouping/routing, actual PDF/CSV order and documented opt-in sorting.
+4. W1/W2 are adopted: structured URL subjects and run-scoped acknowledgment/revocation preserve findings and delivery decisions.
+5. R3 is committed and adopted across all three repositories, including incomplete-cohort validation and failed-example/readiness guards.
+6. D1 migration, H1 production optimization and PR1 private-run investigation remain deferred. Upstream exporter review requires the exporter repository/path and is separate from the completed grouping safeguard.
 
 Core owns malformed-input, shared schemas/helpers, policy, PDF and routing tests. Template owns reference data, wording/layout and packaging. Studio owns example generation, deferred/current finding presentation, authoring preservation and downloaded native handoffs. Use fictional fixtures. Verify English/French normal, warning, review and unrenderable outcomes, stable source-row identity, expected actual bundle membership, and rebundle using saved observations. Run each repo's stated checks; a pin bump also needs a fresh build and selected browser/native tests. Avoid repeating the entire Core validation suite in consumers.
 
-The R2 coordinated Core → Template → Studio adoption is verified. The next gate is the same exact-pin handoff for R3 row isolation. Later exploration and external-workload measurements keep their separate boundaries.
+The coordinated Core → Template → Studio adoption is verified through R3. Final critical review found no further correctness blockers. Remaining unchecked items are explicit deferrals or the external exporter follow-up; no publication or private-run investigation is claimed.
 
 ## Core implementation checklist
 
-Core owns native preparation, shared schemas/helpers, policy, PDFs, grouping and saved-run reports. Template owns authored configuration/reference data; Studio consumes pinned resources and native commands. Follow the milestone order and shared decisions above. F0 is delivered; unchecked work remains planned.
+Core owns native preparation, shared schemas/helpers, policy, PDFs, grouping and saved-run reports. Template owns authored configuration/reference data; Studio consumes pinned resources and native commands. The shared decisions above govern the completed implementation. Unchecked items below are explicitly deferred or require external export ownership; they are not unfinished native features.
 
 ### Initial source evidence and scope
 
@@ -293,7 +294,7 @@ Test zero/one/all excluded agents, duplicates, TIg, flu/COVID, no-records replac
 ### W1/W2: warning aggregation, then acknowledgment design
 
 - [x] Add a run-level aggregate of code/status/structured subject, affected rows and occurrence counts, keeping compiler diagnostics separate.
-- [ ] Inspect the private run aggregate before attributing its 5,836 warning rows to a code; its path/data have not been supplied.
+- [ ] Deferred at the user’s request: inspect the private run aggregate before attributing its 5,836 warning rows to a code. No private run was inspected.
 - [x] Extend URL evidence with structured destinations/sets. `content.multiple_links` identifies a set; malformed/non-HTTPS checks identify individual destinations. Do not parse messages to build keys.
 - [x] W2 first defines the native operator action, revoke action, lock-protected persistence/audit and report refresh as described in the shared plan. Then implement acknowledgment once per exact issue in a saved run, persisted across rebundle attempts. Preserve all observed/effective findings and show acknowledged versus outstanding attention counts. Acknowledgment alone changes no severity, routing or exit status.
 - [x] Scope issue identity by code, check/resource definition and exact destination or destination set. Store fingerprints for indexing, protected evidence for inspection, reason and time. Preserve meaningful URL path/query/fragment changes. A new run or new destination requires new review.
@@ -307,7 +308,7 @@ Acceptance cases: one static bad link across many rows is one review subject wit
 ### G1: group identity; S1: optional ordering afterward
 
 - [x] Fix blank-ID grouping. Namespace ID versus fallback-name keys; include board scope in a missing-school-ID fallback. Emit findings for fallback and contradictory identity. Entirely unknown school identity does not merge into a normal catch-all school bundle.
-- [ ] Review upstream ID export with its owner; this is separate from the completed native safeguard.
+- [ ] External follow-up: review upstream ID export with its owner when the exporter repository/path is identified. This is separate from the completed native safeguard.
 - [x] Use the shared G1 outcomes: name fallback warns; no usable identity fails each row into a separate review group; conflicting normalized names under one ID fail affected rows and stay apart; different IDs never merge solely because their names match. Apply to configured grouping dimensions, with no fuzzy matching. Keep structured grouping identity distinct from filename labels.
 - [x] Preserve the existing filename-template resolver and fallback diagnostics. Group identity stays separate from filename display values; mixed/missing group fields trigger explicit fallback diagnostics. Collision handling disambiguates all configured grouping dimensions even when the pattern omits them.
 - [x] Add validated `bundling.sort_by`, defaulting to `source`. Opt-in `last_name_dob` uses normalized last name, parsed ISO DOB ascending, source row key tie-break; absent/invalid values last. Case and repeated whitespace normalize with Unicode NFC, preserving accents. Sort before chunking and preserve source record order/keys.
@@ -319,8 +320,8 @@ Acceptance cases: different blank-ID schools remain separate; unknown school ide
 ### Later: catalog, report size and real-run profiling
 
 - [x] Explore a disease catalog schema with stable IDs, aliases and per-language/per-context labels. Core owns validation/resolution; Template owns data and wording. Keep current formats supported through an explicit migration, detect ambiguous aliases and avoid mixing label strings with IDs. Language expansion needs more than a folder rename.
-- [ ] Measure report section sizes, memory and browser responsiveness before optimizing. Reuse explanatory text and consider lossless sharing of repeated details while preserving every check, safe escaping, local-file/no-JavaScript access, artifact links and partial-run recovery. Do not reintroduce lossy passing-detail removal as a default. Segmented/lazy reports require a contract decision.
-- [ ] Profile the real release command externally through process exit, with wall/CPU/peak RSS, explicit workers and local resource fingerprints. Existing record timings separate preparation/render/delivery but exclude the final report write. Keep profiler overhead out of throughput comparisons; worker spans overlap. Add opt-in granular spans only if broad timing does not answer the question.
+- [x] Record the H1 fictional-workload size and browser prototype above. Production optimization is deferred; it still needs controlled memory/report-generation measurements, preserved row search and navigation, safe escaping, local-file/no-JavaScript access, artifact links and partial-run recovery. Segmented/lazy reports require a contract decision.
+- [ ] Deferred at the user’s request: profile the real release command externally through process exit, with wall/CPU/peak RSS, explicit workers and local resource fingerprints. Existing record timings separate preparation/render/delivery but exclude the final report write. Keep profiler overhead out of throughput comparisons; worker spans overlap. Add opt-in granular spans only if broad timing does not answer the question.
 
 Use [existing performance evidence](docs/developer_guide/performance_experiments.md) and [measurement guidance](docs/developer_guide/testing.md#measure-the-complete-command). The reported unencrypted 384.5-second run is one observation; reproduce its workload before comparing it with synthetic encrypted benchmarks.
 
@@ -328,4 +329,4 @@ Use [existing performance evidence](docs/developer_guide/performance_experiments
 
 For implementation, run focused Rust unit/CLI/render-contract checks, then `cargo fmt --all --check`, `cargo test --release --locked`, `cargo build --release --locked` and documentation checks as applicable. Use fictional fixtures; verify independent row processing, evidence, actual artifacts and saved-run compatibility rather than duplicating presentation tests here.
 
-F0 is complete. Execute R2a before R2b; G1 and W1 are independent. Land each shared contract before its consumer settings, and verify the coordinated v2.0 handoff. Template then updates its Core revision and complete exported library, tests English/French presentation and packages resources. Studio updates matching Core/Template pins together, regenerates validators/examples, and verifies the downloaded project against the intended standalone executable. No consumer should edit installed Core resources.
+The coordinated v2.0 handoff preserves the completed milestones. Future shared changes must land before consumer settings: Template updates its Core revision and complete exported library, tests English/French presentation and packages resources; Studio updates matching Core/Template pins, regenerates validators/examples and verifies the downloaded project against the intended standalone executable. No consumer edits installed Core resources.
