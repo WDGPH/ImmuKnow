@@ -237,6 +237,13 @@ fn assign_entries(record: &mut Value, prepared: &[Prepared], encryption: bool) {
         entry["notice"] = p.notice.clone();
         entry["assignment"] = p.assignment.clone();
         entry["checks"] = json!(p.checks);
+        entry["deferred_checks"] = json!([
+            "notice.requirements",
+            "notice.eligibility",
+            "data.forecast_coverage",
+            "content.agent_display"
+        ]);
+        entry["blocked_checks"] = json!([]);
         entry["encryption"] = json!({"status": if encryption {"not_run"} else {"not_requested"}});
     }
 }
@@ -291,7 +298,7 @@ pub fn prepare(opts: &RunOptions) -> Result<Value> {
     let bytes = fs::read(&opts.csv)?;
     let source = temp.path().join("source.csv");
     fs::write(&source, &bytes)?;
-    let mut record = json!({"schema_version":1,"engine":"typst 0.15.1","resources":resources::identity(),"input":{"sha256":crate::hash(&bytes)},"entries":source_entries(&source, opts.encoding.as_deref())?});
+    let mut record = json!({"schema_version":2,"engine":"typst 0.15.1","resources":resources::identity(),"input":{"sha256":crate::hash(&bytes)},"entries":source_entries(&source, opts.encoding.as_deref())?});
     drop(bytes);
     let c = input::config(&opts.config.join("parameters.yaml"))?;
     validate_project(&opts.templates, temp.path())?;
@@ -502,6 +509,9 @@ fn process(
                                             entry["checks"].as_array_mut().unwrap().extend(
                                                 value["checks"].as_array().unwrap().clone(),
                                             );
+                                            entry["deferred_checks"] = json!([]);
+                                            entry["blocked_checks"] =
+                                                value["blocked_checks"].clone();
                                             entry["render_report"] = value;
                                         }
                                         Err(error) => add_check(

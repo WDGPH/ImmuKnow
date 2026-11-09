@@ -75,7 +75,7 @@ The terminal shows the current job, a progress bar while notices are processed, 
 
 The defaults use text labels. Add `--emoji` for decorative emoji in the headings. Use `--progress plain` for stage announcements and occasional counts without redrawing lines, or `--progress off` to hide progress and the summary. Redirected output uses plain announcements automatically. `NO_COLOR` disables terminal styling. These choices affect the display only.
 
-The [configuration guide](configuration.md) explains the selection file and settings. Notice filenames follow `<version>.<language>.typ`, with `en` or `fr` as the language. You choose the notices; the notice list in `notice_versions.yaml` checks whether each choice fits the supplied information. It does not choose or translate notices.
+The [configuration guide](configuration.md) explains the selection file and settings. Notice filenames follow `<version>.<language>.typ`, with `en` or `fr` as the language. You choose the notices; requirements declared inside each notice check whether it fits the supplied information when it compiles. They do not choose or translate notices.
 
 ## Review the results
 

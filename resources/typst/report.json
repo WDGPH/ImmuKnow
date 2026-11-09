@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:immuknow:render-report:2",
-  "title": "ImmuKnow placed report version 2",
+  "$id": "urn:immuknow:render-report:3",
+  "title": "ImmuKnow placed report version 3 (proposed)",
   "type": "object",
   "properties": {
     "schema_version": {
       "type": "integer",
-      "const": 2
+      "const": 3
     },
     "identity": {
       "type": "object",
@@ -107,7 +107,23 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/check"
-      }
+      },
+      "allOf": [
+        {
+          "contains": {
+            "properties": {
+              "code": {
+                "const": "notice.requirements"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        }
+      ]
     },
     "qr_urls": {
       "type": "array",
@@ -479,12 +495,64 @@
               },
               "source_matches": {
                 "type": "boolean"
+              },
+              "page": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "source_agents": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "source_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "excluded_agents": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true
+              },
+              "displayed_agents": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true
+              },
+              "displayed_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "replacement": {
+                "enum": [
+                  "none",
+                  "no_records",
+                  "authored_alternative"
+                ]
+              },
+              "replacement_visible": {
+                "type": "boolean"
               }
             },
             "required": [
               "row_key",
               "client_id",
-              "source_matches"
+              "source_matches",
+              "page",
+              "source_agents",
+              "source_count",
+              "excluded_agents",
+              "displayed_agents",
+              "displayed_count",
+              "replacement",
+              "replacement_visible"
             ],
             "additionalProperties": false
           }
@@ -561,6 +629,176 @@
     },
     "notice": {
       "type": "object"
+    },
+    "requirements": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "state": {
+              "const": "valid"
+            },
+            "declaration": {
+              "type": "object",
+              "properties": {
+                "row_key": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "client_id": {
+                  "type": "string"
+                },
+                "template": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*\\.(en|fr)\\.typ$"
+                },
+                "version_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "language": {
+                  "enum": [
+                    "en",
+                    "fr"
+                  ]
+                },
+                "eligibility": {
+                  "enum": [
+                    "any",
+                    "has_overdue",
+                    "has_overdue_agents",
+                    "no_overdue",
+                    "has_ispa_overdue"
+                  ]
+                },
+                "coverage": {
+                  "enum": [
+                    "agents",
+                    "diseases",
+                    "neutral"
+                  ]
+                }
+              },
+              "required": [
+                "row_key",
+                "client_id",
+                "template",
+                "version_id",
+                "language",
+                "eligibility",
+                "coverage"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "state",
+            "declaration"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "state": {
+              "const": "invalid"
+            },
+            "errors": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "enum": [
+                      "missing",
+                      "duplicate",
+                      "malformed",
+                      "unknown_value"
+                    ]
+                  },
+                  "count": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "code",
+                  "count"
+                ],
+                "additionalProperties": false,
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "code": {
+                          "const": "duplicate"
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "count": {
+                          "minimum": 2
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "code": {
+                          "const": "missing"
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "count": {
+                          "const": 0
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "required": [
+            "state",
+            "errors"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "blocked_checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "enum": [
+              "notice.eligibility",
+              "data.forecast_coverage",
+              "content.agent_display"
+            ]
+          },
+          "blocked_by": {
+            "const": "notice.requirements"
+          },
+          "reason": {
+            "const": "Invalid notice requirements"
+          }
+        },
+        "required": [
+          "code",
+          "blocked_by",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "uniqueItems": true
     }
   },
   "required": [
@@ -571,7 +809,9 @@
     "checks",
     "qr_urls",
     "measurements",
-    "notice"
+    "notice",
+    "requirements",
+    "blocked_checks"
   ],
   "additionalProperties": false,
   "$defs": {
@@ -865,6 +1105,34 @@
               "x-components": [
                 "link"
               ]
+            },
+            {
+              "const": "notice.requirements",
+              "description": "notice.requirements",
+              "x-evaluator": "Typst report",
+              "x-adjustable": false,
+              "x-components": []
+            },
+            {
+              "const": "notice.eligibility",
+              "description": "notice.eligibility",
+              "x-evaluator": "Typst report",
+              "x-adjustable": false,
+              "x-components": []
+            },
+            {
+              "const": "data.forecast_coverage",
+              "description": "data.forecast_coverage",
+              "x-evaluator": "Typst report",
+              "x-adjustable": false,
+              "x-components": []
+            },
+            {
+              "const": "content.agent_display",
+              "description": "content.agent_display",
+              "x-evaluator": "Typst report",
+              "x-adjustable": false,
+              "x-components": []
             }
           ]
         },
@@ -915,19 +1183,47 @@
           "items": {
             "type": "object",
             "properties": {
-              "kind": { "enum": ["url", "url_set"] },
+              "kind": {
+                "enum": [
+                  "url",
+                  "url_set"
+                ]
+              },
               "urls": {
                 "type": "array",
                 "minItems": 1,
                 "uniqueItems": true,
-                "items": { "type": "string" }
+                "items": {
+                  "type": "string"
+                }
               }
             },
             "oneOf": [
-              { "properties": { "kind": { "const": "url" }, "urls": { "maxItems": 1 } } },
-              { "properties": { "kind": { "const": "url_set" }, "urls": { "minItems": 2 } } }
+              {
+                "properties": {
+                  "kind": {
+                    "const": "url"
+                  },
+                  "urls": {
+                    "maxItems": 1
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "url_set"
+                  },
+                  "urls": {
+                    "minItems": 2
+                  }
+                }
+              }
             ],
-            "required": ["kind", "urls"],
+            "required": [
+              "kind",
+              "urls"
+            ],
             "additionalProperties": false
           }
         }
@@ -940,13 +1236,256 @@
       ],
       "allOf": [
         {
-          "if": { "required": ["subjects"] },
-          "then": { "properties": { "code": { "enum": ["content.link_https", "content.link_destination", "content.multiple_links"] } } }
+          "if": {
+            "required": [
+              "subjects"
+            ]
+          },
+          "then": {
+            "properties": {
+              "code": {
+                "enum": [
+                  "content.link_https",
+                  "content.link_destination",
+                  "content.multiple_links"
+                ]
+              }
+            }
+          }
         },
         {
-          "if": { "properties": { "code": { "const": "content.multiple_links" } } },
-          "then": { "properties": { "subjects": { "maxItems": 1, "items": { "properties": { "kind": { "const": "url_set" } } } } } },
-          "else": { "properties": { "subjects": { "items": { "properties": { "kind": { "const": "url" } } } } } }
+          "if": {
+            "properties": {
+              "code": {
+                "const": "content.multiple_links"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "subjects": {
+                "maxItems": 1,
+                "items": {
+                  "properties": {
+                    "kind": {
+                      "const": "url_set"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "subjects": {
+                "items": {
+                  "properties": {
+                    "kind": {
+                      "const": "url"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "notice.requirements"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "pass",
+                  "fail"
+                ]
+              },
+              "stage": {
+                "const": "render"
+              }
+            },
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "component"
+                  ]
+                },
+                {
+                  "required": [
+                    "page"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "notice.eligibility"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "pass",
+                  "fail",
+                  "not_applicable"
+                ]
+              },
+              "stage": {
+                "const": "render"
+              }
+            },
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "component"
+                  ]
+                },
+                {
+                  "required": [
+                    "page"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "data.forecast_coverage"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "pass",
+                  "warn",
+                  "fail",
+                  "not_applicable"
+                ]
+              },
+              "stage": {
+                "const": "render"
+              },
+              "measurements": {
+                "type": "object",
+                "properties": {
+                  "missing_diseases": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "uniqueItems": true
+                  },
+                  "extra_diseases": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "uniqueItems": true
+                  },
+                  "unmapped_agents": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "uniqueItems": true
+                  }
+                },
+                "required": [
+                  "missing_diseases",
+                  "extra_diseases",
+                  "unmapped_agents"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "component"
+                  ]
+                },
+                {
+                  "required": [
+                    "page"
+                  ]
+                }
+              ]
+            },
+            "required": [
+              "measurements"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "content.agent_display"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "pass",
+                  "fail",
+                  "not_applicable"
+                ]
+              },
+              "stage": {
+                "const": "render"
+              }
+            },
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "component"
+                  ]
+                },
+                {
+                  "required": [
+                    "page"
+                  ]
+                }
+              ]
+            }
+          }
         }
       ],
       "additionalProperties": false
@@ -1067,10 +1606,233 @@
             "minLength": 1
           },
           "uniqueItems": true
+        },
+        "missing_diseases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "extra_diseases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
         }
       },
       "required": [],
       "additionalProperties": false
     }
-  }
+  },
+  "allOf": [
+    {
+      "oneOf": [
+        {
+          "properties": {
+            "requirements": {
+              "properties": {
+                "state": {
+                  "const": "valid"
+                }
+              }
+            },
+            "checks": {
+              "allOf": [
+                {
+                  "contains": {
+                    "properties": {
+                      "code": {
+                        "const": "notice.requirements"
+                      },
+                      "status": {
+                        "const": "pass"
+                      }
+                    },
+                    "required": [
+                      "code",
+                      "status"
+                    ]
+                  },
+                  "minContains": 1,
+                  "maxContains": 1
+                },
+                {
+                  "contains": {
+                    "properties": {
+                      "code": {
+                        "const": "notice.eligibility"
+                      }
+                    },
+                    "required": [
+                      "code"
+                    ]
+                  },
+                  "minContains": 1,
+                  "maxContains": 1
+                },
+                {
+                  "contains": {
+                    "properties": {
+                      "code": {
+                        "const": "data.forecast_coverage"
+                      }
+                    },
+                    "required": [
+                      "code"
+                    ]
+                  },
+                  "minContains": 1,
+                  "maxContains": 1
+                },
+                {
+                  "contains": {
+                    "properties": {
+                      "code": {
+                        "const": "content.agent_display"
+                      }
+                    },
+                    "required": [
+                      "code"
+                    ]
+                  },
+                  "minContains": 1,
+                  "maxContains": 1
+                }
+              ]
+            },
+            "blocked_checks": {
+              "maxItems": 0
+            }
+          }
+        },
+        {
+          "properties": {
+            "requirements": {
+              "properties": {
+                "state": {
+                  "const": "invalid"
+                }
+              }
+            },
+            "checks": {
+              "allOf": [
+                {
+                  "contains": {
+                    "properties": {
+                      "code": {
+                        "const": "notice.requirements"
+                      },
+                      "status": {
+                        "const": "fail"
+                      }
+                    },
+                    "required": [
+                      "code",
+                      "status"
+                    ]
+                  },
+                  "minContains": 1,
+                  "maxContains": 1
+                },
+                {
+                  "contains": {
+                    "properties": {
+                      "code": {
+                        "const": "notice.eligibility"
+                      }
+                    },
+                    "required": [
+                      "code"
+                    ]
+                  },
+                  "minContains": 0,
+                  "maxContains": 0
+                },
+                {
+                  "contains": {
+                    "properties": {
+                      "code": {
+                        "const": "data.forecast_coverage"
+                      }
+                    },
+                    "required": [
+                      "code"
+                    ]
+                  },
+                  "minContains": 0,
+                  "maxContains": 0
+                },
+                {
+                  "contains": {
+                    "properties": {
+                      "code": {
+                        "const": "content.agent_display"
+                      }
+                    },
+                    "required": [
+                      "code"
+                    ]
+                  },
+                  "minContains": 0,
+                  "maxContains": 0
+                }
+              ]
+            },
+            "blocked_checks": {
+              "minItems": 3,
+              "maxItems": 3,
+              "allOf": [
+                {
+                  "contains": {
+                    "properties": {
+                      "code": {
+                        "const": "notice.eligibility"
+                      }
+                    },
+                    "required": [
+                      "code"
+                    ]
+                  },
+                  "minContains": 1,
+                  "maxContains": 1
+                },
+                {
+                  "contains": {
+                    "properties": {
+                      "code": {
+                        "const": "data.forecast_coverage"
+                      }
+                    },
+                    "required": [
+                      "code"
+                    ]
+                  },
+                  "minContains": 1,
+                  "maxContains": 1
+                },
+                {
+                  "contains": {
+                    "properties": {
+                      "code": {
+                        "const": "content.agent_display"
+                      }
+                    },
+                    "required": [
+                      "code"
+                    ]
+                  },
+                  "minContains": 1,
+                  "maxContains": 1
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
 }

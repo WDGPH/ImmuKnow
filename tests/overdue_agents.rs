@@ -56,6 +56,19 @@ fn repeated_agents_are_displayed_once_in_first_occurrence_order() {
     for component in components {
         assert_eq!(component["name"], "overdue_agents");
         assert_eq!(component["notice"], notice);
+        assert_eq!(component["measurements"]["page"], 1);
+        assert_eq!(
+            component["measurements"]["source_agents"],
+            json!(["MMR", "DTaP", "MMR", "MMR"])
+        );
+        assert_eq!(component["measurements"]["source_count"], 4);
+        assert_eq!(
+            component["measurements"]["displayed_agents"],
+            json!(["MMR", "DTaP"])
+        );
+        assert_eq!(component["measurements"]["displayed_count"], 2);
+        assert_eq!(component["measurements"]["replacement"], "none");
+        assert_eq!(component["measurements"]["replacement_visible"], false);
     }
 }
 
@@ -97,6 +110,22 @@ fn exclusions_are_exact_and_leave_facts_and_no_records_behavior_intact() {
     assert_eq!(components.len(), 3);
     assert_eq!(components[0]["notice"], notice);
     assert_eq!(components[1]["notice"], notice);
+    assert_eq!(
+        components[0]["measurements"]["excluded_agents"],
+        json!(["Flu"])
+    );
+    assert_eq!(
+        components[0]["measurements"]["displayed_agents"],
+        json!(["MMR", "flu"])
+    );
+    assert_eq!(components[1]["measurements"]["displayed_count"], 0);
+    assert_eq!(
+        components[2]["measurements"]["excluded_agents"],
+        json!(["Flu", "MMR", "flu"])
+    );
+    assert_eq!(components[2]["measurements"]["displayed_agents"], json!([]));
+    assert_eq!(components[2]["measurements"]["replacement"], "no_records");
+    assert_eq!(components[2]["measurements"]["replacement_visible"], true);
     assert_eq!(
         components[2]["notice"]["overdue_agents"],
         notice["overdue_agents"]

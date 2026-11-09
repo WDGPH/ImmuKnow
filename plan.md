@@ -26,8 +26,8 @@ These SHAs explain the initial investigation; they are not checkout targets for 
 | --- | --- | --- | --- |
 | F0 | Complete | Core + Template → Studio | Configurable individual/protected and normal/review bundle filenames |
 | R1 | Complete | Template → Studio | Meningococcal/TIg reference and display fixes |
-| R2a | Complete; isolated contract/schema fixtures verified | Core, with Template/Studio consumers | Notice-local requirements and deferred preparation contract |
-| R2b | After R2a | Core + Template → Studio | Implement that contract, remove notice YAML, retain readable failed notices for review, detect empty agent displays |
+| R2a | Complete; active contract fixtures verified | Core, with Template/Studio consumers | Notice-local requirements and deferred preparation contract |
+| R2b | Core complete; consumer adoption in progress | Core + Template → Studio | Implement that contract, remove notice YAML, retain readable failed notices for review, detect empty agent displays |
 | G1 | Core complete; consumer adoption pending | Core; upstream export owner | Safe grouping for missing/conflicting school identity |
 | W1 | Core complete; consumer adoption pending | Core | Structured per-link evidence and run-level warning aggregation |
 | W2 | Core complete | Core; Studio consumes relevant evidence | Run-scoped warning acknowledgment without changing delivery |
@@ -36,7 +36,7 @@ These SHAs explain the initial investigation; they are not checkout targets for 
 | H1 | Prototype measured; production deferred | Core | Measured, lossless report-size improvement |
 | PR1 | Low priority | Core operator/developer workflow | Profile the real native workload |
 
-R1 is complete. R2a's reviewed contract and proposed schemas are isolated from production under [the requirements fixtures](tests/fixtures/requirements-contract.md); R2b can now implement them. G1/S1 and W1/W2 are verified in Core and await the indicated consumer handoffs. D1 migration, H1 production optimization and PR1 private-run measurement retain their explicit exploration/measurement boundaries.
+R1 is complete. R2a's reviewed [requirements contract](tests/fixtures/requirements-contract.md) is implemented in Core with 85 passing release tests. Template and Studio source changes are ready for the coordinated pin/build acceptance; production behavior is not yet adopted through those pins. G1/S1 and W1/W2 are verified in Core and await the indicated consumer handoffs. D1 migration, H1 production optimization and PR1 private-run measurement retain their explicit exploration/measurement boundaries.
 
 ## 1. Reference fixes: preserve what worked
 
@@ -50,9 +50,9 @@ Template owns these authored files. Core should test generic normalization/refer
 
 ## 2. Coverage, eligibility and displayed content
 
-Current coverage preparation computes required diseases, agent coverage, missing diseases, extra diseases and unmapped agents in [Core input.rs](src/input.rs), in `prepare`. A missing disease triggers `ensure!` before prepared rows reach the rendering/policy/review workflow. Eligibility currently comes from a separate notice catalog; the agreed direction is to move requirements into the notices themselves.
+Coverage preparation computes missing diseases, extra diseases and unmapped agents from complete facts in [Core input.rs](src/input.rs). The shared Typst helper now evaluates the notice-local coverage and eligibility requirements during compilation. The catalog reader and the preparation-time missing-coverage abort are removed.
 
-Proposed behavior:
+Implemented Core behavior:
 
 | Situation | Default result | Delivery consequence |
 | --- | --- | --- |
@@ -97,7 +97,7 @@ R2a is done when these fixture cases and their expected native/browser outcomes 
 
 Keep three questions separate: what upstream says is overdue, whether an assignment fits the facts, and what the notice actually displays. Flu/COVID display exclusions must not remove clients or change source coverage. Do not automatically switch notice types.
 
-The shared `overdue-agents` helper currently filters the display list after preparation and records only component presence. Add placed-content evidence for source count, displayed count and excluded agents. For an agent-based notice whose nonempty source list becomes empty, default to a row failure and review the readable PDF. Distinguish an intentional no-records replacement or explicitly authored alternative from an accidentally empty list. A disease-based notice with no agent component should not fail this display check.
+The shared `overdue-agents` helper now records placed source/displayed counts, exact source/display/exclusion lists and intentional replacement evidence. For an agent-based notice whose nonempty source list becomes empty, default to a row failure and review the readable PDF. Distinguish an intentional no-records replacement or explicitly authored alternative from an accidentally empty list. A disease-based notice with no agent component should not fail this display check.
 
 ## 3. Acceptance: reuse the policy foundation, define the scope
 
@@ -209,13 +209,15 @@ Done means the next real run can explain the observed 384.5 seconds by measured 
 
 Core owns malformed-input, shared schemas/helpers, policy, PDF and routing tests. Template owns reference data, wording/layout and packaging. Studio owns example generation, deferred/current finding presentation, authoring preservation and downloaded native handoffs. Use fictional fixtures. Verify English/French normal, warning, review and unrenderable outcomes, stable source-row identity, expected actual bundle membership, and rebundle using saved observations. Run each repo's stated checks; a pin bump also needs a fresh build and selected browser/native tests. Avoid repeating the entire Core validation suite in consumers.
 
-Execution readiness is per work item: R1 adoption and W1 have concrete outcomes; G1/S1 are verified in Core; R2a is a concrete prerequisite task for R2b; W2 and the later experiments need their specified design/measurement outputs first. Schema names/enums and the maintained-notice predicate/replacement table are R2a outputs, not hidden decisions for three implementers to make separately.
+The next acceptance gate is the coordinated Core → Template → Studio adoption. Core behavior and the shared contract are verified; consumer source changes still need matching pins, regenerated assets and native/browser acceptance. Later exploration and external-workload measurements keep their separate boundaries.
 
 ## Core implementation checklist
 
 Core owns native preparation, shared schemas/helpers, policy, PDFs, grouping and saved-run reports. Template owns authored configuration/reference data; Studio consumes pinned resources and native commands. Follow the milestone order and shared decisions above. F0 is delivered; unchecked work remains planned.
 
-### Source evidence and scope
+### Initial source evidence and scope
+
+This table records the investigation baseline. The milestone statuses and checklists describe subsequent implementation.
 
 | Area | Evidence | Consequence |
 | --- | --- | --- |
@@ -234,11 +236,11 @@ Filename settings, supported fields, safe normalization/collisions, original/pro
 
 ### R2a: freeze the shared requirements contract
 
-- [ ] Use the shared plan's R2a evaluator split: Core prepares trusted coverage measurements; the shared Typst helper evaluates notice-local requirements for native and browser; Core validates evidence and applies policy. Do not implement a second JS/Rust content-rule evaluator.
-- [ ] Write the shared schema/fixture patch before production changes: declaration fields/enums, version changes, exactly-one placed declaration, source identity and required finding cardinality, conditional/no-records branches, mandatory missing/invalid evidence failures, and expected eligibility/coverage/display statuses.
-- [ ] Define a per-entry deferred-check list outside observed `checks` for `prepare`; document it for Studio generation/UI. Define the completed valid/invalid-declaration branches above, including `blocked_checks` for checks that cannot be evaluated. Placeholder findings must not masquerade as completed observations, and no unresolved requirement may route as ready.
-- [ ] Make requirements/cardinality errors mandatory structured findings within an otherwise usable report, retaining readable originals/previews. Distinguish them from corrupt report/identity evidence (`render.evidence_failed`), whose claimed findings are rejected while rendered artifacts are retained independently. Include missing/duplicate/malformed declaration and wrong-row-identity fixture cases with native/browser expected outcomes.
-- [ ] Include the explicit maintained-notice predicate/replacement table with Template. Eligibility mismatches default to structured failure; preserve existing affirmative/ISPA semantics. Keep new check codes non-adjustable initially.
+- [x] Use the shared plan's R2a evaluator split: Core prepares trusted coverage measurements; the shared Typst helper evaluates notice-local requirements for native and browser; Core validates evidence and applies policy. Do not implement a second JS/Rust content-rule evaluator.
+- [x] Write the shared schema/fixture patch before production changes: declaration fields/enums, version changes, exactly-one placed declaration, source identity and required finding cardinality, conditional/no-records branches, mandatory missing/invalid evidence failures, and expected eligibility/coverage/display statuses.
+- [x] Define a per-entry deferred-check list outside observed `checks` for `prepare`; document it for Studio generation/UI. Define the completed valid/invalid-declaration branches above, including `blocked_checks` for checks that cannot be evaluated. Placeholder findings must not masquerade as completed observations, and no unresolved requirement may route as ready.
+- [x] Make requirements/cardinality errors mandatory structured findings within an otherwise usable report, retaining readable originals/previews. Distinguish them from corrupt report/identity evidence (`render.evidence_failed`), whose claimed findings are rejected while rendered artifacts are retained independently. Include missing/duplicate/malformed declaration and wrong-row-identity fixture cases with native/browser expected outcomes.
+- [x] Include the explicit maintained-notice predicate/replacement table with Template. Eligibility mismatches default to structured failure; preserve existing affirmative/ISPA semantics. Keep new check codes non-adjustable initially.
 
 Done means Template and Studio can implement against the same executable contract cases without choosing different fields, defaults or evaluators. This is the first R2 task; R2b depends on it.
 
@@ -246,37 +248,38 @@ Done means Template and Studio can implement against the same executable contrac
 
 Agreed direction for the prerelease v2.0 breaking release: requirements belong beside notice wording, using a shared helper and validated compiled metadata. Remove `notice_versions.yaml` and its reader outright, with no legacy fallback, compatibility mode or deprecation period.
 
-- [ ] Implement the R2a shared helper/report contract for eligibility and explicit coverage basis. Use normal compilation/metadata extraction, with no source parsing or extra discovery compile. Validate declaration cardinality and mandatory final check presence in the existing report/source boundary, preserving the R2a structured-failure/artifact-retention outcomes.
-- [ ] Keep Core responsible for prepared facts and missing/extra/unmapped coverage measurements. Remove the missing-coverage preparation abort and provide the measurements to the shared helper. It emits the agreed findings: missing coverage fails for agent-based notices and warns for disease-based notices; explicit neutral requirements are inapplicable. Core validates those results as part of compiled evidence.
-- [ ] Implement the R2a deferred-list output for preparation and resolve render-dependent observations before applying policy. Missing/invalid final evidence is a mandatory failure even when no diseases are missing.
-- [ ] Delete catalog loading, `Catalog`/`Version` parsing and catalog-only checks such as `assignment.check_unavailable`. Notice-local requirements become the sole contract. Missing/malformed/contradictory metadata produces explicit evidence/requirements failures; obsolete YAML is never consulted for defaults or a fallback.
-- [ ] Emit structured warnings/failures so readable failed originals reach review bundles and other rows continue. Retain assertions for conditions where a PDF must not be produced. Unrenderable rows remain report-only.
-- [ ] Preserve declared requirements and observations in the run's compiled evidence. Rebundling uses saved results/policy without recompiling or silently changing the original requirements.
-- [ ] Keep display exclusions separate from source coverage and assignment eligibility. Preserve upstream assessment rather than deriving clinical status or switching the selected notice automatically.
+- [x] Implement the R2a shared helper/report contract for eligibility and explicit coverage basis. Use normal compilation/metadata extraction, with no source parsing or extra discovery compile. Validate declaration cardinality and mandatory final check presence in the existing report/source boundary, preserving the R2a structured-failure/artifact-retention outcomes.
+- [x] Keep Core responsible for prepared facts and missing/extra/unmapped coverage measurements. Remove the missing-coverage preparation abort and provide the measurements to the shared helper. It emits the agreed findings: missing coverage fails for agent-based notices and warns for disease-based notices; explicit neutral requirements are inapplicable. Core validates those results as part of compiled evidence.
+- [x] Implement the R2a deferred-list output for preparation and resolve render-dependent observations before applying policy. Missing/invalid final evidence is a mandatory failure even when no diseases are missing.
+- [x] Delete catalog loading, `Catalog`/`Version` parsing and catalog-only checks such as `assignment.check_unavailable`. Notice-local requirements become the sole contract. Missing/malformed/contradictory metadata produces explicit evidence/requirements failures; obsolete YAML is never consulted for defaults or a fallback.
+- [x] Emit structured warnings/failures so readable failed originals reach review bundles and other rows continue. Retain assertions for conditions where a PDF must not be produced. Unrenderable rows remain report-only.
+- [x] Preserve declared requirements and observations in the run's compiled evidence. Rebundling uses saved results/policy without recompiling or silently changing the original requirements.
+- [x] Keep display exclusions separate from source coverage and assignment eligibility. Preserve upstream assessment rather than deriving clinical status or switching the selected notice automatically.
 - [ ] Audit neighboring preparation exits incrementally, distinguishing expected row problems from shared configuration, manifest identity and storage failures.
-- [ ] Remove the YAML catalog from Core fixtures and references in configuration, authoring, preparation and finding/review guides. Update setup/readiness assumptions, report contracts and tests together with Template/Studio adoption. Describe this as the v2.0 contract, without a legacy path.
+- [x] Remove the YAML catalog from Core fixtures and references in configuration, authoring, preparation and finding/review guides. Update setup/readiness assumptions, report contracts and tests together with Template/Studio adoption. Describe this as the v2.0 contract, without a legacy path.
 
 Acceptance cases: a mixed cohort with one agent mismatch completes other rows and retains that PDF for review; a disease notice warns for the same mismatch; structured eligibility failure retains a readable PDF while a deliberate assertion yields report-only; valid local requirements run without YAML; an obsolete/contradictory YAML file cannot influence results; missing/malformed/contradictory local metadata fails visibly without fallback; conditional declarations match placed content; preparation explains deferred checks; saved-run rebundling preserves requirements/observations. Update fixtures and cover both languages/source-row identity at the appropriate owning boundary. No legacy catalog acceptance tests or compatibility fixtures are needed.
 
 ### R2b: empty agent-display evidence
 
-- [ ] In the placed shared component, record source/displayed counts and exclusions after exact-name deduplication/filtering.
-- [ ] Emit a content failure when an agent recommendation list becomes empty under exclusions. Define intentional no-records replacements and authored alternatives so those cases are not mistaken for accidental empty content.
-- [ ] Keep the PDF available for review, and preserve all facts and client membership. A disease notice with no agent component is unaffected.
-- [ ] Extend report schema, native validation and shared render-contract fixtures; refresh resources through the normal downstream pin process.
+- [x] In the placed shared component, record source/displayed counts and exclusions after exact-name deduplication/filtering.
+- [x] Emit a content failure when an agent recommendation list becomes empty under exclusions. Define intentional no-records replacements and authored alternatives so those cases are not mistaken for accidental empty content.
+- [x] Keep the PDF available for review, and preserve all facts and client membership. A disease notice with no agent component is unaffected.
+- [x] Extend report schema, native validation and shared render-contract fixtures; refresh resources through the normal downstream pin process.
 
 Test zero/one/all excluded agents, duplicates, TIg, flu/COVID, no-records replacements, absent components and mixed normal/review bundles. Template owns the final wording/layout cases.
 
 ### W1/W2: warning aggregation, then acknowledgment design
 
-- [ ] Start with a run-level aggregate of code/status/structured subject, affected rows and occurrence counts. Diagnose the reported 5,836 warning rows before attributing them to one code. Keep compiler diagnostics separate.
-- [ ] Extend URL evidence with structured destinations/sets. `content.multiple_links` identifies a set; malformed/non-HTTPS checks identify individual destinations. Do not parse messages to build keys.
-- [ ] W2 first defines the native operator action, revoke action, lock-protected persistence/audit and report refresh as described in the shared plan. Then implement acknowledgment once per exact issue in a saved run, persisted across rebundle attempts. Preserve all observed/effective findings and show acknowledged versus outstanding attention counts. Acknowledgment alone changes no severity, routing or exit status.
-- [ ] Scope issue identity by code, check/resource definition and exact destination or destination set. Store fingerprints for indexing, protected evidence for inspection, reason and time. Preserve meaningful URL path/query/fragment changes. A new run or new destination requires new review.
-- [ ] Keep personalized QR values out of aggregate labels/shared logs. Do not remove query values to merge personalized URLs. Defer authored-link identities and cross-run allowlists until their trust/migration contract is designed.
-- [ ] Reconcile [AGENTS.md](AGENTS.md) with the selected behavior if needed. It currently prohibits warning-waiver machinery, but acknowledgment that preserves findings/routing need not be a waiver. The user’s request takes precedence; updating guidance is not a permission gate for this investigation.
+- [x] Add a run-level aggregate of code/status/structured subject, affected rows and occurrence counts, keeping compiler diagnostics separate.
+- [ ] Inspect the private run aggregate before attributing its 5,836 warning rows to a code; its path/data have not been supplied.
+- [x] Extend URL evidence with structured destinations/sets. `content.multiple_links` identifies a set; malformed/non-HTTPS checks identify individual destinations. Do not parse messages to build keys.
+- [x] W2 first defines the native operator action, revoke action, lock-protected persistence/audit and report refresh as described in the shared plan. Then implement acknowledgment once per exact issue in a saved run, persisted across rebundle attempts. Preserve all observed/effective findings and show acknowledged versus outstanding attention counts. Acknowledgment alone changes no severity, routing or exit status.
+- [x] Scope issue identity by code, check/resource definition and exact destination or destination set. Store fingerprints for indexing, protected evidence for inspection, reason and time. Preserve meaningful URL path/query/fragment changes. A new run or new destination requires new review.
+- [x] Keep personalized QR values out of aggregate labels/shared logs. Do not remove query values to merge personalized URLs. Defer authored-link identities and cross-run allowlists until their trust/migration contract is designed.
+- [x] Reconcile [AGENTS.md](AGENTS.md) with the selected behavior if needed. It currently prohibits warning-waiver machinery, but acknowledgment that preserves findings/routing need not be a waiver. The user’s request takes precedence; updating guidance is not a permission gate for this investigation.
 - [ ] Inventory preparation/render/artifact/delivery rules in an explicit mandatory/adjustable registry before extending policy beyond render checks. Reuse observed/effective history and exact-row reasons. Decide separately whether coverage can be downgraded for one row; do not quietly make it adjustable.
-- [ ] Preserve mandatory evidence/identity, unusable-original, encryption and file-operation failures. Holds remain exclusion from both bundle routes; release does not mean acceptance.
+- [x] Preserve mandatory evidence/identity, unusable-original, encryption and file-operation failures. Holds remain exclusion from both bundle routes; release does not mean acceptance.
 
 Acceptance cases: one static bad link across many rows is one review subject with every row traceable; a second link and a changed link-set remain outstanding; acknowledgment survives rebundle, not a new run; changed resources invalidate matching; broad code disable cannot masquerade as per-link acceptance; forged/stale identities and unknown policy codes are rejected; no new disclosure in summary labels. Keep old saved runs readable when acknowledgment fields are absent.
 
@@ -294,7 +297,7 @@ Acceptance cases: different blank-ID schools remain separate; unknown school ide
 
 ### Later: catalog, report size and real-run profiling
 
-- [ ] Explore a disease catalog schema with stable IDs, aliases and per-language/per-context labels. Core owns validation/resolution; Template owns data and wording. Keep current formats supported through an explicit migration, detect ambiguous aliases and avoid mixing label strings with IDs. Language expansion needs more than a folder rename.
+- [x] Explore a disease catalog schema with stable IDs, aliases and per-language/per-context labels. Core owns validation/resolution; Template owns data and wording. Keep current formats supported through an explicit migration, detect ambiguous aliases and avoid mixing label strings with IDs. Language expansion needs more than a folder rename.
 - [ ] Measure report section sizes, memory and browser responsiveness before optimizing. Reuse explanatory text and consider lossless sharing of repeated details while preserving every check, safe escaping, local-file/no-JavaScript access, artifact links and partial-run recovery. Do not reintroduce lossy passing-detail removal as a default. Segmented/lazy reports require a contract decision.
 - [ ] Profile the real release command externally through process exit, with wall/CPU/peak RSS, explicit workers and local resource fingerprints. Existing record timings separate preparation/render/delivery but exclude the final report write. Keep profiler overhead out of throughput comparisons; worker spans overlap. Add opt-in granular spans only if broad timing does not answer the question.
 

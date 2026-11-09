@@ -1,6 +1,6 @@
-//! Schema and fixture checks for the proposed R2 requirements contract.
-//! Active production schemas remain unchanged until the shared evaluator lands.
-use serde_json::Value;
+//! Frozen R2 evidence cases, shared with browser contract consumers.
+use immuknow::validation::Validator;
+use serde_json::{Value, json};
 use std::{fs, path::Path};
 
 fn fixture(name: &str) -> Value {
@@ -11,30 +11,24 @@ fn fixture(name: &str) -> Value {
 }
 
 #[test]
-fn proposed_contract_cases_are_well_formed() {
+fn requirements_evidence_matches_frozen_cases() {
     let corpus = fixture("requirements-contract.json");
-    let payload_schema = fixture("requirements-rendering.schema.json");
-    let report_schema = fixture("requirements-report.schema.json");
-    let payload_validator = jsonschema::validator_for(&payload_schema).unwrap();
-    let report_validator = jsonschema::validator_for(&report_schema).unwrap();
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("resources");
+    let validator = Validator::new(&root).unwrap();
     for case in corpus["cases"].as_array().unwrap() {
         let name = case["name"].as_str().unwrap();
-        payload_validator
-            .validate(&case["payload"])
-            .unwrap_or_else(|err| panic!("{name}: {err}"));
-        if case["expect"]["evidence_valid"] == true {
-            report_validator
-                .validate(&case["report"])
-                .unwrap_or_else(|err| panic!("{name}: {err}"));
-        }
-        if matches!(
-            name,
-            "missing_required_check" | "duplicate_required_check" | "invalid_status"
-        ) {
-            assert!(
-                report_validator.validate(&case["report"]).is_err(),
-                "{name} must fail the proposed schema"
-            );
-        }
+        let result = validator.payload(&case["payload"]).and_then(|()| {
+            validator.report(
+                &json!([case["report"]]),
+                &case["payload"],
+                case["report"]["page_count"].as_u64().unwrap() as usize,
+            )
+        });
+        assert_eq!(
+            result.is_ok(),
+            case["expect"]["evidence_valid"] == true,
+            "{name}: {:?}",
+            result.err()
+        );
     }
 }

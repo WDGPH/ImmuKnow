@@ -30,6 +30,12 @@ display-default adapter or separate layout-settings file.
 - `check-notice(notice, version: ..., language: ...)` checks the authored filename
   identity against prepared facts. The caller obtains the trusted identity from
   `notice-version` and `notice-language` compiler inputs.
+- `requirements(notice, eligibility: ..., coverage: ...)` must be placed once
+  in each notice. Eligibility is `any`, `has_overdue`, `has_overdue_agents`,
+  `no_overdue` or `has_ispa_overdue`; coverage is `agents`, `diseases` or
+  `neutral`. The neutral declaration is explicit. Conditions that do not fit
+  the source facts produce a finding while keeping a readable notice for review.
+  Place one declaration in the active branch of a conditional notice.
 - `intended-reader(notice)` returns `"student"`, `"guardian"` or `none`. An explicit
   `notice.intended_reader` takes priority over the age default. Address helpers use this
   same selection. Template setup exposes boolean `to_student` and `to_guardian`
@@ -73,7 +79,10 @@ display-default adapter or separate layout-settings file.
   is true, entries with different dose numbers remain distinct.
   `overdue-agents(..., ignore-agents: ("name",))` omits exact matching agent
   names from that list; it is independent of the history table's `ignore-agents`.
-  If all agents are omitted, `empty` supplies the optional replacement.
+  If all agents are omitted, `empty` supplies optional displayed text but the
+  empty recommendation still fails the agent display check. Use a visible
+  `agent-alternative(notice)[...]` instead when the notice intentionally uses
+  other wording; place exactly one agent list or alternative on agent notices.
   Dose numbering describes the
   overdue requirement. Both helpers accept `no-records: auto` to replace their
   list with an English/Canadian French request for records when the source
@@ -85,7 +94,7 @@ display-default adapter or separate layout-settings file.
   meningococcal scope also follows birth cohort and age. Mixed lists remain
   supported. `ispa-only: true` on `overdue-agents` raises an explicit error.
   See the [authoring guide](https://docs.phiz.ca/immuknow/latest/developer_guide/templates/#ispa-disease-display-and-assertions)
-  for the rules and suspension/affirmative assertions.
+  for the rules and notice requirements.
 - `immunization-history(notice, diseases: (...), include-other: true,
   ignore-agents: (), show-validity: true, omit-invalid: false)` derives the
   displayed table from prepared administrations. Valid and invalid doses have
@@ -135,9 +144,9 @@ Unused content emits no component findings. `url-encode(string)` encodes UTF-8
 query/path components with RFC 3986 unreserved characters; `query-url` applies
 it to raw dictionary keys and values. A fixed URL string is used verbatim.
 
-The report follows `report.json`: `schema_version: 2`, `identity` (`row_key`,
+The report follows `report.json`: `schema_version: 3`, `identity` (`row_key`,
 `template`, `client_id`, `version_id`, `language`), actual `page_count`, `checks`,
-`qr_urls`, `measurements`, and the `notice` data used for layout. Native and
+`qr_urls`, `measurements`, the placed `requirements`, `blocked_checks`, and the `notice` data used for layout. Native and
 browser checks compare that data with the prepared input. Each placed personal
 component also records `source_matches`; changed helper data is refused even
 when its row and client IDs are unchanged. Use helper options for display changes.

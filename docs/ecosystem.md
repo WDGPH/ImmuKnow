@@ -34,11 +34,12 @@ source commit. An executable's version alone does not establish its source
 revision.
 
 `immuknow prepare` writes JSON to standard output without creating PDFs. Its
-version 1 envelope identifies the engine, resources and input hash and contains
+version 2 envelope identifies the engine, resources and input hash and contains
 one entry per source row with its `row_key`, `client_id`, source, assignment,
-notice and checks. The row key preserves source-row identity even where an
-external client ID is absent. Notice facts use schema version 1; rendering
-reports use version 2. The unversioned schema filenames identify the current
+notice, observed checks and a separate deferred-check list. The row key preserves source-row identity even where an
+external client ID is absent. Notice facts use schema version 2; rendering
+reports use version 3. Notice-local requirements resolve deferred checks during
+compilation; invalid declarations block dependent checks explicitly. The unversioned schema filenames identify the current
 contracts; the data's `schema_version` identifies its format. Render evidence
 is checked against the prepared notice and its identity. See the
 [command and facts reference](developer_guide/cli.md) for options and the

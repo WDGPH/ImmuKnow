@@ -145,6 +145,18 @@ fn client_id(e: &Value) -> &str {
 }
 fn action(code: &str) -> &str {
     match code {
+        "notice.requirements" => {
+            "Ask the template maintainer to place exactly one valid requirements declaration in the active notice."
+        }
+        "notice.eligibility" => {
+            "Review the assigned notice and source facts. Select an appropriate notice or correct the source, then run again."
+        }
+        "data.forecast_coverage" => {
+            "Compare the overdue diseases and forecasted agents with the vaccine reference. Correct the source or mapping and run again."
+        }
+        "content.agent_display" => {
+            "Review the notice's display exclusions. Show the intended recommendations or provide an explicit alternative, then run again."
+        }
         "data.school_match" => {
             "Compare the source school name and ID with the school reference; correct the source or reference and run again."
         }
@@ -442,6 +454,35 @@ fn entry_details(html: &mut String, e: &Value) {
     let _ = write!(html, "<p>{decision}</p>");
     if let Some(reason) = e["hold"]["reason"].as_str() {
         let _ = write!(html, "<p>Hold reason: {}</p>", escaped(reason));
+    }
+    if let Some(items) = e["deferred_checks"]
+        .as_array()
+        .filter(|items| !items.is_empty())
+    {
+        html.push_str("<details><summary>Checks without validated results</summary><ul>");
+        for code in items {
+            let _ = write!(
+                html,
+                "<li><code>{}</code></li>",
+                escaped(code.as_str().unwrap_or("Unknown check"))
+            );
+        }
+        html.push_str("</ul></details>");
+    }
+    if let Some(items) = e["blocked_checks"]
+        .as_array()
+        .filter(|items| !items.is_empty())
+    {
+        html.push_str("<details><summary>Blocked checks</summary><p>These checks could not be evaluated because the notice requirements are invalid.</p><ul>");
+        for item in items {
+            let _ = write!(
+                html,
+                "<li><code>{}</code> · {}</li>",
+                escaped(text(item, "code")),
+                escaped(text(item, "reason"))
+            );
+        }
+        html.push_str("</ul></details>");
     }
     checks(html, effective(e));
     if has_diagnostics(e) {

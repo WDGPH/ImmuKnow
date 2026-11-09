@@ -59,6 +59,48 @@ impl Validator {
                 "Report belongs to another source row"
             );
         }
+        let requirements = &r["requirements"];
+        if requirements["state"] == "valid" {
+            for key in ["row_key", "client_id", "template", "version_id", "language"] {
+                ensure!(
+                    requirements["declaration"][key] == notice[key],
+                    "Requirements belong to another source row"
+                );
+            }
+            let coverage = r["checks"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|check| check["code"] == "data.forecast_coverage")
+                .context("Missing coverage finding")?;
+            ensure!(
+                coverage["measurements"] == notice["forecast_coverage"],
+                "Coverage finding differs from prepared measurements"
+            );
+            if requirements["declaration"]["coverage"] == "agents" {
+                ensure!(
+                    r["measurements"]["overdue_agents"]
+                        .as_array()
+                        .is_some_and(|v| v.len() == 1),
+                    "Agent requirements need exactly one placed agent component or alternative"
+                );
+            }
+        } else {
+            let expected = [
+                "notice.eligibility",
+                "data.forecast_coverage",
+                "content.agent_display",
+            ];
+            let blocked = r["blocked_checks"].as_array().unwrap();
+            ensure!(
+                blocked.len() == expected.len()
+                    && blocked
+                        .iter()
+                        .zip(expected)
+                        .all(|(item, code)| item["code"] == code),
+                "Incorrect blocked-check order"
+            );
+        }
         fn bounds(v: &Value, pages: usize) -> Result<()> {
             for (k, n) in v.as_object().context("Bounds need an object")? {
                 if k == "page" || k.ends_with("_page") {
@@ -104,6 +146,60 @@ impl Validator {
                     value.get("source_matches") != Some(&Value::Bool(false)),
                     "Placed component changed source data"
                 );
+                if name == "overdue_agents" {
+                    let source = notice["overdue_agents"]
+                        .as_array()
+                        .context("Missing source agents")?;
+                    let excluded = value["excluded_agents"].as_array().unwrap();
+                    let displayed = value["displayed_agents"].as_array().unwrap();
+                    ensure!(
+                        value["page"]
+                            .as_u64()
+                            .is_some_and(|page| page > 0 && page <= pages as u64),
+                        "Agent component page outside notice"
+                    );
+                    ensure!(
+                        value["source_agents"] == notice["overdue_agents"]
+                            && value["source_count"].as_u64() == Some(source.len() as u64),
+                        "Agent component source differs from prepared facts"
+                    );
+                    ensure!(
+                        value["displayed_count"].as_u64() == Some(displayed.len() as u64),
+                        "Agent displayed count is inconsistent"
+                    );
+                    ensure!(
+                        excluded
+                            .windows(2)
+                            .all(|pair| pair[0].as_str() < pair[1].as_str())
+                            && excluded.iter().all(|item| source.contains(item)),
+                        "Agent exclusions are not sorted unique source values"
+                    );
+                    let replacement = value["replacement"].as_str().unwrap();
+                    let visible = value["replacement_visible"].as_bool().unwrap();
+                    if replacement == "none" {
+                        let mut expected = Vec::new();
+                        for agent in source {
+                            if !excluded.contains(agent) && !expected.contains(agent) {
+                                expected.push(agent.clone());
+                            }
+                        }
+                        ensure!(
+                            !visible && *displayed == expected,
+                            "Agent display differs from filtered source"
+                        );
+                    } else {
+                        ensure!(
+                            visible && displayed.is_empty(),
+                            "Agent replacement is empty or has displayed agents"
+                        );
+                        if replacement == "no_records" {
+                            ensure!(
+                                notice["has_immunization_records"] == false,
+                                "No-records replacement contradicts source"
+                            );
+                        }
+                    }
+                }
             }
         }
         for c in checks {

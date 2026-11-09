@@ -62,7 +62,7 @@ An overdue disease appears more than once after disease names are standardized, 
 
 ### `data.forecast_coverage` {#data-forecast-coverage}
 
-The configured agent lookup compares forecasted agents with supplied overdue diseases. Extra diseases or unmapped agents warn; no supplied diseases or agents is not applicable. Review the source and lookup measurements. Missing disease coverage can instead stop preparation with a run error; inspect that error and correct the inputs or reference.
+The configured agent lookup compares forecasted agents with supplied overdue diseases. Missing coverage fails an agent-based notice and warns for a disease-based notice. Extra diseases or unmapped agents warn. Review the source, notice and lookup measurements.
 
 ## Assignment
 
@@ -74,15 +74,19 @@ The assignment file includes client IDs absent from the CSV. Compare the two fil
 
 The source version differs from the explicitly selected template version. Confirm the intended selection with the notice owner and correct the source or assignment.
 
-### `assignment.eligibility_conflict` {#assignment-eligibility-conflict}
+### `notice.requirements` {#notice-requirements}
 
-The selected notice's catalog applicability rule does not match the supplied facts. Check the assignment, source data and catalog rule with the notice owner; choose the appropriate notice and rerun.
+The notice must place one valid requirements declaration. A missing, duplicate or invalid declaration fails the check and sends a readable original to review. Ask the notice maintainer to correct the declaration.
 
-### `assignment.check_unavailable` {#assignment-check-unavailable}
+### `notice.eligibility` {#notice-eligibility}
 
-The selected notice has no matching catalog rule, so applicability could not be checked. Verify the assignment and catalog with the notice owner.
+The selected notice does not match its stated requirements for the supplied facts. Review the source information and notice assignment before regenerating.
 
 ## Content
+
+### `content.agent_display` {#content-agent-display}
+
+All source agents were excluded from an agent-based notice and no intentional replacement was placed. Review the exclusions and the notice; the source facts remain available.
 
 ### `content.translation_missing` {#content-translation-missing}
 

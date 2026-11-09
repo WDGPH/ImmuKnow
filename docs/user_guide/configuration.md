@@ -5,7 +5,6 @@ Your notice project contains a `config` folder with settings and reference files
 The project supplies these files alongside its templates:
 
 - `parameters.yaml` contains run settings.
-- `notice_versions.yaml` lists notice versions and when each is applicable.
 - `disease_normalization.json` maps disease names from your source to standard names.
 - `vaccine_reference.json` maps each vaccine agent (the vaccine name or code in your source) to one disease name or a list of disease names.
 - A school reference lists schools and facility IDs if school validation is enabled.
@@ -203,7 +202,7 @@ Choose one `<version_id>.<language>.typ` file for everyone in the client list, o
 ]
 ```
 
-Use `--notice-assignments assignments.json --templates ./project/templates` with the run command. Each `template` value is a filename in the `--templates` folder, without a path. Surrounding spaces are removed from IDs and filenames; leading zeros are kept. Missing or ambiguous choices and unlisted duplicate nonblank client IDs in the CSV reject the input. Extra rows in the selection file produce warnings. A conflict with the source version, an unavailable catalog check, or a choice that conflicts with the catalog produces a warning and keeps the selected template. Only `en` and `fr` are supported.
+Use `--notice-assignments assignments.json --templates ./project/templates` with the run command. Each `template` value is a filename in the `--templates` folder, without a path. Surrounding spaces are removed from IDs and filenames; leading zeros are kept. Missing or ambiguous choices and unlisted duplicate nonblank client IDs in the CSV reject the input. Extra rows in the selection file and a conflict with the source version produce warnings. The selected notice declares its own eligibility and coverage requirements; a failed requirement keeps a readable original for review. Only `en` and `fr` are supported.
 
 To accept a known repeated client ID, add it explicitly to `parameters.yaml`:
 
@@ -220,11 +219,11 @@ Review each row before sending. Unlisted duplicates still reject the input.
 For row-specific validation rules on a repeated ID, use the input SHA-256 and
 row key selector; a Panorama ID selector is ambiguous and rejected.
 
-The notice catalog, `notice_versions.yaml`, has `schema_version: 1` and `versions` entries with `kind` (`overdue`, `affirmative`, or `informational`) and optional `requires` (`has_overdue`, `has_overdue_agents`, `no_overdue`, or `any`). It checks whether the chosen notice applies; it does not choose a notice or assess immunization status.
+Each v2 notice places one requirements declaration beside its wording. The shared Typst helper checks eligibility, forecast coverage and agent display when the notice compiles. Preparation reports these checks as deferred rather than claiming they passed. See [notice requirements](../developer_guide/templates.md#notice-requirements). There is no separate notice catalog; an obsolete `notice_versions.yaml` has no effect.
 
 ## Disease and history references
 
-The vaccine reference maps each forecasted agent to one or more diseases. After the disease names are standardized, those agents must cover every overdue disease in the input. Missing coverage rejects the input; extra coverage or unmapped agents produce warnings. An invalid dose number produces a warning and keeps the disease without the number. Original source text is retained.
+The vaccine reference maps each forecasted agent to one or more diseases. Core standardizes disease names and records missing diseases, extra diseases and unmapped agents before display exclusions. Missing coverage fails an agent-based notice and warns on a disease-based notice; explicit neutral coverage is not applicable. Extra coverage or unmapped agents also warn when coverage applies. These findings belong to each compiled notice and do not stop later clients. An invalid dose number produces a warning and keeps the disease without the number. Original source text is retained.
 
 History entries use exact agent names from `vaccine_reference.json`. Every entry is checked before any are excluded from display. A history table included in a notice reports an error for an unknown agent unless its `ignore-agents` option excludes it. If the notice has no history table, no mapping check is needed. Formulation markers affect display names only. See [CSV input](input_schema.md) and [template authoring](../developer_guide/templates.md).
 

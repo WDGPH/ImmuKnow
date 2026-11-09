@@ -640,11 +640,27 @@ fn prepare_supports_both_selectors_and_does_not_create_runs() {
     );
     success(&manifest);
     let prepared: Value = serde_json::from_slice(&manifest.stdout).unwrap();
-    assert_eq!(prepared["schema_version"], 1);
+    assert_eq!(prepared["schema_version"], 2);
     assert_eq!(prepared["entries"].as_array().unwrap().len(), 5);
     for (i, e) in prepared["entries"].as_array().unwrap().iter().enumerate() {
         assert_eq!(e["notice"]["row_key"], format!("row-{:06}", i + 1));
         assert_eq!(e["notice"]["client_id"], e["source"]["client_id"]);
+        assert_eq!(e["notice"]["schema_version"], 2);
+        assert_eq!(
+            e["deferred_checks"],
+            json!([
+                "notice.requirements",
+                "notice.eligibility",
+                "data.forecast_coverage",
+                "content.agent_display"
+            ])
+        );
+        assert!(e["checks"].as_array().unwrap().iter().all(|check| {
+            !e["deferred_checks"]
+                .as_array()
+                .unwrap()
+                .contains(&check["code"])
+        }));
     }
     let mut assignments: Vec<Value> =
         serde_json::from_slice(&fs::read(&project.assignments).unwrap()).unwrap();
@@ -2072,4 +2088,162 @@ fn filename_fallbacks_report_missing_or_mixed_fields_without_changing_groups() {
     for entry in renamed["entries"].as_array().unwrap() {
         assert_eq!(entry["routing"], "deliverable");
     }
+}
+
+#[test]
+fn coverage_is_deferred_then_uses_the_placed_notice_requirements() {
+    let project = Project::new();
+    select_first_rows(
+        &project,
+        &[
+            "overdue_agents_v1.en.typ",
+            "overdue_diseases_v1.en.typ",
+            "overdue_agents_v1.en.typ",
+        ],
+    );
+    assert!(!project.config.join("notice_versions.yaml").exists());
+    // Obsolete, even malformed, catalog data cannot influence v2 notices.
+    fs::write(project.config.join("notice_versions.yaml"), "invalid: [}").unwrap();
+    let mut reader = csv::Reader::from_path(&project.csv).unwrap();
+    let headers = reader.headers().unwrap().clone();
+    let disease = headers
+        .iter()
+        .position(|name| name == "overdue_disease")
+        .unwrap();
+    let rows: Vec<_> = reader.records().map(Result::unwrap).collect();
+    drop(reader);
+    let mut writer = csv::Writer::from_path(&project.csv).unwrap();
+    writer.write_record(&headers).unwrap();
+    for (index, row) in rows.iter().enumerate() {
+        let mut row: Vec<_> = row.iter().map(str::to_owned).collect();
+        if index < 2 {
+            row[disease] = "Tetanus - 1".into();
+        }
+        writer.write_record(row).unwrap();
+    }
+    writer.flush().unwrap();
+    drop(writer);
+    let prepared = cli(
+        &project.root,
+        &[
+            "prepare",
+            p(&project.csv),
+            "--notice-assignments",
+            p(&project.assignments),
+            "--templates",
+            p(&project.templates),
+            "--config",
+            p(&project.config),
+        ],
+    );
+    success(&prepared);
+    let prepared: Value = serde_json::from_slice(&prepared.stdout).unwrap();
+    for entry in prepared["entries"].as_array().unwrap() {
+        assert!(
+            entry["checks"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|check| check["code"] != "data.forecast_coverage")
+        );
+    }
+    assert!(!project.run().status.success());
+    let (run, record) = project.record();
+    for (index, expected) in ["fail", "warn", "pass"].into_iter().enumerate() {
+        let entry = &record["entries"][index];
+        assert_eq!(entry["original"]["status"], "completed", "{entry}");
+        assert_eq!(entry["deferred_checks"], json!([]));
+        let coverage = entry["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|check| check["code"] == "data.forecast_coverage")
+            .unwrap();
+        assert_eq!(coverage["status"], expected);
+        assert_eq!(
+            coverage["measurements"],
+            entry["notice"]["forecast_coverage"]
+        );
+        if index < 2 {
+            assert_eq!(
+                coverage["measurements"]["missing_diseases"],
+                json!(["Tetanus"])
+            );
+            assert_eq!(
+                coverage["measurements"]["extra_diseases"],
+                json!(["Measles"])
+            );
+        }
+        assert!(
+            run.join(entry["original"]["path"].as_str().unwrap())
+                .is_file()
+        );
+        assert_eq!(
+            entry["routing"],
+            if index == 0 { "review" } else { "deliverable" }
+        );
+    }
+    let review = record["bundles"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|bundle| bundle["route"] == "review")
+        .unwrap();
+    assert_eq!(review["members"], json!(["row-000001"]));
+}
+
+#[test]
+fn missing_requirements_keep_a_review_pdf_and_rebundle_saved_observations() {
+    let project = Project::new();
+    select_first_rows(
+        &project,
+        &[
+            "overdue_agents_v1.en.typ",
+            "overdue_agents_v1.fr.typ",
+            "overdue_diseases_v1.en.typ",
+        ],
+    );
+    let template = project.templates.join("overdue_agents_v1.en.typ");
+    let original = fs::read_to_string(&template).unwrap();
+    let missing: String = original
+        .lines()
+        .filter(|line| !line.starts_with("#immuknow.requirements("))
+        .map(|line| format!("{line}\n"))
+        .collect();
+    fs::write(&template, missing).unwrap();
+    assert!(!project.run().status.success());
+    let (run, record) = project.record();
+    let entry = &record["entries"][0];
+    assert_eq!(entry["routing"], "review");
+    assert_eq!(entry["original"]["status"], "completed");
+    assert_eq!(entry["deferred_checks"], json!([]));
+    assert_eq!(entry["blocked_checks"].as_array().unwrap().len(), 3);
+    assert!(
+        entry["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|check| check["code"] == "notice.requirements" && check["status"] == "fail")
+    );
+    assert_eq!(record["entries"][1]["original"]["status"], "failed");
+    assert_eq!(
+        record["entries"][1]["deferred_checks"]
+            .as_array()
+            .unwrap()
+            .len(),
+        4
+    );
+    assert_eq!(record["entries"][2]["routing"], "deliverable");
+    let pdf = run.join(entry["original"]["path"].as_str().unwrap());
+    let bytes = fs::read(&pdf).unwrap();
+    fs::write(&template, original).unwrap();
+    assert!(!cli(&project.root, &["rebundle", p(&run)]).status.success());
+    let after: Value = serde_json::from_slice(&fs::read(run.join("run.json")).unwrap()).unwrap();
+    assert_eq!(after["entries"][0]["render_report"], entry["render_report"]);
+    assert_eq!(after["entries"][0]["checks"], entry["checks"]);
+    assert_eq!(
+        after["entries"][0]["blocked_checks"],
+        entry["blocked_checks"]
+    );
+    assert_eq!(fs::read(pdf).unwrap(), bytes);
 }

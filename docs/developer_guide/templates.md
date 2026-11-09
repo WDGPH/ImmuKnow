@@ -158,7 +158,7 @@ it before compilation; strings remain literal data rather than executable source
 
 | Field | Meaning |
 |---|---|
-| `schema_version` | Integer `1` |
+| `schema_version` | Integer `2` |
 | `row_key`, `client_id` | Stable original CSV row key and string source identifier |
 | `template`, `version_id`, `language` | Explicit selected filename and its resolved identity |
 | `intended_reader` | Optional `student` or `guardian` override; null or absent uses the age default in Typst |
@@ -168,6 +168,7 @@ it before compilation; strings remain literal data rather than executable source
 | `date_due`, `date_of_suspension` | Optional ISO dates, null or blank; absent on older payloads |
 | `overdue_diseases` | `{disease, dose}` facts; invalid numeric doses retain `dose_raw` |
 | `overdue_agents` | Source vaccine agent names |
+| `forecast_coverage` | Sorted unique `missing_diseases`, `extra_diseases`, and `unmapped_agents` measured from complete source facts before display exclusions |
 | `history` | Normalized administrations with ISO `date_given`, `agent`, `display_name`, configured `diseases`, `validity` and boolean `mapping_known` |
 | `validity_coverage` | Whole-file `all_present`, `all_absent` or `mixed` |
 | `has_immunization_records` | Whether the source contains any administrations before exclusions or deduplication |
@@ -265,7 +266,7 @@ table's `ignore-agents` is configured separately. If every agent is omitted,
 `empty` supplies optional replacement content. A `no-records` replacement takes
 precedence when no source records exist. Facts and coverage checks are unchanged.
 
-### ISPA disease display and assertions
+### ISPA disease display and requirements
 
 `overdue-diseases(ispa-only: true)` shows the applicable ISPA subset of the
 supplied overdue diseases. Mixed ISPA/non-ISPA input remains valid; the default
@@ -284,13 +285,10 @@ and [Regulation 645, Table 1](https://www.ontario.ca/laws/regulation/900645).
 They select already-reported overdue diseases; they do not reassess doses,
 exemptions or the other legal steps needed for a suspension order.
 
-In a letter, when ISPA status is needed, request the additional boolean explicitly:
+A suspension notice declares the existing ISPA eligibility condition beside its wording:
 
 ```typst
-#let flags = immuknow.notice-flags(include-ispa: true)
-#let ispa_up_to_date = flags.ispa_up_to_date
-#assert(not ispa_up_to_date,
-  message: "This suspension notice requires an applicable overdue ISPA disease.")
+#immuknow.requirements(eligibility: "has_ispa_overdue", coverage: "diseases")
 #immuknow.overdue-diseases(ispa-only: true)
 ```
 
@@ -301,20 +299,48 @@ Meningococcal applicability is missing or invalid, or if `date_as_of` is missing
 when needed for the meningococcal age boundary. The default four flags and
 ordinary lists remain available without those ISPA-specific facts.
 
-An affirmative template can guard its wording explicitly:
+An affirmative template declares its wording requirement explicitly:
 
 ```typst
-#assert(up_to_date, message: "This notice requires no overdue diseases.")
+#immuknow.requirements(eligibility: "no_overdue", coverage: "neutral")
 ```
 
-The catalog's `no_overdue` rule checks the same disease-based condition before
-rendering; it is the default for `kind: affirmative`. Applicability conflicts
-warn while preserving explicit assignments. A template assertion makes this a
-mandatory rendering error, close to the wording it protects. A dynamic notice that handles several
-cases internally can use `requires: any` and branch on the flags. Its selected
-version and language stay fixed. Explicit filename assignments remain available
-for distinct wording, customization and A/B testing; Core does not choose a
+Eligibility mismatches produce structured failures while retaining readable
+originals for review. Keep assertions for fundamental input or rendering
+prerequisites where no trustworthy PDF can be produced. A dynamic notice can
+branch on the flags and place exactly one requirements declaration in its active
+branch. Its selected version and language stay fixed; Core does not choose a
 notice from these flags.
+
+## Notice requirements
+
+Place one declaration beside the wording it protects. The starter Settings binds
+the notice argument, so an agent notice can use:
+
+```typst
+#immuknow.requirements(eligibility: "has_overdue_agents", coverage: "agents")
+```
+
+The shared library's unbound API is `requirements(notice, eligibility: ..., coverage: ...)`.
+Eligibility values are `any`, `has_overdue`, `has_overdue_agents`, `no_overdue`
+and `has_ispa_overdue`. Coverage is `agents`, `diseases` or explicit `neutral`.
+Neutral does not mean missing: even an informational notice places a declaration.
+Only declarations actually placed in the active branch count.
+
+The shared Typst evaluator emits the same findings in native and browser builds.
+Missing, duplicate or malformed declarations produce mandatory `notice.requirements`
+failure and list dependent checks as blocked outside observations. Readable PDFs
+remain available for review. Corrupt source identity or contradictory component
+evidence instead fails evidence validation; claimed findings are rejected and the
+original remains for review. New requirements checks cannot be disabled or downgraded.
+
+For agent-based notices, display exclusions never change coverage or eligibility.
+If every source agent is excluded, the display check fails. Intentional no-records
+wording and `immuknow.agent-alternative[Contact the clinic.]` provide explicit
+alternatives; empty or metadata-only replacements fail evidence validation.
+Preparation returns these checks in `deferred_checks`, not as placeholder findings.
+Validated compilation resolves them and saves `blocked_checks` separately when needed.
+Rebundling consumes those saved observations without reevaluating an edited notice.
 
 ## Component choices and findings
 

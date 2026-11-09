@@ -91,18 +91,6 @@ struct Assignment {
     experiment_id: Option<String>,
     experiment_arm: Option<String>,
 }
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Catalog {
-    schema_version: u32,
-    versions: BTreeMap<String, Version>,
-}
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Version {
-    kind: String,
-    requires: Option<String>,
-}
 pub struct Prepared {
     pub source: Value,
     pub notice: Value,
@@ -691,13 +679,6 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>
             })
         }
     };
-    let catalog: Catalog = parse_yaml(&fs::read_to_string(
-        config_dir.join("notice_versions.yaml"),
-    )?)?;
-    ensure!(
-        catalog.schema_version == 1 && !catalog.versions.is_empty(),
-        "Unsupported notice catalog"
-    );
     let normalization: BTreeMap<String, String> =
         crate::read_json(&config_dir.join("disease_normalization.json"))?;
     let reference: BTreeMap<String, Value> =
@@ -797,14 +778,6 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>
             },
             "Assigned template is missing"
         );
-        let version_info = catalog.versions.get(version);
-        let kind = version_info.map(|v| v.kind.as_str()).unwrap_or("unknown");
-        if version_info.is_some() {
-            ensure!(
-                matches!(kind, "overdue" | "affirmative" | "informational"),
-                "Unknown notice kind"
-            );
-        }
         let mut checks = vec![];
         if let Some(count) = counts.get(id).filter(|count| **count > 1) {
             checks.push(check(
@@ -1044,61 +1017,11 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>
         }
         let missing: Vec<_> = required.difference(&covered).cloned().collect();
         let extra: Vec<_> = covered.difference(&required).cloned().collect();
-        ensure!(
-            missing.is_empty(),
-            "Forecasted agents do not cover all overdue diseases for {row_key}"
-        );
-        let (status, message) = if !extra.is_empty() || !unmapped.is_empty() {
-            (
-                "warn",
-                "Forecasted agents cover the overdue diseases, but add other diseases or include an agent absent from the lookup.",
-            )
-        } else if !required.is_empty() || !agents.is_empty() {
-            ("pass", "Forecasted agents cover all overdue diseases.")
-        } else {
-            (
-                "not_applicable",
-                "No overdue diseases or forecasted agents were supplied.",
-            )
-        };
-        let mut forecast = check("data.forecast_coverage", status, message);
-        forecast["measurements"] =
-            json!({"missing_diseases":missing,"extra_diseases":extra,"unmapped_agents":unmapped});
-        checks.push(forecast);
         if !get(r, "version_id").is_empty() && get(r, "version_id") != version {
             checks.push(check(
                 "assignment.version_conflict",
                 "warn",
                 "Source version differs from the selected version.",
-            ));
-        }
-        if let Some(info) = version_info {
-            let rule = info.requires.as_deref().unwrap_or(match kind {
-                "overdue" => "has_overdue",
-                "affirmative" => "no_overdue",
-                _ => "any",
-            });
-            let applicable = match rule {
-                "has_overdue" => !overdue.is_empty(),
-                "has_overdue_agents" => !agents.is_empty(),
-                "no_overdue" => overdue.is_empty(),
-                "any" => true,
-                _ => bail!("Unknown catalog applicability rule"),
-            };
-            checks.push(check(
-                "assignment.eligibility_conflict",
-                if applicable { "pass" } else { "warn" },
-                if applicable {
-                    "The selected notice matches the supplied information."
-                } else {
-                    "Selected notice does not match the supplied facts."
-                },
-            ));
-        } else {
-            checks.push(check(
-                "assignment.check_unavailable",
-                "warn",
-                "The selected notice has no matching rule in the notice catalog.",
             ));
         }
         let first = get(r, "first_name");
@@ -1109,7 +1032,7 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>
             .collect::<Vec<_>>()
             .join(" ");
         let notice = json!({
-            "schema_version": 1,
+            "schema_version": 2,
             "row_key": row_key,
             "client_id": id,
             "oiid": get(r, "oiid"),
@@ -1144,12 +1067,13 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<Prepared>
             "date_of_suspension": c.date_of_suspension,
             "overdue_diseases": overdue,
             "overdue_agents": agents,
+            "forecast_coverage": {"missing_diseases":missing,"extra_diseases":extra,"unmapped_agents":unmapped},
             "history": history,
             "has_immunization_records": !history.is_empty(),
             "validity_coverage": dataset_coverage,
             "history_validity_coverage": coverage(hk, hu)
         });
-        result.push(Prepared{source,notice,checks,assignment:json!({"template":a.template,"version_id":version,"language":language,"notice_kind":kind,"experiment_id":a.experiment_id,"experiment_arm":a.experiment_arm})});
+        result.push(Prepared{source,notice,checks,assignment:json!({"template":a.template,"version_id":version,"language":language,"experiment_id":a.experiment_id,"experiment_arm":a.experiment_arm})});
     }
     Ok(result)
 }

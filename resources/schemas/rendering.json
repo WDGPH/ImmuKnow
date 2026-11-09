@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:immuknow:rendering:1",
-  "title": "ImmuKnow rendering payload version 1",
+  "$id": "urn:immuknow:rendering:2",
+  "title": "ImmuKnow rendering payload version 2 (proposed)",
   "type": "object",
   "required": [
     "schema_version",
@@ -18,11 +18,12 @@
     "row_key",
     "template",
     "school",
-    "board"
+    "board",
+    "forecast_coverage"
   ],
   "properties": {
     "schema_version": {
-      "const": 1
+      "const": 2
     },
     "version_id": {
       "type": "string",
@@ -315,6 +316,41 @@
           "format": "date"
         }
       ]
+    },
+    "forecast_coverage": {
+      "type": "object",
+      "properties": {
+        "missing_diseases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "extra_diseases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "unmapped_agents": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "missing_diseases",
+        "extra_diseases",
+        "unmapped_agents"
+      ],
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

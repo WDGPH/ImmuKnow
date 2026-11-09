@@ -1,5 +1,6 @@
 #import "settings.typ": *
 #show: letter
+#immuknow.requirements(notice, eligibility: "has_ispa_overdue", coverage: "diseases")
 #notice-page("Rendering fixture")[
   #immuknow.client-block(notice, window: envelope-window, font-size: client-font-size, details: client-details)
   As of #date_as_of

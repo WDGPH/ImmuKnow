@@ -1,4 +1,5 @@
 // Findings are metadata attached only to content that is actually placed.
+#import "requirements.typ": identity, evaluate-requirements
 #let check(code, status, message, component: none, page: none, measurements: none) = {
   assert(status in ("pass", "warn", "fail", "not_applicable", "not_run"), message: "Unknown check status")
   let value = (code: code, stage: "render", status: status, message: message)
@@ -31,7 +32,7 @@
     } else {
       measurements.insert(name, placed.map(it => {
         let value = it.measurements
-        if it.notice != none { value.insert("source_matches", it.notice == notice) }
+        if type(value) == dictionary and it.notice != none { value.insert("source_matches", it.notice == notice) }
         value
       }))
     }
@@ -83,11 +84,24 @@
     multiple-check.insert("subjects", ((kind: "url_set", urls: destinations.sorted().dedup()),))
   }
   checks.push(multiple-check)
+  let declarations = query(<immuknow-requirements>).map(it => it.value)
+  let source-identity = identity(notice)
+  // Every declaration must carry verifiable source provenance, even when a
+  // malformed or duplicate declaration takes the sanitized failed branch.
+  let report-identity = source-identity
+  for declaration in declarations {
+    let candidate = if type(declaration) == dictionary { declaration.at("identity", default: none) } else { none }
+    if candidate != source-identity { report-identity = candidate; break }
+  }
+  let agent-evidence = measurements.at("overdue_agents", default: ())
+  let evaluated = evaluate-requirements(notice, declarations, agent-evidence)
+  checks += evaluated.checks
   [#metadata((
     schema_version: report-schema.properties.schema_version.const,
     notice: notice,
-    identity: (row_key: notice.row_key, template: notice.template, client_id: notice.client_id, version_id: notice.version_id, language: notice.language),
+    identity: report-identity,
     page_count: counter(page).final().first(), components: components, checks: checks,
+    requirements: evaluated.requirements, blocked_checks: evaluated.blocked,
     qr_urls: qr-urls,
     measurements: measurements,
   )) <immuknow-report>]
