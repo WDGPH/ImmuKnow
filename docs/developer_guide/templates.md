@@ -16,7 +16,7 @@ or use an authored project whose resources match your Core executable. See
 [Studio compatibility](../user_guide/studio.md) before using a browser export. Template owns the starter letters,
 Settings, display translations and example images. Core supplies the shared
 Typst library and native contracts; its package contains no starter project.
-Keep `setup.typ`, `settings.typ`, `presentation.typ`, `assets/`, `translations/` and
+Keep `settings.typ`, `assets/`, `translations/` and
 `lib/immuknow/` together in the project's `templates/` directory.
 
 ```bash
@@ -64,12 +64,12 @@ The opening stays short:
 ```typst
 // Essential setup: keep these opening lines.
 // @immuknow-settings: settings.typ
-#import "setup.typ": *
+#import "settings.typ" as immuknow
 #show: immuknow.letter // Apply the letter layout
 
 #immuknow.notice-page("Request for Immunization Record")[
-  #immuknow.client-block(window: envelope-window)
-  As of *#date_as_of*, our files show these overdue immunizations:
+  #immuknow.client-block(window: immuknow.envelope-window)
+  As of *#immuknow.date_as_of*, our files show these overdue immunizations:
   #immuknow.overdue-diseases(include-dose: false)
 ]
 #immuknow.notice-page("Immunization Record")[
@@ -78,7 +78,8 @@ The opening stays short:
 ]
 ```
 
-`setup.typ` exposes the configured helpers as `immuknow`. Settings reads the
+Importing `settings.typ` as `immuknow` exposes the configured helpers, dates and
+flags through one namespace. Settings reads the
 JSON supplied through `sys.inputs.at("data")` and checks trusted compiler inputs
 `notice-template`, `notice-version` and `notice-language`. It connects the client
 data to the helpers once. Entry points do not repeat data arguments or literal
@@ -89,14 +90,16 @@ Core's underlying functions still take explicit data arguments and never read
 compiler inputs when imported. Template owns the project setup that makes those
 functions ready to use.
 
-Settings holds shared page, envelope, theme, QR and history choices.
+Settings holds shared page, envelope, theme, QR and history choices, and loads
+the project's translation JSON files through literal paths.
 Write organization names, mailing addresses, links and phone numbers directly
 in the Template where they appear. Keep notice-specific choices there too,
 including suspension dates and whether that notice shows a QR code.
 Omit helper options when their defaults already express what you want. Its configured
 `immuknow.notice-page` helper supplies the header and section styling. Dates are bound
-as `date_of_delivery`, `date_as_of`, `date_due`, `date_of_suspension` and
-`date_of_birth`. Unset optional dates format as an empty string. History remains a lazy
+as `immuknow.date_of_delivery`, `immuknow.date_as_of`, `immuknow.date_due`,
+`immuknow.date_of_suspension` and `immuknow.date_of_birth`. Unset optional dates
+format as an empty string. History remains a lazy
 function so a suspension order can omit it without evaluating history display
 requirements. The configured `immuknow.immunization-history` and `immuknow.notice-page` helpers accept
 named options for one call, after the shared defaults. See
@@ -121,10 +124,10 @@ contacts, for example:
 Link destinations are checked for HTTPS, email or telephone address format;
 the checks do not establish that a destination exists or responds.
 
-Shared setup supplies boolean `to_student` and `to_guardian` flags:
+Settings exposes boolean `immuknow.to_student` and `immuknow.to_guardian` flags:
 
 ```typst
-#if to_student [you have] else if to_guardian [your child has] else [the named client has]
+#if immuknow.to_student [you have] else if immuknow.to_guardian [your child has] else [the named client has]
 ```
 
 Only one flag can be true. Core's `intended-reader(notice)` helper uses the source
@@ -181,7 +184,7 @@ The fields inside `client_data` are:
 | `date_of_birth_iso` | Birth date as `YYYY-MM-DD`, or blank when unavailable |
 | `age` | Age in years on the delivery date, or null when unknown |
 
-For student or guardian wording, use `to_student` and `to_guardian` as described
+For student or guardian wording, use `immuknow.to_student` and `immuknow.to_guardian` as described
 in [Entry points and Settings](#entry-points-and-settings). The `age` field
 supplies the age-based default; an explicit `intended_reader` choice takes priority and
 does not change the age facts.
@@ -223,10 +226,11 @@ chart still count as records. A blank history or the source's empty-history
 placeholder does not. The two record/overdue flags are independent and may both
 be true.
 
-Use the flags for individual phrases or to omit an entire section:
+In a notice that imports Settings as `immuknow`, use the flags for individual
+phrases or to omit an entire section:
 
 ```typst
-#if not no_records and not up_to_date [
+#if not immuknow.no_records and not immuknow.up_to_date [
   Our records show the following outstanding disease requirements:
   #immuknow.overdue-diseases()
 ]
