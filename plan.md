@@ -31,16 +31,21 @@ Use the same authoring approach as `encryption.password.template`: explicit supp
 
 Acceptance cases: names with spaces/accents/unsafe characters; every supported field in the correct scope; escaped/malformed braces and unknown fields; missing values and mixed bundle metadata; duplicate IDs/names and normalized/case collisions; chunk numbers past 99 and omitted number placeholders; original/protected copies remain distinct; review/normal names and PDF/CSV stems agree; report links/hashes and rebundle work with custom paths; password output/redaction unchanged; legacy configs/runs retain existing behavior. Use fictional data and inspect representative filenames and artifacts.
 
-## P1: notice-dependent forecast coverage
+## P1: notice-local requirements and forecast coverage
 
-- [ ] Replace the missing-coverage preparation abort with an observed `data.forecast_coverage` row result retaining missing/extra/unmapped measurements and original facts.
-- [ ] Add an explicit catalog coverage basis, independent of `requires`. Define old-catalog behavior and schema/resource identity compatibility before consumers add the field. Missing coverage: fail for agents, warn for diseases; unknown basis gets a visible diagnostic and conservative failure. Review non-agent/disease notice types explicitly.
-- [ ] Keep the complete source-row collection and assignments, render rows with trustworthy facts, and let effective findings route readable PDFs to review. A row that cannot render remains report-only. Independent later rows must continue.
-- [ ] Keep display exclusions out of source coverage and assignment eligibility. Preserve upstream assessment rather than deriving new clinical status.
-- [ ] Audit neighboring preparation exits for expected row errors versus shared failures. Do this incrementally; do not turn ambiguous shared configuration, manifest identity problems or I/O failures into permissive warnings.
-- [ ] Update preparation/render contracts, finding help and the configuration/PDF-review guides with the actual new behavior.
+Agreed direction: requirements belong beside the notice wording, using a shared helper and validated compiled metadata. Retire `notice_versions.yaml` as an authoring requirement; keep it temporarily as an optional compatibility fallback.
 
-Acceptance cases: a mixed cohort with one agent-notice mismatch finishes other notices and creates a review original; the same mismatch on a disease notice warns; unknown basis stays visible; extra/unmapped mappings retain measurements; render failure leaves no invented review PDF; source row identity and independent processing survive; rebundling retains the preparation finding.
+- [ ] Add a shared notice-local helper/report contract for eligibility and explicit coverage basis. Extend the existing schemas, native validator and evidence fixtures. Use normal compilation and metadata extraction; avoid source parsing or an extra compilation/discovery pass.
+- [ ] Keep Core responsible for prepared facts and missing/extra/unmapped coverage measurements. Remove the missing-coverage preparation abort; evaluate notice-dependent results after reading the actual compiled declaration. Missing coverage fails for agent-based notices and warns for disease-based notices; review other bases explicitly.
+- [ ] Define preparation output for checks deferred until rendering. A preparation-only result must not claim notice requirements have already passed. Final unresolved requirements must be visible and conservatively handled.
+- [ ] Make catalog loading optional and limited to legacy notices without local requirements. The local declaration takes precedence; do not duplicate its check or force continued YAML maintenance. Invalid local metadata is an evidence failure, not a reason to fall back. Define a visible conservative result when both sources are absent.
+- [ ] Emit structured warnings/failures so readable failed originals reach review bundles and other rows continue. Retain assertions for conditions where a PDF must not be produced. Unrenderable rows remain report-only.
+- [ ] Preserve declared requirements and observations in the run's compiled evidence. Rebundling uses saved results/policy without recompiling or silently changing the original requirements.
+- [ ] Keep display exclusions separate from source coverage and assignment eligibility. Preserve upstream assessment rather than deriving clinical status or switching the selected notice automatically.
+- [ ] Audit neighboring preparation exits incrementally, distinguishing expected row problems from shared configuration, manifest identity and storage failures.
+- [ ] Update configuration, authoring, preparation and finding/review guides alongside behavior. After Template migration, new starter projects no longer need the YAML catalog; legacy projects retain the documented fallback.
+
+Acceptance cases: a mixed cohort with one agent mismatch completes other rows and retains that PDF for review; a disease notice warns for the same mismatch; structured eligibility failure retains a readable PDF while a deliberate assertion yields report-only; valid local requirements run without YAML; local metadata overrides stale YAML without duplicate findings; legacy YAML-only projects still work; malformed/contradictory metadata cannot fall back; missing both sources is visible; conditional declarations match placed content; preparation explains deferred checks; saved-run rebundling preserves requirements/observations. Cover both languages and source-row identity at the appropriate owning boundary.
 
 ## P1: empty agent-display evidence
 
