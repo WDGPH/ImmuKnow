@@ -12730,6 +12730,513 @@
         "routing": "review",
         "lifecycle": "unverified"
       }
+    },
+    {
+      "name": "unicode_exclusion_order",
+      "payload": {
+        "schema_version": 2,
+        "row_key": "row-000001",
+        "client_id": "0000000001",
+        "template": "overdue_diseases_v1.en.typ",
+        "version_id": "overdue_diseases_v1",
+        "language": "en",
+        "client_data": {
+          "name": "Alice Zephyr",
+          "first_name": "Alice",
+          "last_name": "Zephyr",
+          "address": "123 Main St",
+          "city": "Guelph",
+          "province": "ON",
+          "postal_code": "N1H 2T2",
+          "date_of_birth_iso": "2015-01-02",
+          "age": 9,
+          "school": "Tunnel Academy"
+        },
+        "school": {
+          "id": "sch_row-000001",
+          "name": "Tunnel Academy"
+        },
+        "board": {
+          "id": "brd_row-000001",
+          "name": "Guelph Board"
+        },
+        "date_of_delivery": "2025-04-08",
+        "date_as_of": "2025-08-31",
+        "overdue_diseases": [
+          {
+            "disease": "Measles",
+            "dose": 2
+          }
+        ],
+        "overdue_agents": [
+          "😀",
+          ""
+        ],
+        "history": [
+          {
+            "date_given": "2020-05-01",
+            "diseases": [
+              "Diphtheria",
+              "Tetanus",
+              "Pertussis"
+            ],
+            "agent": "DTaP",
+            "display_name": "DTaP",
+            "validity": "unknown",
+            "mapping_known": true
+          },
+          {
+            "date_given": "2021-06-15",
+            "diseases": [
+              "Measles",
+              "Mumps",
+              "Rubella"
+            ],
+            "agent": "MMR",
+            "display_name": "MMR",
+            "validity": "unknown",
+            "mapping_known": true
+          }
+        ],
+        "history_validity_coverage": "all_absent",
+        "validity_coverage": "all_absent",
+        "has_immunization_records": true,
+        "forecast_coverage": {
+          "missing_diseases": [],
+          "extra_diseases": [],
+          "unmapped_agents": []
+        }
+      },
+      "report": {
+        "schema_version": 3,
+        "notice": {
+          "schema_version": 2,
+          "row_key": "row-000001",
+          "client_id": "0000000001",
+          "template": "overdue_diseases_v1.en.typ",
+          "version_id": "overdue_diseases_v1",
+          "language": "en",
+          "client_data": {
+            "name": "Alice Zephyr",
+            "first_name": "Alice",
+            "last_name": "Zephyr",
+            "address": "123 Main St",
+            "city": "Guelph",
+            "province": "ON",
+            "postal_code": "N1H 2T2",
+            "date_of_birth_iso": "2015-01-02",
+            "age": 9,
+            "school": "Tunnel Academy"
+          },
+          "school": {
+            "id": "sch_row-000001",
+            "name": "Tunnel Academy"
+          },
+          "board": {
+            "id": "brd_row-000001",
+            "name": "Guelph Board"
+          },
+          "date_of_delivery": "2025-04-08",
+          "date_as_of": "2025-08-31",
+          "overdue_diseases": [
+            {
+              "disease": "Measles",
+              "dose": 2
+            }
+          ],
+          "overdue_agents": [
+            "😀",
+            ""
+          ],
+          "history": [
+            {
+              "date_given": "2020-05-01",
+              "diseases": [
+                "Diphtheria",
+                "Tetanus",
+                "Pertussis"
+              ],
+              "agent": "DTaP",
+              "display_name": "DTaP",
+              "validity": "unknown",
+              "mapping_known": true
+            },
+            {
+              "date_given": "2021-06-15",
+              "diseases": [
+                "Measles",
+                "Mumps",
+                "Rubella"
+              ],
+              "agent": "MMR",
+              "display_name": "MMR",
+              "validity": "unknown",
+              "mapping_known": true
+            }
+          ],
+          "history_validity_coverage": "all_absent",
+          "validity_coverage": "all_absent",
+          "has_immunization_records": true,
+          "forecast_coverage": {
+            "missing_diseases": [],
+            "extra_diseases": [],
+            "unmapped_agents": []
+          }
+        },
+        "identity": {
+          "row_key": "row-000001",
+          "template": "overdue_diseases_v1.en.typ",
+          "client_id": "0000000001",
+          "version_id": "overdue_diseases_v1",
+          "language": "en"
+        },
+        "page_count": 2,
+        "components": {
+          "page": true,
+          "section": true,
+          "header": true,
+          "address": true,
+          "client": true,
+          "signature": true,
+          "history": true,
+          "overdue_diseases": true,
+          "overdue_agents": true,
+          "qr": true,
+          "privacy": true,
+          "link": true
+        },
+        "checks": [
+          {
+            "code": "layout.header_title_lines",
+            "stage": "render",
+            "status": "pass",
+            "message": "Title fits within three lines.",
+            "component": "header",
+            "page": 1,
+            "measurements": {
+              "title_height_pt": 46.98,
+              "three_line_height_pt": 93.08
+            }
+          },
+          {
+            "code": "layout.address_outside_window",
+            "stage": "render",
+            "status": "pass",
+            "message": "Address fits the envelope safe area.",
+            "component": "address",
+            "page": 1,
+            "measurements": {
+              "x_pt": 74.0,
+              "y_pt": 131.0,
+              "width_pt": 99.27000000000002,
+              "height_pt": 48.66,
+              "page": 1,
+              "window_x_pt": 63.0,
+              "window_y_pt": 120.0,
+              "window_width_pt": 324.0,
+              "window_height_pt": 81.0,
+              "window_padding_pt": 11.0,
+              "left_pt": 0.0,
+              "top_pt": 0.0,
+              "right_pt": 0.0,
+              "bottom_pt": 0.0
+            }
+          },
+          {
+            "code": "layout.client_details_in_window",
+            "stage": "render",
+            "status": "pass",
+            "message": "Client details stay outside the envelope window.",
+            "component": "client",
+            "page": 1,
+            "measurements": {
+              "x_pt": 398.0,
+              "y_pt": 131.0,
+              "width_pt": 133.59,
+              "height_pt": 34.87,
+              "window_x_pt": 63.0,
+              "window_y_pt": 120.0,
+              "window_width_pt": 324.0,
+              "window_height_pt": 81.0,
+              "window_padding_pt": 11.0
+            }
+          },
+          {
+            "code": "layout.signature_page",
+            "stage": "render",
+            "status": "pass",
+            "message": "Signature remains with preceding content.",
+            "component": "signature",
+            "page": 1,
+            "measurements": {
+              "expected_page": 1,
+              "first_page": 1,
+              "last_page": 1,
+              "x_pt": 49.60629921259842,
+              "y_pt": 476.8133070866143,
+              "end_y_pt": 547.9129921259844
+            }
+          },
+          {
+            "code": "layout.section_pages",
+            "stage": "render",
+            "status": "pass",
+            "message": "Section fits on one page.",
+            "component": "section",
+            "page": 1,
+            "measurements": {
+              "first_page": 1,
+              "last_page": 1
+            }
+          },
+          {
+            "code": "layout.header_title_lines",
+            "stage": "render",
+            "status": "pass",
+            "message": "Title fits within three lines.",
+            "component": "header",
+            "page": 2,
+            "measurements": {
+              "title_height_pt": 15.04,
+              "three_line_height_pt": 93.08
+            }
+          },
+          {
+            "code": "layout.history_width",
+            "stage": "render",
+            "status": "pass",
+            "message": "History column width compared with available space.",
+            "component": "history",
+            "page": 2,
+            "measurements": {
+              "available_width_pt": 505.7007874015748,
+              "minimum_width_pt": 271.0
+            }
+          },
+          {
+            "code": "layout.section_pages",
+            "stage": "render",
+            "status": "pass",
+            "message": "Section fits on one page.",
+            "component": "section",
+            "page": 2,
+            "measurements": {
+              "first_page": 2,
+              "last_page": 2
+            }
+          },
+          {
+            "code": "layout.privacy_page",
+            "stage": "render",
+            "status": "pass",
+            "message": "Privacy notice placement.",
+            "component": "privacy",
+            "page": 2,
+            "measurements": {
+              "expected_page": 2,
+              "actual_page": 2
+            }
+          },
+          {
+            "code": "layout.envelope_window_missing",
+            "stage": "render",
+            "status": "pass",
+            "component": "address",
+            "page": 1,
+            "message": "An envelope window was specified."
+          },
+          {
+            "code": "notice.requirements",
+            "stage": "render",
+            "status": "pass",
+            "message": "notice.requirements: pass"
+          },
+          {
+            "code": "notice.eligibility",
+            "stage": "render",
+            "status": "pass",
+            "message": "notice.eligibility: pass"
+          },
+          {
+            "code": "data.forecast_coverage",
+            "stage": "render",
+            "status": "pass",
+            "message": "data.forecast_coverage: pass",
+            "measurements": {
+              "missing_diseases": [],
+              "extra_diseases": [],
+              "unmapped_agents": []
+            }
+          },
+          {
+            "code": "content.agent_display",
+            "stage": "render",
+            "status": "fail",
+            "message": "content.agent_display: fail"
+          }
+        ],
+        "qr_urls": [
+          "https://example.org/update?client_id=0000000001&dob=2015-01-02&lang=en"
+        ],
+        "measurements": {
+          "page": [
+            {}
+          ],
+          "section": [
+            {
+              "title": "Request for Immunization Record",
+              "first_page": 1,
+              "last_page": 1
+            },
+            {
+              "title": "Immunization Record",
+              "first_page": 2,
+              "last_page": 2
+            }
+          ],
+          "header": [
+            {
+              "title_height_pt": 46.98,
+              "three_line_height_pt": 93.08
+            },
+            {
+              "title_height_pt": 15.04,
+              "three_line_height_pt": 93.08
+            }
+          ],
+          "address": [
+            {
+              "x_pt": 74.0,
+              "y_pt": 131.0,
+              "width_pt": 99.27000000000002,
+              "height_pt": 48.66,
+              "page": 1,
+              "window_x_pt": 63.0,
+              "window_y_pt": 120.0,
+              "window_width_pt": 324.0,
+              "window_height_pt": 81.0,
+              "window_padding_pt": 11.0,
+              "text": "To Parent/Guardian of:\nAlice Zephyr\n123 Main St\nGuelph, ON N1H 2T2",
+              "row_key": "row-000001",
+              "client_id": "0000000001",
+              "source_matches": true
+            }
+          ],
+          "client": [
+            {
+              "page": 1,
+              "x_pt": 398.0,
+              "y_pt": 131.0,
+              "width_pt": 133.59,
+              "height_pt": 34.87,
+              "text": "Client ID: 0000000001\nDate of Birth: January 2, 2015\nSchool: Tunnel Academy",
+              "row_key": "row-000001",
+              "client_id": "0000000001",
+              "source_matches": true
+            }
+          ],
+          "signature": [
+            {
+              "first_page": 1,
+              "last_page": 1,
+              "x_pt": 49.60629921259842,
+              "y_pt": 476.8133070866143,
+              "end_y_pt": 547.9129921259844
+            }
+          ],
+          "history": [
+            {
+              "administrations": 2,
+              "displayed_rows": 2,
+              "page": 2,
+              "row_key": "row-000001",
+              "client_id": "0000000001",
+              "source_matches": true
+            }
+          ],
+          "overdue_diseases": [
+            {
+              "row_key": "row-000001",
+              "client_id": "0000000001",
+              "source_matches": true
+            }
+          ],
+          "qr": [
+            {
+              "row_key": "row-000001",
+              "client_id": "0000000001",
+              "source_matches": true
+            }
+          ],
+          "privacy": [
+            {
+              "page": 2
+            }
+          ],
+          "link": [
+            {
+              "page": 1,
+              "url": "https://example.org/immunization"
+            },
+            {
+              "page": 1,
+              "url": "mailto:records@example.org"
+            },
+            {
+              "page": 1,
+              "url": "https://example.org/exemptions"
+            }
+          ],
+          "overdue_agents": [
+            {
+              "page": 1,
+              "row_key": "row-000001",
+              "client_id": "0000000001",
+              "source_matches": true,
+              "source_agents": [
+                "😀",
+                ""
+              ],
+              "source_count": 2,
+              "excluded_agents": [
+                "",
+                "😀"
+              ],
+              "displayed_agents": [],
+              "displayed_count": 0,
+              "replacement": "none",
+              "replacement_visible": false
+            }
+          ]
+        },
+        "requirements": {
+          "state": "valid",
+          "declaration": {
+            "row_key": "row-000001",
+            "client_id": "0000000001",
+            "template": "overdue_diseases_v1.en.typ",
+            "version_id": "overdue_diseases_v1",
+            "language": "en",
+            "eligibility": "has_overdue_agents",
+            "coverage": "agents"
+          }
+        },
+        "blocked_checks": []
+      },
+      "expect": {
+        "evidence_valid": true,
+        "observations": {
+          "notice.requirements": "pass",
+          "notice.eligibility": "pass",
+          "data.forecast_coverage": "pass",
+          "content.agent_display": "fail"
+        },
+        "blocked_checks": [],
+        "deferred_after": [],
+        "failure": null,
+        "routing": "review",
+        "lifecycle": "valid"
+      }
     }
   ],
   "compilation_cases": [
