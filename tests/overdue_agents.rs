@@ -58,3 +58,68 @@ fn repeated_agents_are_displayed_once_in_first_occurrence_order() {
         assert_eq!(component["notice"], notice);
     }
 }
+
+#[test]
+fn exclusions_are_exact_and_leave_facts_and_no_records_behavior_intact() {
+    let temp = tempfile::tempdir().unwrap();
+    resources::materialize(temp.path()).unwrap();
+    let notice = json!({
+        "row_key": "row-000001", "client_id": "0000000001", "language": "en",
+        "overdue_agents": ["Flu", "MMR", "Flu", "flu", "MMR"],
+        "has_immunization_records": true
+    });
+    fs::write(temp.path().join("probe.typ"), r#"
+#import "typst/src/overdue.typ": overdue-agents
+#let notice = json(sys.inputs.data)
+#let no-records = (..notice, has_immunization_records: false)
+#show text: it => [#metadata(it.text) <seen>#it]
+#overdue-agents(notice, style: "comma-separated", ignore-agents: ("Flu",))
+#overdue-agents(notice, ignore-agents: ("Flu", "MMR", "flu"), empty: "Nothing overdue")
+#overdue-agents(no-records, ignore-agents: ("Flu", "MMR", "flu"), empty: "Nothing overdue", no-records: "Send records")
+#context [#metadata((texts: query(<seen>).map(it => it.value),
+  components: query(<immuknow-component>).map(it => it.value))) <immuknow-report>]
+"#).unwrap();
+    let mut compiler = Compiler::new(temp.path().to_path_buf(), Compiler::fonts());
+    let request = Request {
+        inputs: BTreeMap::from([("immuknow-template-path".into(), "/probe.typ".into())]),
+        notice: notice.clone(),
+        timestamp: 1_750_000_000,
+    };
+    let compiled = compiler
+        .run(&request)
+        .expect("exclusion probe must compile");
+    let report = &compiled.reports.unwrap()[0];
+    assert_eq!(
+        report["texts"],
+        json!(["MMR, flu", "Nothing overdue", "Send records"])
+    );
+    let components = report["components"].as_array().unwrap();
+    assert_eq!(components.len(), 3);
+    assert_eq!(components[0]["notice"], notice);
+    assert_eq!(components[1]["notice"], notice);
+    assert_eq!(
+        components[2]["notice"]["overdue_agents"],
+        notice["overdue_agents"]
+    );
+
+    for invalid in ["\"Flu\"", "(\"\",)", "(42,)"] {
+        fs::write(
+            temp.path().join("probe.typ"),
+            format!(
+                r#"
+#import "typst/src/overdue.typ": overdue-agents
+#overdue-agents(json(sys.inputs.data), ignore-agents: {invalid})
+"#
+            ),
+        )
+        .unwrap();
+        let error = compiler
+            .run(&request)
+            .err()
+            .expect("invalid exclusions must fail");
+        assert!(
+            error.contains("ignore-agents must contain nonempty strings"),
+            "{error}"
+        );
+    }
+}

@@ -1,6 +1,7 @@
 #import "localization.typ": overdue-label, no-records-message
 #import "findings.typ": component
 #import "ispa.typ": ispa-overdue-diseases
+#import "validation.typ": strings
 
 #let items-grid(items, columns, spacing, row-spacing, empty, style, indent) = {
   assert(style in ("bullets", "comma-separated"), message: "style must be bullets or comma-separated")
@@ -39,9 +40,10 @@
   }
 }
 
-#let overdue-agents(notice, style: "bullets", columns: auto, indent: 0.8cm, spacing: 12pt, row-spacing: 4pt, empty: none, no-records: none, ispa-only: false, language: auto) = {
+#let overdue-agents(notice, style: "bullets", columns: auto, indent: 0.8cm, spacing: 12pt, row-spacing: 4pt, empty: none, no-records: none, ispa-only: false, language: auto, ignore-agents: ()) = {
   assert(type(ispa-only) == bool, message: "ispa-only must be a boolean")
   assert(not ispa-only, message: "ispa-only is not supported for overdue-agents; use overdue-diseases for ISPA-only display.")
+  strings(ignore-agents, "ignore-agents")
   let lang = if language == auto { notice.language } else { language }
   assert(lang in ("en", "fr"), message: "Unsupported notice language")
   let replacement = records-replacement(notice, no-records, lang)
@@ -49,7 +51,7 @@
   if replacement != none { replacement } else {
     // The source can repeat an agent for each disease it covers. Keep the
     // original facts for evidence and display each exact agent once, in order.
-    let agents = notice.overdue_agents.fold((), (items, agent) =>
+    let agents = notice.overdue_agents.filter(agent => agent not in ignore-agents).fold((), (items, agent) =>
       if agent in items { items } else { items + (agent,) })
     items-grid(agents, columns, spacing, row-spacing, empty, style, indent)
   }

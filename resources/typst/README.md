@@ -69,6 +69,9 @@ display-default adapter or separate layout-settings file.
 - `overdue-diseases(notice, include-dose: false)` and `overdue-agents(notice)`
   produce bullets or comma-separated lists. Repeated exact agent names display
   once in their first-occurrence order; the supplied facts remain unchanged.
+  `overdue-agents(..., ignore-agents: ("name",))` omits exact matching agent
+  names from that list; it is independent of the history table's `ignore-agents`.
+  If all agents are omitted, `empty` supplies the optional replacement.
   Dose numbering describes the
   overdue requirement. Both helpers accept `no-records: auto` to replace their
   list with an English/Canadian French request for records when the source

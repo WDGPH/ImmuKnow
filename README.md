@@ -17,7 +17,7 @@ You need the `immuknow` executable, a CSV and a compatible configured notice pro
 The [getting started guide](docs/user_guide/getting_started.md) explains setup and notice selection.
 
 ```sh
-immuknow run clients.csv --project project --template overdue_diseases_v1.en.typ
+immuknow run clients.csv --project project --template overdue_diseases.en.typ
 ```
 
 Open `report.html` in the new run folder and review the findings and PDFs before

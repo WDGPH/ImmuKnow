@@ -54,7 +54,7 @@ for sample paths and refreshing the complete shared library after a Core update.
 Open a terminal. To use one notice for everyone in the CSV, run this command, replacing the paths with your own:
 
 ```sh
-immuknow run clients.csv --project project --template overdue_diseases_v1.en.typ
+immuknow run clients.csv --project project --template overdue_diseases.en.typ
 ```
 
 Here `clients.csv` is your input file, `--project` points to the folder containing `templates/` and `config/`, and `--template` names the notice to use from that project. Results go into `runs/` unless you choose another folder with `--output`.

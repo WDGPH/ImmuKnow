@@ -109,8 +109,8 @@ Choose one `<version_id>.<language>.typ` file for everyone in the client list, o
 
 ```json
 [
-  {"client_id": "0123456789", "template": "overdue_diseases_v1.en.typ"},
-  {"client_id": "1234567890", "template": "affirmative_schedule_v1.fr.typ", "experiment_id": "example", "experiment_arm": "A"}
+  {"client_id": "0123456789", "template": "overdue_diseases.en.typ"},
+  {"client_id": "1234567890", "template": "affirmative_schedule.fr.typ", "experiment_id": "example", "experiment_arm": "A"}
 ]
 ```
 

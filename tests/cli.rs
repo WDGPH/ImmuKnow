@@ -1318,3 +1318,55 @@ fn bundles_group_selected_notice_variant_and_optionally_language() {
         assert_eq!(json!(actual), expected);
     }
 }
+
+#[test]
+fn duplicate_nonblank_client_ids_reject_run_and_keep_all_readable_rows() {
+    let project = Project::new();
+    let mut reader = csv::Reader::from_path(&project.csv).unwrap();
+    let headers = reader.headers().unwrap().clone();
+    let id_column = headers.iter().position(|name| name == "client_id").unwrap();
+    let rows: Vec<_> = reader.records().map(Result::unwrap).collect();
+    drop(reader);
+    let mut writer = csv::Writer::from_path(&project.csv).unwrap();
+    writer.write_record(&headers).unwrap();
+    for (index, row) in rows.iter().enumerate() {
+        let mut values: Vec<_> = row.iter().collect();
+        if index == 1 {
+            values[id_column] = " 0000000001 ";
+        }
+        writer.write_record(values).unwrap();
+    }
+    writer.flush().unwrap();
+    drop(writer);
+    let output = project.run();
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("Duplicate nonblank client_id"));
+    let (run, record) = project.record();
+    assert!(
+        run.file_name()
+            .unwrap()
+            .to_string_lossy()
+            .ends_with(".incomplete")
+    );
+    assert_eq!(record["status"], "failed");
+    assert!(
+        record["error"]
+            .as_str()
+            .unwrap()
+            .contains("Duplicate nonblank client_id")
+    );
+    assert!(record["bundles"].as_array().unwrap().is_empty());
+    let entries = record["entries"].as_array().unwrap();
+    assert_eq!(entries.len(), 5);
+    assert_eq!(entries[0]["client_id"], "0000000001");
+    assert_eq!(entries[1]["client_id"], "0000000001");
+    assert_eq!(entries[1]["source"]["client_id"], " 0000000001 ");
+    for (index, entry) in entries.iter().enumerate() {
+        assert_eq!(entry["row_key"], format!("row-{:06}", index + 1));
+        assert_eq!(entry["original"]["status"], "not_run");
+    }
+    assert_eq!(
+        fs::read(run.join("source.csv")).unwrap(),
+        fs::read(&project.csv).unwrap()
+    );
+}

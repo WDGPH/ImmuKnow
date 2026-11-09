@@ -20,7 +20,7 @@ Keep `setup.typ`, `settings.typ`, `presentation.typ`, `assets/`, `translations/`
 `lib/immuknow/` together in the project's `templates/` directory.
 
 ```bash
-immuknow run clients.csv --template ./my-project/templates/overdue_diseases_v1.en.typ --config ./my-project/config --output ./runs
+immuknow run clients.csv --template ./my-project/templates/overdue_diseases.en.typ --config ./my-project/config --output ./runs
 immuknow run clients.csv --notice-assignments ./assignments.json --templates ./my-project/templates --config ./my-project/config --output ./runs
 ```
 
@@ -247,6 +247,13 @@ Typst content overrides the no-records message; the override is used only when
 there are no source records. This is separate from `empty`, which supplies
 content when the overdue list itself is empty. Prepared overdue lists, facts,
 notice assignments and bundle checks remain intact.
+
+To omit particular vaccine names from an overdue-agent list, pass exact source
+names, for example `overdue-agents(ignore-agents: ("Example vaccine",))`.
+Matching is case-sensitive. The option affects this list only; the history
+table's `ignore-agents` is configured separately. If every agent is omitted,
+`empty` supplies optional replacement content. A `no-records` replacement takes
+precedence when no source records exist. Facts and coverage checks are unchanged.
 
 ### ISPA disease display and assertions
 
