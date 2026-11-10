@@ -22,6 +22,8 @@ run_id,record_revision,bundle_attempt,row_key,source_record,client_id,name,schoo
 
 Severity is one of `error`, `warning`, `clear` or `pending`; evaluation is `complete`, `pending` or `blocked`. Artifact statuses use `completed`, `failed`, `pending`, `not_requested` or `excluded`. For example, a held warning has severity `warning`, route `withheld`, and bundle status `excluded`; an invalid source row may have severity `error` and route `report_only` with no PDF path. A still-running row may be `pending`; a warning already observed takes precedence while evaluation remains pending.
 
+If a run stops before a row is evaluated, its evaluation and unattempted original remain `pending`, while its severity becomes `error` because required work is unfinished. The run finding explains the interruption. Source or original failures exclude protection that could not be attempted; an attempted protection failure remains `failed`. A completed protected copy remains available even if its original later becomes unusable. Requested bundling that has not started remains `pending`; completed notice checks do not make unfinished delivery clear. Bundle page ranges appear only for completed bundle membership.
+
 `findings.csv` columns, in order:
 
 ```text

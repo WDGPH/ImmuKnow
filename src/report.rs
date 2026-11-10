@@ -85,15 +85,6 @@ fn path(v: &Value) -> String {
         String::new()
     }
 }
-fn status(v: &Value, key: &str, pending: bool) -> String {
-    match text(v, key) {
-        "completed" | "failed" | "pending" | "not_requested" | "excluded" => {
-            text(v, key).to_owned()
-        }
-        "not_run" | "" if pending => "pending".into(),
-        _ => "not_requested".into(),
-    }
-}
 #[derive(Default, Debug, Clone)]
 pub struct Summary {
     pub rows: usize,
@@ -171,7 +162,12 @@ fn evaluation(e: &Value, running: bool) -> &'static str {
     } else if e["deferred_checks"]
         .as_array()
         .is_some_and(|v| !v.is_empty())
-        || (running && e["original"]["status"] != "completed")
+        || (e["original"]["status"] != "completed"
+            && (running
+                || matches!(
+                    e["original"]["status"].as_str(),
+                    Some("not_run" | "pending")
+                )))
     {
         "pending"
     } else {
@@ -183,39 +179,34 @@ fn severity(
     cs: &[Value],
     running: bool,
     evaluation: &str,
-    protection_requested: bool,
+    artifacts: [&str; 3],
 ) -> &'static str {
+    let pending = evaluation == "pending" || artifacts.contains(&"pending");
     if cs.iter().any(|c| {
         c["status"] == "fail"
             || (c["status"] == "not_run"
                 && c["disabled"] != true
                 && (!running || evaluation == "blocked"))
     }) || evaluation == "blocked"
-        || e["original"]["status"] == "failed"
-        || e["encryption"]["status"] == "failed"
-        || e["bundle"]["status"] == "failed"
-        || (!running && protection_requested && e["encryption"]["status"] != "completed")
-        || (!running && (evaluation == "pending" || e["original"]["status"] != "completed"))
+        || artifacts.contains(&"failed")
+        || (!running && pending)
     {
         "error"
     } else if cs.iter().any(|c| c["status"] == "warn")
         || !text(e, "compiler_diagnostics").is_empty()
     {
         "warning"
-    } else if evaluation == "pending"
-        || (running
-            && (e["original"]["status"] != "completed" || e["encryption"]["status"] == "pending"))
-    {
+    } else if pending {
         "pending"
     } else {
         "clear"
     }
 }
-fn route(e: &Value, running: bool) -> &'static str {
+fn route(e: &Value, running: bool, original_known_unusable: bool) -> &'static str {
     if !e["hold"].is_null() {
         return "withheld";
     }
-    if !running && e["original"]["status"] != "completed" {
+    if original_known_unusable || (!running && e["original"]["status"] != "completed") {
         return "report_only";
     }
     match text(e, "routing") {
@@ -282,11 +273,20 @@ fn project(
     {
         let ev = evaluation(e, running);
         let row_checks = checks(e)?;
-        let sev = severity(e, &row_checks, running, ev, protection_requested);
-        let route = route(e, running);
-        summary.rows += 1;
-        *summary.severity.entry(sev.into()).or_default() += 1;
-        *summary.routes.entry(route.into()).or_default() += 1;
+        // A failed preparation has no notice to compile. Other source failures
+        // can accompany a valid notice and still produce a reviewable original.
+        let preparation_failed = e["notice"].is_null()
+            && row_checks.iter().any(|check| {
+                check["status"] == "fail"
+                    && (text(check, "code").starts_with("source.")
+                        || text(check, "code").starts_with("assignment."))
+            });
+        let original_known_unusable = e["original"]["status"] == "failed"
+            || preparation_failed
+            || row_checks.iter().any(|check| {
+                check["status"] == "fail" && check["code"] == "delivery.original_unusable"
+            });
+        let route = route(e, running, original_known_unusable);
         let row_key = text(e, "row_key");
         let name = e["notice"]["client_data"]["name"].as_str().unwrap_or("");
         let fallback = [
@@ -305,6 +305,31 @@ fn project(
             && !row_checks
                 .iter()
                 .any(|c| c["code"] == "delivery.original_unusable");
+        // Protection is a dependent artifact: if preparation or rendering failed
+        // before an original existed, an unstarted copy was excluded, not failed.
+        let protection_excluded = protection_requested
+            && original_known_unusable
+            && !original_usable
+            && matches!(
+                e["encryption"]["status"].as_str(),
+                Some("not_run" | "not_requested")
+            );
+        let original_status = match e["original"]["status"].as_str() {
+            Some("completed") if original_usable => "completed",
+            Some("completed" | "failed") => "failed",
+            _ => "pending",
+        };
+        let protected_status = if record["configured_settings"]["encryption"]["enabled"] == false {
+            "not_requested"
+        } else if protection_excluded {
+            "excluded"
+        } else {
+            match e["encryption"]["status"].as_str() {
+                Some("completed") => "completed",
+                Some("failed") => "failed",
+                _ => "pending",
+            }
+        };
         let held = route == "withheld";
         let bundle_status = if held || route == "report_only" {
             "excluded"
@@ -314,11 +339,21 @@ fn project(
             "failed"
         } else if bundle["path"].is_string() {
             "completed"
-        } else if running {
+        } else if (grouping == Some(true) && original_usable) || running {
             "pending"
         } else {
             "not_requested"
         };
+        let sev = severity(
+            e,
+            &row_checks,
+            running,
+            ev,
+            [original_status, protected_status, bundle_status],
+        );
+        summary.rows += 1;
+        *summary.severity.entry(sev.into()).or_default() += 1;
+        *summary.routes.entry(route.into()).or_default() += 1;
         emit_row(&RecordRow {
             run_id: field(record, "run_id"),
             record_revision: record["record_revision"].as_u64().unwrap_or(0),
@@ -334,11 +369,7 @@ fn project(
             evaluation_state: ev.into(),
             route: route.into(),
             hold_reason: field(&e["hold"], "reason"),
-            original_status: if !running && !original_usable {
-                "failed".into()
-            } else {
-                status(&e["original"], "status", running)
-            },
+            original_status: original_status.into(),
             original_path: if original_usable {
                 path(&e["original"])
             } else {
@@ -349,24 +380,28 @@ fn project(
             } else {
                 String::new()
             },
-            protected_status: if !protection_requested
-                && record["configured_settings"]["encryption"]["enabled"] == false
-            {
-                "not_requested".into()
-            } else if protection_requested && !running && e["encryption"]["status"] != "completed" {
-                "failed".into()
+            protected_status: protected_status.into(),
+            protected_path: if protected_status == "completed" {
+                path(&e["encryption"])
             } else {
-                status(&e["encryption"], "status", running)
+                String::new()
             },
-            protected_path: path(&e["encryption"]),
             bundle_status: bundle_status.into(),
             bundle_path: if bundle_status == "completed" {
                 field(bundle, "path")
             } else {
                 String::new()
             },
-            bundle_start_page: number(&bundle["notice_start_page"]),
-            bundle_end_page: number(&bundle["notice_end_page"]),
+            bundle_start_page: if bundle_status == "completed" {
+                number(&bundle["notice_start_page"])
+            } else {
+                String::new()
+            },
+            bundle_end_page: if bundle_status == "completed" {
+                number(&bundle["notice_end_page"])
+            } else {
+                String::new()
+            },
         })?;
         for (j, c) in row_checks.iter().enumerate() {
             let observed = c["observed_status"]
@@ -406,18 +441,17 @@ fn project(
         for (artifact, failed, explained, message) in [
             (
                 "original",
-                !running && e["original"]["status"] != "completed",
-                row_checks.iter().any(|c| {
-                    matches!(text(c, "code"), "rendering.failed" | "output.readable")
-                        || (c["status"] == "fail"
-                            && (text(c, "code").starts_with("source.")
-                                || text(c, "code").starts_with("assignment.")))
-                }),
+                e["original"]["status"] == "failed",
+                preparation_failed
+                    || row_checks.iter().any(|c| {
+                        c["status"] == "fail"
+                            && matches!(text(c, "code"), "rendering.failed" | "output.readable")
+                    }),
                 "Original PDF was not produced",
             ),
             (
                 "protected",
-                protection_requested && !running && e["encryption"]["status"] != "completed",
+                protection_requested && e["encryption"]["status"] == "failed",
                 row_checks
                     .iter()
                     .any(|c| text(c, "code") == "encryption.failed"),
@@ -526,7 +560,7 @@ pub fn summary(record: &Value) -> Summary {
 fn save(dir: &Path, record: &Value) -> Result<()> {
     crate::atomic_write(&dir.join("run.json"), |file| {
         let mut out = BufWriter::with_capacity(64 * 1024, file);
-        serde_json::to_writer_pretty(&mut out, record)?;
+        serde_json::to_writer(&mut out, record)?;
         out.flush()?;
         Ok(())
     })
@@ -786,5 +820,849 @@ mod tests {
         assert_eq!(summary(&record).severity["error"], 1);
         record["entries"][0]["effective_checks"] = json!([{"finding_key":"unknown","status":"pass","disabled":false,"policy_reason":null}]);
         assert!(project(&record, |_| Ok(()), |_| Ok(())).is_err());
+    }
+    // A completed v2 saved row with the same fact binding and mandatory checks
+    // used by rebundle and warning-review validation.
+    fn mixed_row(index: usize) -> Value {
+        let key = format!("row-{index:06}");
+        let id = if index == 2 || index == 3 {
+            "0000000002".to_owned()
+        } else {
+            format!("{index:010}")
+        };
+        let notice = json!({"row_key":key,"client_id":id,"template":"notice.en.typ","version_id":"notice","language":"en",
+            "client_data":{"name":format!("Fictional {index}")},"school":{"name":"École, Nord"},"forecast_coverage":{"missing_diseases":[],"extra_diseases":[],"unmapped_agents":[]}});
+        let mut entry = json!({"row_key":key,"client_id":id,"notice":notice,"source":{"client_id":id},
+            "assignment":{"version_id":"notice","language":"en"},
+            "original":{"status":"completed","path":format!("originals/{index}.pdf"),"pages":2},
+            "encryption":{"status":"completed","path":format!("encrypted/{index}.pdf")},
+            "routing":"deliverable","bundle":{"path":"bundles-0001/ready.pdf","notice_start_page":index*2-1,"notice_end_page":index*2},
+            "blocked_checks":[],"deferred_checks":[],
+            "saved_evidence":{"saved_evidence_version":1,"facts_sha256":crate::hash(&serde_json::to_vec(&notice).unwrap()),
+              "identity":{"row_key":key,"client_id":id,"template":"notice.en.typ","version_id":"notice","language":"en"},"page_count":2,"requirements":{"state":"valid"}},
+            "checks":[{"code":"notice.requirements","status":"pass"},{"code":"notice.eligibility","status":"pass"},
+              {"code":"data.forecast_coverage","status":"pass","measurements":notice["forecast_coverage"]},
+              {"code":"content.agent_display","status":"not_applicable"}]});
+        match index {
+            2 => entry["checks"].as_array_mut().unwrap().extend([
+                json!({"code":"layout.repeat","status":"warn","component":"history","page":1,"message":"First page"}),
+                json!({"code":"layout.repeat","status":"warn","component":"history","page":2,"message":"Second page"})]),
+            3 => {
+                entry["checks"].as_array_mut().unwrap().extend([
+                    json!({"code":"layout.repeat","status":"warn","page":1,"message":"Review"}),
+                    json!({"code":"layout.disabled","status":"warn","message":"Disabled warning"})]);
+                entry["hold"] = json!({"reason":"Awaiting review"}); entry["routing"] = json!("withheld"); entry["bundle"] = Value::Null;
+            }
+            4 => {
+                entry.as_object_mut().unwrap().remove("notice"); entry.as_object_mut().unwrap().remove("saved_evidence");
+                entry["checks"] = json!([{"code":"source.history_unusable","status":"fail","message":"History could not be prepared"}]);
+                entry["original"] = json!({"status":"not_run"});
+                entry["encryption"] = json!({"status":"not_run"}); entry["routing"] = json!("failed"); entry["bundle"] = Value::Null;
+                entry["deferred_checks"] = json!(["notice.requirements","notice.eligibility","data.forecast_coverage","content.agent_display"]);
+            }
+            5 => {
+                entry["checks"].as_array_mut().unwrap().push(json!({"code":"encryption.failed","stage":"encryption","status":"fail","message":"Protection failed"}));
+                entry["encryption"] = json!({"status":"failed","error":"Protection failed"}); entry["routing"] = json!("review");
+                entry["bundle"] = json!({"path":"bundles-0001/review.pdf","notice_start_page":1,"notice_end_page":2});
+            }
+            6 => entry["checks"].as_array_mut().unwrap().push(json!({"code":"layout.disabled","status":"warn","message":"Disabled warning"})),
+            7 => {
+                entry["checks"] = json!([{"code":"notice.requirements","status":"fail","message":"Invalid requirements"}]);
+                entry["saved_evidence"]["requirements"] = json!({"state":"invalid","errors":[{"code":"missing","count":0}]});
+                entry["blocked_checks"] = json!([{"code":"notice.eligibility","blocked_by":"notice.requirements","reason":"Invalid notice requirements"},{"code":"data.forecast_coverage","blocked_by":"notice.requirements","reason":"Invalid notice requirements"},{"code":"content.agent_display","blocked_by":"notice.requirements","reason":"Invalid notice requirements"}]);
+                entry["routing"] = json!("review"); entry["bundle"] = json!({"path":"bundles-0001/review.pdf","notice_start_page":3,"notice_end_page":4});
+            }
+            8 => entry["compiler_diagnostics"] = json!("font warning, line one\nline two"),
+            _ => (),
+        }
+        crate::checks::assign(&mut entry).unwrap();
+        entry["effective_checks"] = json!(entry["checks"].as_array().unwrap().iter().map(|check| {
+            let disabled = check["code"] == "layout.disabled";
+            json!({"finding_key":check["finding_key"],"status":if disabled { json!("not_run") } else { check["status"].clone() },"disabled":disabled,"policy_reason":if disabled { json!("Reviewed rule") } else { Value::Null }})
+        }).collect::<Vec<_>>());
+        entry
+    }
+
+    fn mixed_record() -> Value {
+        let entries: Vec<_> = (1..=8).map(mixed_row).collect();
+        let attempt_rows: Vec<_> = entries.iter().map(|entry| json!({"row_key":entry["row_key"],"effective_checks":entry["effective_checks"],"hold":entry["hold"],"routing":entry["routing"],"bundle":entry["bundle"]})).collect();
+        json!({"run_schema_version":2,"run_id":"fictional-mixed","record_revision":7,"exports":null,"status":"completed_with_failures",
+            "resources":{"sha256":"a".repeat(64)},"project_resources":{"templates":{"notice.en.typ":"b".repeat(64)}},
+            "configured_settings":{"encryption":{"enabled":true},"bundling":{"bundle_size":20}},
+            "active_bundle_attempt":1,"entries":entries,
+            "checks":[{"code":"setup.warning","status":"warn","message":"Review configuration"}],
+            "delivery_attempts":[{"status":"completed_with_failures","rows":attempt_rows,"bundles":[]},
+              {"status":"failed","error":"Later bundle attempt failed","planned_members":["row-000001"]}]})
+    }
+
+    #[test]
+    fn mixed_saved_run_summary_and_csv_use_rows_effective_results_and_attempt_scope() {
+        let dir = tempdir().unwrap();
+        let mut record = mixed_record();
+        crate::checks::validate_record(&record, true)
+            .expect("fixture must be a valid saved v2 run");
+        let totals = summary(&record);
+        assert_eq!(totals.rows, 8);
+        assert_eq!(
+            totals.severity,
+            BTreeMap::from([
+                ("clear".into(), 2),
+                ("error".into(), 3),
+                ("warning".into(), 3)
+            ])
+        );
+        assert_eq!(
+            totals.routes,
+            BTreeMap::from([
+                ("ready".into(), 4),
+                ("report_only".into(), 1),
+                ("review".into(), 2),
+                ("withheld".into(), 1)
+            ])
+        );
+        assert_eq!(
+            totals.codes[&("warn".into(), "layout.repeat".into())],
+            BTreeSet::from(["row-000002".into(), "row-000003".into()])
+        );
+        assert!(
+            !totals
+                .codes
+                .contains_key(&("warn".into(), "layout.disabled".into()))
+        );
+        assert_eq!(
+            totals.codes[&("fail".into(), "source.history_unusable".into())],
+            BTreeSet::from(["row-000004".into()])
+        );
+        assert_eq!(
+            totals.codes[&("fail".into(), "encryption.failed".into())],
+            BTreeSet::from(["row-000005".into()])
+        );
+        assert_eq!(totals.diagnostics, 1);
+        assert_eq!(totals.run_findings, 2);
+        publish(dir.path(), &mut record).unwrap();
+        let read = |name: &str| -> Vec<BTreeMap<String, String>> {
+            let path = dir
+                .path()
+                .join(record["exports"][name]["path"].as_str().unwrap());
+            csv::Reader::from_path(path)
+                .unwrap()
+                .deserialize()
+                .map(Result::unwrap)
+                .collect()
+        };
+        let rows = read("records");
+        let findings = read("findings");
+        assert_eq!(rows.len(), 8);
+        assert_eq!(
+            findings.len(),
+            11,
+            "each actionable occurrence is emitted once"
+        );
+        assert_eq!(rows[1]["client_id"], rows[2]["client_id"]);
+        assert_ne!(rows[1]["row_key"], rows[2]["row_key"]);
+        assert_eq!(
+            (
+                rows[2]["severity"].as_str(),
+                rows[2]["route"].as_str(),
+                rows[2]["bundle_status"].as_str()
+            ),
+            ("warning", "withheld", "excluded")
+        );
+        assert_eq!(
+            (
+                rows[3]["severity"].as_str(),
+                rows[3]["route"].as_str(),
+                rows[3]["original_path"].as_str()
+            ),
+            ("error", "report_only", "")
+        );
+        assert_eq!(rows[3]["original_status"], "pending");
+        assert_eq!(
+            rows[3]["protected_status"], "excluded",
+            "a dependent copy was never attempted without an original"
+        );
+        assert_eq!(
+            (
+                rows[4]["protected_status"].as_str(),
+                rows[4]["route"].as_str()
+            ),
+            ("failed", "review")
+        );
+        assert_eq!(rows[4]["bundle_start_page"], "1");
+        assert_eq!(rows[4]["bundle_end_page"], "2");
+        assert_eq!(
+            (
+                rows[6]["severity"].as_str(),
+                rows[6]["evaluation_state"].as_str()
+            ),
+            ("error", "blocked")
+        );
+        let repeated: Vec<_> = findings
+            .iter()
+            .filter(|f| f["row_key"] == "row-000002" && f["code"] == "layout.repeat")
+            .collect();
+        assert_eq!(repeated.len(), 2);
+        assert_ne!(repeated[0]["finding_key"], repeated[1]["finding_key"]);
+        assert_eq!(
+            (repeated[0]["page"].as_str(), repeated[1]["page"].as_str()),
+            ("1", "2")
+        );
+        let disabled = findings
+            .iter()
+            .find(|f| f["row_key"] == "row-000006" && f["code"] == "layout.disabled")
+            .unwrap();
+        assert_eq!(
+            (
+                disabled["observed_status"].as_str(),
+                disabled["effective_status"].as_str(),
+                disabled["disabled"].as_str(),
+                disabled["policy_reason"].as_str()
+            ),
+            ("warn", "not_run", "true", "Reviewed rule")
+        );
+        assert!(
+            !findings
+                .iter()
+                .any(|f| f["row_key"] == "row-000004" && f["code"] == "artifact.protected_failed")
+        );
+        assert_eq!(
+            findings
+                .iter()
+                .filter(|f| f["origin"] == "compiler" && f["row_key"] == "row-000008")
+                .count(),
+            1
+        );
+        assert_eq!(
+            findings.iter().find(|f| f["origin"] == "compiler").unwrap()["message"],
+            "font warning, line one\nline two"
+        );
+        assert_eq!(
+            findings
+                .iter()
+                .filter(|f| f["scope"] == "run" && f["code"] == "setup.warning")
+                .count(),
+            1
+        );
+        assert_eq!(
+            findings
+                .iter()
+                .filter(|f| f["scope"] == "attempt"
+                    && f["attempt_number"] == "2"
+                    && f["code"] == "delivery.attempt_failed")
+                .count(),
+            1
+        );
+        assert!(findings.iter().all(|f| f["run_id"] == "fictional-mixed"
+            && f["record_revision"] == "7"
+            && f["bundle_attempt"] == "1"));
+    }
+
+    #[test]
+    fn partial_and_empty_projections_keep_pending_and_zero_denominators() {
+        let mut record = mixed_record();
+        record["status"] = json!("running");
+        record["active_bundle_attempt"] = Value::Null;
+        record["delivery_attempts"] = json!([]);
+        let mut pending = mixed_row(1);
+        pending["original"] = json!({"status":"not_run"});
+        pending["encryption"] = json!({"status":"not_run"});
+        pending["routing"] = Value::Null;
+        pending["bundle"] = Value::Null;
+        pending["checks"] = json!([]);
+        pending.as_object_mut().unwrap().remove("effective_checks");
+        pending.as_object_mut().unwrap().remove("saved_evidence");
+        pending["deferred_checks"] = json!(["notice.requirements"]);
+        let mut warned = pending.clone();
+        warned["row_key"] = json!("row-000002");
+        warned["checks"] =
+            json!([{"code":"layout.pending","status":"warn","message":"Already observed"}]);
+        record["entries"] = json!([pending, warned]);
+        crate::checks::validate_record(&record, false).unwrap();
+        let mut rows = Vec::new();
+        let summary = project(
+            &record,
+            |row| {
+                rows.push(serde_json::to_value(row)?);
+                Ok(())
+            },
+            |_| Ok(()),
+        )
+        .unwrap();
+        assert_eq!(summary.rows, 2);
+        assert_eq!(summary.severity["pending"], 1);
+        assert_eq!(summary.severity["warning"], 1);
+        assert_eq!(summary.routes["undecided"], 2);
+        assert_eq!(rows[0]["evaluation_state"], "pending");
+        assert_eq!(rows[1]["evaluation_state"], "pending");
+        record["entries"] = json!([]);
+        let empty = super::summary(&record);
+        assert_eq!(empty.rows, 0);
+        assert!(empty.severity.is_empty());
+        assert!(empty.routes.is_empty());
+    }
+
+    #[test]
+    fn failed_initial_bundle_marks_planned_rows_without_inventing_paths() {
+        let mut record = mixed_record();
+        record["entries"] = json!([mixed_row(1), mixed_row(2)]);
+        record["status"] = json!("failed");
+        record["active_bundle_attempt"] = Value::Null;
+        for entry in record["entries"].as_array_mut().unwrap() {
+            entry["bundle"] = json!({"status":"failed","error":"Bundle failed"});
+        }
+        record["delivery_attempts"] = json!([{"status":"failed","error":"Bundle failed","planned_members":["row-000001","row-000002"]}]);
+        crate::checks::validate_record(&record, true).unwrap();
+        let mut rows = Vec::new();
+        let mut findings = Vec::new();
+        let totals = project(
+            &record,
+            |row| {
+                rows.push(serde_json::to_value(row)?);
+                Ok(())
+            },
+            |finding| {
+                findings.push(serde_json::to_value(finding)?);
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(totals.severity["error"], 2);
+        assert_eq!(
+            totals.codes[&("fail".into(), "artifact.bundle_failed".into())].len(),
+            2
+        );
+        assert!(rows.iter().all(|row| row["bundle_status"] == "failed"
+            && row["bundle_path"] == ""
+            && row["bundle_start_page"] == ""
+            && row["bundle_end_page"] == ""));
+        assert_eq!(
+            findings
+                .iter()
+                .filter(|finding| finding["code"] == "artifact.bundle_failed")
+                .count(),
+            2
+        );
+    }
+    #[test]
+    fn missing_original_does_not_hide_an_existing_protected_copy() {
+        let mut record = mixed_record();
+        let entry = &mut record["entries"][0];
+        crate::checks::append(entry, json!({"code":"delivery.original_unusable","stage":"delivery","status":"fail","message":"Original no longer available"})).unwrap();
+        entry["routing"] = json!("failed");
+        entry["bundle"] = Value::Null;
+        record["delivery_attempts"][0]["rows"][0]["effective_checks"] =
+            record["entries"][0]["effective_checks"].clone();
+        let mut rows = Vec::new();
+        let mut findings = Vec::new();
+        project(
+            &record,
+            |row| {
+                rows.push(serde_json::to_value(row)?);
+                Ok(())
+            },
+            |finding| {
+                findings.push(serde_json::to_value(finding)?);
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(rows[0]["original_status"], "failed");
+        assert_eq!(rows[0]["original_path"], "");
+        assert_eq!(rows[0]["protected_status"], "completed");
+        assert_eq!(rows[0]["protected_path"], "encrypted/1.pdf");
+        assert!(
+            !findings
+                .iter()
+                .any(|finding| finding["row_key"] == "row-000001"
+                    && finding["code"] == "artifact.protected_failed")
+        );
+    }
+    #[test]
+    fn global_setup_failure_does_not_invent_an_original_failure_for_each_row() {
+        let mut record = mixed_record();
+        record["status"] = json!("failed");
+        record["error"] = json!("Configuration could not be loaded");
+        record["configured_settings"] = Value::Null;
+        record["active_bundle_attempt"] = Value::Null;
+        record["delivery_attempts"] = json!([]);
+        record["checks"] = json!([]);
+        for entry in record["entries"].as_array_mut().unwrap() {
+            entry["original"] = json!({"status":"not_run"});
+            entry["encryption"] = json!({"status":"not_run"});
+            entry["checks"] = json!([]);
+            entry.as_object_mut().unwrap().remove("effective_checks");
+            entry.as_object_mut().unwrap().remove("saved_evidence");
+            for field in [
+                "notice",
+                "assignment",
+                "blocked_checks",
+                "deferred_checks",
+                "compiler_diagnostics",
+                "hold",
+            ] {
+                entry.as_object_mut().unwrap().remove(field);
+            }
+            entry["bundle"] = Value::Null;
+            entry["routing"] = Value::Null;
+        }
+        crate::checks::validate_record(&record, false).unwrap();
+        let mut rows = Vec::new();
+        let mut findings = Vec::new();
+        let totals = project(
+            &record,
+            |row| {
+                rows.push(serde_json::to_value(row)?);
+                Ok(())
+            },
+            |finding| {
+                findings.push(serde_json::to_value(finding)?);
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(totals.rows, 8);
+        assert_eq!(totals.severity["error"], 8);
+        assert!(rows.iter().all(|row| row["original_status"] == "pending"
+            && row["original_path"] == ""
+            && row["evaluation_state"] == "pending"
+            && row["route"] == "report_only"));
+        assert_eq!(
+            findings
+                .iter()
+                .filter(|finding| finding["scope"] == "run" && finding["code"] == "run.failed")
+                .count(),
+            1
+        );
+        assert!(
+            !findings.iter().any(|finding| finding["scope"] == "row"
+                && finding["code"] == "artifact.original_failed")
+        );
+    }
+    #[test]
+    fn terminated_unstarted_protection_is_pending_and_excluded_bundle_has_no_range() {
+        let mut record = mixed_record();
+        record["status"] = json!("failed");
+        record["entries"][0]["encryption"] = json!({"status":"not_run"});
+        // Exercise the projection guard even if stale page data is present.
+        record["entries"][2]["bundle"] =
+            json!({"path":"bundles-0001/old.pdf","notice_start_page":5,"notice_end_page":6});
+        let mut rows = Vec::new();
+        let mut findings = Vec::new();
+        let totals = project(
+            &record,
+            |row| {
+                rows.push(serde_json::to_value(row)?);
+                Ok(())
+            },
+            |finding| {
+                findings.push(serde_json::to_value(finding)?);
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(rows[0]["severity"], "error");
+        assert_eq!(rows[0]["protected_status"], "pending");
+        assert!(
+            !findings
+                .iter()
+                .any(|finding| finding["row_key"] == "row-000001"
+                    && finding["code"] == "artifact.protected_failed")
+        );
+        assert_eq!(rows[2]["bundle_status"], "excluded");
+        assert_eq!(rows[2]["bundle_path"], "");
+        assert_eq!(rows[2]["bundle_start_page"], "");
+        assert_eq!(rows[2]["bundle_end_page"], "");
+        assert_eq!(totals.rows, 8);
+        record["status"] = json!("running");
+        record["configured_settings"]["bundling"]["bundle_size"] = json!(0);
+        let mut running_rows = Vec::new();
+        project(
+            &record,
+            |row| {
+                running_rows.push(serde_json::to_value(row)?);
+                Ok(())
+            },
+            |_| Ok(()),
+        )
+        .unwrap();
+        assert_eq!(running_rows[0]["severity"], "pending");
+        assert_eq!(running_rows[0]["protected_status"], "pending");
+    }
+    #[test]
+    fn terminated_before_requested_bundling_reports_pending_delivery() {
+        let mut record = mixed_record();
+        record["status"] = json!("failed");
+        record["error"] = json!("Later processing stopped");
+        record["active_bundle_attempt"] = Value::Null;
+        record["delivery_attempts"] = json!([]);
+        record["entries"] = json!([mixed_row(1)]);
+        record["entries"][0]["routing"] = Value::Null;
+        record["entries"][0]["bundle"] = Value::Null;
+        let mut rows = Vec::new();
+        let mut findings = Vec::new();
+        let totals = project(
+            &record,
+            |row| {
+                rows.push(serde_json::to_value(row)?);
+                Ok(())
+            },
+            |finding| {
+                findings.push(serde_json::to_value(finding)?);
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(totals.severity["error"], 1);
+        assert_eq!(rows[0]["evaluation_state"], "complete");
+        assert_eq!(rows[0]["route"], "undecided");
+        assert_eq!(rows[0]["bundle_status"], "pending");
+        assert_eq!(rows[0]["bundle_path"], "");
+        assert_eq!(rows[0]["bundle_start_page"], "");
+        assert_eq!(rows[0]["bundle_end_page"], "");
+        assert!(
+            !findings
+                .iter()
+                .any(|finding| finding["code"] == "artifact.bundle_failed")
+        );
+        record["status"] = json!("running");
+        let mut running_rows = Vec::new();
+        let running = project(
+            &record,
+            |row| {
+                running_rows.push(serde_json::to_value(row)?);
+                Ok(())
+            },
+            |_| Ok(()),
+        )
+        .unwrap();
+        assert_eq!(running.severity["pending"], 1);
+        assert_eq!(running_rows[0]["bundle_status"], "pending");
+        crate::checks::append(
+            &mut record["entries"][0],
+            json!({"code":"layout.example","status":"warn","message":"Warning already observed"}),
+        )
+        .unwrap();
+        let warned = summary(&record);
+        assert_eq!(
+            warned.severity["warning"], 1,
+            "observed warnings take precedence over pending delivery"
+        );
+        record["status"] = json!("failed");
+        record["configured_settings"]["bundling"]["bundle_size"] = json!(0);
+        let mut ungrouped_rows = Vec::new();
+        project(
+            &record,
+            |row| {
+                ungrouped_rows.push(serde_json::to_value(row)?);
+                Ok(())
+            },
+            |_| Ok(()),
+        )
+        .unwrap();
+        assert_eq!(ungrouped_rows[0]["bundle_status"], "not_requested");
+    }
+    #[test]
+    fn artifact_statuses_drive_severity_consistently_across_run_states() {
+        // status, original, protection requested/status, grouping, bundled, expected severity and artifact statuses
+        let cases = [
+            (
+                "running",
+                "not_run",
+                false,
+                "not_requested",
+                false,
+                false,
+                "pending",
+                "pending",
+                "not_requested",
+                "not_requested",
+            ),
+            (
+                "failed",
+                "not_run",
+                false,
+                "not_requested",
+                false,
+                false,
+                "error",
+                "pending",
+                "not_requested",
+                "excluded",
+            ),
+            (
+                "running",
+                "completed",
+                true,
+                "not_run",
+                false,
+                false,
+                "pending",
+                "completed",
+                "pending",
+                "not_requested",
+            ),
+            (
+                "failed",
+                "completed",
+                true,
+                "not_run",
+                false,
+                false,
+                "error",
+                "completed",
+                "pending",
+                "not_requested",
+            ),
+            (
+                "running",
+                "completed",
+                false,
+                "not_requested",
+                true,
+                false,
+                "pending",
+                "completed",
+                "not_requested",
+                "pending",
+            ),
+            (
+                "failed",
+                "completed",
+                false,
+                "not_requested",
+                true,
+                false,
+                "error",
+                "completed",
+                "not_requested",
+                "pending",
+            ),
+            (
+                "completed",
+                "completed",
+                true,
+                "completed",
+                true,
+                true,
+                "clear",
+                "completed",
+                "completed",
+                "completed",
+            ),
+            (
+                "completed_with_failures",
+                "completed",
+                true,
+                "failed",
+                false,
+                false,
+                "error",
+                "completed",
+                "failed",
+                "not_requested",
+            ),
+        ];
+        for (
+            run_status,
+            original,
+            requested,
+            protected,
+            grouping,
+            bundled,
+            expected,
+            original_expected,
+            protected_expected,
+            bundle_expected,
+        ) in cases
+        {
+            let mut record = mixed_record();
+            record["status"] = json!(run_status);
+            record["entries"] = json!([mixed_row(1)]);
+            record["configured_settings"]["encryption"]["enabled"] = json!(requested);
+            record["configured_settings"]["bundling"]["bundle_size"] =
+                json!(if grouping { 20 } else { 0 });
+            let entry = &mut record["entries"][0];
+            entry["original"]["status"] = json!(original);
+            entry["encryption"]["status"] = json!(protected);
+            if !bundled {
+                entry["bundle"] = Value::Null;
+            }
+            if original != "completed" || (grouping && !bundled) {
+                entry["routing"] = Value::Null;
+            }
+            let mut rows = Vec::new();
+            project(
+                &record,
+                |row| {
+                    rows.push(serde_json::to_value(row)?);
+                    Ok(())
+                },
+                |_| Ok(()),
+            )
+            .unwrap();
+            let row = &rows[0];
+            assert_eq!(
+                row["severity"], expected,
+                "{run_status}/{original}/{protected}/{grouping}"
+            );
+            assert_eq!(row["original_status"], original_expected);
+            assert_eq!(row["protected_status"], protected_expected);
+            assert_eq!(row["bundle_status"], bundle_expected);
+        }
+    }
+    #[test]
+    fn artifact_status_priorities_hold_for_running_and_terminated_records() {
+        for run_status in ["running", "failed"] {
+            for case in [
+                "original_failed",
+                "protected_failed",
+                "bundle_failed",
+                "held",
+                "completed",
+            ] {
+                let mut record = mixed_record();
+                record["status"] = json!(run_status);
+                record["entries"] = json!([mixed_row(1)]);
+                let entry = &mut record["entries"][0];
+                let (severity, original, protected, bundle) = match case {
+                    "original_failed" => {
+                        entry["original"] = json!({"status":"failed","error":"Compilation failed"});
+                        entry["encryption"] = json!({"status":"not_run"});
+                        entry["routing"] = json!("failed");
+                        entry["bundle"] = Value::Null;
+                        entry.as_object_mut().unwrap().remove("saved_evidence");
+                        entry["checks"] = json!([{"code":"rendering.failed","status":"fail","message":"Compilation failed"}]);
+                        crate::checks::assign(entry).unwrap();
+                        entry["effective_checks"] = json!([{"finding_key":entry["checks"][0]["finding_key"],"status":"fail","disabled":false,"policy_reason":null}]);
+                        ("error", "failed", "excluded", "excluded")
+                    }
+                    "protected_failed" => {
+                        entry["encryption"] =
+                            json!({"status":"failed","error":"Protection failed"});
+                        ("error", "completed", "failed", "completed")
+                    }
+                    "bundle_failed" => {
+                        entry["bundle"] = json!({"status":"failed","error":"Bundle failed"});
+                        ("error", "completed", "completed", "failed")
+                    }
+                    "held" => {
+                        entry["hold"] = json!({"reason":"Review"});
+                        entry["routing"] = json!("withheld");
+                        entry["bundle"] = Value::Null;
+                        ("clear", "completed", "completed", "excluded")
+                    }
+                    "completed" => ("clear", "completed", "completed", "completed"),
+                    _ => unreachable!(),
+                };
+                let mut rows = Vec::new();
+                project(
+                    &record,
+                    |row| {
+                        rows.push(serde_json::to_value(row)?);
+                        Ok(())
+                    },
+                    |_| Ok(()),
+                )
+                .unwrap();
+                assert_eq!(rows[0]["severity"], severity, "{run_status}/{case}");
+                assert_eq!(rows[0]["original_status"], original, "{run_status}/{case}");
+                assert_eq!(
+                    rows[0]["protected_status"], protected,
+                    "{run_status}/{case}"
+                );
+                assert_eq!(rows[0]["bundle_status"], bundle, "{run_status}/{case}");
+            }
+        }
+    }
+    #[test]
+    fn running_checkpoint_distinguishes_known_no_pdf_from_reviewable_source_failure() {
+        let mut record = mixed_record();
+        record["status"] = json!("running");
+        record["active_bundle_attempt"] = Value::Null;
+        record["delivery_attempts"] = json!([]);
+        let mut compile_failed = mixed_row(1);
+        compile_failed["original"] = json!({"status":"failed","error":"Compilation failed"});
+        compile_failed["encryption"] = json!({"status":"not_run"});
+        compile_failed["routing"] = Value::Null;
+        compile_failed["bundle"] = Value::Null;
+        compile_failed
+            .as_object_mut()
+            .unwrap()
+            .remove("saved_evidence");
+        compile_failed["checks"] =
+            json!([{"code":"rendering.failed","status":"fail","message":"Compilation failed"}]);
+        compile_failed
+            .as_object_mut()
+            .unwrap()
+            .remove("effective_checks");
+        let mut prep_failed = mixed_row(4);
+        prep_failed["routing"] = Value::Null;
+        prep_failed
+            .as_object_mut()
+            .unwrap()
+            .remove("effective_checks");
+        let mut ready = mixed_row(1);
+        ready["row_key"] = json!("row-000003");
+        ready["notice"]["row_key"] = json!("row-000003");
+        ready["deferred_checks"] = json!([
+            "notice.requirements",
+            "notice.eligibility",
+            "data.forecast_coverage",
+            "content.agent_display"
+        ]);
+        ready["original"] = json!({"status":"not_run"});
+        ready["encryption"] = json!({"status":"not_run"});
+        ready["routing"] = Value::Null;
+        ready["bundle"] = Value::Null;
+        crate::checks::append(
+            &mut ready,
+            json!({"code":"source.client_id_format","status":"fail","message":"Invalid ID"}),
+        )
+        .unwrap();
+        // An actual pre-render checkpoint has no saved compiled evidence yet.
+        ready.as_object_mut().unwrap().remove("saved_evidence");
+        ready.as_object_mut().unwrap().remove("effective_checks");
+        record["entries"] = json!([compile_failed, prep_failed, ready]);
+        crate::checks::validate_record(&record, false).unwrap();
+        let mut rows = Vec::new();
+        project(
+            &record,
+            |row| {
+                rows.push(serde_json::to_value(row)?);
+                Ok(())
+            },
+            |_| Ok(()),
+        )
+        .unwrap();
+        for row in &rows[..2] {
+            assert_eq!(row["severity"], "error");
+            assert_eq!(row["route"], "report_only");
+            assert_eq!(row["bundle_status"], "excluded");
+            assert_eq!(row["protected_status"], "excluded");
+        }
+        assert_eq!(rows[2]["severity"], "error");
+        assert_eq!(rows[2]["route"], "undecided");
+        assert_eq!(rows[2]["original_status"], "pending");
+        assert_eq!(rows[2]["protected_status"], "pending");
+        assert_eq!(rows[2]["bundle_status"], "pending");
+        // A source finding that did not prevent preparation must not hide a
+        // distinct explicit original failure without its own check.
+        record["entries"][2]["original"] = json!({"status":"failed","error":"Output write failed"});
+        let mut findings = Vec::new();
+        project(
+            &record,
+            |_| Ok(()),
+            |finding| {
+                findings.push(serde_json::to_value(finding)?);
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert!(
+            findings
+                .iter()
+                .any(|finding| finding["row_key"] == "row-000003"
+                    && finding["code"] == "artifact.original_failed")
+        );
     }
 }

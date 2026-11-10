@@ -528,6 +528,11 @@ fn exported_resources_work_outside_checkout_and_mixed_rows_remain_associated() {
     let output = project.run();
     let (run, record) = project.record();
     assert!(!output.status.success(), "partial run must be signaled");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Severity (5 source records):"));
+    assert!(stderr.contains("error: 3 (60.0%)"));
+    assert!(stderr.contains("report_only: 2"));
+    assert!(stderr.contains("review: 1"));
     assert_eq!(record["status"], "completed_with_failures");
     let rows = record["entries"].as_array().unwrap();
     assert_eq!(rows.len(), 5);
@@ -606,7 +611,19 @@ fn exported_resources_work_outside_checkout_and_mixed_rows_remain_associated() {
     let raw = fs::read_to_string(run.join("run.json")).unwrap();
     assert!(!raw.contains("20150102"));
     assert!(!run.join("report.html").exists());
-    assert_eq!(csv_rows(&run, &record, "records").len(), rows.len());
+    let exported = csv_rows(&run, &record, "records");
+    assert_eq!(exported.len(), rows.len());
+    for index in [1, 4] {
+        assert_eq!(exported[index]["protected_status"], "excluded");
+        assert!(exported[index]["protected_path"].is_empty());
+    }
+    let findings = csv_rows(&run, &record, "findings");
+    assert!(
+        !findings
+            .iter()
+            .any(|finding| finding["code"] == "artifact.protected_failed"
+                && (finding["row_key"] == "row-000002" || finding["row_key"] == "row-000005"))
+    );
     assert!(!run.join("facts").exists());
     let first = rows[0]["row_key"].as_str().unwrap();
     let original = run.join(rows[0]["original"]["path"].as_str().unwrap());
@@ -848,6 +865,22 @@ fn failed_configuration_and_input_keep_source_row_accounting() {
         assert_eq!(e["source"]["client_id"], format!("{:010}", i + 1));
         assert_ne!(e["original"]["status"], "completed");
     }
+
+    let empty = Project::new();
+    select_first_rows(&empty, &[]);
+    let result = empty.run();
+    assert!(!result.status.success());
+    let stderr = String::from_utf8_lossy(&result.stderr);
+    assert!(stderr.contains("Severity (0 source records):"));
+    for severity in ["error", "warning", "clear", "pending"] {
+        assert!(
+            stderr.contains(&format!("{severity}: 0 (n/a)")),
+            "missing zero denominator for {severity}: {stderr}"
+        );
+    }
+    let (_, record) = empty.record();
+    assert!(record["entries"].as_array().unwrap().is_empty());
+    assert!(record["error"].as_str().unwrap().contains("no clients"));
 }
 
 fn select_first_rows(project: &Project, templates: &[&str]) {
@@ -2523,8 +2556,23 @@ fn all_failed_rows_skip_compilation_and_report_completed_progress() {
         ],
     );
     assert!(!run.status.success());
-    assert!(String::from_utf8_lossy(&run.stderr).contains("3/3 processed"));
+    let stderr = String::from_utf8_lossy(&run.stderr);
+    assert!(stderr.contains("3/3 processed"));
+    assert!(stderr.contains("Severity (3 source records):"));
+    assert!(stderr.contains("error: 3 (100.0%)"));
+    assert!(stderr.contains("warning: 0 (0.0%)"));
+    assert!(stderr.contains("clear: 0 (0.0%)"));
+    assert!(stderr.contains("pending: 0 (0.0%)"));
+    assert!(stderr.contains("report_only: 3"));
+    assert!(stderr.contains("error source.history_unusable: 3 (100.0%)"));
     let (dir, record) = project.record();
+    for name in ["records", "findings"] {
+        let path = dir.join(record["exports"][name]["path"].as_str().unwrap());
+        assert!(
+            stderr.contains(path.to_str().unwrap()),
+            "missing selected {name} path in stderr"
+        );
+    }
     assert_eq!(record["status"], "completed_with_failures");
     assert_eq!(
         record["checks"][0]["measurements"],
