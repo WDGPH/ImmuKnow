@@ -60,6 +60,13 @@ those curve commands in interpreted Typst. All three forms describe the same
 code; the encoder, requested correction and best-of-eight mask selection are
 unchanged.
 
+The styled renderer consumes the matrix as row arrays of integer `0`/`1` values,
+using `1` for a dark square. Typst converts the returned bytes in bulk; it does
+not build a second boolean grid. The three 7×7 finder regions use direct bounds
+checks across standard QR sizes. These changes leave the plugin protocol,
+drawing order, quiet zone, colours and structural-marker protection unchanged.
+Refresh the complete exported library when adopting them.
+
 The QR test calls the shipped file through Typst, compares all three forms and
 decodes the result independently. It covers all correction levels, size changes,
 Unicode destinations and the maximum QR version (40). When changing how codes are drawn, also inspect and scan representative PDFs and Studio previews, including styled codes.
@@ -86,6 +93,13 @@ as well. Use each executable’s exported library: Core rejects a project whose
 shared library does not match its executable. Keep encryption, bundling, input
 facts and assignment mix identical; inspect saved outcomes before comparing
 runtime. A QR-only compile cannot establish the same gain for a complete run.
+
+## Historical SVG measurements
+
+The figures below describe earlier encoder/SVG comparisons at their recorded
+revisions. They do not measure the integer-grid/finder changes or the current
+CSV-first reporting path. Compare current complete commands separately before
+claiming a combined improvement.
 
 A local 100-unique-QR comparison measured roughly 1.02 seconds for Typst-built
 curves and 0.59 seconds for the SVG path. Complete 100-notice runs with

@@ -11,6 +11,19 @@ cargo test --release --locked --test documentation
 
 Use a focused test while developing, for example `cargo test --release --locked --test cli`. The CLI test uses fictional source rows and an unbranded project, exports embedded resources into a temporary directory, and runs the executable from outside the checkout. It exercises preparation, mixed notice outcomes, encryption, review bundles and saved-run changes. `tests/fixtures/render-contract.json` supplies native render-evidence cases; the schemas in `resources/schemas/` and `resources/typst/report.json` define their contract. Unit tests cover the PDF, input and worker boundaries. PDF round-trip tests reopen protected copies and bundles, checking AES-256 revision 6 settings, empty and wrong password refusal, correct password access, preserved pages/content and fresh encryption randomness. These release checks exercise the pinned library contract that production trusts after constructing and writing an artifact. The documentation test checks local links, commands and input schema references.
 
+For a resource embedding or build-tracking change, run the isolated cached-build
+check separately from timing experiments:
+
+```sh
+scripts/check-resource-rebuild.sh
+```
+
+It copies tracked working files into a temporary source directory, then verifies
+ordinary release rebuilds after a resource-only edit, addition and removal. It
+compares exported bytes and resource identities without changing checkout
+resources. It reuses `CARGO_TARGET_DIR` (or `target/` by default), so run it
+without another Cargo job or benchmark using that directory.
+
 Native compilation uses workstation fonts and embedded Typst. Inspect representative English and French PDFs after presentation, font or compiler changes, including long names, addresses and histories. CI runs the Rust release build and tests; it does not require a separate Typst executable.
 
 To verify the vendored QR plugin with its pinned toolchain and WebAssembly target, run:

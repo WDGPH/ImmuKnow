@@ -192,8 +192,8 @@ Keep this migration ledger current during Core implementation; consumer mutation
 
 | Core change | Template migration | Studio migration |
 | --- | --- | --- |
-| CSV-first outputs selected by `exports.records.path` / `exports.findings.path` | README and `tests/test_sample.py` replace per-bundle CSV assumptions; `tests/conftest.py` retains canonical source rows | Download instructions; `tests/check_typst_project.py` and native journey |
-| Saved-run v2 `saved_evidence` and keyed effective results | Native sample/presentation readers; mock records in `tests/test_check.py` | `tests/check_typst_project.py` native/browser parity reader and artifact membership assertions |
+| CSV-first outputs selected by `exports.records.path` / `exports.findings.path` | `scripts/run.py` output and README; `tests/test_sample.py` replaces per-bundle CSV assumptions; `tests/conftest.py` retains canonical source rows | Download instructions; `tests/check_typst_project.py` and native journey |
+| Saved-run v2 `saved_evidence` and keyed effective results | `scripts/check.py` finding summary; native sample/presentation readers and mock records in `tests/test_check.py` | `tests/check_typst_project.py` native/browser parity reader and artifact membership assertions |
 | Render-report v4: successful `layout.*` checks omit `measurements`; component geometry remains authoritative | Maintained notice/render checks; [retention table](tests/fixtures/render-evidence.md) and shared fixtures | Types/generated validators; move `viewer.ts` envelope guide to `summary.measurements.address`; retain `preview-sources.ts` |
 | Integer grid and finder bounds | Complete shared-library refresh; representative styles/languages | Regenerated complete resources; styled preview/download checks |
 | Final Core resource identity | Exact `core-revision.txt` and verified package | Matching Core pin, Template Git pin/lock and native fingerprint |
