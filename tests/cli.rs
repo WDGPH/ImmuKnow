@@ -38,6 +38,49 @@ fn copy_tree(source: &Path, destination: &Path) {
 fn p(path: &Path) -> &str {
     path.to_str().unwrap()
 }
+fn effective_checks(entry: &Value) -> Vec<Value> {
+    let observations = entry["checks"].as_array().unwrap();
+    entry["effective_checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|result| {
+            assert!(result.as_object().unwrap().keys().all(|key| {
+                ["finding_key", "status", "disabled", "policy_reason"].contains(&key.as_str())
+            }));
+            let mut observed = observations
+                .iter()
+                .find(|check| check["finding_key"] == result["finding_key"])
+                .expect("every effective result joins an observed occurrence")
+                .clone();
+            for field in ["status", "disabled", "policy_reason"] {
+                observed[field] = result[field].clone();
+            }
+            observed
+        })
+        .collect()
+}
+fn csv_export(run: &Path, record: &Value, name: &str) -> String {
+    assert_eq!(
+        record["exports"]["record_revision"],
+        record["record_revision"]
+    );
+    let exported = &record["exports"][name];
+    let bytes = fs::read(run.join(exported["path"].as_str().unwrap())).unwrap();
+    assert_eq!(immuknow::hash(&bytes), exported["sha256"]);
+    String::from_utf8(bytes).unwrap()
+}
+fn csv_rows(
+    run: &Path,
+    record: &Value,
+    name: &str,
+) -> Vec<std::collections::BTreeMap<String, String>> {
+    let csv = csv_export(run, record, name);
+    csv::Reader::from_reader(csv.as_bytes())
+        .deserialize()
+        .map(Result::unwrap)
+        .collect()
+}
 
 #[test]
 fn native_project_journey_without_python_or_uv() {
@@ -449,11 +492,10 @@ fn bounded_compilation_matches_one_worker_through_row_failures() {
             "client_id",
             "notice",
             "assignment",
-            "facts",
             "original",
             "checks",
             "effective_checks",
-            "render_report",
+            "saved_evidence",
             "routing",
             "bundle",
         ] {
@@ -563,7 +605,9 @@ fn exported_resources_work_outside_checkout_and_mixed_rows_remain_associated() {
     }
     let raw = fs::read_to_string(run.join("run.json")).unwrap();
     assert!(!raw.contains("20150102"));
-    assert!(run.join("report.html").is_file());
+    assert!(!run.join("report.html").exists());
+    assert_eq!(csv_rows(&run, &record, "records").len(), rows.len());
+    assert!(!run.join("facts").exists());
     let first = rows[0]["row_key"].as_str().unwrap();
     let original = run.join(rows[0]["original"]["path"].as_str().unwrap());
     let before = fs::read(&original).unwrap();
@@ -973,14 +1017,20 @@ fn rebundle_applies_global_and_client_policy_without_changing_observations() {
             .iter()
             .find(|c| c["code"] == "content.multiple_links")
             .unwrap();
-        let qr = row["render_report"]["qr_urls"][0].as_str().unwrap();
+        let qr = row["saved_evidence"]["qr_urls"][0].as_str().unwrap();
         assert_eq!(
             multiple["subjects"],
             json!([{"kind":"url_set", "urls":["http://example.org/records", qr]}])
         );
     }
-    let html = fs::read_to_string(run.join("report.html")).unwrap();
-    assert!(html.contains("2 affected rows · 2 occurrences"));
+    let findings = csv_rows(&run, &record, "findings");
+    assert_eq!(
+        findings
+            .iter()
+            .filter(|row| row["code"] == "content.link_https")
+            .count(),
+        2
+    );
     let listing = cli(&project.root, &["warnings", p(&run)]);
     success(&listing);
     let listing = String::from_utf8(listing.stdout).unwrap();
@@ -1028,10 +1078,8 @@ fn rebundle_applies_global_and_client_policy_without_changing_observations() {
                 .any(|c| c["code"] == "content.link_https" && c["status"] == "warn")
         );
         assert!(
-            row["effective_checks"]
-                .as_array()
-                .unwrap()
-                .iter()
+            effective_checks(row)
+                .into_iter()
                 .any(|c| c["code"] == "content.link_https" && c["status"] == status)
         );
     }
@@ -1052,17 +1100,21 @@ fn rebundle_applies_global_and_client_policy_without_changing_observations() {
     );
     let updated: Value = serde_json::from_slice(&fs::read(run.join("run.json")).unwrap()).unwrap();
     assert!(
-        updated["entries"][1]["effective_checks"]
-            .as_array()
-            .unwrap()
-            .iter()
+        effective_checks(&updated["entries"][1])
+            .into_iter()
             .any(|c| c["code"] == "content.link_https"
                 && c["status"] == "not_run"
                 && c["disabled"] == true)
     );
-    let report = fs::read_to_string(run.join("report.html")).unwrap();
-    assert!(report.contains("content.link_https"));
-    assert!(report.contains("Inactive acknowledgments"));
+    let findings = csv_rows(&run, &updated, "findings");
+    assert!(
+        findings
+            .iter()
+            .any(|row| row["code"] == "content.link_https" && row["disabled"] == "true")
+    );
+    let listing = cli(&project.root, &["warnings", p(&run)]);
+    success(&listing);
+    assert!(String::from_utf8_lossy(&listing.stdout).contains("inactive"));
     success(&cli(
         &project.root,
         &[
@@ -1146,11 +1198,10 @@ fn nested_selected_config_never_leaks_literal_encryption_password() {
             .unwrap()
             .contains(secret)
     );
-    assert!(
-        !fs::read_to_string(run.join("report.html"))
-            .unwrap()
-            .contains(secret)
-    );
+    let record: Value = serde_json::from_slice(&fs::read(run.join("run.json")).unwrap()).unwrap();
+    for export in ["records", "findings"] {
+        assert!(!csv_export(&run, &record, export).contains(secret));
+    }
 }
 
 #[test]
@@ -1194,18 +1245,13 @@ fn missing_password_fact_fails_one_copy_and_later_rows_continue() {
     );
     assert_eq!(rows[0]["encryption"]["status"], "failed");
     assert_eq!(rows[0]["routing"], "review");
-    let review_csv =
-        run.join(Path::new(rows[0]["bundle"]["path"].as_str().unwrap()).with_extension("csv"));
-    let findings = csv::Reader::from_path(review_csv)
-        .unwrap()
-        .deserialize::<std::collections::BTreeMap<String, String>>()
-        .map(Result::unwrap)
-        .collect::<Vec<_>>();
+    let findings = csv_rows(&run, &record, "findings");
     assert!(
         findings
             .iter()
-            .any(|finding| finding["check_code"] == "encryption.failed"
-                && finding["status"] == "fail"
+            .any(|finding| finding["code"] == "encryption.failed"
+                && finding["effective_status"] == "fail"
+                && finding["row_key"] == rows[0]["row_key"].as_str().unwrap()
                 && finding["message"].contains("password")
                 && finding["message"].contains("missing"))
     );
@@ -1536,11 +1582,9 @@ fn allowed_duplicate_ids_keep_distinct_rows_and_share_manifest_assignment() {
         assert_eq!(row["original"]["status"], "completed");
         assert_eq!(row["routing"], "deliverable");
         assert!(run.join(format!("originals/{key}.pdf")).is_file());
-        assert!(run.join(format!("facts/{key}.json")).is_file());
-        let warnings: Vec<_> = row["effective_checks"]
-            .as_array()
-            .unwrap()
-            .iter()
+        assert!(!run.join("facts").exists());
+        let warnings: Vec<_> = effective_checks(row)
+            .into_iter()
             .filter(|c| c["code"] == "data.duplicate_client_id")
             .collect();
         assert_eq!(warnings.len(), usize::from(index < 2));
@@ -1856,15 +1900,16 @@ fn repeated_overdue_facts_warn_before_display_filters_and_remain_deliverable() {
         "data.duplicate_overdue_diseases",
     ] {
         assert!(
-            row["effective_checks"]
-                .as_array()
-                .unwrap()
-                .iter()
+            effective_checks(row)
+                .into_iter()
                 .any(|c| c["code"] == code && c["status"] == "warn")
         );
     }
-    assert_eq!(row["render_report"]["components"]["overdue_agents"], true);
-    assert_eq!(row["render_report"]["components"]["overdue_diseases"], true);
+    assert_eq!(row["saved_evidence"]["components"]["overdue_agents"], true);
+    assert_eq!(
+        row["saved_evidence"]["components"]["overdue_diseases"],
+        true
+    );
     assert_eq!(record["bundles"][0]["members"], json!(["row-000001"]));
 }
 
@@ -1917,22 +1962,27 @@ fn filename_templates_preserve_artifacts_and_rebundle_recorded_paths() {
     );
     for bundle in bundles {
         let path = bundle["path"].as_str().unwrap();
-        assert_eq!(
-            Path::new(path).file_stem(),
-            Path::new(bundle["csv"].as_str().unwrap()).file_stem()
-        );
+        assert!(bundle.get("csv").is_none());
         assert_eq!(
             immuknow::hash(&fs::read(run.join(path)).unwrap()),
             bundle["sha256"]
         );
         assert_eq!(path.contains("/review_"), bundle["route"] == "review");
-        let csv = fs::read_to_string(run.join(bundle["csv"].as_str().unwrap())).unwrap();
+        let records = csv_rows(&run, &record, "records");
         for member in bundle["members"].as_array().unwrap() {
-            assert!(csv.contains(member.as_str().unwrap()));
+            let row = records
+                .iter()
+                .find(|row| row["row_key"] == member.as_str().unwrap())
+                .unwrap();
+            assert_eq!(row["bundle_path"], path);
+            assert!(row["bundle_start_page"].parse::<u64>().unwrap() > 0);
+            assert!(
+                row["bundle_end_page"].parse::<u64>().unwrap()
+                    >= row["bundle_start_page"].parse::<u64>().unwrap()
+            );
         }
     }
-    let html = fs::read_to_string(run.join("report.html")).unwrap();
-    assert!(html.contains("originals/example_alice.pdf"));
+    assert!(csv_export(&run, &record, "records").contains("originals/example_alice.pdf"));
     assert!(
         !serde_json::to_string(&record["configured_settings"])
             .unwrap()
@@ -2239,7 +2289,10 @@ fn missing_requirements_keep_a_review_pdf_and_rebundle_saved_observations() {
     fs::write(&template, original).unwrap();
     assert!(!cli(&project.root, &["rebundle", p(&run)]).status.success());
     let after: Value = serde_json::from_slice(&fs::read(run.join("run.json")).unwrap()).unwrap();
-    assert_eq!(after["entries"][0]["render_report"], entry["render_report"]);
+    assert_eq!(
+        after["entries"][0]["saved_evidence"],
+        entry["saved_evidence"]
+    );
     assert_eq!(after["entries"][0]["checks"], entry["checks"]);
     assert_eq!(
         after["entries"][0]["blocked_checks"],
@@ -2387,11 +2440,11 @@ fn row_preparation_failures_keep_source_indices_through_workers_and_rebundle() {
             assert_eq!(entry["original"]["status"], "completed");
             assert_eq!(entry["encryption"]["status"], "completed");
             assert_eq!(
-                entry["render_report"]["identity"]["row_key"],
+                entry["saved_evidence"]["identity"]["row_key"],
                 entry["row_key"]
             );
             assert_eq!(
-                entry["render_report"]["identity"]["client_id"],
+                entry["saved_evidence"]["identity"]["client_id"],
                 entry["client_id"]
             );
             let original_path = dir.join(entry["original"]["path"].as_str().unwrap());
@@ -2487,7 +2540,7 @@ fn all_failed_rows_skip_compilation_and_report_completed_progress() {
                 && r.get("facts").is_none())
     );
     assert_eq!(fs::read_dir(dir.join("originals")).unwrap().count(), 0);
-    assert_eq!(fs::read_dir(dir.join("facts")).unwrap().count(), 0);
+    assert!(!dir.join("facts").exists());
 }
 
 #[test]
