@@ -55,7 +55,7 @@ impl<'de> Deserialize<'de> for Unique {
                 while let Some(v) = s.next_element::<Unique>()? {
                     out.push(v.0);
                 }
-                Ok(Unique(json!(out)))
+                Ok(Unique(Value::Array(out)))
             }
             fn visit_str<E: de::Error>(self, s: &str) -> std::result::Result<Unique, E> {
                 Ok(Unique(json!(s)))
