@@ -87,3 +87,9 @@ Measure process startup through final reporting. Verify the saved status,
 notice count, encrypted copies and bundle membership before interpreting a
 runtime. One observed run does not establish capacity for other input mixes.
 CI does not run the 1,000-client timing experiment.
+
+The [fictional performance harness](performance_harness.md) supplies
+fixed-cohort generation, complete-command OS measurements and independent PDF
+membership verification. See the [acceptance report](performance_experiments.md)
+for measured QR/reporting results and limits; these large experiments are not
+routine CI gates.

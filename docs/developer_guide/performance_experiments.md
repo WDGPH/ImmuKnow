@@ -1,4 +1,129 @@
-# Profiling the reduced pipeline
+# QR and CSV reporting acceptance
+
+The v2 acceptance uses a new fictional workload with unique clients, realistic
+history lengths and long QR destinations. It does not replay the supplied private
+run or repeat the earlier short-history benchmark. The [aggregate measurements](../assets/csv-qr-benchmark.json)
+retain individual times, input/font/binary/resource identities, limits and checks.
+The [maintainer harness](performance_harness.md) creates the fixture,
+measures complete commands and verifies artifacts outside timing.
+
+## Styled QR results
+
+The two changes are bulk conversion to an integer grid and arithmetic finder
+bounds. The vendored WASM is unchanged. Four balanced alternating 1,000-row pairs
+compare the same reporting implementation at `f133ee8`, changing only
+`qr-encode.typ` and `qr-style.typ`. Ordinary cached rebuilds produce byte-identical
+control executables and refresh embedded resource identities. Two control versus
+control pairs range from 58.10 to 58.86 seconds; their largest paired wall
+variation is 1.31% and CPU variation 1.83%.
+
+| Pair | Control wall, s | Integer grid wall, s | Control CPU, s | Integer grid CPU, s |
+| --- | ---: | ---: | ---: | ---: |
+| 1 | 59.29 | 50.99 | 138.50 | 123.10 |
+| 2 | 59.29 | 51.05 | 138.52 | 124.39 |
+| 3 | 59.00 | 50.73 | 137.22 | 120.68 |
+| 4 | 57.10 | 51.41 | 134.67 | 123.34 |
+
+Median paired command-wall reduction is **13.95%** (range 9.97–14.02%); CPU
+reduction is **10.66%** (8.41–12.05%). Peak RSS decreases in every pair, with a
+median 5.21% reduction. These changes are repeatably beneficial beyond the
+measured rebuild variation. No OOM occurred.
+
+One matched 5,800-row confirmation takes 358.61 versus 310.46 seconds and 832.65
+versus 741.54 CPU seconds. That is one pair, not a distribution or capacity
+promise. A separate historical HTML baseline takes 373.77 seconds, with 3.65 GB
+peak RSS, versus 2.43 GB for the combined candidate. Reporting and QR effects
+must not be added to one another or to earlier results.
+
+The timed cohort uses both English variants equally, median 19 history entries,
+32 schools, school/variant grouping, last-name/DOB ordering, encryption off,
+timestamp `1793534400`, and compilation/encryption/bundle workers 2/2/4. The
+shared environment has a four-CPU quota, 8 GiB memory limit and warm uncontrolled
+filesystem caches. Builds, profiling, PDF parsing and spreadsheet work are outside
+native timing. Separate 200-row RGB-SVG and CMYK-run context pairs preserve exact
+outputs; those paths bypass the changed helpers, so their small timing differences
+do not establish an optimization benefit.
+
+All 15 timed main trials pass artifact hashes, facts, routing, bundle order and
+semantic evidence comparisons, including every retained per-check measurement.
+Only deliberately removed passing layout duplicates are excluded. Independent
+PyMuPDF checks verify all 5,800 originals, 11,600 original pages and 64 bundles:
+each source is bundled exactly once, inclusive ranges match physical pages, and
+bundled page streams, text, dimensions and URI rectangles match their originals.
+Separate renderer acceptance decodes 28 actual English/French PDFs across module
+and corner styles, custom finder/alignment colors, SVG/CMYK paths, safe logos,
+masks and long histories. Unsafe structural overlaps and out-of-bounds masks stay
+rejected. Deliberately long address stress content retains pre-existing clipping
+in both arms; this work does not establish perfect presentation for arbitrary
+content or printed QR sizes.
+
+## Reporting size and latency
+
+At 5,800 rows the selected pair is **3,279,991 bytes**, versus 122,083,197 bytes
+of old HTML plus 17,516,622 bytes of bundle CSVs: **2.35%** of the old presentation
+bytes, below the proposed 25% target. There are no HTML or per-bundle CSV writes.
+The canonical record keeps the facts, observed/effective evidence, provenance,
+review history and artifact membership separately from these review tables.
+
+The matched throughput candidates above write pretty JSON. Later `1f2ddf8` writes
+the same canonical values compactly, reducing the retained full record from
+181,009,889 to 103,402,895 bytes. Isolated calls to the actual library, excluding
+record loading, measure three checkpoints at 0.84–1.18 seconds and paired CSV
+publication at 1.63–2.57 seconds. Publication includes two canonical saves and
+selection of the immutable pair, rather than CSV streaming alone. The earlier
+pretty implementation takes 1.14–1.24 and 2.70–3.48 seconds respectively.
+
+A real missing-export recovery on the compact 5,800-row completed run takes
+14.05 seconds wall and 13.83 CPU seconds, versus 18.37 and 17.91 for the earlier
+pretty record. Revision, facts, findings and review/attempt semantics remain
+unchanged; regenerated CSV hashes match. These are separate one-command recovery
+samples, not paired evidence for a precise percentage gain. Small native
+regressions cover failed/partial run refresh; the 5,800-row case is completed-run
+recovery. The proposed two-second publication/refresh target is **not consistently
+met**. Loading, strict validation and final canonical publication remain part of
+whole refresh; preserving required evidence takes precedence over that target.
+
+A final bounded reader experiment at `ff58660` moves already validated arrays
+straight into `Value::Array`, instead of serializing their entire nested contents
+again. It preserves recursive duplicate-field rejection. Three alternating pairs
+on the same compact 103 MB record take 4.15–5.59 seconds for the previous reader
+and 2.08–2.20 seconds for the move. Median paired read-wall and CPU reductions are
+56.37% and 56.61%; read-process high-water memory falls from about 1.67 to 0.98 GB.
+Every canonical-content hash is identical, and typed/nested/escaped-duplicate-key
+regressions pass. These clocks measure reading only, with content hashing outside
+the read interval; they are not whole-refresh speedups. No additional reader or
+validation rewrite is included. The final locked release suite passes 103 tests.
+
+The final runtime `ff58660` then completes the same 1,000-row fixture in 50.41
+seconds versus 50.09 for the frozen combined `f133ee8` candidate. This single
+confirmation establishes no additional throughput gain; PDF bytes, facts,
+retained findings/measurements, routing and membership match exactly. Final
+completed-run missing-export recovery takes 10.94 seconds. A genuine setup
+failure after reading all 5,800 rows refreshes in 0.20 seconds; all records retain
+error severity with pending unattempted originals, one global failure explains
+the interruption, and no PDF paths are invented. Both recovery cases preserve all
+non-export semantics, revision and paired CSV hashes. Full completed-run recovery
+still misses the two-second target. The preserved executable exports all 29
+tracked resource files byte for byte outside the checkout.
+
+Gnumeric 1.12.51's headless engine imports the full records CSV in 1.92 seconds,
+loads/recalculates a typed-text workbook in 1.25 seconds and exports calculated
+CSV in 0.86 seconds. It preserves every nonempty field, verifies all 5,800
+row-key joins and selects the expected 2,900 rows with a calculated variant
+filter. A separate five-row case checks leading-zero IDs, quoted French and
+formula-like names beginning `=`, `+` and `@`. Auto-import coerces leading-zero
+IDs to numbers; explicit text cells preserve them. This measures the spreadsheet
+engine, not a GUI import wizard or AutoFilter interaction. Import identifiers as
+text as described in the [review guide](../user_guide/pdf_validation.md).
+
+## Historical experiments
+
+The remainder of this page describes earlier HTML-producing revisions. Its
+retained-check policy, QR implementation, report shape and costs refer to those
+recorded sources, not to the current v2 implementation. Preserve their provenance;
+do not combine their speedups with the current experiment.
+
+## Profiling the reduced pipeline
 
 These experiments start from Core `c483af0`, whose implementation is the reduced-work pipeline at `e7a8de1`. That path already removed redundant PDF reopens. Earlier production-path estimates are not added to these results. The accepted source change is the notice checkpoint schedule in `src/pipeline.rs`; existing JSON ownership moves, buffered preparation output, streamed report JSON and single-pass HTML escaping are retained. No history, QR, schema or dependency change is included.
 

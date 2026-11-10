@@ -1,6 +1,22 @@
 # Measured notice throughput
 
-The measurements on this page describe earlier revisions that generated HTML and per-bundle CSVs. They are historical comparisons and do not measure the current CSV-first reporting path.
+The current CSV-first implementation and styled QR changes are measured on a
+fictional cohort with median 19 history entries and long QR destinations. Four
+balanced 1,000-row pairs show median wall reduction of 13.95% and CPU reduction of
+10.66% for the QR changes, with no peak-memory regression. One 5,800-row matched
+confirmation takes 358.61 versus 310.46 seconds; encryption is off. These figures
+describe that workload, not a capacity guarantee for other notices or machines.
+
+At 5,800 records the CSV pair is 3.28 MB, versus about 140 MB of old HTML and
+bundle CSVs. Gnumeric's headless engine verifies all row-key joins and the expected
+variant filter; import client identifiers as text to preserve leading zeros.
+Whole saved-run recovery still exceeds the proposed two-second target. See the
+[acceptance report](../developer_guide/performance_experiments.md) for individual
+measurements, correctness checks, latency limits and reproducibility.
+
+The remaining comparisons describe earlier revisions that generated HTML and
+per-bundle CSVs. Their shorter histories, QR styles and encryption mix differ;
+do not combine their times or percentages with the current experiment.
 
 ## Historical checkpoint and parsing comparisons
 
@@ -63,7 +79,7 @@ The baseline executable contains the QR implementation at `c5d8b5a`; the concurr
 
 ## Why bounded workers
 
-Stage timers and Typst timing traces identified serial notice compilation as the main scheduling bottleneck. Callgrind instruction profiling also showed substantial hashing work in PDF protection. That worker-only change overlapped existing implementations and retained PDF inspection and password verification. Subsequent changes below reduce repeated work while retaining content evidence and successful file operations. Profiling runs were separate from the uninstrumented measurements above.
+Stage timers and Typst timing traces identified serial notice compilation as the main scheduling bottleneck. Callgrind instruction profiling also showed substantial hashing work in PDF protection. That worker-only change overlapped existing implementations and retained PDF inspection and password verification. Subsequent changes reduce repeated work while retaining content evidence and successful file operations. Profiling runs were separate from the uninstrumented measurements above.
 
 The worker count remains deliberately small: each compiler retains its own document world, and additional workers compete with encryption for CPU and memory. Source-order commits and a four-notice window bound the extra in-flight work. The measured improvement comes with higher aggregate CPU use and memory, as shown above.
 
