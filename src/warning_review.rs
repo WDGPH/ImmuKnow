@@ -96,8 +96,8 @@ pub(crate) fn validate(record: &Value) -> Result<Reviews> {
 fn read_completed(dir: &Path) -> Result<Value> {
     let record: Value = crate::read_json(&dir.join("run.json"))?;
     ensure!(
-        record["run_schema_version"] == 1,
-        "Unsupported run record version"
+        record["run_schema_version"] == 2,
+        "Unsupported saved-run version; use the matching old executable"
     );
     ensure!(
         matches!(
@@ -113,10 +113,27 @@ fn read_completed(dir: &Path) -> Result<Value> {
 pub fn list(run: &Path, refresh: bool) -> Result<()> {
     let dir = run.canonicalize()?;
     let _lock = crate::pipeline::lock(&dir)?;
-    let record = read_completed(&dir)?;
+    let mut record: Value = crate::read_json(&dir.join("run.json"))?;
+    ensure!(
+        record["run_schema_version"] == 2,
+        "Unsupported saved-run version; use the matching old executable"
+    );
     let reviews = validate(&record)?;
+    let completed = matches!(
+        record["status"].as_str(),
+        Some("completed" | "completed_with_warnings" | "completed_with_failures")
+    );
+    crate::checks::validate_record(&record, completed)?;
     if refresh {
-        crate::report::write(&dir, &record)?;
+        crate::report::publish(&dir, &mut record)?;
+    } else {
+        ensure!(
+            matches!(
+                record["status"].as_str(),
+                Some("completed" | "completed_with_warnings" | "completed_with_failures")
+            ),
+            "Run is not complete"
+        );
     }
     let mut active = reviews.active_ids();
     let summary = crate::warnings::summarize(&record);
@@ -159,6 +176,7 @@ pub fn acknowledge(run: &Path, issue: &str, reason: &str, revoke: bool) -> Resul
     let _lock = crate::pipeline::lock(&dir)?;
     let mut record = read_completed(&dir)?;
     let mut reviews = validate(&record)?;
+    crate::checks::validate_record(&record, true)?;
     let active = reviews.active_ids().contains(issue);
     if revoke {
         ensure!(active, "Issue is not acknowledged");
@@ -184,7 +202,8 @@ pub fn acknowledge(run: &Path, issue: &str, reason: &str, revoke: bool) -> Resul
         at: DateTime::<Utc>::from(SystemTime::now()).to_rfc3339_opts(SecondsFormat::Secs, true),
     });
     record["warning_reviews"] = json!(reviews);
-    crate::report::write(&dir, &record)?;
+    crate::report::checkpoint(&dir, &mut record)?;
+    crate::report::publish(&dir, &mut record)?;
     println!(
         "Warning review {}.",
         if revoke { "revoked" } else { "recorded" }
@@ -200,12 +219,12 @@ mod tests {
 
     fn saved() -> Value {
         json!({
-            "run_schema_version": 1, "status": "completed_with_warnings",
+            "run_schema_version": 2, "run_id":"fictional", "record_revision":0, "exports":null, "status": "completed_with_warnings",
             "resources": {"sha256": "a".repeat(64)},
             "project_resources": {"templates": {"notice.typ": "b".repeat(64)}},
-            "entries": [{"row_key": "row-000001", "checks": [], "effective_checks": [
-                {"code": "content.link_https", "status": "warn", "subjects": [{"kind": "url", "urls": ["http://example.test/?private=1"]}]}
-            ]}], "delivery_attempts": [], "bundles": []
+            "entries": [{"row_key": "row-000001", "checks": [
+                {"finding_key":"check-000001", "code": "content.link_https", "status": "warn", "subjects": [{"kind": "url", "urls": ["http://example.test/?private=1"]}]}
+            ], "effective_checks":[{"finding_key":"check-000001","status":"warn","disabled":false,"policy_reason":null}]}], "delivery_attempts": [], "bundles": []
         })
     }
     fn event(id: &str, action: &str) -> Value {
@@ -252,6 +271,8 @@ mod tests {
             .unwrap()
             .remove("warning_reviews")
             .unwrap();
+        after["record_revision"] = record["record_revision"].clone();
+        after["exports"] = record["exports"].clone();
         assert_eq!(after, record);
         assert_eq!(
             fs::read(dir.path().join("artifact.pdf")).unwrap(),
@@ -326,7 +347,7 @@ mod tests {
         let error = acknowledge(dir.path(), &id, "Reviewed", false).unwrap_err();
         assert!(!format!("{error:#}").contains("record saved"));
         assert_eq!(fs::read(dir.path().join("run.json")).unwrap(), bytes);
-        assert!(!dir.path().join("report.html").exists());
+        assert!(!dir.path().join("reports-0001").exists());
         fs::remove_dir(dir.path().join("run.partial")).unwrap();
         acknowledge(dir.path(), &id, "Reviewed", false).unwrap();
         let updated: Value = crate::read_json(&dir.path().join("run.json")).unwrap();
@@ -339,25 +360,70 @@ mod tests {
         );
     }
     #[test]
-    fn failed_html_publication_keeps_review_and_refresh_recovers() {
+    fn failed_csv_publication_keeps_review_and_refresh_recovers() {
         let dir = tempdir().unwrap();
-        let record = saved();
+        let mut record = saved();
         let id = crate::warnings::reviewable(&record).unwrap().link_issues[0]
             .id
             .clone()
             .unwrap();
+        record["warning_reviews"] =
+            json!({"schema_version":1,"history":[event(&id,"acknowledge")]});
+        crate::report::checkpoint(dir.path(), &mut record).unwrap();
+        let revision = record["record_revision"].clone();
+        let error = crate::report::publish_with_hook(dir.path(), &mut record, |_| {
+            anyhow::bail!("injected publication failure")
+        })
+        .unwrap_err();
+        assert!(format!("{error:#}").contains("saved"));
+        let updated: Value = crate::read_json(&dir.path().join("run.json")).unwrap();
+        assert!(validate(&updated).unwrap().active_ids().contains(&id));
+        assert!(updated["exports"].is_null());
+        list(dir.path(), true).unwrap();
+        let refreshed: Value = crate::read_json(&dir.path().join("run.json")).unwrap();
+        assert_eq!(refreshed["record_revision"], revision);
+        assert_eq!(
+            refreshed["warning_reviews"]["history"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(
+            dir.path()
+                .join(refreshed["exports"]["records"]["path"].as_str().unwrap())
+                .is_file()
+        );
+    }
+    #[test]
+    fn refresh_rejects_corrupt_completed_evidence_but_accepts_partial_checkpoint() {
+        let dir = tempdir().unwrap();
+        let mut record = saved();
+        record["entries"][0]["original"] = json!({"status":"completed","pages":1});
+        record["entries"][0]["checks"] = json!([]);
+        record["entries"][0]["effective_checks"] = json!([]);
+        let bytes = serde_json::to_vec(&record).unwrap();
+        fs::write(dir.path().join("run.json"), &bytes).unwrap();
+        assert!(list(dir.path(), true).is_err());
+        assert_eq!(fs::read(dir.path().join("run.json")).unwrap(), bytes);
+        record["status"] = json!("running");
+        record["entries"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("effective_checks");
+        record["entries"][0]["original"] = json!({"status":"not_run"});
         fs::write(
             dir.path().join("run.json"),
             serde_json::to_vec(&record).unwrap(),
         )
         .unwrap();
-        fs::create_dir(dir.path().join("report.html")).unwrap();
-        let error = acknowledge(dir.path(), &id, "Reviewed", false).unwrap_err();
-        assert!(format!("{error:#}").contains("saved"));
-        let updated: Value = crate::read_json(&dir.path().join("run.json")).unwrap();
-        assert!(validate(&updated).unwrap().active_ids().contains(&id));
-        fs::remove_dir(dir.path().join("report.html")).unwrap();
         list(dir.path(), true).unwrap();
-        assert!(dir.path().join("report.html").is_file());
+        let saved: Value = crate::read_json(&dir.path().join("run.json")).unwrap();
+        assert_eq!(saved["record_revision"], 0);
+        assert!(
+            dir.path()
+                .join(saved["exports"]["records"]["path"].as_str().unwrap())
+                .is_file()
+        );
     }
 }

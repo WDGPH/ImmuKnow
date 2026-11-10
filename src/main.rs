@@ -160,7 +160,7 @@ enum Command {
     /// List distinct URL warnings in a completed saved run.
     Warnings {
         run: PathBuf,
-        /// Regenerate the HTML view from the saved record.
+        /// Regenerate the CSV pair from the saved record.
         #[arg(long)]
         refresh: bool,
     },
@@ -292,7 +292,7 @@ fn execute() -> Result<()> {
             encryption_workers,
             bundle_workers,
         } => {
-            let result = pipeline::run_with_progress(
+            let outcome = pipeline::run_with_progress(
                 &inputs.options(
                     output,
                     timestamp,
@@ -301,7 +301,19 @@ fn execute() -> Result<()> {
                     bundle_workers,
                 )?,
                 &mut |event| terminal.update(event),
-            )?;
+            );
+            let result = match outcome {
+                Ok(result) => result,
+                Err(error) => {
+                    if let Some(saved) = error.downcast_ref::<pipeline::SavedRunFailure>() {
+                        if let Ok(receipt) = saved.receipt() {
+                            terminal.finish(&receipt);
+                            terminal.print_record(&receipt);
+                        }
+                    }
+                    return Err(error);
+                }
+            };
             terminal.finish(&result);
             terminal.print_record(&result);
             if !result.succeeded {
@@ -347,7 +359,7 @@ fn execute() -> Result<()> {
                 withhold.is_empty() || reason.as_ref().is_some_and(|s| !s.trim().is_empty()),
                 "Withholding requires a nonempty reason"
             );
-            let result = pipeline::rebundle_with_filenames(
+            let outcome = pipeline::rebundle_with_filenames(
                 &run,
                 policy.as_deref(),
                 filenames.as_deref(),
@@ -355,7 +367,19 @@ fn execute() -> Result<()> {
                 reason.as_deref(),
                 &release,
                 usize::from(bundle_workers),
-            )?;
+            );
+            let result = match outcome {
+                Ok(result) => result,
+                Err(error) => {
+                    if let Some(saved) = error.downcast_ref::<pipeline::SavedRunFailure>() {
+                        if let Ok(receipt) = saved.receipt() {
+                            terminal.finish(&receipt);
+                            terminal.print_record(&receipt);
+                        }
+                    }
+                    return Err(error);
+                }
+            };
             terminal.finish(&result);
             terminal.print_record(&result);
             if !result.succeeded {

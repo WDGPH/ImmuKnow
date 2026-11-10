@@ -172,7 +172,7 @@
   "limitations": [
     "Shared Linux runner, four-CPU quota, 8 GiB RAM; fonts and fictional project fixed.",
     "1,000-row command throughput, not a measured 100,000-row run or a one-hour capacity test.",
-    "Checkpoints rewrite the full saved record and HTML, so substantially larger batches have different memory and reporting costs.",
+    "This historical benchmark rewrote the full saved record and HTML at checkpoints; the current implementation checkpoints JSON and publishes CSVs at final events.",
     "Additional workers increase concurrent CPU demand; observed median child CPU time rose from 110.03s to 118.60s."
   ],
   "published_implementation_revision": "2fedadb615762f84e4d37b201920be0d46f9c0b3"

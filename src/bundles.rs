@@ -144,11 +144,7 @@ fn relative_original(dir: &Path, entry: &Value) -> Result<PathBuf> {
 }
 pub(crate) fn severity(entry: &Value) -> &'static str {
     let mut warning = false;
-    if let Some(checks) = entry
-        .get("effective_checks")
-        .unwrap_or(&entry["checks"])
-        .as_array()
-    {
+    if let Some(checks) = entry["effective_checks"].as_array() {
         for c in checks {
             match c["status"].as_str() {
                 Some("not_run") if c["disabled"] == true => (),
@@ -212,6 +208,16 @@ pub(crate) fn bundle_with_progress(
     workers: usize,
     progress: &mut impl FnMut(usize, usize),
 ) -> Result<()> {
+    bundle_with_hook(dir, record, config, workers, progress, || Ok(()))
+}
+fn bundle_with_hook(
+    dir: &Path,
+    record: &mut Value,
+    config: &crate::input::Config,
+    workers: usize,
+    progress: &mut impl FnMut(usize, usize),
+    before_staging: impl FnOnce() -> Result<()>,
+) -> Result<()> {
     config.filenames.validate()?;
     let fields = crate::input::grouping_fields(&config.bundling.group_by)?;
     let fixed = crate::input::fixed_pages(config)?;
@@ -228,22 +234,8 @@ pub(crate) fn bundle_with_progress(
         let key = e["row_key"].as_str().context("Missing row key")?.to_owned();
         ensure!(row_keys.insert(key), "Duplicate row key");
         e["bundle"] = Value::Null;
-        for name in ["checks", "effective_checks"] {
-            if let Some(checks) = e[name].as_array_mut() {
-                checks.retain(|c| {
-                    c["code"] != "delivery.notice_length"
-                        && c["code"] != "delivery.original_unusable"
-                        && !c["code"].as_str().is_some_and(|code| {
-                            ["delivery.school_identity_", "delivery.board_identity_"]
-                                .iter()
-                                .any(|prefix| code.starts_with(prefix))
-                        })
-                });
-            }
-        }
-        if e.get("effective_checks").is_none() {
-            e["effective_checks"] = e["checks"].clone();
-        }
+        crate::checks::remove_delivery(e)?;
+        crate::checks::effective(e)?;
         if e["original"]["status"] != "completed" {
             e["routing"] = json!("failed");
             continue;
@@ -255,13 +247,19 @@ pub(crate) fn bundle_with_progress(
         let path = relative_original(dir, e)?;
         let pages = e["original"]["pages"].as_u64().filter(|n| *n > 0);
         let Some(pages) = pages.filter(|_| path.is_file()) else {
-            e["effective_checks"].as_array_mut().unwrap().push(json!({"code":"delivery.original_unusable","stage":"delivery","status":"fail","message":"Original PDF is missing or unreadable"}));
+            crate::checks::append(
+                e,
+                json!({"code":"delivery.original_unusable","stage":"delivery","status":"fail","message":"Original PDF is missing or unreadable"}),
+            )?;
             e["routing"] = json!("failed");
             continue;
         };
         if let Some(expected) = fixed {
             if pages != expected {
-                e["effective_checks"].as_array_mut().unwrap().push(json!({"code":"delivery.notice_length","stage":"delivery","status":"fail","message":format!("Expected {expected} pages; found {pages}")}));
+                crate::checks::append(
+                    e,
+                    json!({"code":"delivery.notice_length","stage":"delivery","status":"fail","message":format!("Expected {expected} pages; found {pages}")}),
+                )?;
             }
         }
         let mut key = Vec::new();
@@ -277,14 +275,7 @@ pub(crate) fn bundle_with_progress(
                     if let Some(check) = check {
                         // These findings are recomputed for every new attempt; policy cannot
                         // waive them and the observed and effective records both retain them.
-                        e["checks"]
-                            .as_array_mut()
-                            .context("Missing observed checks")?
-                            .push(check.clone());
-                        e["effective_checks"]
-                            .as_array_mut()
-                            .context("Missing effective checks")?
-                            .push(check);
+                        crate::checks::append(e, check)?;
                     }
                     value
                 }
@@ -317,18 +308,24 @@ pub(crate) fn bundle_with_progress(
         record["bundles"] = json!([]);
         return Ok(());
     }
+    let planned_members: Vec<Value> = groups
+        .values()
+        .flatten()
+        .map(|&index| entries[index]["row_key"].clone())
+        .collect();
     let mut attempt = 1usize;
     let (staging, published, prefix) = loop {
         let prefix = format!("bundles-{attempt:04}");
         let final_path = dir.join(&prefix);
         let tmp = dir.join(format!("{prefix}.incomplete"));
         if !final_path.exists() && !tmp.exists() {
-            fs::create_dir(&tmp)?;
             break (tmp, final_path, prefix);
         }
         attempt += 1;
     };
     let result = (|| -> Result<Vec<Value>> {
+        before_staging()?;
+        fs::create_dir(&staging)?;
         let mut jobs = Vec::new();
         let mut serial = 0usize;
         let mut names = crate::filenames::Names::default();
@@ -408,17 +405,6 @@ pub(crate) fn bundle_with_progress(
             } = job;
             let stem = name.stem;
             let path = format!("{prefix}/{stem}.pdf");
-            let mut csv = csv::Writer::from_path(staging.join(format!("{stem}.csv")))?;
-            csv.write_record([
-                "row_key",
-                "client_id",
-                "notice_start_page",
-                "notice_end_page",
-                "route",
-                "check_code",
-                "status",
-                "message",
-            ])?;
             let mut cursor = 1u64;
             let mut members = Vec::new();
             for i in indices {
@@ -428,29 +414,16 @@ pub(crate) fn bundle_with_progress(
                     .context("Missing original page count")?;
                 e["bundle"] = json!({"path":path,"notice_start_page":cursor,"notice_end_page":cursor+count-1});
                 members.push(e["row_key"].clone());
-                for c in e["effective_checks"].as_array().unwrap() {
-                    csv.write_record([
-                        e["row_key"].as_str().unwrap_or(""),
-                        e["client_id"].as_str().unwrap_or(""),
-                        &cursor.to_string(),
-                        &(cursor + count - 1).to_string(),
-                        &route,
-                        c["code"].as_str().unwrap_or(""),
-                        c["status"].as_str().unwrap_or(""),
-                        c["message"].as_str().unwrap_or(""),
-                    ])?;
-                }
                 cursor += count;
             }
-            csv.flush()?;
             ensure!(pages as u64 == cursor - 1, "Bundle page count mismatch");
-            bundles.push(json!({"path":path,"csv":format!("{prefix}/{stem}.csv"),"route":route,"group":group,"pages":pages,"members":members,"sha256":hash,"filename_warning":name.warning}));
+            bundles.push(json!({"path":path,"route":route,"group":group,"pages":pages,"members":members,"sha256":hash,"filename_warning":name.warning}));
         }
+        fs::rename(&staging, &published)?;
         Ok(bundles)
     })();
     match result {
         Ok(bundles) => {
-            fs::rename(&staging, &published)?;
             let mut checks = record["checks"].as_array().cloned().unwrap_or_default();
             checks.retain(|c| c["code"] != "output.filename_fallback");
             for bundle in &bundles {
@@ -468,6 +441,16 @@ pub(crate) fn bundle_with_progress(
         }
         Err(error) => {
             let _ = fs::remove_dir_all(&staging);
+            record["failed_planned_members"] = json!(planned_members);
+            if record["active_bundle_attempt"].is_null() {
+                for entry in &mut entries {
+                    if planned_members.contains(&entry["row_key"]) {
+                        entry["bundle"] =
+                            json!({"status":"failed", "error":"Bundle assembly failed"});
+                    }
+                }
+                record["entries"] = Value::Array(entries);
+            }
             Err(error)
         }
     }
@@ -479,11 +462,11 @@ mod tests {
 
     #[test]
     fn findings_keep_warning_and_failure_distinct() {
-        let mut record = json!({"entries":[{"original":{"status":"completed"},"encryption":{"status":"not_requested"},"checks":[{"status":"warn"}]}]});
+        let mut record = json!({"entries":[{"original":{"status":"completed"},"encryption":{"status":"not_requested"},"effective_checks":[{"status":"warn"}]}]});
         assert_eq!(outcome(&record), "completed_with_warnings");
-        record["entries"][0]["checks"][0]["status"] = json!("fail");
+        record["entries"][0]["effective_checks"][0]["status"] = json!("fail");
         assert_eq!(outcome(&record), "completed_with_failures");
-        record["entries"][0]["checks"][0]["status"] = json!("not_run");
+        record["entries"][0]["effective_checks"][0]["status"] = json!("not_run");
         assert_eq!(outcome(&record), "completed_with_failures");
     }
 
@@ -507,5 +490,50 @@ mod tests {
         );
         assert!(crate::input::fixed_pages(&c).is_err());
         Ok(())
+    }
+    #[test]
+    fn staging_failure_records_planned_members_without_replacing_active_decisions() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::create_dir(dir.path().join("originals")).unwrap();
+        let mut entries = Vec::new();
+        for i in 1..=2 {
+            let path = format!("originals/{i}.pdf");
+            fs::write(dir.path().join(&path), b"fictional").unwrap();
+            entries.push(json!({"row_key":format!("row-{i:06}"),"original":{"status":"completed","path":path,"pages":1},"encryption":{"status":"not_requested"},"checks":[{"finding_key":"check-000001","code":"example","status":"pass"}],"effective_checks":[{"finding_key":"check-000001","status":"pass","disabled":false,"policy_reason":null}],"next_finding_sequence":2}));
+        }
+        let mut config = crate::input::Config::default();
+        config.bundling.bundle_size = 10;
+        let mut first =
+            json!({"entries":entries,"checks":[],"bundles":[],"active_bundle_attempt":null});
+        let error = bundle_with_hook(dir.path(), &mut first, &config, 1, &mut |_, _| {}, || {
+            anyhow::bail!("staging failure")
+        })
+        .unwrap_err();
+        assert!(error.to_string().contains("staging failure"));
+        assert_eq!(first["failed_planned_members"].as_array().unwrap().len(), 2);
+        assert!(
+            first["entries"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|e| e["bundle"]["status"] == "failed" && e["bundle"]["path"].is_null())
+        );
+        let mut later = json!({"entries":entries,"checks":[],"bundles":[{"path":"bundles-0001/prior.pdf"}],"active_bundle_attempt":1});
+        let previous = later["entries"].clone();
+        let bundles = later["bundles"].clone();
+        assert!(
+            bundle_with_hook(
+                dir.path(),
+                &mut later,
+                &config,
+                1,
+                &mut |_, _| {},
+                || anyhow::bail!("staging failure")
+            )
+            .is_err()
+        );
+        assert_eq!(later["entries"], previous);
+        assert_eq!(later["bundles"], bundles);
+        assert_eq!(later["failed_planned_members"].as_array().unwrap().len(), 2);
     }
 }

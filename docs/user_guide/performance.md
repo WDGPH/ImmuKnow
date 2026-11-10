@@ -1,8 +1,10 @@
 # Measured notice throughput
 
-## Current checkpoint and parsing comparisons
+The measurements on this page describe earlier revisions that generated HTML and per-bundle CSVs. They are historical comparisons and do not measure the current CSV-first reporting path.
 
-Fresh comparisons use the reduced pipeline below as their baseline. Three alternating paired commands at each batch size changed the report checkpoint schedule while retaining full passing-check details:
+## Historical checkpoint and parsing comparisons
+
+The following historical comparisons use the reduced pipeline below as their baseline. Three alternating paired commands at each batch size changed the report checkpoint schedule while retaining full passing-check details:
 
 | Notices | Every 100 notices | Adaptive checkpoints | Elapsed reduction |
 | --- | ---: | ---: | ---: |
@@ -11,7 +13,7 @@ Fresh comparisons use the reduced pipeline below as their baseline. Three altern
 
 At 5,000 notices, median process CPU time fell from 432.80 to 381.27 seconds. The highest process peak RSS was 2.34 GiB for both schedules. The final report, findings, source-row identity, routing, original PDFs and bundles matched; randomized encryption fingerprints and timings were excluded from record equality. Every run's artifact hashes were checked after timing.
 
-The coordinator now saves after the first 100 notices, then at doubling row counts, or at the next completed row after 30 seconds since the previous successful save. Setup, slow rows and report writes can extend that interval. Final and caught-error reports remain independent. Interrupted snapshots can be older than with the previous 100-row schedule; the saved record and HTML retain full detail. See [recovery](getting_started.md) and [saved-run behavior](../developer_guide/architecture.md#save-runs-and-later-changes).
+The coordinator now saves after the first 100 notices, then at doubling row counts, or at the next completed row after 30 seconds since the previous successful save. Setup, slow rows and report writes can extend that interval. Final and caught-error reports remain independent. Interrupted snapshots can be older than with the previous 100-row schedule; the saved record retains the checkpoint evidence. See [recovery](getting_started.md) and [saved-run behavior](../developer_guide/architecture.md#save-runs-and-later-changes).
 
 A separate three-pair comparison on the reduced pipeline retained serial `lopdf` parsing: median elapsed time was 25.31 seconds versus 26.48 with its internal Rayon pool. Serial parsing used 76.50 CPU seconds versus 83.44, with peak RSS 1.07 versus 1.04 GiB. Outer compilation, encryption and bundle workers stayed fixed at 2, 2 and 4.
 
@@ -75,6 +77,6 @@ A three-compiler experiment was slower than two on this four-CPU workload; the e
 
 ## Applying the result
 
-These measurements establish repeatable improvement for this 1,000-row fixture, not a capacity guarantee for other documents or machines. Page counts, history lengths, font choices, encryption, storage and available CPUs affect performance. The earlier comparisons used a complete saved-record and HTML rewrite every 100 notices. The adaptive schedule above reduces repeated serialization, but each checkpoint still writes the full report and large single batches retain different reporting and memory costs. Measure the intended batch size and template mix before extrapolating capacity.
+These measurements establish repeatable improvement for this 1,000-row fixture, not a capacity guarantee for other documents or machines. Page counts, history lengths, font choices, encryption, storage and available CPUs affect performance. The earlier comparisons used a complete saved-record and HTML rewrite every 100 notices. The adaptive schedule above reduces repeated serialization, but each checkpoint still writes the canonical record and large single batches retain different reporting and memory costs. Measure the intended batch size and template mix before extrapolating capacity.
 
 An [earlier profile](../assets/notice-timings.json) used six fictional cases and the prior sequential workflow. Its activity shares describe that older workload and should not be added to the overlapping worker times above.

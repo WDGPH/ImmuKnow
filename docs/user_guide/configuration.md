@@ -24,7 +24,7 @@ Edit `parameters.yaml` to set the following options:
 | `bundling.group_by` | Optionally group by `school`, `board`, `language`, `page_count`, or `notice_variant`, using one value or a list. `size` or null groups by size only. |
 | `bundling.sort_by` | `source` (default) preserves input order within each group. `last_name_dob` orders by last name, birth date and row key before splitting bundles. |
 | `filenames.individual.template` | Filename stem for original and protected copies; omitted keeps row-key names. |
-| `filenames.bundle.template` | Filename stem for normal bundle PDFs and companion CSVs. |
+| `filenames.bundle.template` | Filename stem for normal bundle PDFs. |
 | `filenames.review_bundle.template` | Optional review stem; defaults to the bundle template with `review_` prefixed. |
 | `encryption.enabled` | Create password-protected copies for sending while keeping the original PDFs. |
 | `encryption.password.template` | A nonempty password template, required when encryption is enabled. |
@@ -115,7 +115,7 @@ In the CSV, `school_name` can end in ` - FACILITY ID`; ImmuKnow uses the last su
 ## Filename templates
 
 Set filename stems in `parameters.yaml` using `{field}` placeholders, as with
-password templates. Core appends `.pdf` or `.csv`; do not include extensions or
+password templates. Core appends `.pdf`; do not include extensions or
 directory paths. For example:
 
 ```yaml
@@ -132,8 +132,7 @@ filenames:
     template: 'review_{school}_{notice_variant}_{bundle_number}'
 ```
 
-This can produce `example_school_overdue_agents_01.pdf` and a CSV with the same
-stem. Individual originals and protected copies share a stem in separate
+This can produce `example_school_overdue_agents_01.pdf`. The run-wide records CSV identifies its members and page ranges. Individual originals and protected copies share a stem in separate
 `originals/` and `encrypted/` directories. Encryption still uses its own password
 template. Filename settings are saved in the run; derived passwords are not.
 

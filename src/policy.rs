@@ -152,29 +152,44 @@ pub fn apply(record: &mut Value, config: &Config, resources: &Path) -> Result<()
         .iter_mut()
         .zip(rules)
     {
-        // Policy changes a copy; the original checks remain the render evidence.
-        let mut checks = entry["checks"]
+        // Delivery observations belong to the previous attempt and are rebuilt below.
+        if let Some(checks) = entry["checks"].as_array_mut() {
+            checks.retain(|check| check["stage"] != "delivery");
+        }
+        if entry["encryption"]["status"] == "failed"
+            && !entry["checks"].as_array().is_some_and(|checks| {
+                checks
+                    .iter()
+                    .any(|check| check["code"] == "encryption.failed")
+            })
+        {
+            let message = entry["encryption"]["error"]
+                .as_str()
+                .unwrap_or("Requested encrypted copy was not produced")
+                .to_owned();
+            entry["checks"].as_array_mut().context("Missing observed checks")?.push(json!({"code":"encryption.failed","stage":"encryption","status":"fail","message":message}));
+        }
+        crate::checks::assign(entry)?;
+        let mut results = Vec::new();
+        for check in entry["checks"]
             .as_array()
             .context("Missing observed checks")?
-            .clone();
-        for check in &mut checks {
+        {
+            let mut result = json!({"finding_key":check["finding_key"],"status":check["status"],"disabled":false,"policy_reason":null});
             if let Some(rule) = rules.get(check["code"].as_str().unwrap_or("")) {
-                check["observed_status"] = check["status"].clone();
-                check["policy_reason"] = rule["reason"].clone();
+                result["policy_reason"] = rule["reason"].clone();
                 if rule["enabled"] == false {
-                    check["status"] = json!("not_run");
-                    check["disabled"] = json!(true);
+                    result["status"] = json!("not_run");
+                    result["disabled"] = json!(true);
                 } else if matches!(check["status"].as_str(), Some("warn" | "fail")) {
                     if let Some(severity) = rule.get("severity") {
-                        check["status"] = severity.clone();
+                        result["status"] = severity.clone();
                     }
                 }
             }
+            results.push(result);
         }
-        if entry["encryption"]["status"] == "failed" {
-            checks.push(json!({"code":"encryption.failed","stage":"encryption","status":"fail","message":entry["encryption"]["error"].as_str().unwrap_or("Requested encrypted copy was not produced")}));
-        }
-        entry["effective_checks"] = json!(checks);
+        entry["effective_checks"] = json!(results);
     }
     Ok(())
 }

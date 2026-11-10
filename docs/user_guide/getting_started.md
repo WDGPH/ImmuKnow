@@ -71,7 +71,7 @@ If your terminal is already open in the project folder, you can omit `--project 
 
 ## Follow the progress
 
-The terminal shows the current job, a progress bar while notices are processed, a running count of protected copies, and processing speed once work has been running for a second. It then summarizes notices, pages, protected copies, grouped PDFs and findings, and points you to `report.html`. Processing a row is not the same as passing every check: review the final findings too.
+The terminal shows the current job, a progress bar while notices are processed, a running count of protected copies, and processing speed once work has been running for a second. It then summarizes source-row severity, delivery and finding codes, and prints the paths of `records.csv` and `findings.csv`. Processing a row is not the same as passing every check: review the final findings too.
 
 The defaults use text labels. Add `--emoji` for decorative emoji in the headings. Use `--progress plain` for stage announcements and occasional counts without redrawing lines, or `--progress off` to hide progress and the summary. Redirected output uses plain announcements automatically. `NO_COLOR` disables terminal styling. These choices affect the display only.
 
@@ -79,11 +79,11 @@ The [configuration guide](configuration.md) explains the selection file and sett
 
 ## Review the results
 
-Open the new folder inside `runs`, then open `report.html` in a browser. Check the findings and review the notices before sending them. The folder retains the input, settings, prepared information, original PDFs, and a machine-readable `run.json` record. A folder ending in `.incomplete` has not been published as a completed run. A completed run can still contain failed notices.
+Open the printed CSV files in a spreadsheet. Filter the records and findings and review the notices before sending them. The folder retains the input, settings, prepared information, original PDFs, and a machine-readable `run.json` record. A folder ending in `.incomplete` has not been published as a completed run. A completed run can still contain failed notices.
 
-If grouping is enabled in your settings, `bundles-0001/` contains grouped PDFs for notices eligible to send and separate review PDFs for readable notices that failed checks. Default names are `bundle-*.pdf` and `review-*.pdf`; [filename templates](configuration.md#filename-templates) can customize them. A CSV beside each grouped PDF lists the input rows and their page ranges. A warning is eligible for sending by default, so review warnings as well as failures. If grouping is disabled, use the report to find the individual results. A run with failures returns an error status; warnings alone do not.
+If grouping is enabled in your settings, `bundles-0001/` contains grouped PDFs for notices eligible to send and separate review PDFs for readable notices that failed checks. Default names are `bundle-*.pdf` and `review-*.pdf`; [filename templates](configuration.md#filename-templates) can customize them. The run-wide records CSV lists each row and its bundle page range. A warning is eligible for sending by default, so review warnings as well as failures. If grouping is disabled, use the records CSV to find the individual results. A run with failures returns an error status; warnings alone do not.
 
-See [PDF checks and review](pdf_validation.md) for holding a notice and creating a new set of grouped PDFs after review. Read the report for actual outcomes; a file's presence alone does not mean all checks passed.
+See [PDF checks and review](pdf_validation.md) for holding a notice and creating a new set of grouped PDFs after review. Read the CSVs for actual outcomes; a file's presence alone does not mean all checks passed.
 
 ## Prepare the CSV
 

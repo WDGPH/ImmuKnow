@@ -16,8 +16,8 @@ the selected templates control wording and appearance.
 | `src/compiler.rs` | Keep each Typst compiler warm and obtain the PDF and checks from the same document. |
 | `src/validation.rs`, `src/policy.rs` | Check the report and apply permitted rule changes. |
 | `src/pdf.rs` | Encrypt copies and combine PDF pages. |
-| `src/bundles.rs` | Choose which notices go into each grouped PDF and matching CSV. |
-| `src/report.rs` | Write `run.json` and its readable HTML view. |
+| `src/bundles.rs` | Choose which notices go into each grouped PDF and record membership. |
+| `src/report.rs` | Write canonical `run.json` checkpoints and paired CSV exports. |
 | `src/resources.rs` | Export the schemas and Typst library included in the executable. |
 
 ## Processing and concurrency
@@ -40,7 +40,7 @@ The official `typst`, `typst-layout`, `typst-kit` and `typst-pdf` libraries hand
 
 `lopdf` parses saved originals when creating protected copies or combining original pages. `rand` supplies encryption randomness and `sha2` fingerprints saved files. Bounded queues built with Rust's standard library overlap compilation, coordinator work and encryption. On four or more available CPUs, compilation and encryption each default to two workers; smaller machines use one of each. Four workers can combine independent groups afterward. `lopdf`’s optional Rayon parsing is disabled so PDF parsing stays on its calling coordinator or worker; its other default feature, `chrono-clock`, remains enabled. Other libraries may use threads internally too. Grouped PDFs are built from originals, not the encrypted copies.
 
-`serde_json`, Rust's HTML formatting and `csv` write the saved record, readable report and page lists. `include_dir` embeds the shared Typst library and schemas so an installed executable can export them. `anyhow`, `tempfile` and diagnostic helpers support errors and temporary files; they do not form extra pipeline stages.
+`serde_json` and `csv` write the saved record and paired tabular exports. `include_dir` embeds the shared Typst library and schemas so an installed executable can export them. `anyhow`, `tempfile` and diagnostic helpers support errors and temporary files; they do not form extra pipeline stages.
 
 For the elapsed-time picture, see [the benchmark](../user_guide/performance.md). Overlapping worker times must not be added to the main workflow total.
 
@@ -110,7 +110,7 @@ Warnings allow inclusion in the normal grouped PDFs by default. A readable
 original with failed checks goes into a separate review PDF. A missing or
 uncreated original stays in the report only. A notice on hold is excluded from
 both sets. Each included original appears once per bundle attempt, with its
-page range in the matching CSV. A required page count never adds blank pages.
+page range in the run-wide records CSV. A required page count never adds blank pages.
 
 Encryption creates a separate AES-256 revision 6 PDF using the pinned `lopdf` implementation. Core requires a nonempty password, rejects passwords that become empty under the library’s R6 Unicode preparation, checks the resulting in-memory encryption dictionary and unchanged page count, and propagates encryption, write, flush and rename errors. It does not reopen each output to repeat password authentication. Release tests check empty and wrong password refusal, correct password access, encryption settings and preserved content. Bundle assembly checks its page count before writing; release tests reopen representative bundles. This boundary trusts the library and successful I/O rather than detecting storage corruption by reparsing every new artifact. The original remains available. Derived passwords are
 never saved. Compilation and encryption each default to two workers on four or more available CPUs, otherwise one. Up to four bundle workers are used by default.
@@ -120,8 +120,7 @@ the saved record and sends count-only progress receipts to the terminal display.
 ## Save runs and later changes
 
 A new run or bundle set starts in a uniquely named folder ending in `.incomplete`.
-A run that reaches final reporting receives its final name even when individual notices failed (`completed_with_failures`). A fatal processing failure retains its `.incomplete` directory and a partial record when reporting succeeds. The coordinator checkpoints after preparation, then after 100 completed notices and at doubling row counts. If 30 seconds pass first, it checkpoints at the next completed row and doubles from that row count. The interval starts again after a successful report write; setup, a slow row or a report write can extend the wall-clock gap. Final and caught-error reports are written independently. Every checkpoint retains the full observed checks and artifact outcomes; there is no separate journal or resume command. `run.json` is the saved record and
-`report.html` is its escaped HTML view. These files and PDFs contain personal
+A run that reaches final reporting receives its final name even when individual notices failed (`completed_with_failures`). A fatal processing failure retains its `.incomplete` directory and a partial record when reporting succeeds. The coordinator checkpoints after preparation, then after 100 completed notices and at doubling row counts. If 30 seconds pass first, it checkpoints at the next completed row and doubles from that row count. The interval starts again after a successful report write; setup, a slow row or a report write can extend the wall-clock gap. Final and caught-error reports are written independently. Every checkpoint retains the full observed checks and artifact outcomes; there is no separate journal or resume command. `run.json` is the authoritative saved record. Final events publish immutable paired CSV exports, selected together by a revision and hashes in the record. These files and PDFs contain personal
 information and should be kept private.
 
 `immuknow rebundle` uses the saved originals and checks without creating notices

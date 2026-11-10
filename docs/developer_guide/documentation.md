@@ -83,7 +83,7 @@ cd "$DEMO_DIR"
 vhs "$CORE_DIR/docs/demo/notices.tape"
 ```
 
-Watch `notice-demo.gif` and check the generated run's report and all six notice outcomes before copying `notice-demo.gif` to `docs/assets/`. Start in a fresh scratch folder for each recording so the demo creates only one run. Keep outputs and local recording tools outside the repository. The short demo shows the actual default progress display and completion summary with a larger font and narrower terminal. It opens no PDF and uses only fictional information. The summary points the operator to `report.html`; the linked getting-started guide supplies the accessible text walkthrough.
+Watch `notice-demo.gif` and check the generated run's report and all six notice outcomes before copying `notice-demo.gif` to `docs/assets/`. Start in a fresh scratch folder for each recording so the demo creates only one run. Keep outputs and local recording tools outside the repository. The short demo shows the actual default progress display and completion summary with a larger font and narrower terminal. It opens no PDF and uses only fictional information. The summary points the operator to the CSV pair; the linked getting-started guide supplies the accessible text walkthrough.
 
 After recording, extract its final frame as `notice-demo.png`, for example with
 `ffmpeg -i notice-demo.gif -update 1 notice-demo.png`. Commit the GIF and still

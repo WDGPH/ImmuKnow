@@ -45,6 +45,36 @@ pub struct RunResult {
     pub summary: RunSummary,
 }
 
+/// A processing failure with a discoverable saved run record.
+#[derive(Debug)]
+pub struct SavedRunFailure {
+    pub record: PathBuf,
+    pub message: String,
+}
+impl std::fmt::Display for SavedRunFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+impl std::error::Error for SavedRunFailure {}
+impl SavedRunFailure {
+    fn new(dir: &Path, message: String) -> anyhow::Error {
+        Self {
+            record: dir.join("run.json"),
+            message,
+        }
+        .into()
+    }
+    pub fn receipt(&self) -> Result<RunResult> {
+        let record: Value = crate::read_json(&self.record)?;
+        Ok(RunResult {
+            record: self.record.clone(),
+            succeeded: false,
+            summary: RunSummary::from_record(&record),
+        })
+    }
+}
+
 /// Small receipts for terminal progress; no client information or worker-side output.
 #[derive(Clone, Copy)]
 pub enum Progress {
@@ -67,6 +97,9 @@ pub enum Progress {
 
 #[derive(Default)]
 pub struct RunSummary {
+    pub report: report::Summary,
+    pub records_path: String,
+    pub findings_path: String,
     pub protection_requested: bool,
     pub grouping_requested: bool,
     pub run_findings: usize,
@@ -83,6 +116,15 @@ pub struct RunSummary {
 impl RunSummary {
     fn from_record(record: &Value) -> Self {
         let mut summary = Self {
+            report: report::summary(record),
+            records_path: record["exports"]["records"]["path"]
+                .as_str()
+                .unwrap_or("")
+                .to_owned(),
+            findings_path: record["exports"]["findings"]["path"]
+                .as_str()
+                .unwrap_or("")
+                .to_owned(),
             protection_requested: record["configured_settings"]["encryption"]["enabled"] == true,
             grouping_requested: record["configured_settings"]["bundling"]["bundle_size"]
                 .as_u64()
@@ -510,13 +552,7 @@ fn process(
                 let rendering = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
                     || -> Result<()> {
                         for (position, &(index, p)) in ready.iter().enumerate() {
-                            let key = p.notice["row_key"]
-                                .as_str()
-                                .context("Prepared row has no key")?;
                             let original = format!("originals/{}.pdf", stems[position]);
-                            let facts = serde_json::to_vec_pretty(&p.notice)?;
-                            crate::atomic(&dir.join(format!("facts/{key}.json")), &facts)?;
-                            record["entries"][index]["facts"] = json!({"path":format!("facts/{key}.json"),"sha256":crate::hash(&facts)});
                             let compiled = loop {
                                 if let Some(result) = pending.remove(&index) {
                                     break result;
@@ -560,7 +596,55 @@ fn process(
                                             entry["deferred_checks"] = json!([]);
                                             entry["blocked_checks"] =
                                                 value["blocked_checks"].clone();
-                                            entry["render_report"] = value;
+                                            let mut saved = value;
+                                            let object = saved
+                                                .as_object_mut()
+                                                .context("Invalid validated render evidence")?;
+                                            object.remove("notice");
+                                            object.remove("checks");
+                                            object.remove("schema_version");
+                                            object
+                                                .insert("saved_evidence_version".into(), json!(1));
+                                            object.remove("blocked_checks");
+                                            if let Some(measurements) = object
+                                                .get_mut("measurements")
+                                                .and_then(Value::as_object_mut)
+                                            {
+                                                measurements.remove("header");
+                                                for name in ["address", "client", "signature"] {
+                                                    if let Some(items) = measurements
+                                                        .get_mut(name)
+                                                        .and_then(Value::as_array_mut)
+                                                    {
+                                                        for item in items {
+                                                            if let Some(fields) =
+                                                                item.as_object_mut()
+                                                            {
+                                                                fields.retain(|key, _| {
+                                                                    !matches!(
+                                                                        key.as_str(),
+                                                                        "x_pt"
+                                                                            | "y_pt"
+                                                                            | "width_pt"
+                                                                            | "height_pt"
+                                                                            | "end_y_pt"
+                                                                            | "window_x_pt"
+                                                                            | "window_y_pt"
+                                                                            | "window_width_pt"
+                                                                            | "window_height_pt"
+                                                                            | "window_padding_pt"
+                                                                    )
+                                                                });
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            object.insert(
+                                                "facts_sha256".into(),
+                                                json!(crate::hash(&serde_json::to_vec(&p.notice)?)),
+                                            );
+                                            entry["saved_evidence"] = saved;
                                         }
                                         Err(error) => add_check(
                                             entry,
@@ -625,7 +709,7 @@ fn process(
                                 protected,
                             });
                             if checkpoint.due(failed + position + 1, Instant::now()) {
-                                report::write(dir, record)?;
+                                report::checkpoint(dir, record)?;
                                 checkpoint.saved(failed + position + 1, Instant::now());
                             }
                             if let Some(&(next_index, p)) = ready.get(position + compile_window) {
@@ -703,10 +787,14 @@ pub fn run_with_progress(
     fs::create_dir(&dir)?;
     let _lock = lock(&dir)?;
     let mut record = json!({
-        "run_schema_version": 1,
+        "run_schema_version": 2,
+        "run_id": name,
+        "record_revision": 0,
+        "exports": null,
         "engine": "typst 0.15.1",
         "timestamp": timestamp,
         "status": "running",
+        "stage": "reading_input",
         "input": {},
         "resources": resources::identity(),
         "entries": [],
@@ -715,7 +803,7 @@ pub fn run_with_progress(
         "delivery_attempts": [],
         "timings": {}
     });
-    report::write(&dir, &record)?;
+    report::checkpoint(&dir, &mut record)?;
     let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
         let bytes = fs::read(&opts.csv).context("Unable to read source CSV")?;
         crate::atomic(&dir.join("source.csv"), &bytes)?;
@@ -726,7 +814,8 @@ pub fn run_with_progress(
             &dir.join("source.csv"),
             opts.encoding.as_deref(),
         )?);
-        report::write(&dir, &record)?;
+        report::checkpoint(&dir, &mut record)?;
+        record["stage"] = json!("preparing");
         let resource_root = tempfile::tempdir()?;
         resources::materialize(resource_root.path())?;
         let mut c = input::config(&opts.config.join("parameters.yaml"))?;
@@ -771,7 +860,7 @@ pub fn run_with_progress(
                 templates.join(path.file_name().context("Invalid selected template")?),
             ),
         };
-        for sub in ["originals", "encrypted", "facts"] {
+        for sub in ["originals", "encrypted"] {
             fs::create_dir_all(dir.join(sub))?;
         }
         let prepared = prepare_data(
@@ -790,7 +879,8 @@ pub fn run_with_progress(
         assign_entries(&mut record, &prepared, c.encryption.enabled)?;
         policy::validate(&record, &c, resource_root.path())?;
         record["timings"]["preparation_seconds"] = json!(started.elapsed().as_secs_f64());
-        report::write(&dir, &record)?;
+        report::checkpoint(&dir, &mut record)?;
+        record["stage"] = json!("rendering");
         let render_start = Instant::now();
         process(
             &dir,
@@ -806,6 +896,7 @@ pub fn run_with_progress(
         drop(prepared);
         record["timings"]["render_seconds"] = json!(render_start.elapsed().as_secs_f64());
         policy::apply(&mut record, &c, resource_root.path())?;
+        record["stage"] = json!("bundling");
         let bundling_start = Instant::now();
         bundles::bundle_with_progress(
             &dir,
@@ -817,7 +908,9 @@ pub fn run_with_progress(
         record["timings"]["delivery_seconds"] = json!(bundling_start.elapsed().as_secs_f64());
         progress(Progress::Reporting);
         record["status"] = json!(bundles::outcome(&record));
-        let attempt = json!({"bundles":record["bundles"],"configured_settings":record["configured_settings"],"holds":[],"status":record["status"]});
+        record["stage"] = json!("complete");
+        let rows: Vec<_> = record["entries"].as_array().unwrap().iter().map(|entry| json!({"row_key":entry["row_key"],"effective_checks":entry["effective_checks"],"hold":entry["hold"],"routing":entry["routing"],"bundle":entry["bundle"]})).collect();
+        let attempt = json!({"bundles":record["bundles"],"configured_settings":record["configured_settings"],"holds":[],"status":record["status"],"rows":rows,"record_revision":record["record_revision"].as_u64().unwrap_or(0)+1});
         record["delivery_attempts"]
             .as_array_mut()
             .unwrap()
@@ -827,9 +920,28 @@ pub fn run_with_progress(
     record["timings"]["total_seconds"] = json!(started.elapsed().as_secs_f64());
     match outcome {
         Ok(Ok(())) => {
-            report::write(&dir, &record)?;
+            record["active_bundle_attempt"] =
+                json!(record["delivery_attempts"].as_array().unwrap().len());
+            report::checkpoint(&dir, &mut record)?;
+            report::publish(&dir, &mut record).map_err(|error| {
+                SavedRunFailure::new(
+                    &dir,
+                    format!(
+                        "Partial run saved at {}; CSV publication failed: {error:#}",
+                        dir.display()
+                    ),
+                )
+            })?;
             let completed = output.join(name);
-            fs::rename(&dir, &completed)?;
+            fs::rename(&dir, &completed).map_err(|error| {
+                SavedRunFailure::new(
+                    &dir,
+                    format!(
+                        "Finalization failed; partial run saved at {}: {error}",
+                        dir.display()
+                    ),
+                )
+            })?;
             Ok(RunResult {
                 record: completed.join("run.json"),
                 succeeded: record["status"] != "completed_with_failures",
@@ -839,17 +951,57 @@ pub fn run_with_progress(
         Ok(Err(error)) => {
             record["status"] = json!("failed");
             record["error"] = json!(format!("{error:#}"));
-            report::write(&dir, &record)?;
-            Err(error.context(format!("Partial run saved at {}", dir.display())))
+            if record["failed_planned_members"].is_array() {
+                let attempt = json!({"status":"failed","error":format!("{error:#}"),"planned_members":record["failed_planned_members"]});
+                record["delivery_attempts"]
+                    .as_array_mut()
+                    .unwrap()
+                    .push(attempt);
+                record
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("failed_planned_members");
+            }
+            let saved = report::checkpoint(&dir, &mut record)
+                .and_then(|_| report::publish(&dir, &mut record));
+            if let Err(report_error) = saved {
+                return Err(SavedRunFailure::new(
+                    &dir,
+                    format!(
+                        "Partial run at {}; processing failed: {error:#}; reporting also failed: {report_error:#}",
+                        dir.display()
+                    ),
+                ));
+            }
+            Err(SavedRunFailure::new(
+                &dir,
+                format!(
+                    "Partial run saved at {}; processing failed: {error:#}",
+                    dir.display()
+                ),
+            ))
         }
         Err(_) => {
             record["status"] = json!("failed");
             record["error"] = json!("Unexpected pipeline error");
-            report::write(&dir, &record)?;
-            bail!(
-                "Unexpected pipeline error; partial run saved at {}",
-                dir.display()
-            )
+            let saved = report::checkpoint(&dir, &mut record)
+                .and_then(|_| report::publish(&dir, &mut record));
+            if let Err(error) = saved {
+                return Err(SavedRunFailure::new(
+                    &dir,
+                    format!(
+                        "Unexpected pipeline error; partial run at {}; reporting also failed: {error:#}",
+                        dir.display()
+                    ),
+                ));
+            }
+            Err(SavedRunFailure::new(
+                &dir,
+                format!(
+                    "Unexpected pipeline error; partial run saved at {}",
+                    dir.display()
+                ),
+            ))
         }
     }
 }
@@ -891,11 +1043,12 @@ pub fn rebundle_with_filenames(
     // Read the record only after taking the lock so two attempts cannot overwrite each other.
     let _lock = lock(&dir)?;
     let mut record: Value = crate::read_json(&dir.join("run.json"))?;
-    crate::warning_review::validate(&record)?;
     ensure!(
-        record["run_schema_version"] == 1,
-        "Unsupported run record version"
+        record["run_schema_version"] == 2,
+        "Unsupported saved-run version; use the matching old executable"
     );
+    crate::warning_review::validate(&record)?;
+    crate::checks::validate_record(&record, true)?;
     ensure!(
         matches!(
             record["status"].as_str(),
@@ -948,21 +1101,74 @@ pub fn rebundle_with_filenames(
         }
     }
     policy::validate(&next, &c, resource_root.path())?;
+    // Move the outgoing active attempt's delivery observations into its immutable
+    // snapshot before replacing them. Shared observations remain on the row.
+    if let Some(active) = next["active_bundle_attempt"]
+        .as_u64()
+        .and_then(|n| usize::try_from(n).ok())
+        .and_then(|n| n.checked_sub(1))
+    {
+        let archived: BTreeMap<String, Vec<Value>> = next["entries"]
+            .as_array()
+            .context("Missing saved entries")?
+            .iter()
+            .map(|entry| {
+                (
+                    entry["row_key"].as_str().unwrap_or("").to_owned(),
+                    entry["checks"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .filter(|check| check["stage"] == "delivery")
+                        .cloned()
+                        .collect(),
+                )
+            })
+            .collect();
+        let attempt = next["delivery_attempts"]
+            .as_array_mut()
+            .and_then(|attempts| attempts.get_mut(active))
+            .context("Invalid active bundle attempt")?;
+        for row in attempt["rows"]
+            .as_array_mut()
+            .context("Missing attempt rows")?
+        {
+            let key = row["row_key"].as_str().context("Missing attempt row key")?;
+            row["delivery_checks"] = json!(archived.get(key).context("Attempt row not found")?);
+        }
+    }
     policy::apply(&mut next, &c, resource_root.path())?;
     if let Err(error) = bundles::bundle(&dir, &mut next, &c, workers) {
-        let attempt = json!({"status":"failed","error":format!("{error:#}"),"validation":c.validation,"filenames":c.filenames,"withhold":withhold,"release":release,"reason":reason});
+        let attempt = json!({"status":"failed","error":format!("{error:#}"),"validation":c.validation,"filenames":c.filenames,"withhold":withhold,"release":release,"reason":reason,"planned_members":next["failed_planned_members"]});
         record["delivery_attempts"]
             .as_array_mut()
             .context("Missing bundle attempts")?
             .push(attempt);
-        report::write(&dir, &record)?;
-        return Err(
-            error.context("Could not create bundles; previous bundles and decisions were kept")
-        );
+        let saved =
+            report::checkpoint(&dir, &mut record).and_then(|_| report::publish(&dir, &mut record));
+        if let Err(report_error) = saved {
+            return Err(SavedRunFailure::new(
+                &dir,
+                format!(
+                    "Bundle attempt failed: {error:#}; previous bundles were kept; reporting also failed: {report_error:#}"
+                ),
+            ));
+        }
+        return Err(SavedRunFailure::new(
+            &dir,
+            format!(
+                "Could not create bundles: {error:#}; previous active attempt {} and its decisions were kept",
+                record["active_bundle_attempt"]
+                    .as_u64()
+                    .map(|n| n.to_string())
+                    .unwrap_or_else(|| "none".into())
+            ),
+        ));
     }
     next["configured_settings"] = redacted(&c)?;
     next["status"] = json!(bundles::outcome(&next));
-    let attempt = json!({"bundles":next["bundles"],"validation":c.validation,"filenames":c.filenames,"withhold":withhold,"release":release,"reason":reason,"status":next["status"]});
+    let rows: Vec<_> = next["entries"].as_array().unwrap().iter().map(|entry| json!({"row_key":entry["row_key"],"effective_checks":entry["effective_checks"],"hold":entry["hold"],"routing":entry["routing"],"bundle":entry["bundle"]})).collect();
+    let attempt = json!({"bundles":next["bundles"],"validation":c.validation,"filenames":c.filenames,"withhold":withhold,"release":release,"reason":reason,"status":next["status"],"rows":rows,"record_revision":next["record_revision"].as_u64().unwrap_or(0)+1});
     if !next["delivery_attempts"].is_array() {
         next["delivery_attempts"] = json!([]);
     }
@@ -971,7 +1177,9 @@ pub fn rebundle_with_filenames(
         .unwrap()
         .push(attempt);
     record = next;
-    report::write(&dir, &record)?;
+    record["active_bundle_attempt"] = json!(record["delivery_attempts"].as_array().unwrap().len());
+    report::checkpoint(&dir, &mut record)?;
+    report::publish(&dir, &mut record)?;
     Ok(RunResult {
         record: dir.join("run.json"),
         succeeded: record["status"] != "completed_with_failures",

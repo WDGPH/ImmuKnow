@@ -159,9 +159,7 @@ impl Terminal {
 
     /// Interactive users get the report link; redirected stdout keeps the record path.
     pub fn print_record(&self, result: &RunResult) {
-        if !self.live || !io::stdout().is_terminal() {
-            println!("{}", result.record.display());
-        }
+        println!("{}", result.record.display());
     }
 
     pub fn finish(&mut self, result: &RunResult) {
@@ -186,35 +184,65 @@ impl Terminal {
             "\n{icon}{heading} in {:.1}s\n",
             self.started.elapsed().as_secs_f64()
         );
-        eprintln!(
-            "  Notices       {} of {} · {} pages",
-            s.originals, s.rows, s.pages
-        );
-        if s.protection_requested {
-            eprintln!("  Protected     {} copies", s.protected);
-        } else {
-            eprintln!("  Protected     Not requested");
+        let report = &s.report;
+        let percent = |count: usize| {
+            if report.rows == 0 {
+                "n/a".to_owned()
+            } else {
+                format!("{:.1}%", 100.0 * count as f64 / report.rows as f64)
+            }
+        };
+        eprintln!("  Severity ({} source records):", report.rows);
+        for label in ["error", "warning", "clear", "pending"] {
+            let count = report.severity.get(label).copied().unwrap_or(0);
+            eprintln!("    {label}: {count} ({})", percent(count));
         }
-        if s.grouping_requested {
+        eprintln!("  Delivery:");
+        for label in ["ready", "review", "withheld", "report_only", "undecided"] {
             eprintln!(
-                "  Grouped PDFs  {} ready · {} for review",
-                s.groups, s.review_groups
+                "    {label}: {}",
+                report.routes.get(label).copied().unwrap_or(0)
             );
-        } else {
-            eprintln!("  Grouped PDFs  Not requested");
         }
-        eprintln!(
-            "  Findings      {} with warnings · {} failed · {} held",
-            s.warnings, s.failed, s.held
-        );
-        if s.run_findings > 0 {
-            eprintln!("  Run checks    {} additional findings", s.run_findings);
+        eprintln!("  Finding codes (overlapping source records):");
+        let mut warnings = Vec::new();
+        for ((severity, code), rows) in &report.codes {
+            if severity == "fail" {
+                eprintln!("    error {code}: {} ({})", rows.len(), percent(rows.len()));
+            } else {
+                warnings.push((code, rows.len()));
+            }
+        }
+        warnings.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(b.0)));
+        for (code, count) in warnings.iter().take(10) {
+            eprintln!("    warning {code}: {count} ({})", percent(*count));
+        }
+        if warnings.len() > 10 {
+            eprintln!(
+                "    {} more warning codes in findings.csv",
+                warnings.len() - 10
+            );
+        }
+        if report.diagnostics > 0 {
+            eprintln!(
+                "    compiler diagnostics: {} ({})",
+                report.diagnostics,
+                percent(report.diagnostics)
+            );
+        }
+        if report.run_findings > 0 {
+            eprintln!("  Run/attempt findings: {}", report.run_findings);
         }
         if let Some(parent) = result.record.parent() {
-            let report = parent.join("report.html");
-            let cwd = std::env::current_dir().unwrap_or_default();
-            let display = report.strip_prefix(cwd).unwrap_or(&report);
-            eprintln!("\n  Open {}\n", display.display());
+            if s.records_path.is_empty() || s.findings_path.is_empty() {
+                eprintln!(
+                    "  CSV exports unavailable; run warnings {} --refresh",
+                    parent.display()
+                );
+            } else {
+                eprintln!("  Records: {}", parent.join(&s.records_path).display());
+                eprintln!("  Findings: {}", parent.join(&s.findings_path).display());
+            }
         }
     }
 }

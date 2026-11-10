@@ -1,22 +1,40 @@
 # PDF checks and review
 
-Each run records input preparation, PDF creation and check results in `run.json`, with a readable `report.html`. Inspect the report and representative notices before sending them. Typst components record layout and content findings for the notice actually created.
+Each run saves its authoritative evidence in `run.json` and publishes a matching pair of CSV files. Open the `records.csv` and `findings.csv` paths printed by the terminal in a spreadsheet and inspect representative notices before sending them.
 
-The report starts with counts of source rows by delivery decision. Its warning summary groups repeated link warnings by exact destination or destination set, counts affected rows and occurrences, and links back to each source row. Summary labels omit destination values; the original findings retain their evidence. Other warnings are counted by check code, and notice creation messages are counted separately. The summary uses effective warnings, so a finding changed to failure or disabled by policy is not counted as a warning. Older saved runs without structured link subjects show those warnings by check code. These counts do not change delivery decisions. The warning-row count and filter also include notice creation messages. Warning counts overlap those decisions: a Ready row can still have warnings. Search names, client IDs, schools or finding text, and filter by decision or warnings. Each row shows its main finding; expand **Findings and files** for failures, warnings, next steps and PDF links. Passed, inapplicable and policy-disabled checks are under **Other checks**. Unperformed checks that were not disabled remain prominent because they block the normal bundle. Technical details retain check codes, measurements and any rule change with its original and effective result. Without JavaScript, all rows remain available and browser Find still works.
+`records.csv` has one row per readable source record. Filter `severity` to find errors or warnings, `evaluation_state` to find incomplete checks, and `route` to see ready, review, withheld, report-only and undecided records. Use `row_key` to join a record to its findings. Original and protected paths and inclusive bundle page ranges identify available PDFs; paths are relative to the run folder. A held record retains its original but is excluded from bundles. Ready means eligible under the effective rules; check bundle status and path to see whether an artifact was produced.
 
-Ready means eligible under the effective rules, not proof that a bundle was produced. Check the actual bundle links and run errors. Counts describe source rows, not unique people or immunization outcomes. Link checks validate address formats; they do not test whether websites respond.
+`findings.csv` contains actionable checks, compiler warnings and operational failures. Filter by code or effective status, then join by `row_key`. The observed status records the original check; the effective status and policy reason show any authorized rule change. Code counts in the terminal overlap: one source row may have more than one finding. Compiler diagnostics and run or attempt errors are reported separately. Passing and inapplicable checks remain in `run.json` rather than filling the spreadsheet.
 
-Notices with warnings can be included in the PDFs for sending under the active rules. A failed check, or a check that was not run and was not disabled, prevents that notice from entering the PDFs for sending. If its original PDF is readable, it goes into a separate review PDF. If no PDF was created or the original is unreadable, the notice appears in the report only. Other notices can still be processed. A run with failures exits with an error; warnings alone do not cause an error exit.
+Import client IDs and other identifiers as text to preserve leading zeros. CSV cannot force spreadsheet programs to use text. The exports prefix an apostrophe to external text that could be interpreted as a spreadsheet formula, including after leading whitespace or control characters; `run.json` retains the exact values. The files use UTF-8, standard CSV quoting and CRLF line endings.
 
-The numbered `bundles-0001/` directory contains PDFs for notices ready to send and separate review PDFs. Defaults are `bundle-*.pdf` and `review-*.pdf`; [filename templates](configuration.md#filename-templates) can customize them. A CSV beside each PDF connects its page ranges and findings to the input rows. The run also retains original PDFs and, if configured, separate encrypted copies. Read the report for actual outcomes and paths; do not infer success from a file's presence alone.
+A warning can be eligible for sending. A failed check or mandatory check that was not performed prevents normal delivery; a readable original goes to a review PDF, while a record without a usable original is report-only. A completed run can contain failures and returns a nonzero exit status. The run retains original PDFs and, when requested, separate protected copies. Link checks validate address formats; they do not test whether websites respond. For explanations of individual codes, see the [finding code reference](findings.md).
 
-For explanations and investigation steps for individual codes, see the [finding code reference](findings.md).
+## CSV fields and types
+
+Both CSVs use export schema 1 and carry `run_id`, integer `record_revision` and the active `bundle_attempt` (empty before a successful attempt). A failed later attempt is identified separately on its finding. `row_key` joins the files; `source_record` is the 1-based data-record ordinal, including multiline CSV records. IDs are text and may repeat. Paths are relative to the run root. Empty cells indicate unavailable values; page counts and inclusive ranges are positive integers when present.
+
+`records.csv` columns, in order:
+
+```text
+run_id,record_revision,bundle_attempt,row_key,source_record,client_id,name,school,notice_variant,language,severity,evaluation_state,route,hold_reason,original_status,original_path,original_pages,protected_status,protected_path,bundle_status,bundle_path,bundle_start_page,bundle_end_page
+```
+
+Severity is one of `error`, `warning`, `clear` or `pending`; evaluation is `complete`, `pending` or `blocked`. Artifact statuses use `completed`, `failed`, `pending`, `not_requested` or `excluded`. For example, a held warning has severity `warning`, route `withheld`, and bundle status `excluded`; an invalid source row may have severity `error` and route `report_only` with no PDF path. A still-running row may be `pending`; a warning already observed takes precedence while evaluation remains pending.
+
+`findings.csv` columns, in order:
+
+```text
+run_id,record_revision,bundle_attempt,scope,attempt_number,row_key,client_id,finding_key,origin,code,observed_status,effective_status,disabled,policy_reason,component,page,message,issue_ids,acknowledged_issue_ids
+```
+
+Scope is `row`, `run` or `attempt`; only row findings have a row key. Origin is `check`, `compiler` or `artifact`. Observed and effective check statuses use `pass`, `warn`, `fail`, `not_run` or `not_applicable`, and `disabled` is a boolean. `issue_ids` and `acknowledged_issue_ids` are JSON arrays; an empty array is `[]`. One check can identify several subjects. A warning disabled by a rule remains visible with the original `warn`, effective `not_run`, `disabled` true and the rule reason. Compiler diagnostic blocks are separate findings. Ordinary passing checks remain in canonical evidence.
+
+The terminal uses readable source records as its denominator, including held and failed records. Severity buckets are exclusive; code counts overlap. With zero readable records the percentages are `n/a`. Rounded percentages may not add to exactly 100 percent.
 
 ## Record review of a link warning
 
-List the current distinct URL issues and their full issue IDs from a completed
-run. The report shows the same IDs and affected source rows. Then record or
-revoke a review with a reason that does not contain client information:
+List distinct current URL issues and their full IDs, then record or revoke attention with a reason that does not contain client information:
 
 ```sh
 immuknow warnings runs/example-run
@@ -24,17 +42,9 @@ immuknow acknowledge runs/example-run ISSUE_ID --reason "Reviewed destination"
 immuknow acknowledge runs/example-run ISSUE_ID --reason "Review withdrawn" --revoke
 ```
 
-An acknowledgment applies to that exact issue in that saved run, including
-later rebundles. A changed destination or destination set is a different issue;
-a new run starts with no acknowledgments. The report retains the review history
-and shows current and inactive acknowledgments. Acknowledgment records attention:
-it does not alter findings, severity, routing, exit status, PDFs or bundles.
-Warnings without structured subjects, including older runs, remain visible by
-check code but cannot be acknowledged as exact link issues.
+An acknowledgment applies to the exact issue in that saved run, including later rebundles. A changed destination is a different issue. Acknowledgment records attention; it does not change severity, routing, exit status or PDFs. The warning command also identifies inactive acknowledgments. `findings.csv` carries issue IDs and acknowledged IDs for reviewable findings.
 
-If the run record was saved but the HTML view could not be refreshed, repair the
-output problem and run `immuknow warnings runs/example-run --refresh`. This
-regenerates the view without creating PDFs or changing the review history.
+If the CSV pair is missing or stale, repair the output problem and run `immuknow warnings runs/example-run --refresh`. Refresh reads the last saved checkpoint, including a readable failed or running `.incomplete` run, and regenerates the pair without recompiling or replaying a review action. Earlier generations remain available as immutable snapshots. Unsupported saved-run schema versions require the matching older executable.
 
 ## What Core checks during a run
 
@@ -77,7 +87,7 @@ immuknow rebundle ./runs/<run-id> --withhold row-000001 --reason "Pending review
 immuknow rebundle ./runs/<run-id> --release row-000001
 ```
 
-Use `--policy policy.json` to apply a rules file and `--bundle-workers 4` to set the number of workers assembling PDFs. A held notice is excluded from both the PDFs for sending and the review PDFs. Releasing a hold leaves its checks in force. Each attempt records outcomes and creates a new numbered bundle directory. Review the new report and matching CSV before sending notices.
+Use `--policy policy.json` to apply a rules file and `--bundle-workers 4` to set the number of workers assembling PDFs. A held notice is excluded from both the PDFs for sending and the review PDFs. Releasing a hold leaves its checks in force. Each attempt records outcomes and creates a new numbered bundle directory. Review the current CSV pair and the selected bundle paths before sending notices. A failed later attempt retains the previous active decisions and bundles; its error appears separately.
 
 To change only the next bundle attempt's names, supply `--filenames filenames.json`:
 

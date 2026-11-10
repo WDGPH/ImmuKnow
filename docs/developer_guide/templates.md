@@ -541,7 +541,7 @@ its own packaged localization resources.
 
 The authoritative `runs/<run-id>/run.json` records source rows, facts,
 assignments, checks and original PDF paths. The run stages the selected project
-under `resources/templates/` and facts under `facts/<row_key>.json`. Review the retained original PDFs and findings in `report.html` and `run.json`.
+under `resources/templates/`; prepared facts are retained in each row of `run.json`. Review the retained original PDFs and the run-wide CSV findings.
 Inspect English/French,
 unknown-age, long-address and long-history examples, including QR links,
 window placement, signatures, symbols and page continuation. The

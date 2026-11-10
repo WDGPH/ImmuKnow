@@ -25,13 +25,13 @@ With the existing 100-row report schedule, serial parsing took 25.31 seconds med
 
 For 1,000 notices, median CPU work was 76.92 versus 74.86 seconds; highest peak RSS was 1.09 versus 1.06 GiB. For 5,000 notices, CPU work was 432.80 versus 381.27 seconds, an 11.9% reduction. Peak RSS was essentially unchanged at 2.34 GiB.
 
-The new schedule saves at 100 processed notice rows, then doubles the next row threshold after each successful save. It also saves at the next row boundary after 30 seconds since the previous successful save. The notice coordinator starts the clock when it begins processing worker results and resets it after writing; setup, a slow row or a report write can extend the wall-clock gap. Setup, final and caught-error reporting remain independent. This removes full serialization passes while keeping one understandable `run.json` and its complete escaped HTML view. There is no extra journal, format change or resume command.
+The new schedule saves at 100 processed notice rows, then doubles the next row threshold after each successful save. It also saves at the next row boundary after 30 seconds since the previous successful save. The notice coordinator starts the clock when it begins processing worker results and resets it after writing; setup, a slow row or a report write can extend the wall-clock gap. Setup, final and caught-error reporting remain independent. This historical experiment retained the then-current HTML view. The current design checkpoints `run.json` and publishes paired CSVs at final events; there is no resume command.
 
 The recovery tradeoff is less frequent intermediate snapshots. Deterministic clock tests cover row and elapsed-time thresholds. A fresh forced-interruption check observed both the 100- and 200-row snapshots, verified all 1,000 source rows and every listed original-PDF link/hash, then confirmed that the incomplete folder and readable reports remained after termination.
 
 ### Retain the existing allocation changes
 
-Owned JSON moves, streamed report JSON, buffered preparation output and single-pass HTML escaping remain unchanged. Their individual historical savings were not re-added or estimated. The current profile supports removing repeated writes; it does not reveal a regression requiring those implementations to be reverted.
+This historical experiment used owned JSON moves, streamed report JSON, buffered preparation output and single-pass HTML escaping. Their individual historical savings were not re-added or estimated. The current profile supports removing repeated writes; it does not reveal a regression requiring those implementations to be reverted.
 
 ## Remaining reporting cost
 

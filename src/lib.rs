@@ -1,5 +1,6 @@
 //! Prepare client information, compile notices, and save PDFs with a review report.
 pub mod bundles;
+mod checks;
 pub mod compiler;
 pub mod filenames;
 mod formatting;

@@ -295,7 +295,7 @@
         0, 0, 22, 0, 0, 0, 0, 22, 1, 0, 0, 0, 0, 30, 0, 0, 0, 0, 37, 4, 0, 0, 0,
         0, 42, 0, 0, 0, 0, 7, 36, 0, 0, 0, 0, 0, 25
       ],
-      "description": "Save checkpoints while notices are being created, then the final run record and readable report. Open report.html to review findings and PDFs."
+      "description": "Historical measured workflow: save the run record and HTML report during notice creation and at completion."
     }
   ]
 }

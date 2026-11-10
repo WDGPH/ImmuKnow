@@ -94,10 +94,8 @@ pub(crate) fn reviewable(record: &Value) -> anyhow::Result<Summary> {
         .as_array()
         .context("Missing saved entries")?;
     for entry in entries {
-        let checks = entry["effective_checks"]
-            .as_array()
-            .context("Missing effective checks")?;
-        for check in checks {
+        let checks = crate::checks::effective(entry)?;
+        for check in &checks {
             ensure!(
                 check["code"].as_str().is_some_and(|code| !code.is_empty())
                     && matches!(
@@ -118,6 +116,31 @@ pub(crate) fn reviewable(record: &Value) -> anyhow::Result<Summary> {
         "Invalid warning issue identity"
     );
     Ok(summary)
+}
+
+/// Resolve the exact review IDs for a finding using the same identity as `warnings`.
+pub(crate) fn issue_scope(record: &Value) -> Option<String> {
+    valid_scope(record).then(|| crate::hash(&serde_json::to_vec(&json!({"resources":record["resources"]["sha256"], "templates":record["project_resources"]["templates"]})).expect("saved scope serializes")))
+}
+pub(crate) fn issue_ids(scope: Option<&str>, check: &Value) -> anyhow::Result<Vec<String>> {
+    let Some(scope) = scope else {
+        return Ok(Vec::new());
+    };
+    let Some(subjects) = subjects(check)? else {
+        return Ok(Vec::new());
+    };
+    let code = check["code"].as_str().unwrap_or("");
+    subjects
+        .into_iter()
+        .map(|subject| {
+            Ok(crate::hash(&serde_json::to_vec(&(
+                "immuknow-link-issue-v1",
+                scope,
+                code,
+                subject,
+            ))?))
+        })
+        .collect()
 }
 
 /// Exact subjects are used only as in-memory keys; summary labels contain no URLs.
@@ -144,13 +167,8 @@ pub(crate) fn summarize(record: &Value) -> Summary {
         {
             summary.diagnostics.insert(row);
         }
-        let checks = entry.get("effective_checks").unwrap_or(&entry["checks"]);
-        for check in checks
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter(|c| c["status"] == "warn")
-        {
+        let checks = crate::checks::effective(entry).unwrap_or_default();
+        for check in checks.iter().filter(|c| c["status"] == "warn") {
             let code = check["code"].as_str().unwrap_or("Unknown warning");
             if let Ok(Some(keys)) = subjects(check) {
                 for subject_key in keys {
@@ -186,8 +204,14 @@ pub(crate) fn summarize(record: &Value) -> Summary {
 mod tests {
     use super::*;
 
+    fn entry(checks: Vec<Value>) -> Value {
+        let mut entry = json!({"checks":checks});
+        crate::checks::assign(&mut entry).unwrap();
+        entry["effective_checks"] = json!(entry["checks"].as_array().unwrap().iter().map(|c| json!({"finding_key":c["finding_key"],"status":c["status"],"disabled":false,"policy_reason":null})).collect::<Vec<_>>());
+        entry
+    }
     fn review_record(code: &str, url: &str) -> Value {
-        json!({"resources":{"sha256":"a".repeat(64)},"project_resources":{"templates":{"letter.typ":"b".repeat(64)}},"entries":[{"effective_checks":[{"code":code,"status":"warn","subjects":[{"kind":"url","urls":[url]}]}]}]})
+        json!({"resources":{"sha256":"a".repeat(64)},"project_resources":{"templates":{"letter.typ":"b".repeat(64)}},"entries":[entry(vec![json!({"code":code,"status":"warn","subjects":[{"kind":"url","urls":[url]}]})])]})
     }
 
     #[test]
@@ -240,7 +264,7 @@ mod tests {
         assert!(reviewable(&changed).is_err());
         assert!(summarize(&changed).link_issues[0].id.is_none());
         changed = record.clone();
-        changed["entries"][0]["effective_checks"][0]["subjects"]
+        changed["entries"][0]["checks"][0]["subjects"]
             .as_array_mut()
             .unwrap()
             .push(json!({"kind":"url", "urls":[]}));
@@ -259,11 +283,17 @@ mod tests {
     fn exact_subjects_and_effective_status_determine_aggregate_counts() {
         let link = |url: &str| json!({"code":"content.link_https","status":"warn","subjects":[{"kind":"url","urls":[url]}]});
         let set = |urls: Vec<&str>| json!({"code":"content.multiple_links","status":"warn","subjects":[{"kind":"url_set","urls":urls}]});
+        let mut first = entry(vec![
+            link("http://example.test/?id=1"),
+            set(vec!["https://a.test", "https://b.test"]),
+            json!({"code":"other","status":"warn"}),
+        ]);
+        first["compiler_diagnostics"] = json!("font");
         let record = json!({"resources":{"sha256":"abc"},"entries":[
-            {"effective_checks":[link("http://example.test/?id=1"),set(vec!["https://a.test", "https://b.test"]),{"code":"other","status":"warn"}],"compiler_diagnostics":"font"},
-            {"effective_checks":[link("http://example.test/?id=1"),set(vec!["https://b.test", "https://a.test"]),{"code":"other","status":"warn"}]},
-            {"effective_checks":[link("http://example.test/?id=2"),set(vec!["https://a.test", "https://c.test"]),{"code":"content.link_https","status":"fail","subjects":[{"kind":"url","urls":["http://example.test/?id=3"]}]}]},
-            {"checks":[{"code":"content.link_https","status":"warn","message":"legacy"}]}
+            first,
+            entry(vec![link("http://example.test/?id=1"),set(vec!["https://b.test", "https://a.test"]),json!({"code":"other","status":"warn"})]),
+            entry(vec![link("http://example.test/?id=2"),set(vec!["https://a.test", "https://c.test"]),json!({"code":"content.link_https","status":"fail","subjects":[{"kind":"url","urls":["http://example.test/?id=3"]}]})]),
+            entry(vec![json!({"code":"content.link_https","status":"warn","message":"missing subjects"})])
         ]});
         let summary = summarize(&record);
         assert_eq!(summary.link_issues.len(), 4);

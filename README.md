@@ -20,7 +20,7 @@ The [getting started guide](docs/user_guide/getting_started.md) explains setup a
 immuknow run clients.csv --project project --template overdue_diseases.en.typ
 ```
 
-Open `report.html` in the new run folder and review the findings and PDFs before
+Open the printed `records.csv` and `findings.csv` files and review the findings and PDFs before
 sending notices. Warnings are eligible for delivery by default. See
 [PDF review](docs/user_guide/pdf_validation.md) for checks, holds and rebundling.
 
