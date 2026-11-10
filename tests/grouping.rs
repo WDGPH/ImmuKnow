@@ -27,7 +27,7 @@ fn row(
     last: &str,
     dob: &str,
 ) -> Value {
-    json!({"row_key":key,"client_id":key,"notice":{"school":{"id":school_id,"name":school},"board":{"id":board_id,"name":board},"client_data":{"last_name":last,"date_of_birth_iso":dob}},"assignment":{"version_id":"notice","language":"en"},"original":{"status":"completed","path":format!("originals/{key}.pdf"),"pages":1},"encryption":{"status":"not_requested"},"checks":[],"effective_checks":[]})
+    json!({"row_key":key,"client_id":key,"notice":{"school":{"id":school_id,"name":school},"board":{"id":board_id,"name":board},"client_data":{"last_name":last,"date_of_birth_iso":dob}},"assignment":{"version_id":"notice","language":"en"},"original":{"status":"completed","path":format!("originals/{key}.pdf"),"pages":1},"encryption":{"status":"not_requested"},"checks":[],"effective_checks":[],"next_finding_sequence":1})
 }
 
 fn fixture(entries: Vec<Value>) -> Result<(tempfile::TempDir, Value)> {
@@ -115,9 +115,9 @@ fn sorting_occurs_before_chunking_without_reordering_saved_rows() -> Result<()> 
         row("r5", "", "", "", "", "", "2000-01-01"),
     ])?;
     for entry in record["entries"].as_array_mut().unwrap() {
-        let check = json!({"code":"test.ok","status":"pass","message":"ok"});
-        entry["checks"] = json!([check.clone()]);
-        entry["effective_checks"] = json!([check]);
+        entry["checks"] = json!([{"finding_key":"check-000001","code":"test.ok","stage":"prepare","status":"pass","message":"ok"}]);
+        entry["effective_checks"] = json!([{"finding_key":"check-000001","status":"pass","disabled":false,"policy_reason":null}]);
+        entry["next_finding_sequence"] = json!(2);
     }
     let mut config = Config::default();
     config.bundling.bundle_size = 2;
@@ -142,16 +142,13 @@ fn sorting_occurs_before_chunking_without_reordering_saved_rows() -> Result<()> 
         vec!["r3", "r2", "r1", "r4", "r5"]
     );
     for bundle in record["bundles"].as_array().unwrap() {
-        let mut csv = csv::Reader::from_path(dir.path().join(bundle["csv"].as_str().unwrap()))?;
-        let rows = csv.records().collect::<Result<Vec<_>, _>>()?;
-        let csv_members: Vec<_> = rows.iter().map(|row| row[0].to_owned()).collect();
+        assert!(bundle.get("csv").is_none());
         let bundle_members: Vec<_> = bundle["members"]
             .as_array()
             .unwrap()
             .iter()
             .map(|value| value.as_str().unwrap().to_owned())
             .collect();
-        assert_eq!(csv_members, bundle_members);
         let pdf = Document::load(dir.path().join(bundle["path"].as_str().unwrap()))?;
         let pdf_members: Vec<_> = pdf
             .get_pages()
@@ -172,10 +169,6 @@ fn sorting_occurs_before_chunking_without_reordering_saved_rows() -> Result<()> 
             })
             .collect();
         assert_eq!(pdf_members, bundle_members);
-        for (page, row) in rows.iter().enumerate() {
-            assert_eq!(&row[2], (page + 1).to_string());
-            assert_eq!(&row[3], (page + 1).to_string());
-        }
         for (page, key) in bundle["members"].as_array().unwrap().iter().enumerate() {
             let entry = record["entries"]
                 .as_array()
@@ -184,6 +177,7 @@ fn sorting_occurs_before_chunking_without_reordering_saved_rows() -> Result<()> 
                 .find(|e| e["row_key"] == *key)
                 .unwrap();
             assert_eq!(entry["bundle"]["notice_start_page"], (page + 1) as u64);
+            assert_eq!(entry["bundle"]["notice_end_page"], (page + 1) as u64);
         }
     }
     Ok(())
