@@ -1,332 +1,211 @@
-# Cross-repository execution plan
+# v2 plan: usable run reports and faster styled QR codes
 
-Filename templates, reference fixes, notice-local requirements, grouping safeguards, optional sorting and distinct-link review are implemented across Core, Template and Studio. The final row-isolation handoff is verified against matching pins. Three Terra scouts inspected the repositories. The investigation evidence comes from source and fictional checks, not a replay of the private production run.
+This is the shared execution plan for Core, [Template](../ImmuKnow-Template/plan.md) and [Studio](../ImmuKnow-Studio/plan.md). **Planning is complete; the three implementation phases below are pending.** This change set updates the plans; runtime implementation is pending.
 
-This tracked file is the shared source of truth for scope, status, execution order and cross-repo decisions. Core’s implementation checklist follows the shared plan below. Consumer work lists: [Template](../ImmuKnow-Template/plan.md), [Studio](../ImmuKnow-Studio/plan.md). Keep shared-contract changes consistent across those files.
+The operator should finish a run, understand its severity totals in the terminal, open two manageable spreadsheets, and find the corresponding PDFs. The implementation replaces the large HTML report and per-bundle CSVs with run-wide CSV exports, retains a trustworthy saved record for review and rebundling, and applies two measured QR optimizations. Report usability is the primary product improvement; QR throughput is a separate, bounded improvement.
 
-## What the completed run tells us
+This is a prerelease breaking v2 release. Existing helper signatures, boolean grids, saved-report layouts and HTML are not compatibility requirements. Update maintained callers and generated consumers together. Do not add legacy loaders, adapters, format switches or duplicate output paths without an identified supported consumer. Existing `AGENTS.md` instructions about an escaped HTML view and tests asserting the old output must be deliberately updated during implementation; the requested CSV-first design supersedes them.
 
-The reported run finished in **384.5 seconds**, created **5,837 notices / 11,674 pages**, requested no protected copies, and produced **60 ready bundles / 1 review bundle**. Its terminal summary reported **5,836 rows with warnings, 1 failed and 0 held**. The terminal warning figure counts rows whose highest effective severity is warning, not distinct warnings; the HTML warning filter can also include warning-bearing failed rows. A review-bundle count is a count of PDFs, not clients.
+## Baseline and evidence
 
-This establishes that a large run completed. It does not identify the failed check or prove that the repeated warnings all concern URLs. Private-run investigation is deferred at the user’s request. When resumed, start with a local aggregate of finding code, observed/effective status, affected-row count and compiler diagnostics. Keep client details and full personalized URLs out of shared results.
+Start from the current branches, retaining completed behavior:
 
-Initial investigation baselines (historical, before filename implementation):
-
-| Repo | Revision | Role |
+| Repository | Current baseline | Responsibility |
 | --- | --- | --- |
-| ImmuKnow | `7784d9ce0dff6fc14d8061fd1aefc45df76e799d` | Native preparation, shared Typst components, policies, PDFs, bundles and reports |
-| ImmuKnow-Template | `9f098ab9ec3569d3fa5463b15ccd1842aa3fe16d` | Authored settings, references, notices, labels and fictional examples |
-| ImmuKnow-Studio | `b2a3e8e132b43b204c38992916acaa8afb98baf8` | Editor, browser previews, project import/export and pinned resource consumption |
+| Core | Runtime `16792decc1e4fb405f63d2780ed87d5f46dba37c`; plan-only HEAD `c55841b` | Shared components/contracts, native processing, saved state and reports |
+| Template | `91c5b1cf5e573d8c8f234d71252ea65bfbe6d9fb`, pinning Core above | Authored notices, settings, references, examples and packaged project instructions |
+| Studio | `4c4c98d2f57e0042c9fc8349c274eb64a663c9fc`, pinning that pair | Browser authoring/preview, generated resources, project import/export and native handoff |
 
-These SHAs explain the initial investigation; they are not checkout targets for execution. The current verified project update pair is Core `16792decc1e4fb405f63d2780ed87d5f46dba37c` and Template `91c5b1cf5e573d8c8f234d71252ea65bfbe6d9fb`. Template records that exact Core pin. These include filename templates, grouping, sorting, warning subjects, notice-local requirements and row isolation. Studio adopts that pair in `4c4c98d2f57e0042c9fc8349c274eb64a663c9fc`. Start from current source and retain completed behavior. These commits are local; publishing pinned revisions remains necessary before fresh external installs.
+The supplied local evidence is `../performance-summary.md`, `../performance-metrics.json`, `../compilation-profile-summary.md` and `../compilation-profile-metrics.json`. These measured **Core `78b8d9b8672f14afa0b1223b72c8fa0e9903c082` with its saved project snapshot**, not current Core. Read those artifacts locally; do not copy private inputs, raw profiles or metrics into these repositories. The old plan's PR1 profiling deferral is superseded by this completed evidence. H1's earlier HTML deduplication prototype is historical, not the implementation direction.
 
-## Execution status and order
+- The full measured command created 5,838 originals / 11,704 pages in 390.52 seconds through exit, with about 3.48 GiB native peak RSS. It used English notices, one styled QR per notice, two compile workers, encryption off and 75 normal / 2 review bundles. All rows had effective warnings; 189 also had failed checks. Counts of findings, warning-bearing rows and highest-severity rows differ.
+- Its 152 MB HTML contained 4.53 million DOM nodes, took about 52 seconds to become usable and reached about 3.7 GiB sampled browser/driver RSS. Seventeen full report writes produced roughly 3.4 GB cumulatively. The saved-timer-to-exit gap includes other work; it is not a pure report timer.
+- Finder bounds were equivalent at all 477,320 cells across the 40 standard QR dimensions (21–177). Later matched-build 200-row commands had median paired wall reduction 7.25% (4.64–7.46%). Bulk integer-grid conversion had 11.16% (9.42–13.30%) in matched-build commands, and 7.08% wall / 7.18% CPU in the same-binary, two-worker driver. Tested PDFs, pages, checks and routes matched.
+- These candidates were measured separately. Do not add percentages or promise the same gain on 5,838 rows. Combined behavior, current-source performance and alternate styling/languages still need acceptance checks.
+- Lazy structural-grid construction showed a smaller 1.25% driver-wall improvement, without established complete-command benefit. History grouping was slower; path `.push` was slower; findings grouping was inconclusive. None is required implementation here.
+- A resource-only edit failed to trigger a library rebuild in the isolated older checkout. **Current `build.rs` already emits `cargo:rerun-if-changed=resources`.** Reproduce and verify current behavior before proposing a fix; adding that same directive or touching a Rust file is not a solution.
 
-| ID | Status | Owner / consumers | Deliverable |
-| --- | --- | --- | --- |
-| F0 | Complete | Core + Template → Studio | Configurable individual/protected and normal/review bundle filenames |
-| R1 | Complete | Template → Studio | Meningococcal/TIg reference and display fixes |
-| R2a | Complete; active contract fixtures verified | Core, with Template/Studio consumers | Notice-local requirements and deferred preparation contract |
-| R2b | Complete across all three repos | Core + Template → Studio | Implement that contract, remove notice YAML, retain readable failed notices for review, detect empty agent displays |
-| R3 | Complete across all three repos | Core → Template + Studio | Keep invalid history/reader rows report-only while valid rows continue |
-| G1 | Complete; upstream export review remains external | Core; upstream export owner | Safe grouping for missing/conflicting school identity |
-| W1 | Complete | Core | Structured per-link evidence and run-level warning aggregation |
-| W2 | Core complete | Core; Studio consumes relevant evidence | Run-scoped warning acknowledgment without changing delivery |
-| S1 | Complete | Core + Template; Studio handoff | Optional last-name/DOB ordering within bundles |
-| D1 | Exploration recorded; migration deferred | Core + Template + Studio | Disease identity/alias/label catalog; unrelated to removing the notice catalog |
-| H1 | Prototype measured; production deferred | Core | Measured, lossless report-size improvement |
-| PR1 | Deferred at the user's request | Core operator/developer workflow | Profile the real native workload |
+## Decisions and shared contracts
 
-R1 and R2 are complete against the reviewed [requirements contract](tests/fixtures/requirements-contract.md). R3 passed all 89 Core release tests, including sparse worker/encryption identity and all-failed progress; Template passed all 59 tests, Ruff and package checks with the matching pin. Studio’s final R3 handoff passed 236 unit tests, six Python tests, type/lint/format checks, strict docs, a fresh site build, and two targeted browser/native tests. Its earlier R2 handoff passed 26 selected browser/native tests; that full selection was not repeated for R3. G1/S1 and W1/W2 are already adopted. D1 migration, H1 production optimization and PR1 private-run measurement retain their explicit exploration/measurement boundaries.
+### Operator workflow and output defaults
 
-## 1. Reference fixes: preserve what worked
+1. `run` and `rebundle` print source-row severity counts and percentages, separate delivery counts, a short code summary, run/attempt errors, and the exact paths to the current `records.csv` and `findings.csv` on stderr. Preserve the canonical `run.json` path on stdout and current progress modes for maintained scripts. `--progress off` continues to suppress human progress/summary output; failures still return nonzero.
+2. `records.csv` has one row per readable source record, including failed preparation, no-PDF records and holds. Filter it by severity or delivery route; use its original/protected/bundle paths and inclusive bundle page ranges to locate output.
+3. `findings.csv` contains actionable observations and their effective results, compiler diagnostics and operational failures. Filter by code, row key or effective severity. Ordinary passing/not-applicable checks stay in canonical evidence, without filling the spreadsheet with every successful measurement.
+4. `warnings RUN`, `acknowledge RUN ISSUE_ID --reason ...`, revoke, holds/releases and policy rebundling remain native workflows. Acknowledgment records attention only; it changes neither severity, routing, PDFs nor exit status. `warnings RUN --refresh` regenerates both CSVs from canonical state, including a partial/failed run; it never compiles or creates bundles. Mutating acknowledgments still requires a completed, valid run.
+5. Generate **no HTML report and no per-bundle CSV**. No optional HTML is planned: the measured pain comes from an unnecessary second detailed interface, and spreadsheets plus the existing native review commands cover this workflow. Keep bundle PDF naming, grouping and page membership. Remove CSV-stem assumptions from filename documentation and tests.
 
-The user's successful project edits are committed in Template and adopted in Studio:
+### Severity, denominator and routing
 
-- Add `"Meningococcal disease": "Meningococcal"` to disease normalization. All 14 meningococcal-related agent entries already map to `Meningococcal`; leave those mappings alone.
-- Add `"TIg": ["Tetanus"]` to the agent reference. Add `TIg` to both history `ignore-agents` and overdue-agent exclusions. Recognized in facts does not mean displayed as a vaccine.
-- Remove redundant `"Varicella": "Varicella"` normalization if cleaning the file; unchanged names already pass through. No other alias cleanup is required for this fix.
+Use one small shared native summary/projection implementation for CLI and CSV. Do not introduce a generic reporting framework or a second policy engine.
 
-Template owns these authored files. Core should test generic normalization/reference behavior with fictional fixtures; Studio should consume the updated Template package rather than maintain another copy.
+| Concept | v2 rule |
+| --- | --- |
+| Denominator | Number of readable CSV data records assigned stable `row_key`s, including invalid/held/no-PDF rows; never PDF count, distinct client IDs or physical CSV lines. State the denominator. |
+| Highest effective severity | Mutually exclusive `error`, `warning`, `clear`, `pending`, in that priority order. `error` includes effective failures, mandatory checks not performed, invalid evidence and failures of requested artifacts. `warning` includes effective warnings and raw compiler warnings. `clear` requires completed evaluation, successful required artifacts and no effective warning/error. Otherwise use `pending`. |
+| Incomplete work | A running record may be `pending`; an error or warning already observed takes precedence. Include `evaluation_state` separately so warnings never disguise pending checks. On a terminated failed run, required unfinished work becomes a blocking outcome; do not invent passing results or copy a global error into every row. |
+| Blocked versus disabled | Invalid requirements retain their mandatory failure and explicit dependent `blocked_checks`; they are errors, not pending or not-applicable. A policy-disabled adjustable check remains explicitly disabled with its reason and does not itself create an error. Deferred checks remain outside observations until resolved. |
+| Percentages | `100 * bucket_count / source_record_count`, one decimal place. For zero readable records print counts and `n/a` percentages. Header-only/empty input retains existing input validation and returns any applicable run error; never divide by zero or fabricate rows. Rounded percentages need not sum exactly to 100. |
+| Delivery | Separate `ready`, `review`, `withheld`, `report_only`, `undecided` routing counts. Holds do not erase severity. A readable failed original remains reviewable; no usable original remains report-only. Ready is eligibility, not proof a bundle exists or a warning-free record. |
+| Artifact failures | Failed original/protected output raises that row to error. An initial bundle-write failure identifies affected planned members as delivery errors without claiming a completed bundle. A failed later rebundle leaves the previous active row decisions/membership intact and reports the failed attempt separately. |
+| Per-code summary | Count distinct affected row keys once per code/effective severity, with the same denominator. A row can appear under several codes; label these counts as overlapping. Show compiler diagnostics in a separately labeled warning line. Show run/attempt findings separately without a record percentage. |
 
-## 2. Coverage, eligibility and displayed content
+Default terminal code summary: all error codes, then at most ten warning codes ordered by affected-row count descending and code for ties; give the omitted-code count and CSV path. No raw personalized subjects, client names or full diagnostic messages in the terminal aggregate. `findings.csv` remains complete. A global setup or output failure must be visible even when there are no rows or all row checks passed. Exit status follows the actual run/attempt outcome, not whether acknowledgment is outstanding.
 
-Coverage preparation computes missing diseases, extra diseases and unmapped agents from complete facts in [Core input.rs](src/input.rs). The shared Typst helper now evaluates the notice-local coverage and eligibility requirements during compilation. The catalog reader and the preparation-time missing-coverage abort are removed.
+### CSV v1 contract
 
-Implemented Core behavior:
+Publish headers, types and examples in Core's owning reporting guide and fictional fixtures at the start of Phase 1. These are the only two tabular exports. Both carry `run_id`, `record_revision` and `bundle_attempt` so detached files can be identified. `bundle_attempt` identifies the active successful delivery snapshot, or is empty before one exists; failed attempts are identified separately on their findings.
 
-| Situation | Default result | Delivery consequence |
+`records.csv` columns, in order:
+
+```text
+run_id,record_revision,bundle_attempt,row_key,source_record,client_id,name,school,
+notice_variant,language,severity,evaluation_state,route,hold_reason,
+original_status,original_path,original_pages,protected_status,protected_path,
+bundle_status,bundle_path,bundle_start_page,bundle_end_page
+```
+
+- `source_record` is the 1-based CSV data-record ordinal, including quoted multiline records; `row_key` is the stable join/action key. Client IDs may repeat and are text. `name`/`school` use available source/prepared display values; missing facts remain blank. Preserve existing notice variant/language identity.
+- `evaluation_state` is `complete`, `pending` or `blocked`; the blocked-check list/reasons live in JSON and relevant finding rows. Artifact statuses are explicit `completed`, `failed`, `pending`, `not_requested` or `excluded` as appropriate. A held record retains available originals/protected copies, but has excluded bundle status and no bundle path/range. Grouping off means `not_requested`, not a missing-bundle failure.
+- Paths use `/`, are relative to the run root and are populated only for published usable artifacts. Page counts/ranges are positive integers when present, with 1-based inclusive bundle ranges. Missing values are empty cells, never `0`, guessed paths or literal `null`. PDF links are ordinary paths, not spreadsheet formulas.
+
+`findings.csv` columns, in order:
+
+```text
+run_id,record_revision,bundle_attempt,scope,attempt_number,row_key,client_id,
+finding_key,origin,code,observed_status,effective_status,disabled,policy_reason,
+component,page,message,issue_ids,acknowledged_issue_ids
+```
+
+- `scope` is `row`, `run` or `attempt`; only row findings require `row_key`. `origin` is `check`, `compiler` or `artifact`. `attempt_number` identifies attempt-specific findings, including failed rebundles. `finding_key` identifies one saved occurrence within its scope, not merely its code; repeated page-level checks must not collapse.
+- Include a check occurrence if either observed or effective status is `warn`/`fail`, or it is a mandatory unresolved/blocked outcome. Thus a warning disabled/downgraded by policy remains inspectable with both statuses and its reason. Exclude ordinary pass/not-applicable and still-pending checks from this actionable table; pending counts/state remain visible in records and CLI. Preserve underlying status vocabulary (`pass`, `warn`, `fail`, `not_run`, `not_applicable`) and explicit `disabled` boolean.
+- Emit distinct artifact/global error observations where no existing finding explains the failure; do not count the same failure twice. Raw compiler warnings remain distinguishable. Until the compiler supplies structured diagnostics, emit one compiler-warning finding per nonempty saved diagnostic block, with its complete useful text; do not parse arbitrary text into invented codes or severities.
+- `message` explains what needs review, including a small relevant actual/expected value when useful. Do not export arbitrary measurement maps, source payloads or one column for every check. Preserve exact subjects in canonical evidence; do not add a duplicate raw-URL column to this table.
+- `issue_ids` and `acknowledged_issue_ids` are JSON arrays of full IDs, empty as `[]`. One check may have several subjects, so arrays avoid duplicating finding rows. The second is the acknowledged subset of the first. `warnings` continues to show outstanding, acknowledged and inactive reviews, and JSON retains full review history/reasons. Acknowledgments are not findings and need no artificial CSV rows.
+- Write UTF-8 CSV with a header, standard quoting/CRLF and deterministic source-record/finding order. Test commas, quotes, embedded newlines and French characters. Use real integer/boolean formatting, finite numbers only, and no locale-dependent thousands separators. Document importing identifiers as text; CSV cannot force spreadsheet typing or preserve leading zeros after automatic numeric conversion.
+- Protect exported untrusted text against spreadsheet formula interpretation, including leading whitespace/control characters followed by `=`, `+`, `-` or `@`: prefix an apostrophe in the CSV presentation where needed. Apply this to names, IDs, paths, messages, policy/hold reasons and other external text, not typed numeric cells. Document the presentation escape; canonical JSON retains exact values. Do not use `="..."` formulas to preserve IDs.
+
+### Saved state, exports and recovery
+
+Advance `run_schema_version` from 1 to **2**; add CSV export schema version **1**. Support the new run schema directly. Reject unsupported saved-run versions with an actionable message to use the matching old executable; do not rewrite existing runs or add migration infrastructure in this prerelease task. The application version string alone is not a provenance check.
+
+Keep `run.json` as the one authoritative saved record, protected by the existing per-run OS lock and atomic replacement. Keep source rows, assignments, configured policy, source/resource/template identities, original/protected artifact outcomes/hashes, requirements, provenance, warning review history and delivery attempts. Rebundling must work without the original authored project and without recompilation/reinterpretation of the notice.
+
+Reduce duplication deliberately:
+
+- Save each observed check once, with a stable occurrence key. Store effective results as small keyed records containing status, disabled state and policy reason; resolve shared message, subjects and evidence through the observed check. Keep observed/effective distinctions explicit, including policy-disabled checks. Attempt-specific delivery observations/results belong to that attempt.
+- Retain prepared facts once in each row's canonical notice, and a validated render-evidence projection referencing that row/fact digest. Do not retain another whole `render_report.notice`, another full copy of its checks, or a second routine `facts/*.json` output solely because the compiler used it. Preserve source CSV/resource snapshots and rendered identity/page count, components, requirements, QR destinations, required source/display evidence and useful failure evidence. Full compiled evidence is validated **before** this persistence projection. Do not replace full-fact provenance validation with an identity-only comparison.
+- The persisted projection is explicitly a saved-evidence type, not a partially valid shared render envelope. Adapt Core/Template/Studio native test readers accordingly. Checks needed to authorize delivery, diagnose a failure, validate identity or manage an acknowledgment are never silently dropped to meet a size target.
+
+Keep exports simple and consistent. `record_revision` identifies committed semantic state; attaching the matching export pointer does not increment it.
+
+1. Retain adaptive canonical JSON checkpoints during processing; write them through a streaming serializer/atomic temporary file instead of building HTML and serialized JSON strings together. Do not create CSVs at every notice checkpoint. A checkpoint records its revision, stage, per-row pending state and `exports: null`.
+2. At normal completion, controlled failure, successful rebundle, failed rebundle or acknowledgment/revocation, persist the new canonical revision first, with `exports: null`. This preserves work/review history even if presentation writing fails. For rebundling, publish all completed bundle PDFs before selecting the new active attempt; a bundle failure never selects that attempt.
+3. Stream the two CSVs from that committed revision into a fresh `reports-NNNN.incomplete/` directory under the run. Close/flush both; rename the directory to `reports-NNNN/`; atomically update `run.json.exports` with its revision, CSV schema version, relative paths and file hashes. Hold the run lock throughout. Readers see either no current export or a complete matching pair. Do not overwrite old CSVs, create root-level copies/symlinks or claim two independent renames are a transaction.
+4. Each successful delivery attempt retains its effective results, holds, routes, member/page mapping, filename policy and the export generation made for that attempt. Earlier attempt exports remain immutable. Acknowledgment/revocation creates a new report generation for the active attempt, without a new bundle attempt; prior snapshots remain available. A refresh with unchanged canonical state and valid exports can return their existing paths. Generate files only at the listed events, retain snapshots needed by delivery/review history, and add no garbage-collection subsystem in this task.
+5. A failed rebundle appends its failure, requested settings/holds and affected planned members while preserving the previous active bundle set and row decisions. Its refreshed CSV includes the failed attempt finding and current active records. The CLI says the attempt failed and names the retained active attempt; it must not present retained files as newly produced output.
+6. If export publication fails after canonical mutation, return a failure explaining that state was saved but CSVs are unavailable and provide `warnings RUN --refresh`. That command accepts readable running/failed `.incomplete` runs as well as completed runs, validates them under lock, and regenerates from the last checkpoint only. It does not replay an acknowledgment or hold action. A failed refresh leaves canonical facts/history unchanged and no current export pointer. Unselected staged/orphan directories are never treated as current outputs.
+7. Preserve the outer run `.incomplete` convention. Rename a successfully finalized run only after its current export pair is selected. A finalization failure keeps the partial path discoverable, with saved state and a clear error. Abrupt termination can lose work since the last checkpoint, as today; refresh reports that checkpoint accurately and does not claim to resume compilation. Extend existing status/read guards accordingly.
+
+### Purposeful render evidence and measurements
+
+Advance shared render-report schema **3 → 4** for the measurement cleanup; prepared payload/preparation schemas remain at **2** because facts and deferred-check semantics do not change. Update the exported schema, native validator, shared Typst emitters, Core contract fixtures and Studio validators/types together. Do not accept both old/new render contracts through fallback code.
+
+Keep the full compiled notice and strict native/browser full-fact comparison at the trust boundary. Preserve finite-number/page-bound checks and source/placed-component matching. The cleanup changes representation, not checks or clinical meaning:
+
+| Data | v2 treatment |
+| --- | --- |
+| Eligibility/coverage, source/display/exclusion/replacement evidence, required-check presence, exact link subjects | Retain and validate, even for passing checks when needed to establish correctness. Coverage measurements remain available to the existing source-equality validation. |
+| Address/client geometry, envelope window geometry, history/section page locations | Keep once in top-level component `measurements` in the shared compiled report: Studio uses these for overlays and source targets. Move `viewer.ts` away from looking for a passing check's duplicate geometry; retain `preview-sources.ts` consumers. |
+| Routine successful numeric margins, title-height comparisons, width comparisons and other repeated check geometry | Remove redundant per-check measurement copies. Preserve result/code/page/component and the authoritative component evidence that has a real validation/editor use. Measurements used only to evaluate a passing check remain local to compilation. |
+| Failed/warning numeric comparisons | Retain concise meaningful actual/expected/overflow values when they explain correction; put the actionable part in the message and retain necessary structured detail in canonical evidence. Avoid an undifferentiated technical dump. |
+| Native saved component evidence | Preserve semantic evidence, identity and page locations. Do not persist editor-only rectangles and successful diagnostic arithmetic merely because they were present in the compiled envelope; native projection and shared browser envelope have distinct purposes. |
+
+Make a short field-by-field retention table beside the schema fixtures when implementing this change; resolve every removal against its actual validator/editor/acknowledgment consumer. This is a bounded source inventory, not a new configurable evidence system. No diagnostic flag or plugin framework is required.
+
+### QR implementation contract
+
+`resources/typst/lib.typ` exposes `qr-code`; the boolean grid from `src/qr-encode.typ` is internal. Choose the natural integer representation already supplied by the plugin:
+
+- Keep the existing WASM matrix protocol: one width byte followed by row-major 0/1 bytes. Implement `array(encoded.slice(1)).chunks(size)` in the shared Typst encoder and use explicit `dark == 1` in the styled renderer. Keep only the maintained integer-grid helper/callers; do not wrap it in a boolean compatibility layer. Verify dimensions and byte values through contract tests.
+- Replace the finder closure scan with the exact coordinate predicate for the three 7×7 finder regions. Retain existing drawing command order, colors, geometry, four-module quiet zone and hyperlink evidence. Keep the existing SVG/run fast paths for default styling and non-RGB color support.
+- Keep correction levels, Unicode/ECI destinations, module/corner styles, logo masks/padding and structural-marker protection. There is no reason to rebuild/change QR WASM for these two Typst-only changes; preserve its pinned source/artifact/license verification.
+- Optional follow-on: one isolated lazy-reserved-grid probe for square/no-logo styling, after the two changes pass. Adopt only with exact-output style/logo coverage and repeatable complete-command benefit beyond control variation. Stop after one controlled comparison if the effect is negligible; do not let this delay the required handoff.
+- Colored run merging, geometry changes, allocator replacement, engine/layout forks, cache redesign, four-worker scheduling and history/findings rewrites are out of this implementation. If a later project intentionally changes geometry, it needs decoding/appearance validation rather than pretending PDF hashes should match.
+
+## Execution: finish Core, then Template, then Studio
+
+Sol coordinates the implementation. Most coding belongs to Terra subagents working in parallel where files and responsibilities are independent. Within Core, the reporting Terra owns native reporting/CLI/bundles/review modules, render-report v4 emitters/schema/validation and their focused tests. The QR Terra owns `resources/typst/src/qr-encode.typ`, `qr.typ`, `qr-style.typ` and `tests/qr.rs`. Sol owns build reproducibility, integration, shared-contract decisions and the migration ledger; assign any additional work explicitly and serialize overlapping fixture/documentation edits. Request an occasional Astra review at the consequential contract/recovery design and integrated acceptance points, not for every patch. No subagent needs to reproduce another lane's tests.
+
+Complete and iterate on Core before moving to Template, then make the appropriate Studio changes. These are three repository phases, not a sequence of lockstep consumer releases. Internal Core iterations do not require repeated Template/Studio pin changes. Keep a short migration ledger as Core evolves so the later consumer work is mechanical. Select exact commits only at the final repository handoffs.
+
+### Phase 1 — all Core work
+
+**Start with fixtures and build reproducibility.**
+
+- [ ] Add the CSV headers/type examples, summary edge cases, saved-schema v2 shape and report-schema v4 retention table to owning guides/fictional fixtures. Include no-PDF, held, override, duplicate client ID, compiler warning, blocked/pending, zero-row and failed-attempt examples. Use typed summary/export records; do not spread ad hoc `Value` fallbacks across writers.
+- [ ] Audit `src/report.rs`, `pipeline.rs`, `bundles.rs`, `terminal.rs`, `warnings.rs`, `warning_review.rs`, `policy.rs`, `main.rs`, `validation.rs`, Typst measurement emitters and exported schemas. Record exact maintained consumers in Template tests and Studio's `types.ts`, `render-contract.ts`, `viewer.ts`, `preview-sources.ts` and `tests/check_typst_project.py`.
+- [ ] In an isolated current-source checkout/build directory, build once, edit only one embedded resource, rebuild normally and compare executable/resource manifests plus exported bytes. Exercise addition/removal too if directory tracking is the suspected failure. If current tracking works, keep it and add the narrow reproducibility check; if it fails, fix dependency tracking and rerun it. Never benchmark a stale resource executable or disable integrity checks.
+
+Use these fixtures to coordinate the two Core lanes; iterate within Core as needed. Current resource builds must be trustworthy before QR measurements are accepted.
+
+**Terra reporting lane — CSV-first reporting and saved evidence.**
+
+- [ ] Implement report-schema v4 emission/validation and the saved projection. Update all direct readers of the changed saved shape; preserve full-fact validation and strict review-history gates.
+- [ ] Replace eager HTML generation with streaming CSV export and canonical checkpoints/publication described above. Remove `src/report.js`, `src/report.css`, HTML construction, bundle CSV writes/fields and obsolete tests. Keep PDF assembly/page membership checks; HTML escaping tests become meaningful CSV text/quoting tests where relevant.
+- [ ] Use one summary implementation for terminal and exports, including artifact failures, distinct-row code counts, raw diagnostics and separate run/attempt findings. Reconcile effective status/route after policy changes and holds. Print actual selected CSV paths rather than a nonexistent `report.html` path.
+- [ ] Update run, rebundle, warnings/refresh, acknowledge/revoke and sample-check integration. Adapt errors so final reporting failure cannot hide the original processing error or lose an already saved review action.
+- [ ] Update `AGENTS.md`, README, architecture/CLI/report-review/finding/configuration/ecosystem/testing guides and links. Explain spreadsheet filtering, text IDs, relative PDF paths, effective versus observed results, attempted versus active bundles, refresh and unsupported old saved schemas. Do not leave instructions to open HTML or locate a matching per-bundle CSV.
+
+Focused acceptance: one mixed fictional journey covers clear/warning/error rows, a held warning, failed original, failed protected copy, failed initial bundle write, failed later rebundle, overridden/disabled warning, repeated code on multiple pages, compiler diagnostics and global failure. Assert exact CSV memberships/counts/statuses, no invented artifacts, no per-bundle CSV/HTML, and independently verify real PDF page ranges. Test all-failed rows, malformed input with recoverable records, no readable rows, non-ASCII/quoted/formula-like text and stable row joins. Fault-inject export writes/rename and canonical publication at the boundaries above; verify locks, previous attempt preservation, refresh and acknowledgment/revoke idempotent recovery without recompilation. These boundary tests replace old representation snapshots rather than duplicating them.
+
+**Terra QR lane — the two measured changes.**
+
+- [ ] Implement finder bounds and integer bulk conversion as small separable changes after the build check, in parallel with the reporting lane, then test their combination. Remove obsolete scalar conversion and boolean-only helper tests/docs.
+- [ ] Retain independent decoder tests in `tests/qr.rs` for requested correction levels, UTF-8/ECI and boundary sizes through version 40. Add the all-standard-dimension finder predicate oracle and integer-grid shape/value checks.
+- [ ] Exercise the real styled renderer across square/dots/rounded/separated modules, square/rounded corners, distinct finder/alignment colors, default SVG/run paths and logo/mask accept/reject boundaries. Inspect rendered representative English/French notices, including long content; use focused raster/decode checks where necessary to verify actual styled output rather than only raw matrices.
+
+Exit: exact PDF bytes/page counts/rendered findings for the unchanged-geometry comparisons, strict source binding, unchanged readable-failure routing and no weakened logo protection. Compare QR-only arms with the same reporting contract; report-schema v4 intentionally differs from v3 and is compared semantically across that boundary.
+
+**Sol integration — focused correctness and performance acceptance.**
+
+Run this acceptance work once for the integrated Core candidate; repeat affected checks only after a change, failure or unresolved concern. Benchmark pair counts below are bounded starting targets, not statistical guarantees.
+
+- [ ] Build release candidates outside timing, record source/binary/resource/font identities, use identical filesystem/root controls and fixed timestamps/inputs/assignments/settings/workers/eviction. Keep profilers, builds and browser tests outside throughput comparisons. Preserve artifact integrity checks.
+- [ ] Use a fixed fictional 1,000+ row workload representing both variants, realistic history lengths and QR payload sizes, with colored finders/alignment deliberately exercising the styled-grid path. Measure current baseline and combined behavior; compare reporting-only against combined to isolate the QR effect. Add a QR-only arm only if attribution needs it. Reserve the roughly 5,800-row paired confirmation for the integrated candidate and its matched control. Include a separate default-SVG/non-RGB-run control so bypassing the grid is not mistaken for a failed optimization or a claimed gain. Keep a separate correctness cohort for rare styles/languages/failures. Do not use repeated cached identical notices as the throughput workload.
+- [ ] For the combined QR comparison, start with four balanced alternating complete-command pairs on the 1,000+ row cohort and one paired full-size confirmation. Extend only if noise, inconsistent results or a new concern requires it; a single full-size confirmation supports only a limited full-size claim. Record each pair, median paired wall/CPU deltas, ranges, peak RSS, output size/bytes written and launch-to-exit time. Control-versus-control rebuild variation bounds interpretation; noisy results are inconclusive, not an automatic pass from a positive median. A local private full-workload replay is optional if available and authorized, never a dependency requiring private data in Git.
+- [ ] Accept the required QR changes only when correct and repeatably beneficial in complete-command wall and CPU beyond the measured control variation. No fixed 7%/11% promise; report actual combined measurements. Require no material peak-RSS regression (investigate a reproducible >5% increase) and no OOM. If source/build controls fail, stop performance claims and fix that path first.
+- [ ] Measure reporting separately: final CSV export wall/CPU/RSS, canonical checkpoint serialization/writes, total native wall, both CSV sizes and failed-run refresh. On the same 5,800-row fixture target the combined CSVs at no more than 25% of the old HTML plus bundle-CSV bytes, export/refresh under 2 seconds on the measured machine, and no full presentation writes at intermediate checkpoints. Treat these as proposed targets, not achieved results; if a target misses, report the measured reason without dropping evidence. Verify opening/filtering/joining the CSVs in a representative spreadsheet application, including leading-zero ID import and formula-safe text; never claim measured spreadsheet usability from file size alone.
+- [ ] Run `cargo fmt --all --check`, `cargo test --release --locked`, `cargo build --release --locked`, documentation checks and `typst-plugins/qr/build.sh --check` as appropriate. Validate extracted executable/resource exports outside the checkout. Record measured limits and actual tests; retain only sanitized aggregate results/fictional harnesses in review artifacts.
+
+Exit: one exact verified Core commit is suitable for consumer pins.
+
+### Phase 2 — all Template migration
+
+After Core is coherent and verified, follow [Template's plan](../ImmuKnow-Template/plan.md). Update its `core-revision.txt` to the exact verified Core commit, refresh the whole generated library, update its native journey/readers and packaged operator instructions, and verify both languages, styling and package contents. Retain all authored settings/reference fixes. Produce one verified Template commit pinning that exact Core commit; generated library bytes remain untracked.
+
+### Phase 3 — appropriate Studio migration
+
+After the Template migration is verified, follow [Studio's plan](../ImmuKnow-Studio/plan.md). Update Core pin plus Template dependency/lock together; install the exact clean native source through `scripts/native_core.py` and verify its fingerprint. Regenerate shared assets/validators/examples. Update report-schema types, measurement consumers and downloaded-project acceptance readers; keep the browser compiler unchanged unless a proven engine requirement emerges. Verify browser findings/overlays/source targets and the downloaded native CSV/rebundle journey together.
+
+Keep this migration ledger current during Core implementation; consumer mutation waits for its repository phase. Record final names and one fixture/example per changed boundary, not a development diary:
+
+| Core change | Template migration | Studio migration |
 | --- | --- | --- |
-| Agent-based notice, missing disease coverage | Row failure | Render when safe; readable original goes to review |
-| Disease-based notice, missing disease coverage | Row warning | Normal bundle remains eligible under current warning policy |
-| Extra covered diseases / unmapped agents | Retain warning and measurements | Review the source/reference; do not silently discard facts |
-| No diseases or agents | Not applicable where the notice permits it | Eligibility remains a separate check |
-| Missing/invalid requirements or unknown coverage basis | Mandatory evidence/requirements failure, even if no diseases are missing | Readable original goes to review; no inference from filenames or obsolete YAML |
+| CSV-first outputs and CLI paths | README/helper/package expectations; `tests/conftest.py` native sample reader | Download instructions; `tests/check_typst_project.py` and native journey |
+| Saved-run v2 projection/effective results | Presentation/coverage test readers | Native/browser parity reader and artifact membership assertions |
+| Render-report v4 measurement placement | Maintained notice/render checks | Types/generated validators; `viewer.ts` envelope guide; `preview-sources.ts` |
+| Integer grid and finder bounds | Complete shared-library refresh; representative styles/languages | Regenerated complete resources; styled preview/download checks |
+| Final Core resource identity | Exact `core-revision.txt` and verified package | Matching Core pin, Template Git pin/lock and native fingerprint |
 
-**Agreed design: requirements live beside the notice wording.** Replace the separate `config/notice_versions.yaml` catalog with a shared notice-local helper that emits validated eligibility/coverage metadata and structured findings through the existing compiled report. Keep eligibility distinct from coverage basis; review affirmative, suspension, conditional and custom notices individually. Core prepares source facts and coverage measurements. The shared Typst helper evaluates the declared content requirements and emits the same findings in native and browser compilation; Core validates the compiled evidence and applies delivery policy. Do not add a second JavaScript evaluator or independently implement eligibility semantics in Rust.
+Regeneration at the consumer phases: Template runs `immuknow project sync --replace` and `immuknow project check --sample`; Studio updates its lock with `uv lock --upgrade-package immuknow-template-resources`, installs through `uv run --locked python -m scripts.native_core install`, and runs `npm run prepare:assets` / `npm run generate:contracts` before the fresh site build. Generated resources/validators stay untracked.
 
-A plain `assert` aborts compilation and produces no PDF. Use structured warnings/failures for conditions where a readable notice should remain available in a review bundle. Keep assertions for cases where producing any PDF is inappropriate or impossible. Review existing affirmative/suspension assertions rather than replacing every assertion indiscriminately.
+**Pin rule:** Core implementation → Template adoption/verification → Studio adoption/verification. Do not pin uncommitted changes, branch names or the old profiling revision. Every handoff records exact revisions and actual checks. If integration requires adopting a different Core revision, refresh matching consumer pins and affected checks. The existing verified pair remains valid while unrelated Core iteration continues. Publishing revisions/builds is a separate action; local pins are not available to fresh external installs until published. No push, merge or deployment is requested by this plan.
 
-**v2.0 release decision:** this is a prerelease breaking release. Remove the notice YAML catalog and its reader outright; do not add legacy compatibility, fallback loading or a deprecation period.
+## Completed behavior and intentionally deferred work
 
-Implementation requirements:
+Retain the completed F0 filename defaults/customization, R1 Meningococcal/TIg fixes, R2 notice-local requirements with no `notice_versions.yaml` fallback, R3 independent-row failure isolation, G1 safe school/board grouping, S1 optional last-name/DOB ordering, W1 exact structured warning subjects and W2 run-scoped acknowledgment. Preserve source-row identity, observed versus effective policy, readable failures in review, no-PDF report-only rows, original/protected separation, AES-256 revision 6 protection, unique attempt directories and OS locks. Do not rerun the earlier feature design merely because report tests change.
 
-- Add the shared helper and report/schema support in Core before Template adopts it. Use the ordinary compilation/report extraction; do not add source-text parsing or a second compilation just to discover requirements.
-- Delete catalog loading, its data structures and catalog-only findings. Notice-local requirements are the sole contract. Missing, malformed or contradictory declarations produce explicit evidence/requirements failures; an obsolete YAML file must not supply defaults or alter the result.
-- Preparation computes facts and coverage measurements without stopping on a notice-dependent mismatch. Use the R2a deferred-check contract below; final runs must resolve the render-dependent checks and preserve independent-row processing.
-- Record requirements and observed results with the compiled evidence. Rebundling uses saved observations and policy, without recompilation or silently reinterpreting the original notice under a newer declaration.
-- Update maintained notices/languages, fixtures, package contents, setup/readiness checks and documentation together. Remove `config/notice_versions.yaml` from starters and test fixtures. Verify valid v2 notices run without it, old YAML cannot influence checks, and missing local requirements remain visible rather than silently passing. Ordinary authored-file preservation remains; no catalog-specific import compatibility is needed.
+Disease identity/alias/language catalog migration remains deferred. Its useful exploration remains: stable IDs must be separate from labels; labels need language and chart/overdue contexts; `Other` is a chart category, not an invented disease; normalization, history, ISPA comparisons, aliases and fallback labels need explicit migration fixtures. Moving translation directories alone solves none of that. Upstream school identifier/export review remains external. Neither item gates this reporting/QR work.
 
-The optional future disease catalog for aliases/labels is a separate concern; this decision retires the **notice eligibility catalog**, not reference data.
-
-### R2a: shared contract milestone
-
-The evaluator split above is implemented. The active schemas and shared fixtures establish these boundaries:
-
-- Core adds trusted coverage measurements to the prepared notice so the shared helper can evaluate them. Template declares intent; the shared helper owns eligibility/coverage finding generation; native/browser validators enforce schema, identity, required-check presence and consistency. Core retains source parsing, explicit assignment identity/version-conflict checks and delivery policy. Remove catalog-only fields/checks, not unrelated assignment safeguards.
-- Require exactly one **placed** active requirements declaration for a verified report, including an explicit neutral declaration when no condition applies. A missing, duplicate (even identical), malformed or contradictory declaration produces a mandatory structured requirements failure; the report contract must represent that failed outcome. Preserve the readable original for native review and the rendered browser preview with a failure indication. Do not turn a declaration problem into a Typst assertion/compilation failure. A conditional template emits only its active branch’s declaration; unplaced content cannot supply it. Do not scan source text.
-- Distinguish declaration failures within otherwise source-matched evidence from genuinely corrupt/malformed report envelopes or wrong-row identity. The latter rejects claimed findings and produces mandatory `render.evidence_failed`. Artifact retention is independent: an already rendered readable PDF/preview remains available with an explicit failure, never a verified/ready indication. R2a needs absent/duplicate/malformed declaration and corrupt-identity cases with expected native/browser artifact retention.
-- Specify the declaration field names/enums, coverage measurement shape and affected schema/envelope versions in the fixture patch. Preparation/payload/report versions advanced together from 1/1/2 to 2/2/3, with matching identity guards and consumers. Do not overload `notice_variant` or reintroduce redundant catalog `kind` defaults.
-- `prepare` returns an explicit per-entry deferred-check list **outside** observed `checks`. Eligibility/coverage absent from `checks` does not mean passed. Do not put placeholder findings into authoritative observations. After validated compilation, a valid declaration supplies `notice.requirements: pass` and exactly one result for each dependent eligibility/coverage/display check. An invalid declaration supplies mandatory `notice.requirements: fail`, with the dependent check codes and blocking reason in `blocked_checks` outside observations. Clear deferred checks when compilation is resolved; blocked is distinct from pending or not applicable. Corrupt evidence still produces mandatory `render.evidence_failed`. Neither failed branch can route as ready.
-- Studio preserves that deferred list in generated examples, permits rendering of those examples, and shows a neutral “Checked when the notice compiles” advisory until a current validated result exists. Deferred checks do not increase warning counts. Keep last-successful/stale-preview labeling intact. Validate all final findings through the shared exported contract.
-- Eligibility mismatch defaults to a structured failure. Convert the affirmative and suspension **eligibility assertions** to findings so readable PDFs reach review. Keep fundamental schema/input/layout assertions when no trustworthy PDF can be rendered. Preserve the current affirmative predicate and existing ISPA selection semantics; do not add new clinical rules.
-- The fixture patch must include a maintained-notice table: eligibility predicate, agent/disease/neutral coverage basis, and intentional no-records/alternative-text branches for each notice/language. Determine those branches from the authored behavior, not the deleted YAML. An intentional replacement is not an accidentally empty recommendation; the display component must record that distinction.
-- Keep new requirements/coverage/display failure codes non-adjustable initially. Expanding acceptance/override eligibility is separate work. Record final observations and requirements in saved evidence; rebundling applies policy to those saved results without compiling or reevaluating edited notices.
-
-R2a and R2b are complete: these fixtures establish native/browser outcomes, and one shared evaluator supplies the findings. Consumers validate the shared contract without separate clinical rules.
-
-
-Keep three questions separate: what upstream says is overdue, whether an assignment fits the facts, and what the notice actually displays. Flu/COVID display exclusions must not remove clients or change source coverage. Do not automatically switch notice types.
-
-The shared `overdue-agents` helper now records placed source/displayed counts, exact source/display/exclusion lists and intentional replacement evidence. For an agent-based notice whose nonempty source list becomes empty, default to a row failure and review the readable PDF. Distinguish an intentional no-records replacement or explicitly authored alternative from an accidentally empty list. A disease-based notice with no agent component should not fail this display check.
-
-## 3. Acceptance: reuse the policy foundation, define the scope
-
-Existing infrastructure is useful but partial:
-
-- Core keeps observed `checks` separately from `effective_checks`.
-- Global and exact-row rule changes support enabled/severity plus a reason, but only for render codes marked `x-adjustable`. `data.forecast_coverage` is now a rendered notice-dependent check and remains non-adjustable.
-- Saved runs support policy changes, holds/releases and fresh numbered bundle attempts. Releasing a hold does not override a failed check.
-- Warnings already permit normal delivery. Readable originals with failures go to review; no usable original means report-only.
-- Raw compiler diagnostics are a separate warning source and must remain distinguishable.
-
-Core's [AGENTS.md](AGENTS.md) currently says “Do not add … warning-waiver machinery.” The user’s request takes precedence and authorizes this design investigation. Acknowledgment that preserves findings and routing need not be a waiver; reconcile contributor guidance if the selected behavior conflicts with it.
-
-W1 delivers **deduplicated review presentation** first. W2 then specifies **run-scoped acknowledgment**; the user wants this capability, so the design task is to choose its interface and persistence, not to reopen whether it is useful. Acknowledgment means the operator has reviewed an observation. It must not convert its observed status to pass or change delivery routing. Show total affected rows, distinct issues and unacknowledged issues separately. Preserve severity-based status/exit behavior unless a later, explicit policy change defines otherwise.
-
-For URL checks:
-
-1. Emit structured subjects for offending destinations instead of extracting them from prose. `content.link_https` and `content.link_destination` need per-destination identity. `content.multiple_links` concerns the complete set of destinations; accepting one link is insufficient to accept an unseen combination.
-2. Default acknowledgment scope is one saved run, including its rebundle attempts. Record the issue identity, reason and acknowledgment time. A new run or changed subject needs review again; persistent project allowlists are a separate decision.
-3. Match code + check-definition/resource identity + exact destination identity, or the exact sorted destination set for a multiple-links finding. Use a fingerprint for indexing; retain protected raw evidence. Any URL canonicalization must preserve meaningful path, query and fragment differences. Do not group merely by hostname.
-4. Personalized QR destinations can contain client ID/DOB. Do not strip those values to make different links appear identical. Exact matching is safe for the initial design. A future authored-link identity would need its own validated template/resource scope before it can stand for many personalized destinations.
-5. New links, changed templates, changed check semantics and unrelated findings must remain visible. Acknowledged details remain expandable and the decision survives report regeneration/rebundling without modifying originals.
-
-W2's reviewed operator contract uses `immuknow warnings RUN` to list current distinct URL issues, `immuknow acknowledge RUN ISSUE --reason TEXT` to acknowledge one, and the same command with `--revoke` to undo it with a reason. `warnings RUN --refresh` regenerates the HTML without another review event. Acknowledgment triggers no recompilation, encryption or bundle writes, and changes no finding, routing or severity-based exit status. Broad error-override infrastructure remains separate exploration.
-
-Persist optional versioned `warning_reviews.history` in the run record, with full issue ID, action, reason and UTC time. Derive current state from append order, validating strict fields/types, lowercase SHA256 IDs, nonblank reasons, valid UTC times and legal alternating acknowledge/revoke transitions. Existing runs without history have no acknowledgments. Validate history before every saved-run mutation, including rebundle. Hold the existing run lock while reading, validating and saving. IDs hash a versioned deterministic serialization of saved resource/template scope, code, subject kind and exact sorted destination strings. Missing fingerprints, malformed subject evidence and missing effective findings are ineligible for mutation; tolerant legacy display counts do not authorize acknowledgment. A subject occurring as both warning and failure has only its effective warning memberships acknowledged.
-
-Publish the authoritative record atomically, then the HTML view. Distinguish record-save failure from a saved review whose HTML refresh failed; the latter can be repaired with `warnings RUN --refresh` without adding a duplicate event. Keep active and inactive historical acknowledgments discoverable by ID for revocation. Show affected rows, total issues, acknowledged issues and outstanding issues separately with escaped reasons and privacy-safe labels, usable offline without JavaScript. Test refresh/rebundle persistence, revoke, stale/forged IDs, changed destinations/resources, malformed history, locking and both publication failure stages. No cross-run carryover is included.
-
-A general framework should share finding identities, scopes and observed/effective history, **not make every error overridable**. Define an explicit registry of mandatory versus adjustable checks and supported scopes. Consider selected preparation checks only after they become row findings. Identity/evidence corruption, unusable originals, requested encryption failures, unsafe paths and write failures remain blocking. Do not use blanket code suppression to implement per-link acceptance.
-
-## 4. Where checks belong and what can go to review
-
-| Stage | Current location | Implemented boundary |
-| --- | --- | --- |
-| Source parsing, normalization, references, coverage and assignments | Core `input.rs` / `pipeline.rs` | Isolate row problems when trustworthy identity and facts can still be retained; coverage is the first concrete fix |
-| Placed content, links, layout and render evidence | Core shared Typst library + `validation.rs` | Validate the actual notice; emit row findings with structured subjects |
-| Effective severity and allowed overrides | Core `policy.rs` | Keep observations immutable and overrides explicit |
-| Original/encrypted artifact creation | Core compiler/PDF/pipeline | Preserve readable originals; do not claim absent/unusable artifacts can be bundled |
-| Routing, page counts, grouping and bundle writes | Core `bundles.rs` | Normal / review / held / report-only remain distinct |
-| Review presentation | Core `report.rs` / terminal | Aggregate repeated warnings while retaining row evidence and actual artifact outcomes |
-| Fictional browser preview | Studio | Consume the shared contract; do not create a production batch-review service |
-
-Audit other preparation `?`/`ensure!` exits after fixing coverage. Separate shared setup failures from expected row failures; global configuration/resource/manifest ambiguity and storage failures can still stop a run. A bad row that cannot yield trustworthy render facts should remain a failed report entry while later independent rows proceed. Never fabricate a PDF solely to place a row in review. Preserve source-row identity and partial-run accounting throughout.
-
-The follow-up audit identified invalid history syntax/date/validity and invalid
-`intended_reader` as two remaining row-local aborts. R3 isolates those cases with
-one typed ready/failed preparation outcome per original row. Failed rows retain
-their source and mandatory findings, have no invented notice/facts/PDF, and stay
-report-only through rebundling. Existing CSV, reference, duplicate-ID and
-assignment/template validation remains run-wide. Compiler jobs and artifact
-updates retain original source indices even when only ready rows are submitted.
-
-If any history cannot be parsed, mark cohort `validity_coverage` explicitly
-`incomplete` and emit one top-level `data.history_cohort_incomplete` warning with
-total/failed-history row counts. Parsed histories from reader-invalid rows still
-contribute to cohort facts; OIID uses every readable row. `prepare` returns its
-complete v2 envelope with exit 0 and source failures in entries; `run` and project
-checks retain failure exits. All-failed cohorts finish progress without compiler
-work. This uses the existing mandatory/adjustable boundary rather than adding an
-override framework.
-
-## 5. Completed filenames, grouping and ordering
-
-F0 is complete. [Template's active settings](../ImmuKnow-Template/config/parameters.yaml) use individual `{client_id}_{notice_variant}_{language_code}`, normal bundle `{route}_{bundle_number}`, and review bundle `review_{bundle_number}`. Those work with the starter's size-only grouping. [Core's filename guide](docs/user_guide/configuration.md#filename-templates) owns supported fields, normalization/collisions, fallback warnings and `rebundle --filenames`; do not reimplement them.
-
-`{last_name}_{first_name}_{client_id}_{notice_variant}` and `{school}_{notice_variant}_{bundle_number}` are supported **custom examples**, not the shipped defaults. A school/variant pattern requires consistent member values; set grouping appropriately, for example `[school, notice_variant, language]`. Completed filename work did not change grouping or sorting.
-
-Core previously grouped school/board by ID, falling back to an empty string. G1 now uses namespaced identity derived from normalized board/school names when IDs are absent and reports that fallback. Review the upstream export for missing and conflicting IDs. Entirely unknown school identity no longer becomes one normal school group. Display names remain filename inputs, not grouping identifiers. G1 outcomes: missing IDs with usable names warn and use normalized, namespaced board/school fallback keys; no usable identity fails and keeps each row separate for review; one ID associated with conflicting normalized names fails all affected rows and keeps conflicting identities apart. Different nonblank IDs remain separate even when names match. No fuzzy school matching. These findings apply only when the affected dimension participates in grouping.
-
-S1 adds `bundling.sort_by: last_name_dob` **within each group, before splitting into bundle-size chunks**: normalized last name, then parsed ISO DOB ascending, then source row key as a stable tie-break; missing/invalid values last. Source order remains the backward-compatible default (`source`). Source row keys and run record order remain unchanged. Verified PDF/CSV/page membership agrees after sorting and rebundling; rebundle uses the saved sorting setting.
-
-## 6. Catalog and language exploration
-
-Normalization and display labels solve different problems. A common catalog could reduce duplicate maintenance, but simply renaming `translations/` to `languages/` will not unify disease identity. Template has English labels too, and chart versus overdue wording differs within a language.
-
-Explore stable disease IDs with aliases and labels indexed by language **and context** (`chart`, `notice/overdue`). Core owns the schema/resolution contract; Template owns editable disease/agent data and wording; Studio preserves and consumes authored files. Retain alias passthrough/unknown handling, detect ambiguous aliases and duplicated canonical/alias label keys, and provide an explicit migration path from existing files and agent mappings. Keep catalog work separate from the small reference fixes. Adding languages beyond en/fr also requires changes to native template identity checks, shared localization and Studio; moving files alone does not add language support.
-
-### D1 exploration findings
-
-The current Template has six exact aliases, 105 agent names mapping to 15 distinct reference values, and four label dictionaries (English/French × chart/overdue). Combination-agent counts overlap. `Other`, used by 32 agents, is a chart category and must not become an invented clinical disease. French dictionaries currently repeat `Meningococcal` and its alias with identical labels; customized projects may have conflicting values.
-
-A small candidate is a project-authored JSON catalog with immutable disease IDs as keys. Each entry holds an explicit `legacy_name`, exact `aliases`, and `labels[language][context]`. Agent mappings remain separate and eventually reference IDs. For example, ID `meningococcal` bridges legacy `Meningococcal`, alias `Meningococcal disease`, and independently editable English/French chart/overdue labels. Labels never determine identity; changing wording must not change an ID.
-
-Migration has three material risks:
-
-- Forecast coverage normalizes reference values today, but history retains them verbatim. Compare those paths separately rather than silently changing history behavior.
-- ISPA selection compares canonical English names. Migrating prepared facts to IDs requires versioned changes to those rules and boundary fixtures, not a data-file rename.
-- A missing whole language/context dictionary uses shared defaults; a missing key within a supplied dictionary shows the source name and emits `content.translation_missing`. Preserve both behaviors, authored per-call overrides and chart order.
-
-A future migration tool should inventory originals, produce a deterministic candidate plus a conflict/diff report, and leave authored bytes untouched. Reject duplicate IDs/JSON keys, conflicting alias ownership, canonical-name shadowing and disagreeing alias/canonical labels. Preserve exact trim/case behavior, combination order, empty mappings, unknown source names and warning evidence; never map unknowns to `Other`. Compare prepared facts, coverage, history, ISPA selection, labels and rendered English/French text before adoption. Core owns the resolver/schema and shared helpers; Template owns data/wording; Studio preserves and consumes both project formats through explicit migration.
-
-Before production implementation, choose the ID namespace, `Other` representation, unknown-value shape, per-call override bridge, coexistence rules and saved-evidence version boundary. Keeping current formats is deliberate while these choices remain open. This completes the requested exploration; catalog migration is a separate feature and does not gate R2.
-
-## 7. Large HTML reports: later, with a measurable target
-
-The reported ~110 MB HTML is plausible: existing Core evidence documents ~97 MB HTML / ~177 MB JSON for a different 5,000-notice workload. Current reports render full effective checks, technical JSON and repeated help/action text for every row. Adaptive checkpoints already reduce repeated writes; they do not shrink the final view.
-
-First measure bytes by section, report-generation time, peak memory, browser open/search/expand time and DOM size. Prototype shared help text and lossless repeated-detail encoding with an accessible readable fallback. Preserve one authoritative run record, safe escaping/paths, every finding and artifact link, offline local-file use and no-JavaScript access. Simply collapsing `<details>` does not reduce bytes or DOM size. Additional files, lazy loading or report segmentation require an explicit offline/recovery contract decision. Do not remove passing evidence by default: a previous compact-detail experiment was not adopted because it lost explanations and measurements. Set a size/responsiveness target after measuring this workload.
-
-### H1 measured prototype
-
-An existing fictional 5,000-notice report contains 97,033,958 HTML bytes and 177,079,593 JSON bytes. Its 126,500 technical-detail blocks occupy 58,449,500 HTML bytes but contain only 47 distinct blocks (29,162 bytes). A scratch prototype replaces repeated blocks with ordinary links to one shared copy inside the same HTML. Expanding those references reconstructs the original HTML byte for byte; the source run and authoritative JSON remain untouched.
-
-The prototype is 49,524,205 bytes (48.96% smaller). HTML element count falls only from 1,164,607 to 1,038,297, so this is not a complete DOM-size solution. One exploratory Chromium comparison measured load at 34.6 versus 9.1 seconds, row filtering at 835 versus 450 ms, and expansion at 1,362 versus 1,257 ms. These are single samples during other development work, not controlled performance claims or measurements of the private run.
-
-Production adoption remains deferred. Shared details must retain useful row search semantics, clear navigation back to the row, offline/no-JavaScript access and artifact links. The current row filter searches row text; moving technical JSON out of rows changes measurement-key searches unless an explicit shared-evidence search index is added. Repeat alternating trials and record peak memory/report-generation cost before selecting a final design. A useful first size target is at most half the current HTML bytes for this fixed fictional fixture, preserving all evidence.
-
-## 8. Profile a real run: low priority
-
-Deferred at the user's request. The workflow below is retained for later; real-run
-timing and warning diagnosis are not required for this implementation handoff.
-
-Use the actual release executable, project, fonts, assignments and configuration in an approved local workspace. Do not rebuild or change workload inside the timing interval. First analyze existing `run.json` stage timings and finding totals; rerun only when more detail is needed.
-
-On Linux, wrap the normal command with `/usr/bin/time -v -o /private/path/process-time.txt` and retain its exit status. On other platforms use an equivalent process wall/CPU/peak-memory tool. Keep exact command arguments, binary/resource hashes, worker counts, CPU/RAM limits, storage type and report/artifact sizes locally. Existing `timings.total_seconds` stops before final report publication and process exit; external elapsed is authoritative for complete command time. Render spans can include overlapping encryption; do not add worker spans as elapsed-time shares.
-
-If broad timings leave the cause unclear, add an opt-in native profile for preparation, compile/export, report build/JSON/HTML writes and bundle merge. Record per-stage counts and latency distributions without client values. Use a separate instrumented run; repeat uninstrumented comparisons with the same workload and alternate order before claiming a speedup. No encryption was requested in the reported run, so encrypted synthetic benchmarks are not directly comparable. Studio's browser-preview benchmark answers a separate question.
-
-Done means the next real run can explain the observed 384.5 seconds by measured work and resource pressure, with correct artifact/routing counts. A single elapsed value is not a regression or capacity measurement.
-
-## Delivery sequence and verification
-
-1. F0 and R1 are complete across the three repositories.
-2. R2a/R2b are complete: one shared requirements evaluator, maintained notice declarations, no notice YAML catalog, and matching native/browser contracts.
-3. G1/S1 are adopted, with verified grouping/routing, actual PDF/CSV order and documented opt-in sorting.
-4. W1/W2 are adopted: structured URL subjects and run-scoped acknowledgment/revocation preserve findings and delivery decisions.
-5. R3 is committed and adopted across all three repositories, including incomplete-cohort validation and failed-example/readiness guards.
-6. D1 migration, H1 production optimization and PR1 private-run investigation remain deferred. Upstream exporter review requires the exporter repository/path and is separate from the completed grouping safeguard.
-
-Core owns malformed-input, shared schemas/helpers, policy, PDF and routing tests. Template owns reference data, wording/layout and packaging. Studio owns example generation, deferred/current finding presentation, authoring preservation and downloaded native handoffs. Use fictional fixtures. Verify English/French normal, warning, review and unrenderable outcomes, stable source-row identity, expected actual bundle membership, and rebundle using saved observations. Run each repo's stated checks; a pin bump also needs a fresh build and selected browser/native tests. Avoid repeating the entire Core validation suite in consumers.
-
-The coordinated Core → Template → Studio adoption is verified through R3. Final critical review found no further correctness blockers. Remaining unchecked items are explicit deferrals or the external exporter follow-up; no publication or private-run investigation is claimed.
-
-## Core implementation checklist
-
-Core owns native preparation, shared schemas/helpers, policy, PDFs, grouping and saved-run reports. Template owns authored configuration/reference data; Studio consumes pinned resources and native commands. The shared decisions above govern the completed implementation. Unchecked items below are explicitly deferred or require external export ownership; they are not unfinished native features.
-
-### Initial source evidence and scope
-
-This table records the investigation baseline. The milestone statuses and checklists describe subsequent implementation.
-
-| Area | Evidence | Consequence |
-| --- | --- | --- |
-| Coverage | [input.rs](src/input.rs), `prepare` | Missing diseases trigger `ensure!` and abort preparation; extra/unmapped coverage already produces a row finding |
-| Notice metadata | [input.rs](src/input.rs), `Version` and catalog lookup | Catalog supplies coarse eligibility only; it has no coverage basis and will be removed |
-| Pipeline boundary | [pipeline.rs](src/pipeline.rs), `run_with_progress` | Preparation must finish before policy validation and rendering; total timing excludes the final report write |
-| Policy | [policy.rs](src/policy.rs), `changes`, `resolve`, `apply` | Only schema-marked adjustable render codes, global or exact-row selectors, with reasons; observed checks retained |
-| URL findings | [findings.typ](resources/typst/src/findings.typ), `report` | Destinations deduplicated inside a notice; one aggregate result per URL code, no structured issue identity across rows |
-| Empty displayed agents | [overdue.typ](resources/typst/src/overdue.typ), `overdue-agents` | Filters display list after preparation and records presence, not a nonempty-list finding |
-| Routing/grouping | [bundles.rs](src/bundles.rs), `bundle_with_progress` | Readable failed originals go to review; blank school/board IDs coalesce; source-order members; configurable filenames are already delivered |
-| Reporting | [report.rs](src/report.rs), `finding`, `entry_details`, `write` | Full escaped check JSON and explanatory text repeated per row; one JSON record and HTML view |
-
-### F0: filenames complete
-
-Filename settings, supported fields, safe normalization/collisions, original/protected paths, PDF/CSV stems and `rebundle --filenames` are implemented and tested. [Configuration](docs/user_guide/configuration.md#filename-templates) owns the current contract. Retain that behavior; this is not pending work.
-
-### R2a: freeze the shared requirements contract
-
-- [x] Use the shared plan's R2a evaluator split: Core prepares trusted coverage measurements; the shared Typst helper evaluates notice-local requirements for native and browser; Core validates evidence and applies policy. Do not implement a second JS/Rust content-rule evaluator.
-- [x] Write the shared schema/fixture patch before production changes: declaration fields/enums, version changes, exactly-one placed declaration, source identity and required finding cardinality, conditional/no-records branches, mandatory missing/invalid evidence failures, and expected eligibility/coverage/display statuses.
-- [x] Define a per-entry deferred-check list outside observed `checks` for `prepare`; document it for Studio generation/UI. Define the completed valid/invalid-declaration branches above, including `blocked_checks` for checks that cannot be evaluated. Placeholder findings must not masquerade as completed observations, and no unresolved requirement may route as ready.
-- [x] Make requirements/cardinality errors mandatory structured findings within an otherwise usable report, retaining readable originals/previews. Distinguish them from corrupt report/identity evidence (`render.evidence_failed`), whose claimed findings are rejected while rendered artifacts are retained independently. Include missing/duplicate/malformed declaration and wrong-row-identity fixture cases with native/browser expected outcomes.
-- [x] Include the explicit maintained-notice predicate/replacement table with Template. Eligibility mismatches default to structured failure; preserve existing affirmative/ISPA semantics. Keep new check codes non-adjustable initially.
-
-Done means Template and Studio can implement against the same executable contract cases without choosing different fields, defaults or evaluators. This is the first R2 task; R2b depends on it.
-
-### R2b: implement notice-local requirements and forecast coverage
-
-Agreed direction for the prerelease v2.0 breaking release: requirements belong beside notice wording, using a shared helper and validated compiled metadata. Remove `notice_versions.yaml` and its reader outright, with no legacy fallback, compatibility mode or deprecation period.
-
-- [x] Implement the R2a shared helper/report contract for eligibility and explicit coverage basis. Use normal compilation/metadata extraction, with no source parsing or extra discovery compile. Validate declaration cardinality and mandatory final check presence in the existing report/source boundary, preserving the R2a structured-failure/artifact-retention outcomes.
-- [x] Keep Core responsible for prepared facts and missing/extra/unmapped coverage measurements. Remove the missing-coverage preparation abort and provide the measurements to the shared helper. It emits the agreed findings: missing coverage fails for agent-based notices and warns for disease-based notices; explicit neutral requirements are inapplicable. Core validates those results as part of compiled evidence.
-- [x] Implement the R2a deferred-list output for preparation and resolve render-dependent observations before applying policy. Missing/invalid final evidence is a mandatory failure even when no diseases are missing.
-- [x] Delete catalog loading, `Catalog`/`Version` parsing and catalog-only checks such as `assignment.check_unavailable`. Notice-local requirements become the sole contract. Missing/malformed/contradictory metadata produces explicit evidence/requirements failures; obsolete YAML is never consulted for defaults or a fallback.
-- [x] Emit structured warnings/failures so readable failed originals reach review bundles and other rows continue. Retain assertions for conditions where a PDF must not be produced. Unrenderable rows remain report-only.
-- [x] Preserve declared requirements and observations in the run's compiled evidence. Rebundling uses saved results/policy without recompiling or silently changing the original requirements.
-- [x] Keep display exclusions separate from source coverage and assignment eligibility. Preserve upstream assessment rather than deriving clinical status or switching the selected notice automatically.
-- [x] Audit neighboring preparation exits. R3 isolates invalid history and intended-reader values while preserving shared configuration, manifest identity and storage failures. Source-indexed worker and encrypted-content tests cover the boundary.
-- [x] Remove the YAML catalog from Core fixtures and references in configuration, authoring, preparation and finding/review guides. Update setup/readiness assumptions, report contracts and tests together with Template/Studio adoption. Describe this as the v2.0 contract, without a legacy path.
-
-Acceptance cases: a mixed cohort with one agent mismatch completes other rows and retains that PDF for review; a disease notice warns for the same mismatch; structured eligibility failure retains a readable PDF while a deliberate assertion yields report-only; valid local requirements run without YAML; an obsolete/contradictory YAML file cannot influence results; missing/malformed/contradictory local metadata fails visibly without fallback; conditional declarations match placed content; preparation explains deferred checks; saved-run rebundling preserves requirements/observations. Update fixtures and cover both languages/source-row identity at the appropriate owning boundary. No legacy catalog acceptance tests or compatibility fixtures are needed.
-
-### R2b: empty agent-display evidence
-
-- [x] In the placed shared component, record source/displayed counts and exclusions after exact-name deduplication/filtering.
-- [x] Emit a content failure when an agent recommendation list becomes empty under exclusions. Define intentional no-records replacements and authored alternatives so those cases are not mistaken for accidental empty content.
-- [x] Keep the PDF available for review, and preserve all facts and client membership. A disease notice with no agent component is unaffected.
-- [x] Extend report schema, native validation and shared render-contract fixtures; refresh resources through the normal downstream pin process.
-
-Test zero/one/all excluded agents, duplicates, TIg, flu/COVID, no-records replacements, absent components and mixed normal/review bundles. Template owns the final wording/layout cases.
-
-### W1/W2: warning aggregation, then acknowledgment design
-
-- [x] Add a run-level aggregate of code/status/structured subject, affected rows and occurrence counts, keeping compiler diagnostics separate.
-- [ ] Deferred at the user’s request: inspect the private run aggregate before attributing its 5,836 warning rows to a code. No private run was inspected.
-- [x] Extend URL evidence with structured destinations/sets. `content.multiple_links` identifies a set; malformed/non-HTTPS checks identify individual destinations. Do not parse messages to build keys.
-- [x] W2 first defines the native operator action, revoke action, lock-protected persistence/audit and report refresh as described in the shared plan. Then implement acknowledgment once per exact issue in a saved run, persisted across rebundle attempts. Preserve all observed/effective findings and show acknowledged versus outstanding attention counts. Acknowledgment alone changes no severity, routing or exit status.
-- [x] Scope issue identity by code, check/resource definition and exact destination or destination set. Store fingerprints for indexing, protected evidence for inspection, reason and time. Preserve meaningful URL path/query/fragment changes. A new run or new destination requires new review.
-- [x] Keep personalized QR values out of aggregate labels/shared logs. Do not remove query values to merge personalized URLs. Defer authored-link identities and cross-run allowlists until their trust/migration contract is designed.
-- [x] Reconcile [AGENTS.md](AGENTS.md) with the selected behavior if needed. It currently prohibits warning-waiver machinery, but acknowledgment that preserves findings/routing need not be a waiver. The user’s request takes precedence; updating guidance is not a permission gate for this investigation.
-- [x] Inventory preparation/render/artifact/delivery rules in [the ownership and permitted-change table](docs/developer_guide/architecture.md#check-ownership-and-permitted-changes). The shared schema remains the render registry; other findings remain mandatory. No policy expansion or extra registry is needed. Coverage remains non-adjustable.
-- [x] Preserve mandatory evidence/identity, unusable-original, encryption and file-operation failures. Holds remain exclusion from both bundle routes; release does not mean acceptance.
-
-Acceptance cases: one static bad link across many rows is one review subject with every row traceable; a second link and a changed link-set remain outstanding; acknowledgment survives rebundle, not a new run; changed resources invalidate matching; broad code disable cannot masquerade as per-link acceptance; forged/stale identities and unknown policy codes are rejected; no new disclosure in summary labels. Keep old saved runs readable when acknowledgment fields are absent.
-
-### G1: group identity; S1: optional ordering afterward
-
-- [x] Fix blank-ID grouping. Namespace ID versus fallback-name keys; include board scope in a missing-school-ID fallback. Emit findings for fallback and contradictory identity. Entirely unknown school identity does not merge into a normal catch-all school bundle.
-- [ ] External follow-up: review upstream ID export with its owner when the exporter repository/path is identified. This is separate from the completed native safeguard.
-- [x] Use the shared G1 outcomes: name fallback warns; no usable identity fails each row into a separate review group; conflicting normalized names under one ID fail affected rows and stay apart; different IDs never merge solely because their names match. Apply to configured grouping dimensions, with no fuzzy matching. Keep structured grouping identity distinct from filename labels.
-- [x] Preserve the existing filename-template resolver and fallback diagnostics. Group identity stays separate from filename display values; mixed/missing group fields trigger explicit fallback diagnostics. Collision handling disambiguates all configured grouping dimensions even when the pattern omits them.
-- [x] Add validated `bundling.sort_by`, defaulting to `source`. Opt-in `last_name_dob` uses normalized last name, parsed ISO DOB ascending, source row key tie-break; absent/invalid values last. Case and repeated whitespace normalize with Unicode NFC, preserving accents. Sort before chunking and preserve source record order/keys.
-- [x] Retain effective grouping/naming/order settings in the saved record. Rebundle uses saved sorting; old originals and attempts remain available without mutating source identities.
-- [x] Verify artifact links, CSV page ranges and actual PDF/member order. Delivery disposition comes from the record, not a filename prefix. All 68 release tests, formatting and release build passed.
-
-Acceptance cases: different blank-ID schools remain separate; unknown school identity cannot silently send as one group; conflicting IDs/names are visible; slug collisions/accents/long/reserved names are safe; chunks numbered consistently; same group under different routes/dimensions cannot overwrite; equal/missing names or DOBs sort stably; PDF/CSV/member/page order agree; old saved runs and repeated rebundle attempts work. Inspect representative bundles outside the test harness.
-
-### Later: catalog, report size and real-run profiling
-
-- [x] Explore a disease catalog schema with stable IDs, aliases and per-language/per-context labels. Core owns validation/resolution; Template owns data and wording. Keep current formats supported through an explicit migration, detect ambiguous aliases and avoid mixing label strings with IDs. Language expansion needs more than a folder rename.
-- [x] Record the H1 fictional-workload size and browser prototype above. Production optimization is deferred; it still needs controlled memory/report-generation measurements, preserved row search and navigation, safe escaping, local-file/no-JavaScript access, artifact links and partial-run recovery. Segmented/lazy reports require a contract decision.
-- [ ] Deferred at the user’s request: profile the real release command externally through process exit, with wall/CPU/peak RSS, explicit workers and local resource fingerprints. Existing record timings separate preparation/render/delivery but exclude the final report write. Keep profiler overhead out of throughput comparisons; worker spans overlap. Add opt-in granular spans only if broad timing does not answer the question.
-
-Use [existing performance evidence](docs/developer_guide/performance_experiments.md) and [measurement guidance](docs/developer_guide/testing.md#measure-the-complete-command). The reported unencrypted 384.5-second run is one observation; reproduce its workload before comparing it with synthetic encrypted benchmarks.
-
-### Verification and handoff
-
-For implementation, run focused Rust unit/CLI/render-contract checks, then `cargo fmt --all --check`, `cargo test --release --locked`, `cargo build --release --locked` and documentation checks as applicable. Use fictional fixtures; verify independent row processing, evidence, actual artifacts and saved-run compatibility rather than duplicating presentation tests here.
-
-The coordinated v2.0 handoff preserves the completed milestones. Future shared changes must land before consumer settings: Template updates its Core revision and complete exported library, tests English/French presentation and packages resources; Studio updates matching Core/Template pins, regenerates validators/examples and verifies the downloaded project against the intended standalone executable. No consumer edits installed Core resources.
+No unresolved product question requires user approval. Implementation assumptions are explicit above: local spreadsheets are the detailed review interface, exact compiled provenance is validated before compact persistence, and only the two demonstrated QR changes are mandatory. Any measured limitation should narrow a performance claim rather than silently expand this scope.
