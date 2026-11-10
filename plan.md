@@ -1,6 +1,6 @@
 # v2 plan: usable run reports and faster styled QR codes
 
-This is the shared execution plan for Core, [Template](../ImmuKnow-Template/plan.md) and [Studio](../ImmuKnow-Studio/plan.md). **Planning is complete; the three implementation phases below are pending.** This change set updates the plans; runtime implementation is pending.
+This is the shared execution plan for Core, [Template](../ImmuKnow-Template/plan.md) and [Studio](../ImmuKnow-Studio/plan.md). **Phase 1 is in progress; Template and Studio adoption are pending.** The integer QR grid and finder bounds are implemented with focused release tests; reporting implementation and integrated acceptance remain in progress.
 
 The operator should finish a run, understand its severity totals in the terminal, open two manageable spreadsheets, and find the corresponding PDFs. The implementation replaces the large HTML report and per-bundle CSVs with run-wide CSV exports, retains a trustworthy saved record for review and rebundling, and applies two measured QR optimizations. Report usability is the primary product improvement; QR throughput is a separate, bounded improvement.
 
@@ -12,7 +12,7 @@ Start from the current branches, retaining completed behavior:
 
 | Repository | Current baseline | Responsibility |
 | --- | --- | --- |
-| Core | Runtime `16792decc1e4fb405f63d2780ed87d5f46dba37c`; plan-only HEAD `c55841b` | Shared components/contracts, native processing, saved state and reports |
+| Core | Runtime `16792decc1e4fb405f63d2780ed87d5f46dba37c`; execution baseline `c95127b` | Shared components/contracts, native processing, saved state and reports |
 | Template | `91c5b1cf5e573d8c8f234d71252ea65bfbe6d9fb`, pinning Core above | Authored notices, settings, references, examples and packaged project instructions |
 | Studio | `4c4c98d2f57e0042c9fc8349c274eb64a663c9fc`, pinning that pair | Browser authoring/preview, generated resources, project import/export and native handoff |
 
@@ -145,7 +145,7 @@ Complete and iterate on Core before moving to Template, then make the appropriat
 
 - [ ] Add the CSV headers/type examples, summary edge cases, saved-schema v2 shape and report-schema v4 retention table to owning guides/fictional fixtures. Include no-PDF, held, override, duplicate client ID, compiler warning, blocked/pending, zero-row and failed-attempt examples. Use typed summary/export records; do not spread ad hoc `Value` fallbacks across writers.
 - [ ] Audit `src/report.rs`, `pipeline.rs`, `bundles.rs`, `terminal.rs`, `warnings.rs`, `warning_review.rs`, `policy.rs`, `main.rs`, `validation.rs`, Typst measurement emitters and exported schemas. Record exact maintained consumers in Template tests and Studio's `types.ts`, `render-contract.ts`, `viewer.ts`, `preview-sources.ts` and `tests/check_typst_project.py`.
-- [ ] In an isolated current-source checkout/build directory, build once, edit only one embedded resource, rebuild normally and compare executable/resource manifests plus exported bytes. Exercise addition/removal too if directory tracking is the suspected failure. If current tracking works, keep it and add the narrow reproducibility check; if it fails, fix dependency tracking and rerun it. Never benchmark a stale resource executable or disable integrity checks.
+- [x] Verify isolated current-source resource rebuilds with `scripts/check-resource-rebuild.sh`: baseline, resource-only edit, addition and removal all refresh exported bytes and identity under ordinary cached release builds. Existing directory tracking works; no build.rs change is needed.
 
 Use these fixtures to coordinate the two Core lanes; iterate within Core as needed. Current resource builds must be trustworthy before QR measurements are accepted.
 
@@ -161,8 +161,8 @@ Focused acceptance: one mixed fictional journey covers clear/warning/error rows,
 
 **Terra QR lane — the two measured changes.**
 
-- [ ] Implement finder bounds and integer bulk conversion as small separable changes after the build check, in parallel with the reporting lane, then test their combination. Remove obsolete scalar conversion and boolean-only helper tests/docs.
-- [ ] Retain independent decoder tests in `tests/qr.rs` for requested correction levels, UTF-8/ECI and boundary sizes through version 40. Add the all-standard-dimension finder predicate oracle and integer-grid shape/value checks.
+- [x] Implement finder bounds and integer bulk conversion; remove obsolete scalar conversion and boolean-only helper tests. The focused QR release suite passes; combined current-source performance and representative notice checks remain below.
+- [x] Retain independent decoder tests in `tests/qr.rs` for requested correction levels, UTF-8/ECI and boundary sizes through version 40. Add the all-standard-dimension finder predicate oracle and integer-grid shape/value checks.
 - [ ] Exercise the real styled renderer across square/dots/rounded/separated modules, square/rounded corners, distinct finder/alignment colors, default SVG/run paths and logo/mask accept/reject boundaries. Inspect rendered representative English/French notices, including long content; use focused raster/decode checks where necessary to verify actual styled output rather than only raw matrices.
 
 Exit: exact PDF bytes/page counts/rendered findings for the unchanged-geometry comparisons, strict source binding, unchanged readable-failure routing and no weakened logo protection. Compare QR-only arms with the same reporting contract; report-schema v4 intentionally differs from v3 and is compared semantically across that boundary.
