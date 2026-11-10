@@ -192,11 +192,13 @@ Keep this migration ledger current during Core implementation; consumer mutation
 
 | Core change | Template migration | Studio migration |
 | --- | --- | --- |
-| CSV-first outputs and CLI paths | README/helper/package expectations; `tests/conftest.py` native sample reader | Download instructions; `tests/check_typst_project.py` and native journey |
-| Saved-run v2 projection/effective results | Presentation/coverage test readers | Native/browser parity reader and artifact membership assertions |
+| CSV-first outputs selected by `exports.records.path` / `exports.findings.path` | README and `tests/test_sample.py` replace per-bundle CSV assumptions; `tests/conftest.py` retains canonical source rows | Download instructions; `tests/check_typst_project.py` and native journey |
+| Saved-run v2 `saved_evidence` and keyed effective results | Native sample/presentation readers; mock records in `tests/test_check.py` | `tests/check_typst_project.py` native/browser parity reader and artifact membership assertions |
 | Render-report v4: successful `layout.*` checks omit `measurements`; component geometry remains authoritative | Maintained notice/render checks; [retention table](tests/fixtures/render-evidence.md) and shared fixtures | Types/generated validators; move `viewer.ts` envelope guide to `summary.measurements.address`; retain `preview-sources.ts` |
 | Integer grid and finder bounds | Complete shared-library refresh; representative styles/languages | Regenerated complete resources; styled preview/download checks |
 | Final Core resource identity | Exact `core-revision.txt` and verified package | Matching Core pin, Template Git pin/lock and native fingerprint |
+
+Consumer readers use `checks[].finding_key` for observed occurrences and join `effective_checks[]` by that key. Effective records contain only `finding_key`, `status`, `disabled` and `policy_reason`; messages, codes, subjects and semantic measurements belong to the observed check. `saved_evidence` replaces `render_report`, with `saved_evidence_version: 1` and `facts_sha256` binding the row's one canonical `notice`; it contains no duplicate notice/check list and is not a complete compiled-report envelope. Read `qr_urls`, requirements, components and retained semantic/page evidence there. Separate `facts/*.json` files no longer exist. Core's CLI, grouping and warning-review tests demonstrate the new joins, selected CSV paths and immutable attempt/review exports.
 
 Regeneration at the consumer phases: Template runs `immuknow project sync --replace` and `immuknow project check --sample`; Studio updates its lock with `uv lock --upgrade-package immuknow-template-resources`, installs through `uv run --locked python -m scripts.native_core install`, and runs `npm run prepare:assets` / `npm run generate:contracts` before the fresh site build. Generated resources/validators stay untracked.
 
