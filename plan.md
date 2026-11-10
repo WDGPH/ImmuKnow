@@ -1,10 +1,10 @@
 # v2 plan: usable run reports and faster styled QR codes
 
-This is the shared execution plan for Core, [Template](../ImmuKnow-Template/plan.md) and [Studio](../ImmuKnow-Studio/plan.md). **Phase 1 is complete; Template adoption is next, followed by Studio.** The integer QR grid, finder bounds and CSV-first reporting are implemented; the locked release suite passes 103 tests and the integrated reporting review is clear. See the [acceptance evidence](docs/developer_guide/performance_experiments.md) for the bounded QR measurements and reporting latency limits.
+This is the shared execution plan for Core, [Template](../ImmuKnow-Template/plan.md) and [Studio](../ImmuKnow-Studio/plan.md). **All three repository phases are complete and verified on the existing Rust branches.** The integer QR grid, finder bounds and CSV-first reporting are implemented; the locked release suite passes 103 tests and the integrated reporting review is clear. See the [acceptance evidence](docs/developer_guide/performance_experiments.md) for the bounded QR measurements and reporting latency limits.
 
 The operator should finish a run, understand its severity totals in the terminal, open two manageable spreadsheets, and find the corresponding PDFs. The implementation replaces the large HTML report and per-bundle CSVs with run-wide CSV exports, retains a trustworthy saved record for review and rebundling, and applies two measured QR optimizations. Report usability is the primary product improvement; QR throughput is a separate, bounded improvement.
 
-This is a prerelease breaking v2 release. Existing helper signatures, boolean grids, saved-report layouts and HTML are not compatibility requirements. Update maintained callers and generated consumers together. Do not add legacy loaders, adapters, format switches or duplicate output paths without an identified supported consumer. Existing `AGENTS.md` instructions about an escaped HTML view and tests asserting the old output must be deliberately updated during implementation; the requested CSV-first design supersedes them.
+This is a prerelease breaking v2 release. Existing helper signatures, boolean grids, saved-report layouts and HTML are not compatibility requirements. Update maintained callers and generated consumers together. Do not add legacy loaders, adapters, format switches or duplicate output paths without an identified supported consumer. Contributor instructions and maintained tests now describe the CSV-first design; the former HTML workflow is removed.
 
 ## Baseline and evidence
 
@@ -15,7 +15,7 @@ Keep implementation on the existing Rust branches: Core
 `feat/rust-core-integration`. Verify the branch before each repository handoff;
 record the verified commit alongside the checks below.
 
-| Repository | Current baseline | Responsibility |
+| Repository | Execution baseline | Responsibility |
 | --- | --- | --- |
 | Core | Runtime `16792decc1e4fb405f63d2780ed87d5f46dba37c`; execution baseline `c95127b` | Shared components/contracts, native processing, saved state and reports |
 | Template | `91c5b1cf5e573d8c8f234d71252ea65bfbe6d9fb`, pinning Core above | Authored notices, settings, references, examples and packaged project instructions |
@@ -26,7 +26,7 @@ The supplied local evidence is `../performance-summary.md`, `../performance-metr
 - The full measured command created 5,838 originals / 11,704 pages in 390.52 seconds through exit, with about 3.48 GiB native peak RSS. It used English notices, one styled QR per notice, two compile workers, encryption off and 75 normal / 2 review bundles. All rows had effective warnings; 189 also had failed checks. Counts of findings, warning-bearing rows and highest-severity rows differ.
 - Its 152 MB HTML contained 4.53 million DOM nodes, took about 52 seconds to become usable and reached about 3.7 GiB sampled browser/driver RSS. Seventeen full report writes produced roughly 3.4 GB cumulatively. The saved-timer-to-exit gap includes other work; it is not a pure report timer.
 - Finder bounds were equivalent at all 477,320 cells across the 40 standard QR dimensions (21–177). Later matched-build 200-row commands had median paired wall reduction 7.25% (4.64–7.46%). Bulk integer-grid conversion had 11.16% (9.42–13.30%) in matched-build commands, and 7.08% wall / 7.18% CPU in the same-binary, two-worker driver. Tested PDFs, pages, checks and routes matched.
-- These candidates were measured separately. Do not add percentages or promise the same gain on 5,838 rows. Combined behavior, current-source performance and alternate styling/languages still need acceptance checks.
+- These candidates were measured separately. Do not add percentages or promise the same gain on 5,838 rows. Combined current-source behavior and alternate styling/languages are verified in the completed acceptance below; those later measurements are separate evidence.
 - Lazy structural-grid construction showed a smaller 1.25% driver-wall improvement, without established complete-command benefit. History grouping was slower; path `.push` was slower; findings grouping was inconclusive. None is required implementation here.
 - A resource-only edit failed to trigger a library rebuild in the isolated older checkout. **Current `build.rs` already emits `cargo:rerun-if-changed=resources`.** Reproduce and verify current behavior before proposing a fix; adding that same directive or touching a Rust file is not a solution.
 
@@ -208,6 +208,48 @@ Consumer readers use `checks[].finding_key` for observed occurrences and join `e
 Regeneration at the consumer phases: Template runs `immuknow project sync --replace` and `immuknow project check --sample`; Studio updates its lock with `uv lock --upgrade-package immuknow-template-resources`, installs through `uv run --locked python -m scripts.native_core install`, and runs `npm run prepare:assets` / `npm run generate:contracts` before the fresh site build. Generated resources/validators stay untracked.
 
 **Pin rule:** Core implementation → Template adoption/verification → Studio adoption/verification. Do not pin uncommitted changes, branch names or the old profiling revision. Every handoff records exact revisions and actual checks. If integration requires adopting a different Core revision, refresh matching consumer pins and affected checks. The existing verified pair remains valid while unrelated Core iteration continues. Publishing revisions/builds is a separate action; local pins are not available to fresh external installs until published. No push, merge or deployment is requested by this plan.
+
+## Verified consumer handoff
+
+| Repository | Verified revision | Acceptance |
+| --- | --- | --- |
+| Core consumer pin | `073dde56ad71cc852141e69135a8b779d4332fe6` (runtime `ff58660a021c61d96f910242a2fab22dba33cea9`) | 103 locked release tests, formatting/build, strict documentation, resource controls, matched performance and independent PDF/QR/spreadsheet acceptance |
+| Template | `cb5bbd7552c07c8c3ffd013bcb579813f6fa60a5` | 64 pytest cases, Ruff, native sample 10/10, selected CSV joins, hold/release generations, protected/no-PDF rows, bilingual long histories and fresh wheel/source distribution inspection |
+| Studio | `89b4121ecdd2444d25b88d54708b5d4fab79d0fa` | 243 unit and 6 Python tests, type/lint/format, strict docs, fresh site, all 87 local browser/native cases covered, styled PDF decoding and Astra review |
+
+Both consumers pin the exact Core revision above; Studio's portable HTTPS lock
+selects that exact Template commit. Its installed native executable has SHA-256
+`fcbe29bfab628cfd65ba8640a68962a6ac21bc7b8cc86fe985de691d612175f6` from
+clean Core source. Browser compiler/renderer pins and the QR WASM are unchanged.
+This final master-plan closure changes documentation only; it does not require
+repinning the verified consumer pair.
+
+Studio's full local browser run passed 86 of 87 cases. The remaining case expected
+obsolete eligibility wording/code; after a test-only correction it passed its
+targeted recheck. A 105-file source hash audit confirms only that test changed,
+so all 87 cases are verified without claiming a single uninterrupted green run.
+The four downloaded-project journeys include both selectors, long French output,
+guardian-directed output, warning acknowledgment/revocation/refresh, holds and
+immutable prior exports, and requested protected/no-PDF paths and page ranges.
+The independent browser QR matrix decoded 24 English/French authored PDFs and
+verified four unsafe logo/mask rejections. Draft acceptance also exposed and fixed
+a pre-existing compiler-context access before construction; its existing
+second-tab and storage/recovery regressions pass.
+
+Template's fresh final wheel contains the exact pin, authored resources, revised
+README and fictional examples, without generated library or maintainer helpers.
+Its source distribution deliberately retains contributor helper scripts under
+the existing manifest; exported starter projects remain native-only. Extreme
+long-address stress content can still need layout adjustments, as documented in
+the consumer plans.
+
+The [acceptance report](docs/developer_guide/performance_experiments.md) records
+bounded claims and proposed-target misses: styled-grid QR wall reduction is
+13.95% median across four balanced pairs; the 5,800-row CSV pair is 2.35% of the
+old HTML plus bundle CSV bytes; completed-run recovery still takes 10.94 seconds.
+No evidence was dropped to meet the two-second target. Disease catalog work and
+upstream school export review remain deferred. All verification and commits are
+local; no remote manual workflow, push, merge, release or deployment was run.
 
 ## Completed behavior and intentionally deferred work
 
