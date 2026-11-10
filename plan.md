@@ -194,7 +194,7 @@ Keep this migration ledger current during Core implementation; consumer mutation
 | --- | --- | --- |
 | CSV-first outputs and CLI paths | README/helper/package expectations; `tests/conftest.py` native sample reader | Download instructions; `tests/check_typst_project.py` and native journey |
 | Saved-run v2 projection/effective results | Presentation/coverage test readers | Native/browser parity reader and artifact membership assertions |
-| Render-report v4 measurement placement | Maintained notice/render checks | Types/generated validators; `viewer.ts` envelope guide; `preview-sources.ts` |
+| Render-report v4: successful `layout.*` checks omit `measurements`; component geometry remains authoritative | Maintained notice/render checks; [retention table](tests/fixtures/render-evidence.md) and shared fixtures | Types/generated validators; move `viewer.ts` envelope guide to `summary.measurements.address`; retain `preview-sources.ts` |
 | Integer grid and finder bounds | Complete shared-library refresh; representative styles/languages | Regenerated complete resources; styled preview/download checks |
 | Final Core resource identity | Exact `core-revision.txt` and verified package | Matching Core pin, Template Git pin/lock and native fingerprint |
 

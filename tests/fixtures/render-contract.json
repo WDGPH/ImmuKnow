@@ -77,7 +77,7 @@
     }
   },
   "report": {
-    "schema_version": 3,
+    "schema_version": 4,
     "notice": {
       "schema_version": 2,
       "row_key": "row-000001",
@@ -184,11 +184,7 @@
         "status": "pass",
         "message": "Title fits within three lines.",
         "component": "header",
-        "page": 1,
-        "measurements": {
-          "title_height_pt": 46.98,
-          "three_line_height_pt": 93.08
-        }
+        "page": 1
       },
       {
         "code": "layout.address_outside_window",
@@ -196,23 +192,7 @@
         "status": "pass",
         "message": "Address fits the envelope safe area.",
         "component": "address",
-        "page": 1,
-        "measurements": {
-          "x_pt": 74.0,
-          "y_pt": 131.0,
-          "width_pt": 99.27000000000002,
-          "height_pt": 48.66,
-          "page": 1,
-          "window_x_pt": 63.0,
-          "window_y_pt": 120.0,
-          "window_width_pt": 324.0,
-          "window_height_pt": 81.0,
-          "window_padding_pt": 11.0,
-          "left_pt": 0.0,
-          "top_pt": 0.0,
-          "right_pt": 0.0,
-          "bottom_pt": 0.0
-        }
+        "page": 1
       },
       {
         "code": "layout.client_details_in_window",
@@ -220,18 +200,7 @@
         "status": "pass",
         "message": "Client details stay outside the envelope window.",
         "component": "client",
-        "page": 1,
-        "measurements": {
-          "x_pt": 398.0,
-          "y_pt": 131.0,
-          "width_pt": 133.59,
-          "height_pt": 34.87,
-          "window_x_pt": 63.0,
-          "window_y_pt": 120.0,
-          "window_width_pt": 324.0,
-          "window_height_pt": 81.0,
-          "window_padding_pt": 11.0
-        }
+        "page": 1
       },
       {
         "code": "layout.signature_page",
@@ -239,15 +208,7 @@
         "status": "pass",
         "message": "Signature remains with preceding content.",
         "component": "signature",
-        "page": 1,
-        "measurements": {
-          "expected_page": 1,
-          "first_page": 1,
-          "last_page": 1,
-          "x_pt": 49.60629921259842,
-          "y_pt": 476.8133070866143,
-          "end_y_pt": 547.9129921259844
-        }
+        "page": 1
       },
       {
         "code": "layout.section_pages",
@@ -255,11 +216,7 @@
         "status": "pass",
         "message": "Section fits on one page.",
         "component": "section",
-        "page": 1,
-        "measurements": {
-          "first_page": 1,
-          "last_page": 1
-        }
+        "page": 1
       },
       {
         "code": "layout.header_title_lines",
@@ -267,11 +224,7 @@
         "status": "pass",
         "message": "Title fits within three lines.",
         "component": "header",
-        "page": 2,
-        "measurements": {
-          "title_height_pt": 15.04,
-          "three_line_height_pt": 93.08
-        }
+        "page": 2
       },
       {
         "code": "layout.history_width",
@@ -279,11 +232,7 @@
         "status": "pass",
         "message": "History column width compared with available space.",
         "component": "history",
-        "page": 2,
-        "measurements": {
-          "available_width_pt": 505.7007874015748,
-          "minimum_width_pt": 271.0
-        }
+        "page": 2
       },
       {
         "code": "layout.section_pages",
@@ -291,11 +240,7 @@
         "status": "pass",
         "message": "Section fits on one page.",
         "component": "section",
-        "page": 2,
-        "measurements": {
-          "first_page": 2,
-          "last_page": 2
-        }
+        "page": 2
       },
       {
         "code": "layout.privacy_page",
@@ -303,11 +248,7 @@
         "status": "pass",
         "message": "Privacy notice placement.",
         "component": "privacy",
-        "page": 2,
-        "measurements": {
-          "expected_page": 2,
-          "actual_page": 2
-        }
+        "page": 2
       },
       {
         "code": "component.overdue_agents.absent",
@@ -378,14 +319,8 @@
         }
       ],
       "header": [
-        {
-          "title_height_pt": 46.98,
-          "three_line_height_pt": 93.08
-        },
-        {
-          "title_height_pt": 15.04,
-          "three_line_height_pt": 93.08
-        }
+        {},
+        {}
       ],
       "address": [
         {
@@ -1027,6 +962,15 @@
           "path": [
             "checks",
             4,
+            "status"
+          ],
+          "value": "warn"
+        },
+        {
+          "target": "report",
+          "path": [
+            "checks",
+            4,
             "measurements",
             "first_page"
           ],
@@ -1035,16 +979,16 @@
       ]
     },
     {
-      "name": "negative measurement",
+      "name": "negative address width",
       "valid": false,
       "changes": [
         {
           "target": "report",
           "path": [
             "measurements",
-            "header",
+            "address",
             0,
-            "title_height_pt"
+            "width_pt"
           ],
           "value": -1
         }
@@ -1926,11 +1870,7 @@
               "status": "pass",
               "message": "Title fits within three lines.",
               "component": "header",
-              "page": 1,
-              "measurements": {
-                "title_height_pt": 46.98,
-                "three_line_height_pt": 93.08
-              }
+              "page": 1
             },
             {
               "code": "layout.address_outside_window",
@@ -1938,23 +1878,7 @@
               "status": "pass",
               "message": "Address fits the envelope safe area.",
               "component": "address",
-              "page": 1,
-              "measurements": {
-                "x_pt": 74.0,
-                "y_pt": 131.0,
-                "width_pt": 99.27000000000002,
-                "height_pt": 48.66,
-                "page": 1,
-                "window_x_pt": 63.0,
-                "window_y_pt": 120.0,
-                "window_width_pt": 324.0,
-                "window_height_pt": 81.0,
-                "window_padding_pt": 11.0,
-                "left_pt": 0.0,
-                "top_pt": 0.0,
-                "right_pt": 0.0,
-                "bottom_pt": 0.0
-              }
+              "page": 1
             },
             {
               "code": "layout.client_details_in_window",
@@ -1962,18 +1886,7 @@
               "status": "pass",
               "message": "Client details stay outside the envelope window.",
               "component": "client",
-              "page": 1,
-              "measurements": {
-                "x_pt": 398.0,
-                "y_pt": 131.0,
-                "width_pt": 133.59,
-                "height_pt": 34.87,
-                "window_x_pt": 63.0,
-                "window_y_pt": 120.0,
-                "window_width_pt": 324.0,
-                "window_height_pt": 81.0,
-                "window_padding_pt": 11.0
-              }
+              "page": 1
             },
             {
               "code": "layout.signature_page",
@@ -1981,15 +1894,7 @@
               "status": "pass",
               "message": "Signature remains with preceding content.",
               "component": "signature",
-              "page": 1,
-              "measurements": {
-                "expected_page": 1,
-                "first_page": 1,
-                "last_page": 1,
-                "x_pt": 49.60629921259842,
-                "y_pt": 476.8133070866143,
-                "end_y_pt": 547.9129921259844
-              }
+              "page": 1
             },
             {
               "code": "layout.section_pages",
@@ -1997,11 +1902,7 @@
               "status": "pass",
               "message": "Section fits on one page.",
               "component": "section",
-              "page": 1,
-              "measurements": {
-                "first_page": 1,
-                "last_page": 1
-              }
+              "page": 1
             },
             {
               "code": "layout.header_title_lines",
@@ -2009,11 +1910,7 @@
               "status": "pass",
               "message": "Title fits within three lines.",
               "component": "header",
-              "page": 2,
-              "measurements": {
-                "title_height_pt": 15.04,
-                "three_line_height_pt": 93.08
-              }
+              "page": 2
             },
             {
               "code": "layout.history_width",
@@ -2021,11 +1918,7 @@
               "status": "pass",
               "message": "History column width compared with available space.",
               "component": "history",
-              "page": 2,
-              "measurements": {
-                "available_width_pt": 505.7007874015748,
-                "minimum_width_pt": 271.0
-              }
+              "page": 2
             },
             {
               "code": "layout.section_pages",
@@ -2033,11 +1926,7 @@
               "status": "pass",
               "message": "Section fits on one page.",
               "component": "section",
-              "page": 2,
-              "measurements": {
-                "first_page": 2,
-                "last_page": 2
-              }
+              "page": 2
             },
             {
               "code": "layout.privacy_page",
@@ -2045,11 +1934,7 @@
               "status": "pass",
               "message": "Privacy notice placement.",
               "component": "privacy",
-              "page": 2,
-              "measurements": {
-                "expected_page": 2,
-                "actual_page": 2
-              }
+              "page": 2
             },
             {
               "code": "component.overdue_agents.absent",
@@ -2125,11 +2010,7 @@
               "status": "pass",
               "message": "Title fits within three lines.",
               "component": "header",
-              "page": 1,
-              "measurements": {
-                "title_height_pt": 46.98,
-                "three_line_height_pt": 93.08
-              }
+              "page": 1
             },
             {
               "code": "layout.address_outside_window",
@@ -2137,23 +2018,7 @@
               "status": "pass",
               "message": "Address fits the envelope safe area.",
               "component": "address",
-              "page": 1,
-              "measurements": {
-                "x_pt": 74.0,
-                "y_pt": 131.0,
-                "width_pt": 99.27000000000002,
-                "height_pt": 48.66,
-                "page": 1,
-                "window_x_pt": 63.0,
-                "window_y_pt": 120.0,
-                "window_width_pt": 324.0,
-                "window_height_pt": 81.0,
-                "window_padding_pt": 11.0,
-                "left_pt": 0.0,
-                "top_pt": 0.0,
-                "right_pt": 0.0,
-                "bottom_pt": 0.0
-              }
+              "page": 1
             },
             {
               "code": "layout.client_details_in_window",
@@ -2161,18 +2026,7 @@
               "status": "pass",
               "message": "Client details stay outside the envelope window.",
               "component": "client",
-              "page": 1,
-              "measurements": {
-                "x_pt": 398.0,
-                "y_pt": 131.0,
-                "width_pt": 133.59,
-                "height_pt": 34.87,
-                "window_x_pt": 63.0,
-                "window_y_pt": 120.0,
-                "window_width_pt": 324.0,
-                "window_height_pt": 81.0,
-                "window_padding_pt": 11.0
-              }
+              "page": 1
             },
             {
               "code": "layout.signature_page",
@@ -2180,15 +2034,7 @@
               "status": "pass",
               "message": "Signature remains with preceding content.",
               "component": "signature",
-              "page": 1,
-              "measurements": {
-                "expected_page": 1,
-                "first_page": 1,
-                "last_page": 1,
-                "x_pt": 49.60629921259842,
-                "y_pt": 476.8133070866143,
-                "end_y_pt": 547.9129921259844
-              }
+              "page": 1
             },
             {
               "code": "layout.section_pages",
@@ -2196,11 +2042,7 @@
               "status": "pass",
               "message": "Section fits on one page.",
               "component": "section",
-              "page": 1,
-              "measurements": {
-                "first_page": 1,
-                "last_page": 1
-              }
+              "page": 1
             },
             {
               "code": "layout.header_title_lines",
@@ -2208,11 +2050,7 @@
               "status": "pass",
               "message": "Title fits within three lines.",
               "component": "header",
-              "page": 2,
-              "measurements": {
-                "title_height_pt": 15.04,
-                "three_line_height_pt": 93.08
-              }
+              "page": 2
             },
             {
               "code": "layout.history_width",
@@ -2220,11 +2058,7 @@
               "status": "pass",
               "message": "History column width compared with available space.",
               "component": "history",
-              "page": 2,
-              "measurements": {
-                "available_width_pt": 505.7007874015748,
-                "minimum_width_pt": 271.0
-              }
+              "page": 2
             },
             {
               "code": "layout.section_pages",
@@ -2232,11 +2066,7 @@
               "status": "pass",
               "message": "Section fits on one page.",
               "component": "section",
-              "page": 2,
-              "measurements": {
-                "first_page": 2,
-                "last_page": 2
-              }
+              "page": 2
             },
             {
               "code": "layout.privacy_page",
@@ -2244,11 +2074,7 @@
               "status": "pass",
               "message": "Privacy notice placement.",
               "component": "privacy",
-              "page": 2,
-              "measurements": {
-                "expected_page": 2,
-                "actual_page": 2
-              }
+              "page": 2
             },
             {
               "code": "component.overdue_agents.absent",
@@ -2316,6 +2142,64 @@
               "reason": "Invalid notice requirements"
             }
           ]
+        }
+      ]
+    },
+    {
+      "name": "successful layout omits duplicate measurements",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "checks",
+            0,
+            "measurements"
+          ],
+          "value": {
+            "title_height_pt": 12,
+            "three_line_height_pt": 20
+          }
+        }
+      ]
+    },
+    {
+      "name": "warning layout retains comparison detail",
+      "valid": true,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "checks",
+            0,
+            "status"
+          ],
+          "value": "warn"
+        },
+        {
+          "target": "report",
+          "path": [
+            "checks",
+            0,
+            "measurements"
+          ],
+          "value": {
+            "title_height_pt": 25,
+            "three_line_height_pt": 20
+          }
+        }
+      ]
+    },
+    {
+      "name": "old render report version is unsupported",
+      "valid": false,
+      "changes": [
+        {
+          "target": "report",
+          "path": [
+            "schema_version"
+          ],
+          "value": 3
         }
       ]
     }

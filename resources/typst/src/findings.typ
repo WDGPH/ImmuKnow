@@ -5,7 +5,11 @@
   let value = (code: code, stage: "render", status: status, message: message)
   if component != none { value.insert("component", component) }
   if page != none { value.insert("page", page) }
-  if measurements != none { value.insert("measurements", measurements) }
+  // Successful layout arithmetic is local to compilation. Editor geometry
+  // belongs to the placed component; failed comparisons retain useful detail.
+  if measurements != none and (not code.starts-with("layout.") or status in ("warn", "fail", "not_run")) {
+    value.insert("measurements", measurements)
+  }
   [#metadata(value) <immuknow-check>]
 }
 #let component(name, measurements: (:), url: none, notice: none) = {

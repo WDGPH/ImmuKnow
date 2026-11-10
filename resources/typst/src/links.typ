@@ -41,7 +41,8 @@
       check("layout.link_width", if fits { "pass" } else { "warn" },
         if fits { "Link text fits within the available line width." }
         else { "Link text exceeds the available line width and was allowed to wrap." },
-        component: "link", page: here().page())
+        component: "link", page: here().page(),
+        measurements: (available_width_pt: available.width.pt(), minimum_width_pt: natural.width.pt()))
       linked
     }
     // Explicit multiline labels must also be able to continue onto another page.

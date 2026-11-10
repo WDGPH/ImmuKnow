@@ -144,7 +144,7 @@ Unused content emits no component findings. `url-encode(string)` encodes UTF-8
 query/path components with RFC 3986 unreserved characters; `query-url` applies
 it to raw dictionary keys and values. A fixed URL string is used verbatim.
 
-The report follows `report.json`: `schema_version: 3`, `identity` (`row_key`,
+The report follows `report.json`: `schema_version: 4`, `identity` (`row_key`,
 `template`, `client_id`, `version_id`, `language`), actual `page_count`, `checks`,
 `qr_urls`, `measurements`, the placed `requirements`, `blocked_checks`, and the `notice` data used for layout. Native and
 browser checks compare that data with the prepared input. Each placed personal
@@ -159,7 +159,11 @@ Component measurements must agree with presence and absence findings. Page
 numbers must fall within the notice and ranges must run forwards. Address,
 client, history, overdue-list and QR measurements must name the selected client
 and source row, including when the external ID is blank. Unsupported report versions are
-refused; there is no conversion of older reports.
+refused; there is no conversion of older reports. Successful layout checks omit
+duplicate measurements. Address/window and client geometry remains in the placed
+component measurements for Studio guides and source targets. Warning/failure
+comparisons retain useful detail; coverage and source/display evidence remain
+available even when checks pass. See the [evidence retention table](../../tests/fixtures/render-evidence.md).
 
 Compile and inspect the same immutable project with a frozen creation timestamp,
 then read its report with Typst 0.15.1:

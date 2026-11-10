@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:immuknow:render-report:3",
-  "title": "ImmuKnow placed report version 3 (proposed)",
+  "$id": "urn:immuknow:render-report:4",
+  "title": "ImmuKnow placed report version 4",
   "type": "object",
   "properties": {
     "schema_version": {
       "type": "integer",
-      "const": 3
+      "const": 4
     },
     "identity": {
       "type": "object",
@@ -179,20 +179,8 @@
           "minItems": 1,
           "items": {
             "type": "object",
-            "properties": {
-              "title_height_pt": {
-                "type": "number",
-                "minimum": 0
-              },
-              "three_line_height_pt": {
-                "type": "number",
-                "minimum": 0
-              }
-            },
-            "required": [
-              "title_height_pt",
-              "three_line_height_pt"
-            ],
+            "properties": {},
+            "required": [],
             "additionalProperties": false
           }
         },
@@ -1483,6 +1471,32 @@
                     "page"
                   ]
                 }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "pattern": "^layout\\."
+              },
+              "status": {
+                "enum": [
+                  "pass",
+                  "not_applicable"
+                ]
+              }
+            },
+            "required": [
+              "code",
+              "status"
+            ]
+          },
+          "then": {
+            "not": {
+              "required": [
+                "measurements"
               ]
             }
           }

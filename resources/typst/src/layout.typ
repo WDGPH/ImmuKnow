@@ -29,7 +29,7 @@
     let heading = title-text(title)
     let maximum = measure(title-text[Ágj#linebreak()Ágj#linebreak()Ágj], width: title-width).height
     let height = measure(heading, width: title-width).height
-    component("header", measurements: (title_height_pt: height.pt(), three_line_height_pt: maximum.pt()))
+    component("header")
     context check("layout.header_title_lines", if height <= maximum + 0.1pt { "pass" } else { "warn" },
       if height <= maximum + 0.1pt { "Title fits within three lines." } else { "Title exceeds three lines." },
       component: "header", page: here().page(), measurements: (title_height_pt: height.pt(), three_line_height_pt: maximum.pt()))
@@ -158,7 +158,7 @@
         check("layout.address_outside_window",
           if not has-window { "not_applicable" } else if fits { "pass" } else { "warn" },
           if not has-window { "No envelope window was specified." } else if fits { "Address fits the envelope safe area." } else { "Address extends outside the envelope safe area." },
-          component: "address", page: position.page, measurements: (: ..bounds, ..overflow))
+          component: "address", page: position.page, measurements: overflow)
         if selected-reader == none and addressee == auto { check("content.address_reader_unknown", "warn", "Intended reader is unknown; a neutral addressee is used.", component: "address", page: position.page) }
         address.body
       }],
@@ -200,7 +200,7 @@
     let fits = position.page == expected-page and end.page == position.page
     check("layout.signature_page", if allow-overflow or fits { "pass" } else { "warn" },
       if fits { "Signature remains with preceding content." } else if allow-overflow { "Signature continuation is allowed." } else { "Signature moved to or continued on another page." }, component: "signature", page: position.page,
-      measurements: (expected_page: expected-page, ..bounds))
+      measurements: (expected_page: expected-page, first_page: position.page, last_page: end.page))
   }
 }
 

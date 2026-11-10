@@ -65,9 +65,21 @@ fn title_alignment_moves_only_the_title_and_preserves_header_evidence() {
     assert_eq!(checks.len(), 5);
     assert!(checks[..4].iter().all(|check| check["status"] == "pass"));
     assert_eq!(checks[4]["status"], "warn");
+    assert!(checks[..4]
+        .iter()
+        .all(|check| check.get("measurements").is_none()));
     assert!(
-        headers[..4]
-            .iter()
-            .all(|header| header["measurements"] == headers[0]["measurements"])
+        checks[4]["measurements"]["title_height_pt"]
+            .as_f64()
+            .unwrap()
+            > checks[4]["measurements"]["three_line_height_pt"]
+                .as_f64()
+                .unwrap()
     );
+    assert!(headers
+        .iter()
+        .all(|header| header["measurements"] == json!({})));
+    assert!(headers[..4]
+        .iter()
+        .all(|header| header["measurements"] == headers[0]["measurements"]));
 }
