@@ -54,6 +54,8 @@
   })
 }
 
+#let in-finder(n, i, j) = (i < 7 and (j < 7 or j >= n - 7)) or (i >= n - 7 and j < 7)
+
 // Style only data cells; retain timing, alignment, format and version information.
 #let draw-qr(field, unit, quiet, bg, fg, module-shape: "square", corner-style: "square", corner-foreground: auto, alignment-foreground: auto, logo: none, logo-size: 30%, logo-padding: 0.3mm, logo-mask: none) = {
   let n = field.len()
@@ -86,13 +88,12 @@
   }
   let finders = ((0, 0), (n - 7, 0), (0, n - 7))
   let in-alignment(i, j) = alignment.any(p => calc.abs(j - p.at(0)) <= 2 and calc.abs(i - p.at(1)) <= 2)
-  let in-finder(i, j) = finders.any(p => j >= p.at(0) and j < p.at(0) + 7 and i >= p.at(1) and i < p.at(1) + 7)
   box(width: total, height: total, baseline: quiet * unit, {
     place(top + left, rect(width: total, height: total, fill: bg, stroke: none))
     let squares = ((), (), ())
     for (i, row) in field.enumerate() {
       for (j, dark) in row.enumerate() {
-        if dark and not (corner-style == "rounded" and in-finder(i, j)) {
+        if dark == 1 and not (corner-style == "rounded" and in-finder(n, i, j)) {
           let shape = if reserved.at(i).at(j) { "square" } else { module-shape }
           if shape in ("square", "separated") {
             let inset = if shape == "separated" { 0.1 } else { 0 }
@@ -100,7 +101,7 @@
             let y = (i + quiet + inset) * unit
             let right = (j + quiet + 1 - inset) * unit
             let bottom = (i + quiet + 1 - inset) * unit
-            let group = (if corner-fg != fg and in-finder(i, j) { 1 }
+            let group = (if corner-fg != fg and in-finder(n, i, j) { 1 }
               else if alignment-fg != fg and in-alignment(i, j) { 2 } else { 0 })
             squares.at(group) += (
               curve.move((x, y)), curve.line((right, y)),

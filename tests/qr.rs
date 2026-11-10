@@ -44,11 +44,13 @@ fn wasm_matrix_and_runs_decode_to_the_original_utf8_with_requested_correction() 
         .join(", ");
     let typst = format!(
         r##"
+#import "typst/src/qr-encode.typ": encode-qr
 #let encoder = plugin("typst/vendor/qr/qr.wasm")
 #let as-array(b) = range(b.len()).map(i => b.at(i))
 #let cases = ({pairs},)
 #metadata(cases.map(pair => (
   as-array(encoder.encode(bytes(pair.at(0)), bytes(pair.at(1)))),
+  encode-qr(pair.at(0), pair.at(1)),
   as-array(encoder.encode_runs(bytes(pair.at(0)), bytes(pair.at(1)))),
   str(encoder.encode_svg(bytes(pair.at(0)), bytes(pair.at(1)), bytes("#005568")).slice(1))
 ))) <immuknow-report>
@@ -78,9 +80,22 @@ QR probe
                 .collect()
         };
         let matrix = bytes(&arrays[0]);
-        let runs = bytes(&arrays[1]);
+        let grid = arrays[1].as_array().unwrap();
+        let runs = bytes(&arrays[2]);
         let size = usize::from(matrix[0]);
         assert_eq!(matrix.len(), 1 + size * size);
+        assert_eq!(grid.len(), size);
+        for (row_index, row) in grid.iter().enumerate() {
+            let row = row.as_array().unwrap();
+            assert_eq!(row.len(), size);
+            for (column, cell) in row.iter().enumerate() {
+                assert_eq!(
+                    cell.as_u64(),
+                    Some(u64::from(matrix[1 + row_index * size + column]))
+                );
+                assert!(cell.as_u64().unwrap() <= 1);
+            }
+        }
         assert_eq!(usize::from(runs[0]), size);
         assert_eq!((runs.len() - 1) % 3, 0);
         let mut reconstructed = vec![0; size * size];
@@ -102,7 +117,7 @@ QR probe
             "run representation differs from matrix"
         );
         // The SVG must paint precisely the same cells, including version 40.
-        let svg = arrays[2].as_str().unwrap();
+        let svg = arrays[3].as_str().unwrap();
         assert!(svg.contains(&format!("viewBox=\"0 0 {} {}\"", size + 8, size + 8)));
         assert!(svg.contains("fill=\"#005568\""));
         let path = svg
@@ -183,10 +198,12 @@ fn styled_codes_accept_marker_colours_and_reject_invalid_options() {
 #qr-code(notice, url: "https://example.org/update", width: 3cm,
   logo: rect(width: 100%, height: 100%, fill: black), logo-size: 10%,
   module-shape: "separated", corner-foreground: rgb("176b78"))
+#qr-code(notice, url: "a", width: 3cm, logo-size: 5%, logo-padding: 0mm,
+  logo: (image: rect(width: 100%, height: 100%, fill: black), mask: (size: 128, runs: ((64, 0, 128),))))
 #for foreground in (black, luma(15%), rgb("176b78"), cmyk(80%, 10%, 0%, 60%)) {
   qr-code(notice, url: "https://example.org/été?nom=Zoë", foreground: foreground)
 }
-#metadata((styles: 13)) <immuknow-report>
+#metadata((styles: 14)) <immuknow-report>
 "##;
     fs::write(&path, source).unwrap();
     let mut compiler = Compiler::new(temp.path().to_path_buf(), Compiler::fonts());
@@ -197,9 +214,17 @@ fn styled_codes_accept_marker_colours_and_reject_invalid_options() {
     };
     let compiled = compiler.run(&request).expect("all QR styles must compile");
     assert!(!compiled.pdf.is_empty());
-    assert_eq!(compiled.reports.unwrap()[0]["styles"], 13);
+    assert_eq!(compiled.reports.unwrap()[0]["styles"], 14);
 
     for (option, message) in [
+        (
+            "logo: rect(width: 100%, height: 100%), error-correction: \"l\"",
+            "QR centre images require error-correction: h",
+        ),
+        (
+            "logo: (image: rect(width: 100%, height: 100%), mask: (size: 128, runs: ((128, 0, 1),)))",
+            "QR image mask run is out of bounds",
+        ),
         (
             "corner-foreground: 1",
             "QR corner-foreground must be a colour or auto",
@@ -220,5 +245,68 @@ fn styled_codes_accept_marker_colours_and_reject_invalid_options() {
             .err()
             .expect("invalid styling must fail");
         assert!(error.to_string().contains(message), "{error}");
+    }
+    fs::write(
+        &path,
+        r#"#import "typst/src/qr.typ": qr-code
+#qr-code((row_key: "row-1", client_id: "fictional"), url: "a", width: 3cm,
+  logo-size: 30%, logo-padding: 0mm, logo: rect(width: 100%, height: 100%))"#,
+    )
+    .unwrap();
+    let mut compiler = Compiler::new(temp.path().to_path_buf(), Compiler::fonts());
+    let error = compiler
+        .run(&request)
+        .err()
+        .expect("logo overlapping a finder must fail");
+    assert!(
+        error
+            .to_string()
+            .contains("QR centre image overlaps a structural marker"),
+        "{error}"
+    );
+}
+
+#[test]
+fn finder_bounds_match_three_seven_by_seven_regions_at_every_standard_size() {
+    let temp = tempfile::tempdir().unwrap();
+    resources::materialize(temp.path()).unwrap();
+    fs::write(
+        temp.path().join("probe.typ"),
+        r#"
+#import "typst/src/qr-style.typ": in-finder
+#metadata(range(1, 41).map(version => {
+  let n = 17 + 4 * version
+  range(n).map(i => range(n).map(j => in-finder(n, i, j)))
+})) <immuknow-report>
+"#,
+    )
+    .unwrap();
+    let mut compiler = Compiler::new(temp.path().to_path_buf(), Compiler::fonts());
+    let compiled = compiler
+        .run(&Request {
+            inputs: BTreeMap::from([("immuknow-template-path".into(), "/probe.typ".into())]),
+            notice: json!({}),
+            timestamp: 1_750_000_000,
+        })
+        .expect("finder probe must compile");
+    let reports = compiled.reports.unwrap();
+    for (version, grid) in reports[0].as_array().unwrap().iter().enumerate() {
+        let n = 21 + 4 * version;
+        let rows = grid.as_array().unwrap();
+        assert_eq!(rows.len(), n);
+        for (i, row) in rows.iter().enumerate() {
+            let cells = row.as_array().unwrap();
+            assert_eq!(cells.len(), n);
+            for (j, cell) in cells.iter().enumerate() {
+                let expected = [(0, 0), (n - 7, 0), (0, n - 7)]
+                    .iter()
+                    .any(|&(x, y)| (x..x + 7).contains(&j) && (y..y + 7).contains(&i));
+                assert_eq!(
+                    cell.as_bool(),
+                    Some(expected),
+                    "size {n}, row {i}, column {j}"
+                );
+            }
+        }
     }
 }
