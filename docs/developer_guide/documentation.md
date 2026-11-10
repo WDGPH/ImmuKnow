@@ -70,20 +70,39 @@ CORE_DIR="$PWD"
 TEMPLATE_DIR=../ImmuKnow-Template
 DEMO_DIR=$(mktemp -d)
 cp -R "$TEMPLATE_DIR/templates" "$TEMPLATE_DIR/config" "$DEMO_DIR/"
-cp "$TEMPLATE_DIR/input/sample/sample_students.csv" "$DEMO_DIR/clients.csv"
-cp "$TEMPLATE_DIR/input/sample/sample_assignments.json" "$DEMO_DIR/notices.json"
-immuknow resources --output "$DEMO_DIR/core-resources"
-cp -R "$DEMO_DIR/core-resources/typst/." "$DEMO_DIR/templates/lib/immuknow/"
+python3 - "$TEMPLATE_DIR" "$DEMO_DIR" <<'PY'
+import csv
+import json
+import sys
+from pathlib import Path
+
+template, demo = map(Path, sys.argv[1:])
+sample = template / "input/sample"
+with (sample / "sample_students.csv").open(newline="", encoding="utf-8") as source:
+    reader = csv.DictReader(source)
+    fields = reader.fieldnames
+    clients = list(reader)[:6]
+assert len(clients) == 6, "The demo needs six fictional sample clients"
+with (demo / "clients.csv").open("w", newline="", encoding="utf-8") as target:
+    writer = csv.DictWriter(target, fieldnames=fields)
+    writer.writeheader()
+    writer.writerows(clients)
+ids = {client["client_id"] for client in clients}
+assignments = json.loads((sample / "sample_assignments.json").read_text(encoding="utf-8"))
+selected = [assignment for assignment in assignments if assignment["client_id"] in ids]
+(demo / "notices.json").write_text(json.dumps(selected, indent=2) + "\n", encoding="utf-8")
+PY
+immuknow project sync --project "$DEMO_DIR" --replace
 ```
 
-In the scratch copy of `config/parameters.yaml`, set `encryption.enabled` to `true`. The recording uses the six-client example from Template commit `782d8d4` with the current standalone Core. Exporting the shared resources above lets a compatible project use the currently installed Core library. Then record:
+In the scratch copy of `config/parameters.yaml`, set `encryption.enabled` to `true`. The recording selects the first six clients and their matching notice assignments from the compatible Template sample; copying the entire sample would run ten clients. The sync command installs the currently installed Core library into the scratch project. Then record:
 
 ```sh
 cd "$DEMO_DIR"
 vhs "$CORE_DIR/docs/demo/notices.tape"
 ```
 
-Watch `notice-demo.gif` and check the generated run's report and all six notice outcomes before copying `notice-demo.gif` to `docs/assets/`. Start in a fresh scratch folder for each recording so the demo creates only one run. Keep outputs and local recording tools outside the repository. The short demo shows the actual default progress display and completion summary with a larger font and narrower terminal. It opens no PDF and uses only fictional information. The summary points the operator to the CSV pair; the linked getting-started guide supplies the accessible text walkthrough.
+Watch `notice-demo.gif` and check the generated run's CSV pair and all six notice outcomes before copying `notice-demo.gif` to `docs/assets/`. Start in a fresh scratch folder for each recording so the demo creates only one run. Keep outputs and local recording tools outside the repository. The short demo shows the actual default progress display and completion summary. It opens no PDF and uses only fictional information. The summary points the operator to the CSV pair; the linked getting-started guide supplies the accessible text walkthrough.
 
 After recording, extract its final frame as `notice-demo.png`, for example with
 `ffmpeg -i notice-demo.gif -update 1 notice-demo.png`. Commit the GIF and still
