@@ -10,6 +10,11 @@ This is a prerelease breaking v2 release. Existing helper signatures, boolean gr
 
 Start from the current branches, retaining completed behavior:
 
+Keep implementation on the existing Rust branches: Core
+`feat/rust-pipeline-standalone`, Template `feat/rust-core-project`, and Studio
+`feat/rust-core-integration`. Verify the branch before each repository handoff;
+record the verified commit alongside the checks below.
+
 | Repository | Current baseline | Responsibility |
 | --- | --- | --- |
 | Core | Runtime `16792decc1e4fb405f63d2780ed87d5f46dba37c`; execution baseline `c95127b` | Shared components/contracts, native processing, saved state and reports |
