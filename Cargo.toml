@@ -32,6 +32,9 @@ rand = "0.9"
 tempfile = "3"
 clap = { version = "4.6", features = ["derive"] }
 
+[lints.cargo]
+unused_dependencies = "deny"
+
 [dev-dependencies]
 quircs = "=0.10.3"
 
