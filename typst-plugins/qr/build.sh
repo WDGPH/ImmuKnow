@@ -8,7 +8,7 @@ if [[ -n "$mode" && "$mode" != --check ]] || (( $# > 1 )); then
   printf 'Usage: %s [--check]\n' "$0" >&2
   exit 2
 fi
-toolchain=1.92.0
+toolchain=1.100.0
 destination="$root/resources/typst/vendor/qr/qr.wasm"
 cargo_dir=${CARGO_HOME:-"$HOME/.cargo"}
 mkdir -p "$cargo_dir"

@@ -97,7 +97,7 @@ impl Inputs {
                 };
                 let parent = template
                     .parent()
-                    .filter(|p| !p.as_os_str().is_empty())
+                    .filter(|p| !p.is_empty())
                     .unwrap_or(std::path::Path::new("."))
                     .to_path_buf();
                 (Selection::Single(template), parent)
@@ -305,11 +305,11 @@ fn execute() -> Result<()> {
             let result = match outcome {
                 Ok(result) => result,
                 Err(error) => {
-                    if let Some(saved) = error.downcast_ref::<pipeline::SavedRunFailure>() {
-                        if let Ok(receipt) = saved.receipt() {
-                            terminal.finish(&receipt);
-                            terminal.print_record(&receipt);
-                        }
+                    if let Some(saved) = error.downcast_ref::<pipeline::SavedRunFailure>()
+                        && let Ok(receipt) = saved.receipt()
+                    {
+                        terminal.finish(&receipt);
+                        terminal.print_record(&receipt);
                     }
                     return Err(error);
                 }
@@ -371,11 +371,11 @@ fn execute() -> Result<()> {
             let result = match outcome {
                 Ok(result) => result,
                 Err(error) => {
-                    if let Some(saved) = error.downcast_ref::<pipeline::SavedRunFailure>() {
-                        if let Ok(receipt) = saved.receipt() {
-                            terminal.finish(&receipt);
-                            terminal.print_record(&receipt);
-                        }
+                    if let Some(saved) = error.downcast_ref::<pipeline::SavedRunFailure>()
+                        && let Ok(receipt) = saved.receipt()
+                    {
+                        terminal.finish(&receipt);
+                        terminal.print_record(&receipt);
                     }
                     return Err(error);
                 }

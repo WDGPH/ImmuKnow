@@ -97,14 +97,11 @@ QR probe
             }
         }
         assert_eq!(usize::from(runs[0]), size);
-        assert_eq!((runs.len() - 1) % 3, 0);
+        let (runs, remainder) = runs[1..].as_chunks::<3>();
+        assert!(remainder.is_empty());
         let mut reconstructed = vec![0; size * size];
-        for run in runs[1..].chunks_exact(3) {
-            let (row, start, end) = (
-                usize::from(run[0]),
-                usize::from(run[1]),
-                usize::from(run[2]),
-            );
+        for &[row, start, end] in runs {
+            let (row, start, end) = (usize::from(row), usize::from(start), usize::from(end));
             assert!(row < size && start < end && end <= size);
             for column in start..end {
                 assert_eq!(reconstructed[row * size + column], 0, "overlapping runs");

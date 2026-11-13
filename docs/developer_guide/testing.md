@@ -4,6 +4,7 @@ Run checks from the repository root with the Rust toolchain in `rust-toolchain.t
 
 ```sh
 cargo fmt --all --check
+cargo clippy --release --locked --all-targets -- -D warnings
 cargo build --release --locked
 cargo test --release --locked
 ```

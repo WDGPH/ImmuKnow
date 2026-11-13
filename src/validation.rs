@@ -121,19 +121,16 @@ impl Validator {
         for (name, placed) in r["components"].as_object().unwrap() {
             let measurements = r["measurements"][name]
                 .as_array()
-                .cloned()
-                .unwrap_or_default();
-            let absent = checks
-                .iter()
-                .filter(|c| c["code"] == format!("component.{name}.absent"))
-                .count();
+                .map_or(&[][..], Vec::as_slice);
+            let absent_code = format!("component.{name}.absent");
+            let absent = checks.iter().filter(|c| c["code"] == absent_code).count();
             ensure!(
                 !measurements.is_empty() == placed.as_bool().unwrap()
                     && absent == usize::from(placed == false),
                 "Contradictory placed component"
             );
             for value in measurements {
-                bounds(&value, pages)?;
+                bounds(value, pages)?;
                 if value.get("row_key").is_some() {
                     for key in ["row_key", "client_id"] {
                         ensure!(
@@ -169,22 +166,22 @@ impl Validator {
                     );
                     ensure!(
                         excluded
-                            .windows(2)
-                            .all(|pair| pair[0].as_str() < pair[1].as_str())
+                            .array_windows()
+                            .all(|[first, second]| first.as_str() < second.as_str())
                             && excluded.iter().all(|item| source.contains(item)),
                         "Agent exclusions are not sorted unique source values"
                     );
                     let replacement = value["replacement"].as_str().unwrap();
                     let visible = value["replacement_visible"].as_bool().unwrap();
                     if replacement == "none" {
-                        let mut expected = Vec::new();
+                        let mut expected: Vec<&Value> = Vec::new();
                         for agent in source {
-                            if !excluded.contains(agent) && !expected.contains(agent) {
-                                expected.push(agent.clone());
+                            if !excluded.contains(agent) && !expected.contains(&agent) {
+                                expected.push(agent);
                             }
                         }
                         ensure!(
-                            !visible && *displayed == expected,
+                            !visible && displayed.iter().eq(expected),
                             "Agent display differs from filtered source"
                         );
                     } else {

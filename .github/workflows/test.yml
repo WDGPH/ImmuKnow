@@ -32,6 +32,7 @@ jobs:
           sudo install -d /usr/share/fonts/truetype/freefont
           sudo install -m 644 "$RUNNER_TEMP/notice-fonts/usr/share/fonts/truetype/freefont/"*.ttf /usr/share/fonts/truetype/freefont/
       - run: cargo fmt --all --check
+      - run: cargo clippy --release --locked --all-targets -- -D warnings
       - run: cargo build --release --locked
       - run: cargo test --release --locked
       - name: Build and inspect release archive

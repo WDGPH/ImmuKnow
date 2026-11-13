@@ -106,10 +106,11 @@ impl Terminal {
             eprintln!("  {stage}...");
         }
         if !self.live {
-            if let Some((done, total)) = count {
-                if done > 0 && (done % 100 == 0 || done == total) {
-                    eprintln!("  {done}/{total} processed{extra}");
-                }
+            if let Some((done, total)) = count
+                && done > 0
+                && (done % 100 == 0 || done == total)
+            {
+                eprintln!("  {done}/{total} processed{extra}");
             }
             return;
         }
@@ -132,11 +133,10 @@ impl Terminal {
             String::new()
         };
         let bar_width = if width < 80 { 8 } else { 16 };
-        let filled = if total == 0 {
-            bar_width
-        } else {
-            (done * bar_width / total).min(bar_width)
-        };
+        let filled = (done * bar_width)
+            .checked_div(total)
+            .unwrap_or(bar_width)
+            .min(bar_width);
         let status = if width < 40 {
             format!("  {done}/{total}")
         } else {

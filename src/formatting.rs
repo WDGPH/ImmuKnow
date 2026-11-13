@@ -6,15 +6,13 @@ pub(crate) fn expand(
     mut value: impl FnMut(&str) -> Result<String>,
 ) -> Result<String> {
     let mut chars = template.chars().peekable();
-    let mut out = String::new();
+    let mut out = String::with_capacity(template.len());
     while let Some(ch) = chars.next() {
         match ch {
-            '{' if chars.peek() == Some(&'{') => {
-                chars.next();
+            '{' if chars.next_if_eq(&'{').is_some() => {
                 out.push('{');
             }
-            '}' if chars.peek() == Some(&'}') => {
-                chars.next();
+            '}' if chars.next_if_eq(&'}').is_some() => {
                 out.push('}');
             }
             '{' => {

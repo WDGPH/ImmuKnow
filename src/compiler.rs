@@ -126,12 +126,12 @@ impl Compiler {
         self.files.reset();
         self.files.loader_mut().notice =
             Bytes::new(serde_json::to_vec(&request.notice).map_err(|e| e.to_string())?);
-        let mut inputs = request.inputs.clone();
-        inputs.insert("data".into(), "/__immuknow_active__.json".into());
-        let inputs: Dict = inputs
-            .into_iter()
-            .map(|(key, value)| (key.into(), value.into_value()))
+        let mut inputs: Dict = request
+            .inputs
+            .iter()
+            .map(|(key, value)| (key.as_str().into(), value.as_str().into_value()))
             .collect();
+        inputs.insert("data".into(), "/__immuknow_active__.json".into_value());
         self.library = LazyHash::new(Library::builder().with_inputs(inputs).build());
         self.now = Time::fixed_timestamp(request.timestamp).map_err(|e| e.to_string())?;
         let Warned { output, warnings } = typst::compile::<PagedDocument>(self);

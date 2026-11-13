@@ -136,14 +136,14 @@ pub fn sync_library(project: &Path, replace: bool) -> Result<()> {
         fs::rename(&target, &previous)?;
     }
     if let Err(error) = fs::rename(&source, &target) {
-        if previous.exists() {
-            if let Err(restore) = fs::rename(&previous, &target) {
-                let retained = staging.keep();
-                anyhow::bail!(
-                    "Could not install library ({error}) or restore it ({restore}); previous files retained in {}",
-                    retained.display()
-                );
-            }
+        if previous.exists()
+            && let Err(restore) = fs::rename(&previous, &target)
+        {
+            let retained = staging.keep();
+            anyhow::bail!(
+                "Could not install library ({error}) or restore it ({restore}); previous files retained in {}",
+                retained.display()
+            );
         }
         return Err(error.into());
     }

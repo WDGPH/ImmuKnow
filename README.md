@@ -26,7 +26,7 @@ sending notices. Warnings are eligible for delivery by default. See
 
 ## Build and develop
 
-Install Rust 1.92 or later, then build the executable:
+Install Rust 1.100 or later, then build the executable:
 
 ```sh
 cargo install --path . --locked

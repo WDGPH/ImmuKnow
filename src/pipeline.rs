@@ -58,7 +58,7 @@ impl std::fmt::Display for SavedRunFailure {
 }
 impl std::error::Error for SavedRunFailure {}
 impl SavedRunFailure {
-    fn new(dir: &Path, message: String) -> anyhow::Error {
+    fn error(dir: &Path, message: String) -> anyhow::Error {
         Self {
             record: dir.join("run.json"),
             message,
@@ -430,17 +430,28 @@ impl NoticeCheckpoint {
     }
 }
 
+struct NoticeSettings<'a> {
+    config: &'a Config,
+    timestamp: i64,
+    compile_workers: u8,
+    encryption_workers: u8,
+    resources: &'a Path,
+}
+
 fn process(
     dir: &Path,
     record: &mut Value,
     prepared: &[RowPreparation],
-    c: &Config,
-    timestamp: i64,
-    compile_workers: u8,
-    workers: u8,
-    root: &Path,
+    settings: NoticeSettings<'_>,
     progress: &mut impl FnMut(Progress),
 ) -> Result<()> {
+    let NoticeSettings {
+        config: c,
+        timestamp,
+        compile_workers,
+        encryption_workers: workers,
+        resources: root,
+    } = settings;
     let ready: Vec<(usize, &Prepared)> = prepared
         .iter()
         .enumerate()
@@ -886,11 +897,13 @@ pub fn run_with_progress(
             &dir,
             &mut record,
             &prepared,
-            &c,
-            timestamp,
-            opts.compile_workers,
-            opts.encryption_workers,
-            resource_root.path(),
+            NoticeSettings {
+                config: &c,
+                timestamp,
+                compile_workers: opts.compile_workers,
+                encryption_workers: opts.encryption_workers,
+                resources: resource_root.path(),
+            },
             progress,
         )?;
         drop(prepared);
@@ -924,7 +937,7 @@ pub fn run_with_progress(
                 json!(record["delivery_attempts"].as_array().unwrap().len());
             report::checkpoint(&dir, &mut record)?;
             report::publish(&dir, &mut record).map_err(|error| {
-                SavedRunFailure::new(
+                SavedRunFailure::error(
                     &dir,
                     format!(
                         "Partial run saved at {}; CSV publication failed: {error:#}",
@@ -934,7 +947,7 @@ pub fn run_with_progress(
             })?;
             let completed = output.join(name);
             fs::rename(&dir, &completed).map_err(|error| {
-                SavedRunFailure::new(
+                SavedRunFailure::error(
                     &dir,
                     format!(
                         "Finalization failed; partial run saved at {}: {error}",
@@ -965,7 +978,7 @@ pub fn run_with_progress(
             let saved = report::checkpoint(&dir, &mut record)
                 .and_then(|_| report::publish(&dir, &mut record));
             if let Err(report_error) = saved {
-                return Err(SavedRunFailure::new(
+                return Err(SavedRunFailure::error(
                     &dir,
                     format!(
                         "Partial run at {}; processing failed: {error:#}; reporting also failed: {report_error:#}",
@@ -973,7 +986,7 @@ pub fn run_with_progress(
                     ),
                 ));
             }
-            Err(SavedRunFailure::new(
+            Err(SavedRunFailure::error(
                 &dir,
                 format!(
                     "Partial run saved at {}; processing failed: {error:#}",
@@ -987,7 +1000,7 @@ pub fn run_with_progress(
             let saved = report::checkpoint(&dir, &mut record)
                 .and_then(|_| report::publish(&dir, &mut record));
             if let Err(error) = saved {
-                return Err(SavedRunFailure::new(
+                return Err(SavedRunFailure::error(
                     &dir,
                     format!(
                         "Unexpected pipeline error; partial run at {}; reporting also failed: {error:#}",
@@ -995,7 +1008,7 @@ pub fn run_with_progress(
                     ),
                 ));
             }
-            Err(SavedRunFailure::new(
+            Err(SavedRunFailure::error(
                 &dir,
                 format!(
                     "Unexpected pipeline error; partial run saved at {}",
@@ -1127,14 +1140,14 @@ pub fn rebundle_with_filenames(
         let saved =
             report::checkpoint(&dir, &mut record).and_then(|_| report::publish(&dir, &mut record));
         if let Err(report_error) = saved {
-            return Err(SavedRunFailure::new(
+            return Err(SavedRunFailure::error(
                 &dir,
                 format!(
                     "Bundle attempt failed: {error:#}; previous bundles were kept; reporting also failed: {report_error:#}"
                 ),
             ));
         }
-        return Err(SavedRunFailure::new(
+        return Err(SavedRunFailure::error(
             &dir,
             format!(
                 "Could not create bundles: {error:#}; previous active attempt {} and its decisions were kept",

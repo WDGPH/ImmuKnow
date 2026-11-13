@@ -668,6 +668,7 @@ fn exported_resources_work_outside_checkout_and_mixed_rows_remain_associated() {
     assert_eq!(fs::read(&original).unwrap(), before);
     let lock = fs::OpenOptions::new()
         .create(true)
+        .truncate(false)
         .read(true)
         .write(true)
         .open(run.join(".run.lock"))
@@ -841,7 +842,20 @@ fn school_reference_defaults_to_project_config_and_has_no_packaged_fallback() {
             settings.replace("  target_phu:", &format!("{reference}  target_phu:")),
         )
         .unwrap();
-        success(&prepare());
+        let prepared = prepare();
+        success(&prepared);
+        let record: Value = serde_json::from_slice(&prepared.stdout).unwrap();
+        let expected =
+            immuknow::hash(&fs::read(project.config.join("school_reference.json")).unwrap());
+        for entry in record["entries"].as_array().unwrap() {
+            let check = entry["checks"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|check| check["measurements"].get("reference_sha256").is_some())
+                .expect("School validation records its reference fingerprint");
+            assert_eq!(check["measurements"]["reference_sha256"], expected);
+        }
     }
     fs::remove_file(project.config.join("school_reference.json")).unwrap();
     let missing = prepare();

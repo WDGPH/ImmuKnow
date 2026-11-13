@@ -117,7 +117,7 @@ fn sort_key(entry: &Value) -> (bool, String, bool, String, String) {
         name.is_empty(),
         name,
         valid_dob.is_none(),
-        valid_dob.map(|date| date.to_string()).unwrap_or_default(),
+        valid_dob.map_or_default(|date| date.to_string()),
         entry["row_key"].as_str().unwrap_or("").to_owned(),
     )
 }
@@ -254,13 +254,13 @@ fn bundle_with_hook(
             e["routing"] = json!("failed");
             continue;
         };
-        if let Some(expected) = fixed {
-            if pages != expected {
-                crate::checks::append(
-                    e,
-                    json!({"code":"delivery.notice_length","stage":"delivery","status":"fail","message":format!("Expected {expected} pages; found {pages}")}),
-                )?;
-            }
+        if let Some(expected) = fixed
+            && pages != expected
+        {
+            crate::checks::append(
+                e,
+                json!({"code":"delivery.notice_length","stage":"delivery","status":"fail","message":format!("Expected {expected} pages; found {pages}")}),
+            )?;
         }
         let mut key = Vec::new();
         for field in &fields {

@@ -64,12 +64,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ========================================================================
-Rust 1.92.0 library code — MIT option
+Rust 1.100.0 library code — MIT option
 ========================================================================
 
 Rust library code linked into qr.wasm.
 Rust offers MIT or Apache-2.0 licensing; this notice uses the MIT option.
-Source: https://github.com/rust-lang/rust/blob/1.92.0/LICENSE-MIT
+Source: https://github.com/rust-lang/rust/blob/1.100.0/LICENSE-MIT
 
 Copyright (c) The Rust Project Contributors
 

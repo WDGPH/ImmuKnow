@@ -181,10 +181,10 @@ pub fn apply(record: &mut Value, config: &Config, resources: &Path) -> Result<()
                 if rule["enabled"] == false {
                     result["status"] = json!("not_run");
                     result["disabled"] = json!(true);
-                } else if matches!(check["status"].as_str(), Some("warn" | "fail")) {
-                    if let Some(severity) = rule.get("severity") {
-                        result["status"] = severity.clone();
-                    }
+                } else if matches!(check["status"].as_str(), Some("warn" | "fail"))
+                    && let Some(severity) = rule.get("severity")
+                {
+                    result["status"] = severity.clone();
                 }
             }
             results.push(result);

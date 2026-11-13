@@ -47,17 +47,10 @@ pub struct Encryption {
     pub enabled: bool,
     pub password: Password,
 }
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Default)]
 #[serde(deny_unknown_fields, default)]
 pub struct Password {
     pub template: String,
-}
-impl Default for Password {
-    fn default() -> Self {
-        Self {
-            template: String::new(),
-        }
-    }
 }
 #[derive(Deserialize, Serialize, Default)]
 #[serde(deny_unknown_fields, default)]
@@ -397,8 +390,9 @@ fn detect_delimiter(content: &str) -> u8 {
         .lines()
         .find(|line| !line.trim().is_empty())
         .unwrap_or("");
-    [b'|', b'\t', b';', b',']
-        .into_iter()
+    b"|\t;,"
+        .iter()
+        .copied()
         .max_by_key(|&delimiter| {
             let mut reader = csv::ReaderBuilder::new()
                 .delimiter(delimiter)
@@ -503,7 +497,7 @@ fn history(raw: &str, reference: &BTreeMap<String, Value>) -> Result<(Vec<Value>
             .or_else(|| agent.strip_suffix(" unspecified"))
             .filter(|s| !s.is_empty())
             .map(|s| format!("{s}*"))
-            .unwrap_or(agent.clone());
+            .unwrap_or_else(|| agent.clone());
         index.insert(key, output.len());
         output.push(json!({"date_given":given,"agent":agent,"display_name":display,"diseases":diseases,"mapping_known":mapped.is_some(),"validity":validity}));
     }
@@ -704,15 +698,13 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<RowPrepar
             .reference_file
             .as_deref()
             .filter(|s| !s.trim().is_empty());
-        let path = if file.is_none() {
-            config_dir.join("school_reference.json")
-        } else if Path::new(file.unwrap()).is_absolute() {
-            PathBuf::from(file.unwrap())
-        } else {
-            config_dir.join(file.unwrap())
+        let path = match file {
+            None => config_dir.join("school_reference.json"),
+            Some(file) if Path::new(file).is_absolute() => PathBuf::from(file),
+            Some(file) => config_dir.join(file),
         };
         let bytes = fs::read(&path).context("Unable to read school reference")?;
-        let data: Value = crate::read_json(&path)?;
+        let data: Value = crate::parse_json(&bytes)?;
         let mapping = data
             .get("phus")
             .and_then(|v| v.get(&c.school_validation.target_phu))
@@ -919,7 +911,7 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<RowPrepar
             checks.push(c);
         }
         let birth = date(get(r, "date_of_birth")).ok();
-        let dob = birth.map(|d| d.to_string()).unwrap_or_default();
+        let dob = birth.map_or_default(|d| d.to_string());
         let age = birth
             .zip(date(&c.date_of_delivery).ok())
             .map(|(b, d)| {
@@ -958,11 +950,11 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<RowPrepar
                     .entry(d.clone())
                     .or_default()
                     .push(token.clone());
-                if let Ok(n) = dose.trim().parse::<u64>() {
-                    if n > 0 {
-                        overdue.push(json!({"disease":d,"dose":n}));
-                        continue;
-                    }
+                if let Ok(n) = dose.trim().parse::<u64>()
+                    && n > 0
+                {
+                    overdue.push(json!({"disease":d,"dose":n}));
+                    continue;
                 }
                 checks.push(check(
                     "source.overdue_unusable",

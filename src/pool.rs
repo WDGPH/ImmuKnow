@@ -1,5 +1,5 @@
 //! Small bounded work queue. Workers return receipts; only the caller edits the run record.
-use anyhow::{Result, anyhow};
+use anyhow::{Result, anyhow, ensure};
 use std::{
     sync::{
         Arc, Mutex,
@@ -13,7 +13,11 @@ pub fn with_pool<J: Send, R: Send, T>(
     work: impl Fn(J) -> R + Sync,
     body: impl FnOnce(SyncSender<J>, Receiver<R>) -> Result<T>,
 ) -> Result<T> {
-    let (jobs, incoming) = mpsc::sync_channel::<J>(workers * 2);
+    ensure!(workers > 0, "Worker count must be greater than zero");
+    let capacity = workers
+        .checked_mul(2)
+        .ok_or_else(|| anyhow!("Worker count is too large"))?;
+    let (jobs, incoming) = mpsc::sync_channel::<J>(capacity);
     let incoming = Arc::new(Mutex::new(incoming));
     let (completed, results) = mpsc::channel();
     thread::scope(|scope| {
@@ -56,7 +60,11 @@ pub fn with_state_pool<S: Send, J: Send, R: Send, T>(
     work: impl Fn(&mut S, J) -> R + Sync,
     body: impl FnOnce(SyncSender<J>, Receiver<Result<R>>) -> Result<T>,
 ) -> Result<T> {
-    let (jobs, incoming) = mpsc::sync_channel::<J>(workers * 2);
+    ensure!(workers > 0, "Worker count must be greater than zero");
+    let capacity = workers
+        .checked_mul(2)
+        .ok_or_else(|| anyhow!("Worker count is too large"))?;
+    let (jobs, incoming) = mpsc::sync_channel::<J>(capacity);
     let incoming = Arc::new(Mutex::new(incoming));
     let (completed, results) = mpsc::channel();
     thread::scope(|scope| {
@@ -100,6 +108,29 @@ pub fn with_state_pool<S: Send, J: Send, R: Send, T>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn invalid_worker_counts_are_rejected_before_running_the_body() {
+        for workers in [0, usize::MAX] {
+            let expected = if workers == 0 {
+                "Worker count must be greater than zero"
+            } else {
+                "Worker count is too large"
+            };
+            let result = with_pool(
+                workers,
+                |_: ()| (),
+                |_, _| -> Result<()> { panic!("Invalid pool must not run its body") },
+            );
+            assert_eq!(result.unwrap_err().to_string(), expected);
+            let result = with_state_pool(
+                workers,
+                || (),
+                |_, _: ()| (),
+                |_, _| -> Result<()> { panic!("Invalid pool must not run its body") },
+            );
+            assert_eq!(result.unwrap_err().to_string(), expected);
+        }
+    }
     #[test]
     fn stateful_worker_panic_wakes_receiver_with_a_live_peer() {
         let result = with_state_pool(

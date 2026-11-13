@@ -139,9 +139,10 @@ fn resolve_named_links(doc: &mut Document) -> Result<()> {
         }
         if let Ok(entries) = d.get_deref(b"Names", doc) {
             let entries = entries.as_array()?;
-            ensure!(entries.len() % 2 == 0, "Invalid destination name tree");
-            for pair in entries.chunks_exact(2) {
-                names.insert(pair[0].as_str()?.to_vec(), destination(doc, &pair[1])?);
+            let (pairs, remainder) = entries.as_chunks::<2>();
+            ensure!(remainder.is_empty(), "Invalid destination name tree");
+            for [name, value] in pairs {
+                names.insert(name.as_str()?.to_vec(), destination(doc, value)?);
             }
         }
         Ok(())
@@ -153,10 +154,10 @@ fn resolve_named_links(doc: &mut Document) -> Result<()> {
             names.insert(name.clone(), destination(doc, value)?);
         }
     }
-    if let Ok(root) = catalog.get_deref(b"Names", doc) {
-        if let Ok(dests) = root.as_dict()?.get(b"Dests") {
-            tree(doc, dests, &mut names, 0)?;
-        }
+    if let Ok(root) = catalog.get_deref(b"Names", doc)
+        && let Ok(dests) = root.as_dict()?.get(b"Dests")
+    {
+        tree(doc, dests, &mut names, 0)?;
     }
     let aliases: BTreeMap<_, _> = doc
         .objects
@@ -176,14 +177,14 @@ fn resolve_named_links(doc: &mut Document) -> Result<()> {
             names: &BTreeMap<Vec<u8>, Object>,
             aliases: &BTreeMap<lopdf::ObjectId, Vec<u8>>,
         ) -> Result<()> {
-            let key = match value {
-                Object::Name(n) | Object::String(n, _) => Some(n.clone()),
-                Object::Reference(id) => aliases.get(id).cloned(),
+            let key = match &*value {
+                Object::Name(n) | Object::String(n, _) => Some(n.as_slice()),
+                Object::Reference(id) => aliases.get(id).map(Vec::as_slice),
                 _ => None,
             };
             if let Some(key) = key {
                 *value = names
-                    .get(&key)
+                    .get(key)
                     .ok_or_else(|| anyhow::anyhow!("Unresolved internal PDF destination"))?
                     .clone();
             }

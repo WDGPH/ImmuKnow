@@ -71,7 +71,9 @@ fn subjects(check: &Value) -> anyhow::Result<Option<Vec<String>>> {
         let mut values: Vec<_> = urls.iter().map(|url| url.as_str().unwrap()).collect();
         values.sort_unstable();
         ensure!(
-            values.windows(2).all(|pair| pair[0] != pair[1]),
+            values
+                .array_windows()
+                .all(|[first, second]| first != second),
             "Duplicate link subject destination"
         );
         ensure!(

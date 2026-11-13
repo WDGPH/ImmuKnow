@@ -14,7 +14,7 @@ URL construction, links and drawing styles remain in the shared Typst library.
 Install rustup, then run these commands from the repository root:
 
 ```sh
-rustup toolchain install 1.92.0 --profile minimal --component rustfmt,rust-src --target wasm32-unknown-unknown
+rustup toolchain install 1.100.0 --profile minimal --component rustfmt,rust-src --target wasm32-unknown-unknown
 typst-plugins/qr/build.sh
 typst-plugins/qr/build.sh --check
 cargo test --release --locked --test qr

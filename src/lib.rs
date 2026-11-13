@@ -40,10 +40,17 @@ impl<'de> Deserialize<'de> for Unique {
             ) -> std::result::Result<Unique, M::Error> {
                 let mut out = serde_json::Map::new();
                 while let Some((k, v)) = m.next_entry::<String, Unique>()? {
-                    if out.contains_key(&k) {
-                        return Err(de::Error::custom(format!("Repeated JSON field: {k}")));
+                    match out.entry(k) {
+                        serde_json::map::Entry::Vacant(entry) => {
+                            entry.insert(v.0);
+                        }
+                        serde_json::map::Entry::Occupied(entry) => {
+                            return Err(de::Error::custom(format!(
+                                "Repeated JSON field: {}",
+                                entry.key()
+                            )));
+                        }
                     }
-                    out.insert(k, v.0);
                 }
                 Ok(Unique(Value::Object(out)))
             }
@@ -80,7 +87,10 @@ impl<'de> Deserialize<'de> for Unique {
     }
 }
 pub fn read_json<T: serde::de::DeserializeOwned>(p: &Path) -> Result<T> {
-    let v: Unique = serde_json::from_slice(&fs::read(p)?)?;
+    parse_json(&fs::read(p)?)
+}
+pub(crate) fn parse_json<T: serde::de::DeserializeOwned>(bytes: &[u8]) -> Result<T> {
+    let v: Unique = serde_json::from_slice(bytes)?;
     Ok(serde_json::from_value(v.0)?)
 }
 pub fn atomic(p: &Path, bytes: &[u8]) -> Result<()> {

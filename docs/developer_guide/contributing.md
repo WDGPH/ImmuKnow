@@ -8,7 +8,13 @@ Install the pinned Rust toolchain and run the [relevant checks](testing.md). For
 
 ## Build the executable
 
-Install Rust 1.92 or later, then run from the repository root:
+The native crate uses Rust 1.100 or later and edition 2024. The toolchain file
+pins the compiler, Rustfmt and Clippy for reproducible checks. Cargo rejects
+unused direct dependencies through `[lints.cargo]`; keep `Cargo.lock` unchanged
+when updating only the compiler. The [QR plugin](qr.md) has its own toolchain
+pin and reproducible WebAssembly build.
+
+Install Rust 1.100 or later, then run from the repository root:
 
 ```sh
 cargo install --path . --locked

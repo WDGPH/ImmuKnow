@@ -374,10 +374,8 @@ pub(crate) fn remove_delivery(entry: &mut Value) -> Result<()> {
     let mut removed = BTreeSet::new();
     checks.retain(|c| {
         let delivery = c["stage"] == "delivery";
-        if delivery {
-            if let Some(k) = c["finding_key"].as_str() {
-                removed.insert(k.to_owned());
-            }
+        if delivery && let Some(k) = c["finding_key"].as_str() {
+            removed.insert(k.to_owned());
         }
         !delivery
     });

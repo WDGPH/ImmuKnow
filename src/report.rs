@@ -62,8 +62,7 @@ fn text<'a>(v: &'a Value, key: &str) -> &'a str {
 fn number(v: &Value) -> String {
     v.as_u64()
         .filter(|n| *n > 0)
-        .map(|n| n.to_string())
-        .unwrap_or_default()
+        .map_or_default(|n| n.to_string())
 }
 // Spreadsheet software can interpret text after leading whitespace/control characters as a formula.
 fn safe(s: &str) -> String {

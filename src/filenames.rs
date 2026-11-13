@@ -65,10 +65,9 @@ impl Settings {
                     !template.contains(['/', '\\', ':']) && !template.chars().any(char::is_control),
                     "filenames.{name}.template must be a basename, without paths or control characters"
                 );
+                let lowercase = template.to_lowercase();
                 ensure!(
-                    ![".pdf", ".csv"]
-                        .iter()
-                        .any(|ext| template.to_lowercase().ends_with(ext)),
+                    ![".pdf", ".csv"].iter().any(|ext| lowercase.ends_with(ext)),
                     "filenames.{name}.template is a stem; omit the file extension"
                 );
                 crate::formatting::expand(template, |field| {
@@ -158,11 +157,7 @@ fn safe_stem(value: &str) -> String {
     out
 }
 fn truncate(value: &mut String, max: usize) {
-    let mut end = max.min(value.len());
-    while !value.is_char_boundary(end) {
-        end -= 1;
-    }
-    value.truncate(end);
+    value.truncate(value.floor_char_boundary(max));
 }
 // Uppercase also unifies final sigma, dotless i and micro-sign variants that
 // lowercase alone misses on case-insensitive filesystems. Over-reservation is safe.
