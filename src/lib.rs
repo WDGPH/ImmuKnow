@@ -3,6 +3,7 @@ pub mod compiler;
 pub mod filenames;
 mod formatting;
 pub mod input;
+pub mod pdf;
 pub mod pool;
 pub mod project;
 pub mod resources;
