@@ -1,4 +1,4 @@
-// Structural marker geometry follows Codetastic; see vendor/qr/LICENSE.codetastic.
+// Structural marker geometry follows Codetastic; see vendor/qr/THIRD_PARTY_NOTICES.
 #let alignment-centres(n) = {
   let version = calc.quo(n - 17, 4)
   if version == 1 { return () }

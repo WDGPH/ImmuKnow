@@ -26,10 +26,13 @@ script removes machine-specific paths so another machine can reproduce it.
 Keep `rust-src` installed: its presence affects the paths in Rust's error code.
 CI runs this same comparison when the plugin changes.
 
-The plugin uses the unmodified MIT-licensed `qrcodegen` 1.8.0 encoder and
-`wasm-minimal-protocol` 0.1.0 interface. Its own `Cargo.lock` and
-`rust-toolchain.toml` pin the dependencies and compiler. Keep the licence notices
-beside the compiled file when updating either dependency.
+The plugin uses the unmodified `qrcodegen` 1.8.0 encoder under MIT and the
+`wasm-minimal-protocol` 0.1.0 interface under the Unlicense. Its own `Cargo.lock` and
+`rust-toolchain.toml` pin the dependencies and compiler. The bundled
+[third-party notices](https://github.com/WDGPH/ImmuKnow/blob/main/resources/typst/vendor/qr/THIRD_PARTY_NOTICES)
+cover the encoder, protocol interface, linked Rust library code and adapted
+Codetastic drawing geometry. Keep the notice file beside `qr.wasm` and update
+its component versions and terms when dependencies or the toolchain change.
 
 ## How it connects to Typst
 

@@ -167,7 +167,7 @@ typst eval --in notice.typ 'query(<immuknow-report>).map(it => it.value)' \
 ```
 
 QR encoding uses the bundled Rust/WebAssembly plugin in `vendor/qr/`, with
-its upstream licence notices. It includes an explicit UTF-8 encoding declaration
+its [third-party notices](vendor/qr/THIRD_PARTY_NOTICES). It includes an explicit UTF-8 encoding declaration
 for non-ASCII destinations. URL construction and styled drawing remain in Typst;
 plain square symbols use SVG for RGB/grayscale foregrounds and horizontal runs
 for other colour spaces. Styled symbols and centre images use a cell matrix;
