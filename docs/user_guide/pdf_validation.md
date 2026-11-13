@@ -1,280 +1,111 @@
-# PDF checks, review and rebundling
+# PDF checks and review
 
-Open a run's `report.html` to inspect its source rows, selected notices, findings
-and actual output results. `run.json` is the authoritative record. Findings do
-not disappear when a delivery choice changes.
+Each run saves its authoritative evidence in `run.json` and publishes a matching pair of CSV files. Open the `records.csv` and `findings.csv` paths printed by the terminal in a spreadsheet and inspect representative notices before sending them. With `--progress off`, find the selected paths in `run.json` under `exports.records.path` and `exports.findings.path`; they are relative to the run folder.
 
-Python checks the actual original PDF's readability, page count, hash and
-client ID, displayed birth date and school, and mailing name and address inside
-the supplied blocks. Typst supplies measured layout evidence from the content placed in the notice. A readable PDF is retained when checking
-fails, with a blocking evidence failure. Quality warnings preserve useful
-PDFs; missing templates and failed compilation cannot produce a selected notice.
-There is no default fixed page count.
+`records.csv` has one row per readable source record. Filter `severity` to find errors or warnings, `evaluation_state` to find incomplete checks, and `route` to see ready, review, withheld, report-only and undecided records. Use `row_key` to join a record to its findings. Original and protected paths and inclusive bundle page ranges identify available PDFs; paths are relative to the run folder. A held record retains its original but is excluded from bundles. Ready means eligible under the effective rules; check bundle status and path to see whether an artifact was produced.
 
-These checks use each block's recorded position. Every repeated client and address block
-must match; matching text elsewhere cannot fill in for a missing or incorrect
-block. Text comparisons allow changes in spaces and line breaks. Missing IDs,
-areas outside the page, and rotated or scaled text stay in review.
-Saved-run delivery repeats this check. It does not prove that arbitrary text
-or images outside the supplied components contain
-no other person's details.
+`findings.csv` contains actionable checks, compiler warnings and operational failures. Filter by code or effective status, then join by `row_key`. The observed status records the original check; the effective status and policy reason show any authorized rule change. Code counts in the terminal overlap: one source row may have more than one finding. Compiler diagnostics and run or attempt errors are reported separately. Passing and inapplicable checks remain in `run.json` rather than filling the spreadsheet.
 
-Reports retain the notice data used for layout. It must match the prepared input,
-and each placed personal-content helper must use that same data. This catches
-changed facts even when row and client IDs are unchanged. It does not compare
-printed vaccine history or overdue lists with the PDF.
+Import client IDs and other identifiers as text to preserve leading zeros. CSV cannot force spreadsheet programs to use text. The exports prefix an apostrophe to external text that could be interpreted as a spreadsheet formula, including after leading whitespace or control characters; `run.json` retains the exact values. The files use UTF-8, standard CSV quoting and CRLF line endings.
 
-Every recorded QR destination must occur in the PDF's clickable links.
-Destinations from `link` must also occur on the page where the helper
-starts. Missing, changed or unreadable destinations fail the evidence check,
-including when rebundling a saved run. These comparisons make no network requests.
-They do not check individual link positions or decode printed QR images.
+A warning can be eligible for sending. A failed check or mandatory check that was not performed prevents normal delivery; a readable original goes to a review PDF, while a record without a usable original is report-only. A completed run can contain failures and returns a nonzero exit status. The run retains original PDFs and, when requested, separate protected copies. Link checks validate address formats; they do not test whether websites respond. For explanations of individual codes, see the [finding code reference](findings.md).
 
-Native checking also warns when an external PDF link has a destination absent
-from the supplied helpers' records, including links made with Typst's plain
-`link` function. Internal page links are excluded. A plain link to a destination
-already recorded elsewhere cannot be distinguished this way. Studio does not
-run this native check.
+## CSV fields and types
 
-The supplied link and QR helpers warn when a web link lacks HTTPS or a host, or
-contains spaces, in Studio and native runs. They also warn when the notice has several different link
-destinations, counting QR codes and ordinary links together. Repeated links to
-the same destination count once. Several destinations may be intentional; review
-the warning or change its rule setting. Email and phone details still need author
-review. These checks do not contact websites or parse email addresses and phone
-numbers.
+Both CSVs use export schema 1 and carry `run_id`, integer `record_revision` and the active `bundle_attempt` (empty before a successful attempt). A failed later attempt is identified separately on its finding. `row_key` joins the files; `source_record` is the 1-based data-record ordinal, including multiline CSV records. IDs are text and may repeat. Paths are relative to the run root. Empty cells indicate unavailable values; page counts and inclusive ranges are positive integers when present.
 
-Native PDF checks also warn when a recorded QR destination is not a complete
-HTTP or HTTPS web address. They check the host, port, spaces and percent escapes,
-including encoded international domain names and IPv6 addresses. They do not check
-whether a website exists or responds. Other QR schemes need an explicit review
-or a change to the rule below. Studio does not run this native check.
-QR destinations support accented characters and other Unicode text.
+`records.csv` columns, in order:
 
-## Delivery and review
-
-For each readable original, the shared evaluator in
-`immuknow/validation_policy.py` applies these decisions in order:
-
-1. Failed original checks select review. Mandatory identity, readability and
-   evidence checks cannot be accepted as warnings. Unknown or malformed check
-   evidence fails the delivery attempt.
-2. A row explicitly withheld by the operator stays in review.
-3. Each unresolved warning selects review until individually accepted.
-4. An otherwise eligible original enters delivery.
-
-There are no blanket warning allowances or force-delivery destinations.
-Encryption failures affect the separate encrypted copy; they never substitute
-an unencrypted file for a requested encrypted output. Print bundles use originals.
-
-Each attempt saves `evaluations` by immutable source row key in `run.json`,
-including observations, resolved results and `warning_tokens`. Each token
-identifies one warning occurrence, including when the same rule warns on two
-pages. Inspect the original PDF and that evaluation, then copy the exact token:
-
-```bash
-immuknow-rebundle ./runs/<run-id> \
-  --accept-warning <token-from-report> --reason "Reviewed signature continuation"
+```text
+run_id,record_revision,bundle_attempt,row_key,source_record,client_id,name,school,notice_variant,language,severity,evaluation_state,route,hold_reason,original_status,original_path,original_pages,protected_status,protected_path,bundle_status,bundle_path,bundle_start_page,bundle_end_page
 ```
 
-Repeat `--accept-warning` for each warning reviewed. A nonempty reason is
-required. Decisions are retained in `warning_acceptances` with the run, source
-row, original PDF hash, evidence hash, rule identity and acceptance time. A
-changed PDF, source binding, resource, observation, warning set or rule definition
-invalidates the affected acceptance. A stale token is refused, and an earlier
-acceptance remains visible without releasing changed evidence. Unknown or
-incomplete mandatory evidence requires renewed checking and a new run.
+Severity is one of `error`, `warning`, `clear` or `pending`; evaluation is `complete`, `pending` or `blocked`. Artifact statuses use `completed`, `failed`, `pending`, `not_requested` or `excluded`. For example, a held warning has severity `warning`, route `withheld`, and bundle status `excluded`; an invalid source row may have severity `error` and route `report_only` with no PDF path. A still-running row may be `pending`; a warning already observed takes precedence while evaluation remains pending.
 
-To replace the set of rows kept in review independently of findings, use
-`--withhold row-000001` (repeat for additional rows). Use `--clear-withheld`
-to clear that set. Omitting both retains it. These choices never accept warnings
-or bypass failures. Source row keys work even when an external identifier is
-absent; names are never used as selectors.
+If a run stops before a row is evaluated, its evaluation and unattempted original remain `pending`, while its severity becomes `error` because required work is unfinished. The run finding explains the interruption. Source or original failures exclude protection that could not be attempted; an attempted protection failure remains `failed`. A completed protected copy remains available even if its original later becomes unusable. Requested bundling that has not started remains `pending`; completed notice checks do not make unfinished delivery clear. Bundle page ranges appear only for completed bundle membership.
 
-The report provides each rule code, message, location and measurements.
+`findings.csv` columns, in order:
 
-A history table's `content.history_mapping` error prevents delivery and cannot be
-accepted as a warning or changed through rule settings. Correct the agent name
-or reference mapping, or explicitly exclude it with `ignore-agents`, then generate
-a new run. See [history options](phu_templates.md#component-choices-and-findings).
-
-## Rule settings
-
-These checks are enabled and warn by default. Each permits `enabled: false`
-or `severity: fail`, for a run or an explicitly selected source row.
-
-| Check | Rule code |
-| --- | --- |
-| Address fits the envelope window | `layout.address_outside_window` |
-| An envelope window is specified for the address | `layout.envelope_window_missing` |
-| Client details stay outside the envelope window | `layout.client_details_in_window` |
-| Signature stays with preceding content | `layout.signature_page` |
-| Privacy text stays on its expected page | `layout.privacy_page` |
-| Section stays within its page boundary | `layout.section_pages` |
-| History columns have enough width | `layout.history_width` |
-| Title fits its line limit | `layout.header_title_lines` |
-| Placed content has a translation | `content.translation_missing` |
-| Link destinations use HTTPS, mailto or tel address formats | `content.link_destination` |
-| Web links use HTTPS and include a host | `content.link_https` |
-| Multiple link destinations have been reviewed | `content.multiple_links` |
-| QR destination has an HTTP or HTTPS web address | `output.qr_destination` |
-| PDF link destinations are recorded by supplied helpers | `output.unrecorded_link` |
-
-The client-details check compares the supplied block's bounds with the window
-on the first page, for both right and below placement. It does not check other
-content placed elsewhere by the author.
-If addresses are placed without any specified window, a separate warning is
-recorded. Fit and overlap are not reported as passing for an unspecified window.
-
-Set rules in `parameters.yaml`. Every change needs a reason:
-
-```yaml
-validation:
-  rules:
-    layout.signature_page:
-      severity: fail
-      reason: Keep signatures on the letter page
-  clients:
-    - selector:
-        scheme: panorama
-        value: "0000000001"
-      rules:
-        layout.signature_page:
-          severity: warn
-          reason: This letter needs a longer signature block
+```text
+run_id,record_revision,bundle_attempt,scope,attempt_number,row_key,client_id,finding_key,origin,code,observed_status,effective_status,disabled,policy_reason,component,page,message,issue_ids,acknowledged_issue_ids
 ```
 
-Settings apply in order: defaults, run settings, then row settings. Each field
-retains its source and reason. A row setting only replaces fields it supplies.
-To select a row without an external identifier, use
-`selector: {input_sha256: "<input hash from run.json>", row_key: row-000001}`.
-Each selector must match exactly one source row. Unknown rules, unsupported
-fields, invalid types and multiple selectors for the same row are refused.
+Scope is `row`, `run` or `attempt`; only row findings have a row key. Origin is `check`, `compiler` or `artifact`. Observed and effective check statuses use `pass`, `warn`, `fail`, `not_run` or `not_applicable`, and `disabled` is a boolean. `issue_ids` and `acknowledged_issue_ids` are JSON arrays; an empty array is `[]`. One check can identify several subjects. A warning disabled by a rule remains visible with the original `warn`, effective `not_run`, `disabled` true and the rule reason. Compiler diagnostic blocks are separate findings. Ordinary passing checks remain in canonical evidence.
 
-Disabled checks appear as `not_run`, never as passed. Identity, row binding,
-required evidence and PDF readability cannot be disabled or downgraded.
-Other rules retain their recorded severity. `immuknow/validation_policy.py` owns
-policy resolution
-and mandatory protections. Render check definitions come from the shared
-`typst/report-v2.json` schema in the package.
+The terminal uses readable source records as its denominator, including held and failed records. Severity buckets are exclusive; code counts overlap. With zero readable records the percentages are `n/a`. Rounded percentages may not add to exactly 100 percent.
 
-To change settings for a saved run, put the contents of the `validation` section
-in a JSON file and run:
+## Record review of a link warning
 
-```bash
-immuknow-rebundle ./runs/<run-id> --policy rules.json
+List distinct current URL issues and their full IDs, then record or revoke attention with a reason that does not contain client information:
+
+```sh
+immuknow warnings runs/example-run
+immuknow acknowledge runs/example-run ISSUE_ID --reason "Reviewed destination"
+immuknow acknowledge runs/example-run ISSUE_ID --reason "Review withdrawn" --revoke
 ```
 
-This replaces the saved settings; omitted settings return to defaults. An empty
-object (`{}`) restores all defaults. Omitting `--policy` retains the saved settings.
-Every attempt saves its rule definitions, resolved settings and results.
-Rule changes invalidate affected warning acceptances. Recheck the report before
-accepting warnings again. Changing enabled state or severity reuses retained
-findings; measurement limits are authored in the templates and require a new run.
+An acknowledgment applies to the exact issue in that saved run, including later rebundles. A changed destination is a different issue. Acknowledgment records attention; it does not change severity, routing, exit status or PDFs. The warning command also identifies inactive acknowledgments. `findings.csv` carries issue IDs and acknowledged IDs for reviewable findings.
 
-## Bundle contents
+If the CSV pair is missing or stale, repair the output problem and run `immuknow warnings runs/example-run --refresh`. Refresh reads the last saved checkpoint, including a readable failed or running `.incomplete` run, and regenerates the pair without recompiling or replaying a review action. Earlier generations remain available as immutable snapshots. Unsupported saved-run schema versions require the matching older executable.
 
-Delivery bundles contain unchanged original notice pages. Choose [delivery grouping](configuration.md#group-delivery-bundles) by school, board,
-notice language, page count, or a combination.
+## What Core checks during a run
 
-Review bundles form one group, split by the configured client count. Each client
-appears once, even with several warnings. A review sheet immediately precedes
-each notice and includes its client ID, source row key, selected template, all
-findings, useful measurements and the individual warning tokens and rebundle instructions.
-Sheets may span several pages; findings are never truncated to fit one page.
+| Check | Purpose | When it runs |
+| --- | --- | --- |
+| Source data, assignments and required password facts | Catch missing, inconsistent or unusable inputs. | Production preparation. |
+| Notice evidence, layout and delivery rules | Check the selected client, content, placement and page count; decide whether the notice can be sent. | Every production notice. |
+| PDF creation and file operations | Require successful Typst export, a nonempty document, successful writes and publication. | Every production notice. |
+| Encryption settings and bundle structure | Require the configured protection, a usable normalized password and consistent page counts. Parse source PDFs when needed to encrypt or combine them. | Every requested protected copy or bundle. |
+| Saved-PDF reopening, password refusal/access and preserved content | Detect regressions in the pinned PDF libraries and Core's integration. | Automated round-trip tests and release acceptance checks. |
 
-Every copied review notice page has a small red `REVIEW` mark in an added outer
-band. Its original content keeps the same physical size and is neither covered
-nor scaled. Originals remain unchanged. The report records separate review-sheet
-and notice page ranges, as well as the full span of each client's placement.
-These ranges come from the assembled PDFs.
-Before replacing the active set, ImmuKnow opens every written bundle and compares
-each page with its selected source page, including its content and resources.
-Missing, duplicated, changed or reordered pages fail the attempt even when the
-total page count is unchanged.
+Core trusts successful calls to the pinned Typst exporter and PDF writer. It does not reopen every newly written PDF or authenticate every newly encrypted copy during production. Those library contracts do not establish that wording, client information or layout is correct; the notice checks and operator review still apply. Successful file operations also do not promise protection from later storage corruption or modification.
 
-### Fixed notice length
+## Know which PDF you are sending
 
-When delivery needs a fixed number of PDF pages per notice, set an explicit count:
+Originals are the source for both normal and review bundles. Encrypted PDFs are
+separate per-person copies; bundles are **not encrypted** by enabling notice
+encryption. If requested encryption fails, a readable original goes to review,
+even if its other checks passed. Review the encryption outcome before using an
+individual copy, and choose your approved delivery method for each artifact.
 
-```yaml
-validation:
-  notice_length:
-    enabled: true
-    count: 2
-    unit: pages
+Bundles retain notice pages and links, but do not combine document-level tags,
+outlines or catalog attachments. Forms are rejected. Keep the original or
+individual encrypted document when document-level accessibility structure is
+required. Inspect the actual delivery files as well as the originals.
+
+## Rule settings and notice length
+
+The [configuration guide](configuration.md#run-settings) defines run-wide and exact-row rule changes and required notice length. Mandatory checks cannot be disabled or downgraded. The saved record preserves observed checks separately from effective results and policy reasons. Warnings remain eligible under the effective rules; a required page count never adds pages to a notice.
+
+To record attention without changing rules, use [link warning review](#record-review-of-a-link-warning).
+
+## Rebuild bundles
+
+Use a saved run to create another set of PDFs. Replace `runs/example-run` with the folder containing the printed `run.json`:
+
+```sh
+immuknow rebundle runs/example-run
+immuknow rebundle runs/example-run --withhold row-000001 --reason "Pending review"
+immuknow rebundle runs/example-run --release row-000001
 ```
 
-The count applies to every notice in each delivery bundle. It counts PDF pages,
-including existing blank pages; no blank pages are added. It does not count
-physical sheets, depend on printer settings, or include review sheets. The rule
-is disabled by default and requires bundling to be enabled. It has no per-client
-exception or warning setting.
+Use `--policy policy.json` to apply a rules file and `--bundle-workers 4` to set the number of workers assembling PDFs. A held notice is excluded from both the PDFs for sending and the review PDFs. Releasing a hold leaves its checks in force. Each attempt records outcomes and creates a new numbered bundle directory. Review the current CSV pair and the selected bundle paths before sending notices. A failed later attempt retains the previous active decisions and bundles; its error appears separately.
 
-Each written delivery batch records the expected and actual counts in `run.json`.
-A mismatch fails the attempt and preserves the previous bundle set. Accepting a
-signature or other layout warning cannot waive it. A held notice remains listed
-in review; it is not silently removed from the accounting. Change this setting
-for a saved run through `--policy`, just like the other validation settings.
+To change only the next bundle attempt's names, supply `--filenames filenames.json`:
 
-### Encrypted copies
-
-Individual encryption is optional and separate from bundles. Copies use AES-256,
-revision 6, with a 256-bit key. The package includes the required encryption
-backend. The written settings, nonempty password access and page count are
-checked before publishing; `run.json` records the verified method. Passwords use
-normalized saved facts. Missing referenced facts, including an unknown birth
-date for the default compact birth-date password, fail encryption instead of
-creating an empty password. Independent clients continue. Successful encrypted
-copies are verified and saved under `encrypted/`; originals remain available for
-review and rebundling. Password settings and expanded passwords are not saved.
-The tests also open encrypted copies with MuPDF and compare their rendered pages
-with the originals. Browser checks open English and French copies in Chromium’s
-PDF viewer, including an accented password. The required recipient readers and
-versions still need acceptance testing.
-
-## Rebundle a saved run
-
-To reevaluate and rebuild using already recorded acceptances:
-
-```bash
-immuknow-rebundle ./runs/<run-id>
+```json
+{
+  "bundle": {"template": "{school}_{notice_variant}_{bundle_number}"},
+  "review_bundle": {"template": "review_{school}_{notice_variant}_{bundle_number}"}
+}
 ```
 
-Rebundling reads the saved record and original PDFs, checks every original hash
-and page count, verifies retained payload bindings and resource hashes, and assembles a complete replacement set. It uses the run's
-available system fonts and frozen timestamp for review sheets
-and marks. Source CSV
-and authored template directories can be moved or removed. Notices are not
-recompiled, facts are not prepared again, and encryption is not rerun.
+```sh
+immuknow rebundle runs/example-run --filenames filenames.json
+```
 
-Each attempt records the application code and data format files it uses, along
-with the Python and pypdf versions and saved resources. For review
-pages, it also records the review templates, compiler file and reported version.
-File hashes identify the exact copies; earlier attempt records stay unchanged.
-Unsupported saved data or compiler versions and changed saved resources are
-refused before delivery, including when no review pages are needed.
-
-A notice moved from review to delivery comes from its original PDF. Its old
-review copy is replaced with the active set; no stamp-erasure operation is used.
-Warnings and earlier delivery attempts remain in `run.json`.
-
-Only one process can change a run at a time. Rebundling locks the run before
-reading its record and keeps it locked through recovery and replacement. A
-second attempt stops with “This run is in use”; unrelated runs can proceed.
-New runs use the same protection through their final report write. The operating
-system releases the lock when a process exits, including after an interruption.
-Do not delete `.run.lock` to bypass a busy run.
-
-Invalid choices, missing or changed originals, and failed assembly leave the
-previous committed bundle set and memberships active. Interrupted replacement
-is detected through the saved attempt status and the fixed `bundles.next` and
-`bundles.previous` directories. The next invocation restores the previous set
-before beginning a new attempt, or removes the backup when JSON already records
-a completed replacement. There is no separate transaction manifest.
-
-The command's exit status describes the current rebundling attempt. A successful
-new attempt returns 0 even when earlier failures remain in the run's audit
-history. Unsupported run formats are refused; only format version 2 is supported.
-Originals, facts and reports contain client information and belong in sensitive
-run storage outside Git.
+The file replaces bundle/review filename settings; omit `review_bundle` for the
+automatic review prefix, or use `{}` to restore legacy bundle names. Individual
+settings are rejected here because saved originals and protected copies retain
+their paths. Previous bundle attempts remain. The run records the effective
+filename settings, resolved paths and any fallback warnings for the new attempt.

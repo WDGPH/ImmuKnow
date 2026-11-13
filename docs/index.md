@@ -1,25 +1,29 @@
 # ImmuKnow
 
-ImmuKnow checks Panorama/PEAR vaccination records and creates personalized
-immunization notices and history charts. It prepares the supplied records and
-uses your notice assignments. The upstream system assesses immunization status;
-Typst templates control the presentation of English and French notices.
+ImmuKnow turns a CSV file of immunization information into personalized PDF
+notices. You select the notices; the system that supplied the information is
+responsible for assessing immunization status.
 
-The included wording, branding, and contact details are samples. Public Health
-Units should review their selected templates and PDFs before use.
+## Three projects, one notice workflow
 
-Start with [input preparation and the complete workflow](user_guide/getting_started.md).
-Use the [configuration contract](user_guide/configuration.md) for assignments,
-Typst display/QR settings, encryption, and validation. The
-[template authoring guide](user_guide/phu_templates.md) defines the per-notice
-JSON and native identity assertions. Contributors can follow the
-[testing guide](developer_guide/testing.md).
+Core owns native processing and shared components. Template supplies the project
+that your organization adapts. Studio provides browser editing and previews.
+See [Studio’s own documentation](https://docs.phiz.ca/immuknow-studio/latest/) for editing and project export.
 
-The native package includes a portable Typst project, its licensed QR encoder,
-and supporting resources. A run keeps original PDFs, frozen resources,
-and one authoritative `run.json` with a readable `report.html`. Warnings retain
-reviewable PDFs, and independent clients continue when another notice fails.
+Read [projects and contracts](ecosystem.md) for a description of each project's
+responsibilities and the files they share.
 
-Use [ImmuKnow Studio](user_guide/studio.md) to edit and preview notices in a
-browser with fictional examples. Its project download includes local setup and
-helper scripts for running notices with Core on your workstation.
+## Create and review notices
+
+Start with [getting started](user_guide/getting_started.md). It explains what you
+need, how to create notices, and where to find the PDFs and report. The
+[configuration guide](user_guide/configuration.md) explains settings and reference
+lists. See [CSV fields](user_guide/input_schema.md) for the required columns and
+[PDF review](user_guide/pdf_validation.md) for warnings, failed checks and holds.
+
+## Edit templates or work on the application
+
+The [template guide](developer_guide/templates.md) explains how to change notice
+content and shared components. Developers can use the
+[command reference](developer_guide/cli.md), [architecture guide](developer_guide/architecture.md)
+and [contributing guide](developer_guide/contributing.md).

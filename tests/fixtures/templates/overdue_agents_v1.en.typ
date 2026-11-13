@@ -1,5 +1,6 @@
 #import "settings.typ": *
 #show: letter
+#immuknow.requirements(notice, eligibility: "has_overdue_agents", coverage: "agents")
 #notice-page("Rendering fixture")[
   #immuknow.client-block(notice, window: envelope-window, font-size: client-font-size, details: client-details)
   As of #date_as_of

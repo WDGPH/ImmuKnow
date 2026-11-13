@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
     tags: ['v*.*.*']
+  release:
+    types: [published]
   delete:
   workflow_dispatch:
 
@@ -20,6 +22,7 @@ jobs:
           GH_TOKEN: ${{ secrets.DOCS_HUB_TRIGGER_TOKEN }}
           EVENT_NAME: ${{ github.event_name }}
           EVENT_REF: ${{ github.ref }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
           DELETED_REF: ${{ github.event.ref }}
           DELETED_REF_TYPE: ${{ github.event.ref_type }}
         shell: bash
@@ -32,6 +35,11 @@ jobs:
             workflow_dispatch)
               latest=true
               releases=true
+              ;;
+            release)
+              if [[ "$RELEASE_TAG" =~ $semver ]]; then
+                releases=true
+              fi
               ;;
             delete)
               if [[ "$DELETED_REF_TYPE" == 'tag' && "$DELETED_REF" =~ $semver ]]; then

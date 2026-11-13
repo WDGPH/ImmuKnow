@@ -1,0 +1,15 @@
+bundling:
+  bundle_size: 100
+  group_by: null
+school_validation:
+  enabled: false
+  target_phu: Example Health Unit
+date_as_of: '2025-04-01'
+date_of_delivery: '2025-04-08'
+encryption:
+  enabled: false
+  password:
+    template: '{date_of_birth_iso_compact}'
+pipeline:
+  after_run:
+    remove_artifacts: false
