@@ -1,9 +1,12 @@
 //! Prepare client information, compile notices, and save PDFs with a review report.
+pub mod bundles;
+mod checks;
 pub mod compiler;
 pub mod filenames;
 mod formatting;
 pub mod input;
 pub mod pdf;
+pub mod policy;
 pub mod pool;
 pub mod project;
 pub mod resources;
