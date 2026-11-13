@@ -67,6 +67,8 @@ The opening stays short:
 #import "settings.typ" as immuknow
 #show: immuknow.letter // Apply the letter layout
 
+#immuknow.requirements(eligibility: "has_overdue", coverage: "diseases")
+
 #immuknow.notice-page("Request for Immunization Record")[
   #immuknow.client-block(window: immuknow.envelope-window)
   As of *#immuknow.date_as_of*, our files show these overdue immunizations:
@@ -138,7 +140,7 @@ Use a helper's explicit `addressee:` option when authored wording requires a
 particular label. The suspension starter uses the same reader flags for its service wording,
 reader heading and default addressee. Age facts remain available independently
 of the intended reader.
-See [intended reader](../user_guide/getting_started.md#intended-reader) for CSV overrides and
+See [intended reader](../user_guide/input_schema.md) for CSV overrides and
 mailing destinations.
 
 Link labels stay together by default:
@@ -472,10 +474,10 @@ Use an explicit image path and width inside the signature block:
 
 For a smaller signature, change `width: 4.5cm` to `width: 3cm`. Leave height
 unspecified to preserve the image's aspect ratio. The helper assumes no default
-image filename. Use `signature: none` to omit the image.
+image filename. Use `signature: none` to omit the image. Keep the printed name and credentials directly in the signature call; any signatory named separately in the notice wording remains authored content.
 
 The supplied report builder creates invisible document metadata described by
-`report.json` inside the library (`schema_version: 2`). It does not add report pages
+`report.json` inside the library (`schema_version: 4`). It does not add report pages
 or attach a JSON file to the PDF. It includes the source row and selected filename as well as
 client, version and language. Missing fields, unknown checks/components,
 contradictory presence findings and invalid page ranges are refused by native
@@ -547,10 +549,6 @@ unknown-age, long-address and long-history examples, including QR links,
 window placement, signatures, symbols and page continuation. The
 [testing guide](testing.md) describes repeatable checks.
 
-Keep the printed name directly in the signature call. It may include credentials,
-for example `name: "Dr. Annie Body, MD"`. The suspension order defines a separate
-`order-signatory-name` in its Template for the legal wording, without requiring
-the printed signature to use exactly the same text.
 
 ## Page title alignment
 

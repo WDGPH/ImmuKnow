@@ -11,8 +11,8 @@ You need:
 - A configured notice project containing a `templates` folder and a `config` folder. [ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template) provides example notices and settings to adapt. Review the wording, branding, contacts, and settings for your organization. Use the [compatible native starter revision](studio.md#compatibility-with-standalone-core). The project must use resources compatible with your Core executable; see the [template guide](../developer_guide/templates.md). Install the fonts required by your project on the workstation.
 
 Keep input files and run folders in approved storage with access restricted to
-people who need them. Saved facts, original and encrypted PDFs, reports and bundle
-CSVs may contain personal information. Encryption creates an additional copy;
+people who need them. Saved facts, original and encrypted PDFs, reports and CSV
+exports may contain personal information. Encryption creates an additional copy;
 it does not protect the remaining artifacts. Apply your organization's transfer,
 backup and retention rules to the whole run.
 
@@ -67,13 +67,13 @@ immuknow run clients.csv --project project --notices notices.json
 
 If your terminal is already open in the project folder, you can omit `--project project`: `immuknow run clients.csv --notices notices.json` uses the local `templates/` and `config/` folders.
 
-`--notices` is a shorter name for `--notice-assignments`; both take the same JSON selection file. CSV and selection-file paths are relative to your current folder. With `--project`, a relative `--template` is looked up inside that project's `templates/` folder. You can still supply `--templates` and `--config` explicitly to override the project folders.
+`--notices` is a shorter name for `--notice-assignments`; both take the same JSON selection file. CSV and selection-file paths are relative to your current folder. With `--project`, a relative `--template` is looked up inside that project's `templates/` folder. `--config` overrides the project configuration folder. With an assignment file, `--templates` overrides its templates folder; it cannot be combined with `--template`.
 
 ## Follow the progress
 
 The terminal shows the current job, a progress bar while notices are processed, a running count of protected copies, and processing speed once work has been running for a second. It then summarizes source-row severity, delivery and finding codes, and prints the paths of `records.csv` and `findings.csv`. Processing a row is not the same as passing every check: review the final findings too.
 
-The defaults use text labels. Add `--emoji` for decorative emoji in the headings. Use `--progress plain` for stage announcements and occasional counts without redrawing lines, or `--progress off` to hide progress and the summary. Redirected output uses plain announcements automatically. `NO_COLOR` disables terminal styling. These choices affect the display only.
+The defaults use text labels. Add `--emoji` for decorative emoji in the headings. Use `--progress plain` for stage announcements and occasional counts without redrawing lines, or `--progress off` to hide progress and the summary. Redirected output uses plain announcements automatically. `NO_COLOR` disables terminal styling. These choices affect the display only. Standard output still prints the `run.json` path when the summary is hidden; use its `exports.records.path` and `exports.findings.path` to locate the current CSV pair, relative to the run folder.
 
 The [configuration guide](configuration.md) explains the selection file and settings. Notice filenames follow `<version>.<language>.typ`, with `en` or `fr` as the language. You choose the notices; requirements declared inside each notice check whether it fits the supplied information when it compiles. They do not choose or translate notices.
 
@@ -91,17 +91,9 @@ The [CSV field reference](input_schema.md) describes the columns. Text is kept a
 
 Some missing values produce findings while retaining the row. Invalid history or an invalid intended reader fails that source row without inventing facts or a PDF; other valid rows continue. Coverage mismatches are evaluated by each notice and can retain a readable original for review. Unlisted duplicate nonblank client IDs and missing or ambiguous notice assignments still reject the input. You can explicitly allow known duplicate IDs in [configuration](configuration.md#notice-selection); every matching row is retained with a warning. If the CSV structure prevents rows from being read, the original `source.csv` and the rejection reason are retained.
 
-For vaccine history, write each entry as `YYYY-MM-DD - Agent`, optionally followed by ` - Valid` or ` - Invalid`, and end each entry with a semicolon. For example:
-
-```text
-2020-05-01 - MMR - Valid;2021-06-02 - Tdap;
-```
-
-Use exact agent names from the vaccine reference in your settings. A blank history, `-;`, or `-  -;` means no history. See the [template guide](../developer_guide/templates.md) for how history is checked when displayed.
-
-## Intended reader
-
-The optional `intended_reader` column can be `student` or `guardian`. If blank, the default is student at age 16 or older and guardian under 16. If age is unknown and the reader is blank, the notice uses neutral wording. Other values are rejected. Put the intended mailing destination in the address columns.
+See the [CSV field reference](input_schema.md) for vaccination history syntax,
+validity flags, intended-reader values and age defaults. Supply agent names from
+your project's vaccine reference and the intended mailing address in the CSV.
 
 ## For integrations
 
@@ -117,7 +109,7 @@ The optional `intended_reader` column can be `student` or `guardian`. If blank, 
 | Incompatible shared library | Export resources from the intended executable and replace the complete project library; see [resource compatibility](../ecosystem.md#native-handoff). |
 | Notice compilation fails | Find the row and diagnostic in the report. Other independent notices can still succeed. Fix the template or facts and create a new run. Rebundling cannot create a missing original. |
 | Command interrupted or fatal error | Retain the `.incomplete` folder for investigation. Checkpoints may predate the interruption. During notice creation they save after the first 100 notices, then at doubling row counts, or at the next completed row after 30 seconds since the previous save. Setup, slow rows and report writes can extend that interval. There is no resume command. Correct the cause and start a new run. Incomplete runs cannot be rebundled. |
-| Bundle attempt fails on a completed run | Read the error and failed attempt record. Earlier bundles and decisions remain available. Correct the cause and retry `rebundle`; check the new report and membership CSVs. |
+| Bundle attempt fails on a completed run | Read the error and failed attempt record. Earlier bundles and decisions remain available. Correct the cause and retry `rebundle`; check the current records CSV and bundle page ranges. |
 | Run is already in use | Wait for the process operating on that run to finish. Saved-run operations use an operating-system lock; deleting the lock file is not a recovery procedure. |
 
 A zero exit status means the command completed under its checks, not that notice

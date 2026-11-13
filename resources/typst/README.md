@@ -51,7 +51,7 @@ display-default adapter or separate layout-settings file.
   disease selection as `overdue-diseases(ispa-only: true)`. ISPA selection needs
   a birth date for cohort-dependent diseases and, for earlier meningococcal
   cohorts, `date_as_of`. Missing required facts fail the ISPA-specific operation.
-- `notice-dates(notice)` returns localized delivery, as-of, and birth dates.
+- `notice-dates(notice)` returns localized delivery, as-of, due, suspension and birth dates.
   `long-date(iso, language, required: false)` leaves unknown dates blank.
 - `notice-header(title: ..., logo: ..., title-align: center)` places the title
   beside the logo and warns when it exceeds three lines. Set `title-align` to
@@ -93,7 +93,7 @@ display-default adapter or separate layout-settings file.
   without changing supplied facts. Varicella applies from the 2010 birth cohort;
   meningococcal scope also follows birth cohort and age. Mixed lists remain
   supported. `ispa-only: true` on `overdue-agents` raises an explicit error.
-  See the [authoring guide](https://docs.phiz.ca/immuknow/latest/developer_guide/templates/#ispa-disease-display-and-assertions)
+  See the [authoring guide](https://docs.phiz.ca/immuknow/latest/developer_guide/templates/#ispa-disease-display-and-requirements)
   for the rules and notice requirements.
 - `immunization-history(notice, diseases: (...), include-other: true,
   ignore-agents: (), show-validity: true, omit-invalid: false)` derives the
@@ -163,7 +163,7 @@ refused; there is no conversion of older reports. Successful layout checks omit
 duplicate measurements. Address/window and client geometry remains in the placed
 component measurements for Studio guides and source targets. Warning/failure
 comparisons retain useful detail; coverage and source/display evidence remain
-available even when checks pass. See the [evidence retention table](../../tests/fixtures/render-evidence.md).
+available even when checks pass. See the [evidence retention table](https://github.com/WDGPH/ImmuKnow/blob/main/tests/fixtures/render-evidence.md).
 
 Compile and inspect the same immutable project with a frozen creation timestamp,
 then read its report with Typst 0.15.1:
@@ -176,29 +176,15 @@ typst eval --in notice.typ 'query(<immuknow-report>).map(it => it.value)' \
 QR encoding uses the bundled Rust/WebAssembly plugin in `vendor/qr/`, with
 its upstream licence notices. It includes an explicit UTF-8 encoding declaration
 for non-ASCII destinations. URL construction and styled drawing remain in Typst;
-default square symbols use horizontal runs prepared in Rust. Other styles and
-centre images use a cell matrix; structural marker geometry is derived from
-Codetastic. Plugin source and build
-instructions are in Core's `typst-plugins/qr/`. Native use and Studio need no Rust
-installation or downloaded Typst packages.
+plain square symbols use SVG for RGB/grayscale foregrounds and horizontal runs
+for other colour spaces. Styled symbols and centre images use a cell matrix;
+structural marker geometry is derived from Codetastic. See the
+[QR developer guide](https://github.com/WDGPH/ImmuKnow/blob/main/docs/developer_guide/qr.md)
+for the protocol, source and build instructions. Native use and Studio need no
+Rust installation or downloaded Typst packages.
 
 Bullet lists use `indent: 0.8cm` by default. Set `indent` on the overdue helper
 to change that list without changing later lists in the template.
 
-Show the signature image path and size directly in the block:
-
-```typst
-#immuknow.signature-block(
-  signature: image("assets/signature.png", width: 4.5cm),
-  name: "Dr. Annie Body",
-  title: "Medical Officer of Health",
-)
-```
-
-To make it smaller, use `width: 3cm`. Omitting height preserves the original
-aspect ratio. No signature filename is assumed by the helper.
-
-Keep the printed name directly in the signature call. It may include credentials,
-for example `name: "Dr. Annie Body, MD"`. The suspension order defines a separate
-`order-signatory-name` in its Template for the legal wording, without requiring
-the printed signature to use exactly the same text.
+For signature images, names and titles, see the
+[template authoring guide](https://github.com/WDGPH/ImmuKnow/blob/main/docs/developer_guide/templates.md).

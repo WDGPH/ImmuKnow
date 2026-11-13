@@ -1006,26 +1006,6 @@ pub fn run_with_progress(
     }
 }
 
-/// Rebuild saved bundles using their configured filenames.
-pub fn rebundle(
-    run: &Path,
-    override_policy: Option<&Path>,
-    withhold: &[String],
-    reason: Option<&str>,
-    release: &[String],
-    workers: usize,
-) -> Result<RunResult> {
-    rebundle_with_filenames(
-        run,
-        override_policy,
-        None,
-        withhold,
-        reason,
-        release,
-        workers,
-    )
-}
-
 /// Apply policy and hold decisions to a completed run and assemble fresh bundles.
 ///
 /// Acquires the run lock before reading. Uses saved originals without recompiling

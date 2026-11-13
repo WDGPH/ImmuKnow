@@ -325,7 +325,10 @@ mod tests {
         record["warning_reviews"] = json!({"schema_version": 1, "history": [event(&id, "revoke")]});
         let bytes = serde_json::to_vec(&record).unwrap();
         fs::write(dir.path().join("run.json"), &bytes).unwrap();
-        assert!(crate::pipeline::rebundle(dir.path(), None, &[], None, &[], 1).is_err());
+        assert!(
+            crate::pipeline::rebundle_with_filenames(dir.path(), None, None, &[], None, &[], 1)
+                .is_err()
+        );
         assert_eq!(fs::read(dir.path().join("run.json")).unwrap(), bytes);
         assert!(!dir.path().join("bundles-0001").exists());
         let lock = crate::pipeline::lock(dir.path()).unwrap();

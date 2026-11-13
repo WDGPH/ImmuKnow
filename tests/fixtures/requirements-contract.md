@@ -1,6 +1,6 @@
 # Notice-local requirements contract
 
-The active schemas in `resources/schemas/rendering.json` and `resources/typst/report.json` own this contract. One Typst evaluator produces requirements/content findings in native and Studio; Core prepares trusted facts, validates evidence, retains artifacts and routes. No YAML compatibility, fallback or extra compilation. W1 `subjects` on link findings remains independent.
+The active schemas in `resources/schemas/rendering.json` and `resources/typst/report.json` own this contract. One Typst evaluator produces requirements/content findings in native and Studio; Core prepares trusted facts, validates evidence, retains artifacts and routes. The `subjects` on link findings remain independent.
 
 ## Versions, fields, lifecycle
 
@@ -27,22 +27,17 @@ Corrupt outer report, payload/report notice mismatch, wrong outer/declaration/co
 
 Eligibility: `any`→not_applicable; `has_overdue` is nonempty `notice.overdue_diseases`; `has_overdue_agents` is nonempty `notice.overdue_agents`; `no_overdue` is empty diseases; `has_ispa_overdue` uses existing `ispa-overdue-diseases` selection and cohort/date logic. All other eligibility outcomes pass/fail; no new clinical assessment. Existing ISPA invalid date assertions remain fundamental errors.
 
-Coverage `neutral`→not_applicable. For `agents`/`diseases`, no source diseases and agents→not_applicable; otherwise missing→fail for agents or warn for diseases; no missing but extra/unmapped→warn; otherwise pass. Preserve all missing/extra/unmapped measurements even when several conditions overlap; `data.forecast_coverage.measurements` exactly equals `notice.forecast_coverage`. Notice source eligibility/version-conflict safeguards stay separate; delete only catalog-derived checks.
+Coverage `neutral`→not_applicable. For `agents`/`diseases`, no source diseases and agents→not_applicable; otherwise missing→fail for agents or warn for diseases; no missing but extra/unmapped→warn; otherwise pass. Preserve all missing/extra/unmapped measurements even when several conditions overlap; `data.forecast_coverage.measurements` exactly equals `notice.forecast_coverage`. Source eligibility and version-conflict safeguards remain separate from notice-local requirements.
 
 For exactly one placed `overdue_agents` or alternative, component measurements have `page` (1-based), `row_key`, `client_id`, `source_matches`, `source_agents` (exact input sequence including duplicates), `source_count` (sequence length), `excluded_agents` (sorted unique input agent names matching exclusion config even when no-records replaces list), `displayed_agents` (exact first-occurrence sequence after filtering/dedup when replacement=none, otherwise []), `displayed_count` (length), `replacement: "none"|"no_records"|"authored_alternative"`, `replacement_visible` (false for none, true only when a replacement has visible content). Nonempty source plus all excluded and no replacement fails agent display, shown or intentional replacement passes; empty source without replacement→not_applicable (eligibility separate). Disease/neutral→not_applicable. For agent basis require exactly one placed agent component or intentional alternative; absence, duplicates, inconsistent counts/lists/identity/page are corrupt evidence (`render.evidence_failed`), not fabricated success. Both source nonempty and no records replacement may legitimately give displayed count 0; exclusions describe what would be excluded irrespective of replacement.
 
 `overdue-agents(no-records: auto|content|none)` selects replacement only if no records and argument is not none. Custom `no-records` and `agent-alternative(notice, body)` must contain non-whitespace textual content or a non-text visible content node; empty content, whitespace-only text and metadata-only content produce mandatory component/evidence failure while retaining the readable PDF; do not assert and abort compilation. A narrow syntactic visible-content predicate is sufficient; do not attempt semantic text approval. Alternative uses `#immuknow.agent-alternative[body]`, bound by settings; emits placed identity-bound agent evidence with replacement authored_alternative, zero displayed, exactly one component. Duplicate component/alternative is rejected. Place evidence using final page location; excluded agents for alternative are [] unless explicit exclusions are passed to its API (default []); author-defined body must not claim a displayed list.
 
-## Maintained notice table
-
-| Template | Eligibility | Coverage | Display branch |
-|---|---|---|---|
-| overdue_agents.en/fr | has_overdue_agents | agents | `no-records:auto`; otherwise exact exclusions/dedup |
-| overdue_diseases.en/fr | has_overdue | diseases | `no-records:auto`; no agent display |
-| affirmative_schedule.en | no_overdue | neutral | no overdue component; replace eligibility assertion with finding |
-| suspension_order.en | has_ispa_overdue | diseases | `ispa-only:true`, `no-records:none`; replace eligibility assertion, retain ISPA/date assertions |
-
-Six actual files; no French affirmative/suspension assumed. No-records branch does not manufacture missing source eligibility. Existing Typst metadata output must remain usable for missing/duplicate/malformed requirements; do not assert and lose PDF merely because declaration invalid.
+Authored starter notices and their eligibility, coverage and display choices
+belong to [ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template).
+Core's fictional templates exercise the shared contract independently of starter
+wording. Missing, duplicate or malformed requirements must retain readable PDFs
+and produce findings rather than abort compilation.
 
 ## Fixture format and validation
 

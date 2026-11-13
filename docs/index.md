@@ -7,9 +7,8 @@ responsible for assessing immunization status.
 ## Three projects, one notice workflow
 
 Core owns native processing and shared components. Template supplies the project
-that your organization adapts. Studio provides browser editing and previews;
-it has not yet adopted standalone Rust Core. Check
-[Studio compatibility](user_guide/studio.md) before using an exported project.
+that your organization adapts. Studio provides browser editing and previews.
+Check [Studio compatibility](user_guide/studio.md) before using an exported project.
 
 Read [projects and contracts](ecosystem.md) for a description of each project's
 responsibilities and the files they share.
@@ -28,6 +27,3 @@ The [template guide](developer_guide/templates.md) explains how to change notice
 content and shared components. Developers can use the
 [command reference](developer_guide/cli.md), [architecture guide](developer_guide/architecture.md)
 and [contributing guide](developer_guide/contributing.md).
-
-[Studio](user_guide/studio.md) is a separate browser editor. ImmuKnow Template
-supplies a starting project. Check their instructions when updating Core.

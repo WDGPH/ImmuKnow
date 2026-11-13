@@ -38,7 +38,10 @@ The centre column follows the coordinator; compiler calls, worker jobs and saved
 
 The official `typst`, `typst-layout`, `typst-kit` and `typst-pdf` libraries handle templates, fonts, page layout and PDF export inside the application. `comemo` lets Typst reuse earlier work. Each compiler stays warm across notices. Typst runs the QR WebAssembly plugin through `wasmi`; that plugin uses `qrcodegen` and `wasm-minimal-protocol`. QR encoding currently happens inside that plugin, rather than through a separate native encoder. The same plugin can be used in Studio; see [QR codes](qr.md).
 
-`lopdf` parses saved originals when creating protected copies or combining original pages. `rand` supplies encryption randomness and `sha2` fingerprints saved files. Bounded queues built with Rust's standard library overlap compilation, coordinator work and encryption. On four or more available CPUs, compilation and encryption each default to two workers; smaller machines use one of each. Four workers can combine independent groups afterward. `lopdf`’s optional Rayon parsing is disabled so PDF parsing stays on its calling coordinator or worker; its other default feature, `chrono-clock`, remains enabled. Other libraries may use threads internally too. Grouped PDFs are built from originals, not the encrypted copies.
+`lopdf` parses saved originals when creating protected copies or combining original pages. `rand` supplies encryption randomness and `sha2` fingerprints saved files. Bounded queues built with Rust's standard library overlap compilation, coordinator work and encryption. On four or more available CPUs, compilation and encryption each default to two workers; smaller machines use one of each. Four workers can combine independent groups afterward. `lopdf`’s optional Rayon parsing is disabled so PDF parsing stays on its calling coordinator or worker; its other default feature, `chrono-clock`, remains enabled. Other libraries may use threads internally too. Setting encryption workers to zero runs protection inline. The coordinator
+sends count-only progress receipts to the terminal; the display adds no worker
+thread, and library callers can run without terminal output. Grouped PDFs are
+built from originals, not the encrypted copies.
 
 `serde_json` and `csv` write the saved record and paired tabular exports. `include_dir` embeds the shared Typst library and schemas so an installed executable can export them. `anyhow`, `tempfile` and diagnostic helpers support errors and temporary files; they do not form extra pipeline stages.
 
@@ -100,7 +103,7 @@ Typst returns PDF data and invisible check metadata from the same compiled
 document. Core checks the metadata against `schemas/rendering.json`,
 `typst/report.json`, the selected client and the document's page count. The JSON
 is saved separately; it is never attached to the PDF or printed as extra pages.
-See [native handoff contracts](../ecosystem.md#native-handoff) for schema versions and resource identity.
+See the [command and facts reference](cli.md#resources-for-authoring-tools) for schema versions and [resource compatibility](cli.md#resource-compatibility).
 
 ## Keep useful results when something fails
 
@@ -111,9 +114,11 @@ both sets. Each included original appears once per bundle attempt, with its
 page range in the run-wide records CSV. A required page count never adds blank pages.
 
 Encryption creates a separate AES-256 revision 6 PDF using the pinned `lopdf` implementation. Core requires a nonempty password, rejects passwords that become empty under the library’s R6 Unicode preparation, checks the resulting in-memory encryption dictionary and unchanged page count, and propagates encryption, write, flush and rename errors. It does not reopen each output to repeat password authentication. Release tests check empty and wrong password refusal, correct password access, encryption settings and preserved content. Bundle assembly checks its page count before writing; release tests reopen representative bundles. This boundary trusts the library and successful I/O rather than detecting storage corruption by reparsing every new artifact. The original remains available. Derived passwords are
-never saved. Compilation and encryption each default to two workers on four or more available CPUs, otherwise one. Up to four bundle workers are used by default.
-`src/pool.rs` provides the small bounded work queue. The coordinator alone updates
-the saved record and sends count-only progress receipts to the terminal display. Library callers can run without terminal output. The display adds no worker thread. Setting encryption workers to zero runs protection inline; submitted jobs are drained even if a later rendering or checkpoint step fails. Bundling works on a copy of the entries and publishes its staging directory before replacing bundle decisions in memory.
+never saved. The [coordinator and bounded workers](#processing-and-concurrency)
+keep independent work associated with its source row. Submitted encryption jobs
+are drained even if a later rendering or checkpoint step fails. Bundling works
+on a copy of the entries and publishes its staging directory before replacing
+bundle decisions in memory.
 
 ## Save runs and later changes
 

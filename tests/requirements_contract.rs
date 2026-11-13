@@ -1,4 +1,4 @@
-//! Frozen R2 evidence cases, shared with browser contract consumers.
+//! Shared requirements evidence cases, shared with browser contract consumers.
 use immuknow::validation::Validator;
 use serde_json::{Value, json};
 use std::{fs, path::Path};

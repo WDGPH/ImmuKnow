@@ -4,12 +4,11 @@ Run checks from the repository root with the Rust toolchain in `rust-toolchain.t
 
 ```sh
 cargo fmt --all --check
-cargo test --release --locked
 cargo build --release --locked
-cargo test --release --locked --test documentation
+cargo test --release --locked
 ```
 
-Use a focused test while developing, for example `cargo test --release --locked --test cli`. The CLI test uses fictional source rows and an unbranded project, exports embedded resources into a temporary directory, and runs the executable from outside the checkout. It exercises preparation, mixed notice outcomes, encryption, review bundles and saved-run changes. `tests/fixtures/render-contract.json` supplies native render-evidence cases; the schemas in `resources/schemas/` and `resources/typst/report.json` define their contract. Unit tests cover the PDF, input and worker boundaries. PDF round-trip tests reopen protected copies and bundles, checking AES-256 revision 6 settings, empty and wrong password refusal, correct password access, preserved pages/content and fresh encryption randomness. These release checks exercise the pinned library contract that production trusts after constructing and writing an artifact. The documentation test checks local links, commands and input schema references.
+Use a focused test while developing, for example `cargo test --release --locked --test cli`. For documentation-only changes, run `cargo test --release --locked --test documentation`. The CLI test uses fictional source rows and an unbranded project, exports embedded resources into a temporary directory, and runs the executable from outside the checkout. It exercises preparation, mixed notice outcomes, encryption, review bundles and saved-run changes. `tests/fixtures/render-contract.json` supplies native render-evidence cases; the schemas in `resources/schemas/` and `resources/typst/report.json` define their contract. Unit tests cover the PDF, input and worker boundaries. PDF round-trip tests reopen protected copies and bundles, checking AES-256 revision 6 settings, empty and wrong password refusal, correct password access, preserved pages/content and fresh encryption randomness. These release checks exercise the pinned library contract that production trusts after constructing and writing an artifact. The documentation test checks local links, commands and input schema references.
 
 For a resource embedding or build-tracking change, use an isolated source copy
 and verify ordinary cached release rebuilds after a resource-only edit, addition

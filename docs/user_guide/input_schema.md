@@ -21,7 +21,7 @@ the new column.
 | `city` | Yes | City of client address |
 | `province` | No | Province / territory of client address |
 | `postal_code` | No | Postal code of client address |
-| `overdue_disease` | No | Semicolon-separated overdue diseases. Each disease may be followed by ' - N', where N is the next dose number as a positive whole number, for example 'Measles - 2; Polio;'. A dose suffix that is not a positive whole number produces a warning, and the disease is shown without a number. Whether dose numbers appear on notices is set by include-dose in Settings. |
+| `overdue_disease` | No | Semicolon-separated overdue diseases. Each disease may be followed by ' - N', where N is the next dose number as a positive whole number, for example 'Measles - 2; Polio;'. A dose suffix that is not a positive whole number produces a warning, and the disease is shown without a number. The notice controls dose display with the overdue-diseases helper's include-dose option. |
 | `overdue_agent` | No | Semicolon-separated list of overdue agents for the client |
 | `immunizations_given` | Yes | Recorded vaccinations. Use the date, vaccine agent and optional validity result for each entry; see the example below. |
 | `board_name` | No | School board name |

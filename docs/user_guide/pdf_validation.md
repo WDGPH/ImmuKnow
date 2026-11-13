@@ -1,6 +1,6 @@
 # PDF checks and review
 
-Each run saves its authoritative evidence in `run.json` and publishes a matching pair of CSV files. Open the `records.csv` and `findings.csv` paths printed by the terminal in a spreadsheet and inspect representative notices before sending them.
+Each run saves its authoritative evidence in `run.json` and publishes a matching pair of CSV files. Open the `records.csv` and `findings.csv` paths printed by the terminal in a spreadsheet and inspect representative notices before sending them. With `--progress off`, find the selected paths in `run.json` under `exports.records.path` and `exports.findings.path`; they are relative to the run folder.
 
 `records.csv` has one row per readable source record. Filter `severity` to find errors or warnings, `evaluation_state` to find incomplete checks, and `route` to see ready, review, withheld, report-only and undecided records. Use `row_key` to join a record to its findings. Original and protected paths and inclusive bundle page ranges identify available PDFs; paths are relative to the run folder. A held record retains its original but is excluded from bundles. Ready means eligible under the effective rules; check bundle status and path to see whether an artifact was produced.
 
@@ -75,18 +75,18 @@ required. Inspect the actual delivery files as well as the originals.
 
 ## Rule settings and notice length
 
-`validation.rules` configures supported adjustable rules for a run. Changes use `enabled`, `severity` (`warn` or `fail`), and a nonempty `reason`. Mandatory checks cannot be disabled or downgraded. Use `validation.clients` to change a rule for exactly one input row. The report keeps the observed results in `checks` and the results after applying rules, with reasons, in `effective_checks`. Warnings do not need separate acceptance for delivery. Optional `validation.notice_length` sets a required positive page count for sending; no pages are added to reach that count. See [configuration](configuration.md).
+The [configuration guide](configuration.md#run-settings) defines run-wide and exact-row rule changes and required notice length. Mandatory checks cannot be disabled or downgraded. The saved record preserves observed checks separately from effective results and policy reasons. Warnings remain eligible under the effective rules; a required page count never adds pages to a notice.
 
 To record attention without changing rules, use [link warning review](#record-review-of-a-link-warning).
 
 ## Rebuild bundles
 
-Use a saved run to create another set of PDFs:
+Use a saved run to create another set of PDFs. Replace `runs/example-run` with the folder containing the printed `run.json`:
 
 ```sh
-immuknow rebundle ./runs/<run-id>
-immuknow rebundle ./runs/<run-id> --withhold row-000001 --reason "Pending review"
-immuknow rebundle ./runs/<run-id> --release row-000001
+immuknow rebundle runs/example-run
+immuknow rebundle runs/example-run --withhold row-000001 --reason "Pending review"
+immuknow rebundle runs/example-run --release row-000001
 ```
 
 Use `--policy policy.json` to apply a rules file and `--bundle-workers 4` to set the number of workers assembling PDFs. A held notice is excluded from both the PDFs for sending and the review PDFs. Releasing a hold leaves its checks in force. Each attempt records outcomes and creates a new numbered bundle directory. Review the current CSV pair and the selected bundle paths before sending notices. A failed later attempt retains the previous active decisions and bundles; its error appears separately.
@@ -101,7 +101,7 @@ To change only the next bundle attempt's names, supply `--filenames filenames.js
 ```
 
 ```sh
-immuknow rebundle ./runs/<run-id> --filenames filenames.json
+immuknow rebundle runs/example-run --filenames filenames.json
 ```
 
 The file replaces bundle/review filename settings; omit `review_bundle` for the

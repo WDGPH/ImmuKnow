@@ -1,10 +1,10 @@
 # Finding code reference
 
-Use the code in a report's **Technical details** to find the check below. The message, page and measurements describe the particular observation; inspect the actual notice and source information before acting. Checks describe supplied data and document output, not a clinical assessment or immunization status. The upstream system assesses status.
+Use the `code` column in `findings.csv` to find the check below. Its message and page describe the particular observation; `run.json` retains the full checks and measurements. Inspect the actual notice and source information before acting. Checks describe supplied data and document output, not a clinical assessment or immunization status. The upstream system assesses status.
 
 A check may pass, warn, fail, be not applicable, or be not run. Default severity depends on the observation. Supported rules can change the effective severity or disable a check, with a recorded reason; mandatory checks cannot be disabled or downgraded. The report retains observed and effective results. An effective failure blocks the normal bundle; warnings can be included under the active rules. A `not_run` result blocks delivery unless the check was disabled by an effective rule. See [PDF checks and review](pdf_validation.md) and [configuration](configuration.md).
 
-The entries below explain issue outcomes; many of the same checks also produce a passing result. A component-absence result is informational and not applicable. Raw compiler messages may also produce a warning even when no separate finding code is present; the report includes those rows in its warning filter.
+The entries below explain issue outcomes; many of the same checks also produce a passing result. A component-absence result is informational and not applicable. Raw compiler messages may also produce a warning even when no separate finding code is present; `findings.csv` includes them as compiler findings.
 
 ## Source and reference
 

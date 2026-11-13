@@ -17,9 +17,6 @@ pub fn inspect(bytes: &[u8]) -> Result<usize> {
     ensure!(pages > 0, "PDF has no pages");
     Ok(pages)
 }
-pub fn encrypt(source: &Path, destination: &Path, password: &str) -> Result<()> {
-    encrypt_with_hash(source, destination, password).map(|_| ())
-}
 pub(crate) fn encrypt_with_hash(
     source: &Path,
     destination: &Path,
@@ -112,21 +109,6 @@ fn check_encryption_settings(doc: &Document) -> Result<()> {
             && details.get(b"StrF")?.as_name()? == b"StdCF"
             && filters.get(b"CFM")?.as_name()? == b"AESV3",
         "Wrong AES encryption filters"
-    );
-    Ok(())
-}
-
-/// Explicitly audit a saved protected copy. The normal creation path checks the
-/// constructed document and write results instead of repeating this round trip.
-pub fn verify_encrypted(path: &Path, password: &str, pages: usize) -> Result<()> {
-    // Passwordless loading tries the empty password and retains /Encrypt only
-    // when it cannot decrypt the document.
-    let locked = Document::load(path)?;
-    check_encryption_settings(&locked)?;
-    let readable = Document::load_with_options(path, lopdf::LoadOptions::with_password(password))?;
-    ensure!(
-        readable.was_encrypted() && !readable.is_encrypted() && readable.get_pages().len() == pages,
-        "Encryption changed page count"
     );
     Ok(())
 }
@@ -235,9 +217,6 @@ fn resolve_named_links(doc: &mut Document) -> Result<()> {
     Ok(())
 }
 
-pub fn merge(paths: &[impl AsRef<Path>], destination: &Path) -> Result<usize> {
-    merge_with_hash(paths, destination).map(|(pages, _)| pages)
-}
 pub(crate) fn merge_with_hash(
     paths: &[impl AsRef<Path>],
     destination: &Path,
@@ -381,7 +360,7 @@ mod tests {
         original.save(&source)?;
         for (index, password) in ["20150102", "héllo-世界"].into_iter().enumerate() {
             let destination = dir.path().join(format!("encrypted-{index}.pdf"));
-            encrypt(&source, &destination, password)?;
+            encrypt_with_hash(&source, &destination, password)?;
             let locked = Document::load(&destination)?;
             // The passwordless loader tries an empty password. Keeping /Encrypt
             // therefore establishes that this output refuses empty access.
@@ -426,17 +405,17 @@ mod tests {
                 b"Fictional notice"
             );
             let another = dir.path().join(format!("another-{index}.pdf"));
-            encrypt(&source, &another, password)?;
+            encrypt_with_hash(&source, &another, password)?;
             assert_ne!(fs::read(&destination)?, fs::read(&another)?);
         }
         let rejected = dir.path().join("rejected.pdf");
         for password in ["", " \t\n", "\u{00ad}", "\u{2060}"] {
-            assert!(encrypt(&source, &rejected, password).is_err());
+            assert!(encrypt_with_hash(&source, &rejected, password).is_err());
             assert!(!rejected.exists());
         }
         // A failed write is never reported as a protected copy.
         assert!(
-            encrypt(
+            encrypt_with_hash(
                 &source,
                 &dir.path().join("missing/encrypted.pdf"),
                 "20150102"
@@ -477,7 +456,7 @@ mod tests {
             let source = dir.path().join(format!("{version}.pdf"));
             let output = dir.path().join(format!("merged-{version}.pdf"));
             doc.save(&source)?;
-            assert_eq!(merge(&[&source, &source], &output)?, 4);
+            assert_eq!(merge_with_hash(&[&source, &source], &output)?.0, 4);
             let merged = Document::load(output)?;
             assert_eq!(merged.version, version);
             let pages: Vec<_> = merged.get_pages().into_values().collect();
