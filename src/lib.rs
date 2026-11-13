@@ -1,10 +1,12 @@
 //! Prepare client information, compile notices, and save PDFs with a review report.
+pub mod compiler;
 pub mod filenames;
 mod formatting;
 pub mod input;
 pub mod pool;
 pub mod project;
 pub mod resources;
+pub mod validation;
 use anyhow::Result;
 use serde::{
     Deserialize,
