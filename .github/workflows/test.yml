@@ -4,6 +4,8 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  release:
+    types: [published]
 permissions:
   contents: read
 jobs:
@@ -43,6 +45,18 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.13'
+      - name: Check that the release tag matches the package version
+        if: github.event_name == 'release'
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          python - <<'PYTHON'
+          import os, tomllib
+          with open("Cargo.toml", "rb") as source:
+              expected = "v" + tomllib.load(source)["package"]["version"]
+          if os.environ["RELEASE_TAG"] != expected:
+              raise SystemExit(f"Release tag must match Cargo.toml: {expected}")
+          PYTHON
       - name: Cache Rust dependencies and build outputs
         uses: actions/cache@v6.1.0
         with:
@@ -99,3 +113,40 @@ jobs:
           name: immuknow-${{ matrix.platform }}
           path: ${{ runner.temp }}/dist/*
           if-no-files-found: error
+  publish:
+    name: Attach tested archives to the published release
+    if: github.event_name == 'release'
+    needs: test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    concurrency:
+      group: release-assets-${{ github.event.release.id }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: immuknow-*
+          merge-multiple: true
+          path: dist
+      - name: Check the archive set, write checksums and attach assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        working-directory: dist
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=${RELEASE_TAG#v}
+          archives=(
+            "immuknow-$version-linux-x86_64.tar.gz"
+            "immuknow-$version-windows-x86_64.zip"
+            "immuknow-$version-macos-aarch64.tar.gz"
+            "immuknow-$version-macos-x86_64.tar.gz"
+          )
+          for archive in "${archives[@]}"; do test -s "$archive"; done
+          sha256sum "${archives[@]}" > SHA256SUMS
+          sha256sum --check SHA256SUMS
+          gh release upload "$RELEASE_TAG" "${archives[@]}" SHA256SUMS --clobber

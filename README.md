@@ -13,6 +13,12 @@ See [projects and contracts](docs/ecosystem.md) for project responsibilities and
 
 ## Create notices
 
+Download the archive for your operating system and processor from
+[Releases](https://github.com/WDGPH/ImmuKnow/releases): Windows x64, Linux x64,
+Apple silicon macOS or Intel macOS. Extract it and put the executable on your
+terminal's PATH. See [release builds](docs/developer_guide/releases.md) for
+checksums and platform details.
+
 You need the `immuknow` executable, a CSV and a compatible configured notice project.
 The [getting started guide](docs/user_guide/getting_started.md) explains setup and notice selection.
 

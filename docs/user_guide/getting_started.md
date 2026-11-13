@@ -6,7 +6,7 @@ ImmuKnow creates personalized PDF notices from a CSV file and the notice templat
 
 You need:
 
-- The `immuknow` executable available in your terminal. Ask your project maintainer for a prepared executable. A developer can build it from the checkout using the instructions in the [contributing guide](../developer_guide/contributing.md#build-the-executable).
+- The `immuknow` executable available in your terminal. Download and extract the matching archive from [Releases](https://github.com/WDGPH/ImmuKnow/releases), or ask your project maintainer for a prepared executable. Choose Windows x64, Linux x64, Apple silicon macOS or Intel macOS; see [platform details](../developer_guide/releases.md#platforms). A developer can build it from the checkout using the instructions in the [contributing guide](../developer_guide/contributing.md#build-the-executable).
 - A CSV containing the people and information for the notices. See the [CSV field reference](input_schema.md).
 - A configured notice project containing a `templates` folder and a `config` folder. [ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template) provides example notices and settings to adapt. Review the wording, branding, contacts, and settings for your organization. Follow [Template’s setup instructions](https://github.com/WDGPH/ImmuKnow-Template/blob/main/README.md) for the matching executable. The project must use resources compatible with your Core executable; see the [template guide](../developer_guide/templates.md). Install the fonts required by your project on the workstation.
 

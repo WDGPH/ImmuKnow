@@ -17,7 +17,7 @@ Check source links, commands and key schema references locally:
 cargo test --release --locked --test documentation
 ```
 
-The documentation hub consumes this repository's Markdown and `mkdocs.yml`; the Core build and its documentation check require no documentation framework. The separate notification workflow informs the hub of changes. It does not publish the site or give the hub access to run data.
+The documentation hub consumes this repository's Markdown and `mkdocs.yml`; the Core build and its documentation check require no documentation framework. The separate notification workflow informs the hub of main-branch updates, stable release tags and published stable releases. See [release builds](releases.md#documentation) for the required hub configuration. It does not publish the site or give the hub access to run data.
 
 ## Maintaining the visuals
 
