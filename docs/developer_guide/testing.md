@@ -11,18 +11,12 @@ cargo test --release --locked --test documentation
 
 Use a focused test while developing, for example `cargo test --release --locked --test cli`. The CLI test uses fictional source rows and an unbranded project, exports embedded resources into a temporary directory, and runs the executable from outside the checkout. It exercises preparation, mixed notice outcomes, encryption, review bundles and saved-run changes. `tests/fixtures/render-contract.json` supplies native render-evidence cases; the schemas in `resources/schemas/` and `resources/typst/report.json` define their contract. Unit tests cover the PDF, input and worker boundaries. PDF round-trip tests reopen protected copies and bundles, checking AES-256 revision 6 settings, empty and wrong password refusal, correct password access, preserved pages/content and fresh encryption randomness. These release checks exercise the pinned library contract that production trusts after constructing and writing an artifact. The documentation test checks local links, commands and input schema references.
 
-For a resource embedding or build-tracking change, run the isolated cached-build
-check separately from timing experiments:
-
-```sh
-scripts/check-resource-rebuild.sh
-```
-
-It copies tracked working files into a temporary source directory, then verifies
-ordinary release rebuilds after a resource-only edit, addition and removal. It
-compares exported bytes and resource identities without changing checkout
-resources. It reuses `CARGO_TARGET_DIR` (or `target/` by default), so run it
-without another Cargo job or benchmark using that directory.
+For a resource embedding or build-tracking change, use an isolated source copy
+and verify ordinary cached release rebuilds after a resource-only edit, addition
+and removal. Compare the exported bytes and resource identities at each step,
+and confirm that restoring the original resources restores the original export.
+Keep checkout resources unchanged and run without another Cargo job using the
+same target directory.
 
 Native compilation uses workstation fonts and embedded Typst. Inspect representative English and French PDFs after presentation, font or compiler changes, including long names, addresses and histories. CI runs the Rust release build and tests; it does not require a separate Typst executable.
 
@@ -68,28 +62,3 @@ executable with a compatible fictional project and installed fonts. Verify
 resources, reports, privacy-sensitive outputs and bundle membership. Operators
 still review findings and actual deliverables for every production run; CI
 cannot approve authored wording or local data handling.
-
-## Measure the complete command
-
-Build once, then time the installed executable against a fictional client list and
-its explicit assignment manifest. Keep the same project resources, fonts,
-configuration and input mix when comparing implementations:
-
-```sh
-cargo build --release --locked
-time target/release/immuknow run /path/to/fictional/clients.csv \
-  --notice-assignments /path/to/fictional/assignments.json \
-  --templates /path/to/project/templates --config /path/to/project/config \
-  --output /path/to/new-runs
-```
-
-Measure process startup through final reporting. Verify the saved status,
-notice count, encrypted copies and bundle membership before interpreting a
-runtime. One observed run does not establish capacity for other input mixes.
-CI does not run the 1,000-client timing experiment.
-
-The [fictional performance harness](performance_harness.md) supplies
-fixed-cohort generation, complete-command OS measurements and independent PDF
-membership verification. See the [acceptance report](performance_experiments.md)
-for measured QR/reporting results and limits; these large experiments are not
-routine CI gates.

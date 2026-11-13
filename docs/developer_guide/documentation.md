@@ -7,7 +7,7 @@ link to its default branch; when compatibility requires a reviewed revision, use
 an immutable commit URL and identify that revision. Avoid feature-branch URLs
 that break when branches are deleted after merge.
 
-Use exact CLI options, paths, schema fields and statuses. Explain behavior for the person performing the task, including the distinction between warnings, failed checks and output failures. Keep user instructions separate from contributor implementation details. Use fictional examples and do not put client information in documentation.
+Use exact CLI options, paths, schema fields and statuses. Explain behavior for the person performing the task, including the distinction between warnings, failed checks and output failures. Keep user instructions separate from contributor implementation details. Keep performance experiments, measurements and completed work plans outside the repository; summarize relevant results and limitations in pull requests. Use fictional examples and do not put client information in documentation.
 
 Check source links, commands and key schema references locally:
 
@@ -55,13 +55,11 @@ For a local publishing check, provision MkDocs and Material separately and run
 its deployment and any surrounding navigation. Inspect the built pages after
 changing navigation or diagrams. Do not commit local build tools or site output.
 
-The [performance guide](../user_guide/performance.md) owns the timing explanation. Its table groups the measured main-workflow categories and uses largest-remainder rounding to total 60 seconds. Keep the [measurement data](../assets/notice-timings.json), benchmark provenance and overlapping encryption distinction when updating it.
-
 ## Recording the CLI demo
 
 The [CLI recording](../assets/notice-demo.gif) and its [static completion summary](../assets/notice-demo.png) show a fictional sample run.
 
-The demo is a real [VHS](https://github.com/charmbracelet/vhs) recording, generated from [notices.tape](../demo/notices.tape). It runs the normal command for six fictional clients at normal playback speed; it is not the 1,000-client benchmark. VHS, `ttyd`, `ffmpeg` and a browser are recording tools only, not application dependencies. Use the VHS installation instructions for your platform.
+The demo is a real [VHS](https://github.com/charmbracelet/vhs) recording, generated from [notices.tape](../demo/notices.tape). It runs the normal command for six fictional clients at normal playback speed. VHS, `ttyd`, `ffmpeg` and a browser are recording tools only, not application dependencies. Use the VHS installation instructions for your platform.
 
 Install `immuknow`, DejaVu Sans Mono for the recording, and the fonts required by a compatible ImmuKnow Template checkout. From the Core repository root, prepare a scratch directory (replace the Template path):
 

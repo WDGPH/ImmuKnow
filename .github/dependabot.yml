@@ -6,16 +6,6 @@ multi-ecosystem-groups:
       interval: "weekly"
 
 updates:
-  - package-ecosystem: "uv"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    cooldown:
-      default-days: 7
-    patterns:
-      - "*"
-    multi-ecosystem-group: "dependencies"
-
   - package-ecosystem: "github-actions"
     directory: "/.github/workflows"
     schedule:

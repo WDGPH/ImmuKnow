@@ -42,8 +42,6 @@ The official `typst`, `typst-layout`, `typst-kit` and `typst-pdf` libraries hand
 
 `serde_json` and `csv` write the saved record and paired tabular exports. `include_dir` embeds the shared Typst library and schemas so an installed executable can export them. `anyhow`, `tempfile` and diagnostic helpers support errors and temporary files; they do not form extra pipeline stages.
 
-For the elapsed-time picture, see [the benchmark](../user_guide/performance.md). Overlapping worker times must not be added to the main workflow total.
-
 ## Reading the Rust workflow
 
 `Cargo.toml` declares the package and dependencies; `Cargo.lock` pins the resolved dependency graph. `src/main.rs` is the CLI entry point, while `src/lib.rs` exposes the workflow modules in the table above. The QR plugin at `typst-plugins/qr/` is a separate Rust crate with its own manifest and lockfile. Clap derives command parsing, Serde serializes and deserializes structured data, and `anyhow::Result` adds context to operational errors.
