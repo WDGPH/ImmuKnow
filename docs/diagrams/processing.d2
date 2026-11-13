@@ -1,0 +1,150 @@
+...@style
+# Each row is a phase. The coordinator stays in the centre throughout.
+grid-rows: 5
+grid-columns: 3
+horizontal-gap: 48
+vertical-gap: 54
+
+space1: ${blank}
+prepare: {
+  accent
+  inset
+  ...${card}
+  content: |md
+    **Coordinator · prepare**
+
+    Stable row keys,\
+    schema-checked facts
+  |
+}
+record: {
+  accent
+  inset
+  ...${card}
+  accent.style.fill: '#78716c'
+  content: |md
+    **Run record**
+
+    run.json checkpoints\
+    Facts, findings + artifacts
+  |
+}
+compiler: {
+  accent
+  inset
+  ...${card}
+  accent.style.fill: '#2563eb'
+  content: |md
+    **Warm Typst workers**
+
+    1–2 bounded compilations:\
+    one document → PDF + evidence
+  |
+}
+rows: {
+  accent
+  inset
+  ...${card}
+  content: |md
+    **Coordinator · each row**
+
+    Commit rows in source order,\
+    save originals + findings
+  |
+}
+encrypt: {
+  accent
+  inset
+  ...${card}
+  accent.style.fill: '#2563eb'
+  content: |md
+    **Encryption workers**
+
+    Verified copies + receipts,\
+    bounded jobs overlap rows
+  |
+}
+space7: ${blank}
+drain: {
+  accent
+  inset
+  ...${card}
+  content: |md
+    **Coordinator · finish rows**
+
+    Drain remaining results
+  |
+}
+space9: ${blank}
+space10: ${blank}
+groups: {
+  accent
+  inset
+  ...${card}
+  content: |md
+    **Coordinator · plan bundles**
+
+    Normal + review membership
+  |
+}
+bundles: {
+  accent
+  inset
+  ...${card}
+  accent.style.fill: '#2563eb'
+  content: |md
+    **Bundle workers**
+
+    Independent PDF assemblies\
+    run concurrently afterward
+  |
+}
+failure: {
+  accent
+  inset
+  ...${card}
+  accent.style.fill: '#78716c'
+  style.stroke-dash: 4
+  content: |md
+    **Failure boundaries**
+
+    Notice failure → next row\
+    Fatal → drain; keep .incomplete
+  |
+}
+publish: {
+  accent
+  inset
+  ...${card}
+  content: |md
+    **Coordinator · publish**
+
+    Two run-wide CSVs,\
+    final record and status
+  |
+}
+outputs: {
+  accent
+  inset
+  ...${card}
+  accent.style.fill: '#78716c'
+  content: |md
+    **Staged outputs**
+
+    .incomplete → finished run\
+    Explicit completion status
+  |
+}
+
+prepare -> rows: {class: flow}
+rows <-> compiler: {class: job}
+rows <-> encrypt: {class: job}
+prepare -> record: {class: flow}
+rows -> record: {class: flow}
+rows -> drain: after notice loop {class: flow}
+encrypt -> drain: results {class: job}
+drain -> groups: {class: flow}
+groups -> bundles: jobs {class: job}
+bundles -> publish: results {class: job}
+groups -> publish: {class: flow}
+publish -> outputs: {class: flow}

@@ -1,0 +1,55 @@
+# Neutral cards and slim accents echo PHIZ's Git article diagrams.
+# Semantic colour is an accent only: every role and outcome is named in text.
+vars: {
+  d2-config: {
+    layout-engine: elk
+    theme-id: 1
+    dark-theme-id: 200
+    pad: 16
+    theme-overrides: {
+      N1: '#292524'
+      N2: '#57534e'
+      N3: '#78716c'
+      N4: '#a8a29e'
+      N5: '#d6d3d1'
+      N6: '#f5f5f4'
+      N7: '#ffffff'
+      B1: '#d6d3d1'
+      B2: '#78716c'
+      B3: '#d6d3d1'
+      B4: '#fafaf9'
+      B5: '#fafaf9'
+      B6: '#fafaf9'
+    }
+    dark-theme-overrides: {
+      N1: '#f5f5f4'
+      N2: '#e7e5e4'
+      N3: '#d6d3d1'
+      N4: '#a8a29e'
+      N5: '#57534e'
+      N6: '#44403c'
+      N7: '#1c1917'
+      B1: '#57534e'
+      B2: '#a8a29e'
+      B3: '#57534e'
+      B4: '#292524'
+      B5: '#292524'
+      B6: '#292524'
+    }
+  }
+  card: {
+    label: ''
+    grid-columns: 3
+    grid-gap: 0
+    style.stroke-width: 1
+    accent: {label: ''; width: 4; height: 106; class: accent; style.stroke-width: 0}
+    inset: {label: ''; width: 8; height: 106; style.opacity: 0}
+    content: {shape: rectangle; style.stroke-width: 0; style.fill: transparent; width: 232; height: 106; label.near: center-left; style.font-size: 16; style.bold: false}
+  }
+  blank: {label: ''; width: 244; height: 106; style.opacity: 0}
+}
+classes: {
+  accent: {style.fill: '#4d7c0f'}
+  flow: {style.stroke: '#78716c'; style.stroke-width: 2; style.font-size: 13; style.italic: false}
+  job: {style.stroke: '#78716c'; style.stroke-width: 2; style.stroke-dash: 4; style.font-size: 13; style.italic: false}
+}
