@@ -1,38 +1,27 @@
 ---
 name: Bug report
-about: Create a report to help us improve
+about: Report a problem with the native ImmuKnow application
 title: ''
 labels: ''
 assignees: ''
-
 ---
 
-**Describe the bug**
-A clear and concise description of what the bug is.
+Use fictional data. Remove client information, private URLs and passwords from
+commands, logs and attachments.
 
-**To Reproduce**
-Steps to reproduce the behavior:
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
+**Problem and expected result**
+Describe what happened and what you expected.
 
-**Expected behavior**
-A clear and concise description of what you expected to happen.
+**Environment**
+- Operating system and version:
+- Output of `immuknow --version` (and source revision, if known):
+- Notice project revision and fonts, if relevant:
 
-**Screenshots**
-If applicable, add screenshots to help explain your problem.
+**Steps to reproduce**
+Include the command and the smallest fictional input or template that reproduces
+the problem. For editor or browser-preview problems, report the issue in
+[ImmuKnow Studio](https://github.com/WDGPH/ImmuKnow-Studio/issues).
 
-**Desktop (please complete the following information):**
- - OS: [e.g. iOS]
- - Browser [e.g. chrome, safari]
- - Version [e.g. 22]
-
-**Smartphone (please complete the following information):**
- - Device: [e.g. iPhone6]
- - OS: [e.g. iOS8.1]
- - Browser [e.g. stock browser, safari]
- - Version [e.g. 22]
-
-**Additional context**
-Add any other context about the problem here.
+**Observed result**
+Include the exit status, relevant terminal messages and finding codes. For a
+layout problem, include a fictional notice or screenshot showing the problem.
