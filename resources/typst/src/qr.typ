@@ -1,0 +1,61 @@
+#import "qr-encode.typ": encode-qr, encode-runs, encode-svg
+#import "qr-style.typ": draw-qr, draw-runs
+#import "findings.typ": component
+
+// Use the supplied link, a fixed URL, or a function that builds a URL for this notice.
+#let qr-code(notice, enabled: true, url: none, width: 3cm, error-correction: auto,
+  foreground: black, background: white, corner-foreground: auto, alignment-foreground: auto, module-shape: "square", corner-style: "square",
+  logo: none, logo-size: 30%, logo-padding: 0.3mm,
+) = {
+  assert(type(enabled) == bool, message: "QR enabled must be true or false")
+  if not enabled { return [] }
+  assert(url != none and url != auto, message: "QR url must be an explicit string or notice function")
+  let destination = if type(url) == function { url(notice) } else { url }
+  assert(type(destination) == str and destination != "", message: "QR destination must be a nonempty URL")
+  assert(type(width) == length and width > 0pt, message: "QR width must be a positive length")
+  assert(module-shape in ("square", "dots", "rounded", "separated"), message: "QR module-shape must be square, dots, rounded, or separated")
+  assert(corner-style in ("square", "rounded"), message: "QR corner-style must be square or rounded")
+  assert(corner-foreground == auto or type(corner-foreground) == color, message: "QR corner-foreground must be a colour or auto")
+  assert(alignment-foreground == auto or type(alignment-foreground) == color, message: "QR alignment-foreground must be a colour or auto")
+  assert(type(foreground) == color and type(background) == color, message: "QR foreground and background must be colours")
+  assert(type(logo-size) == ratio and logo-size >= 5% and logo-size <= 30%, message: "QR logo-size must be between 5% and 30%")
+  assert(logo == none or type(logo) in (content, dictionary), message: "QR logo must be image content, an image/mask dictionary, or none")
+  assert(type(logo-padding) == length and logo-padding >= 0pt and logo-padding <= 1mm, message: "QR logo-padding must be between 0mm and 1mm")
+  let mask = if type(logo) == dictionary { logo.at("mask") } else { none }
+  let picture = if type(logo) == dictionary { logo.at("image") } else { logo }
+  assert(picture == none or type(picture) == content, message: "QR logo image must be content")
+  if mask != none {
+    assert(type(mask) == dictionary and mask.at("size", default: 0) == 128 and type(mask.at("runs", default: none)) == array, message: "QR image mask must have size 128 and an array of runs")
+    assert(mask.runs.len() <= 8192, message: "QR image mask has too many runs")
+    for run in mask.runs {
+      assert(type(run) == array and run.len() == 3 and run.all(v => type(v) == int), message: "QR image mask runs must contain three integers")
+      let (y, start, end) = run
+      assert(y >= 0 and y < 128 and start >= 0 and end <= 128 and start < end, message: "QR image mask run is out of bounds")
+    }
+  }
+  let ecl = if error-correction == auto { if logo == none { "l" } else { "h" } } else { error-correction }
+  assert(logo == none or ecl == "h", message: "QR centre images require error-correction: h (or auto)")
+  component("qr", notice: notice, url: destination)
+  if (module-shape == "square" and corner-style == "square" and picture == none
+    and (corner-foreground == auto or corner-foreground == foreground)
+    and (alignment-foreground == auto or alignment-foreground == foreground)) {
+    if foreground.space() in (rgb, luma) {
+      let raw = encode-svg(destination, ecl, foreground)
+      let n = raw.at(0)
+      link(destination, box(width: width, height: width, baseline: 4 * width / (n + 8),
+        fill: background, image(raw.slice(1), format: "svg", width: width)))
+    } else {
+      let raw = encode-runs(destination, ecl)
+      let n = raw.at(0)
+      let runs = array(raw.slice(1)).chunks(3)
+      link(destination, box(draw-runs(runs, n, width / (n + 8), 4, background, foreground)))
+    }
+  } else {
+    let field = encode-qr(destination, ecl)
+    let quiet = 4
+    link(destination, box(draw-qr(field, width / (field.len() + 2 * quiet), quiet,
+      background, foreground, corner-foreground: corner-foreground, alignment-foreground: alignment-foreground, module-shape: module-shape, corner-style: corner-style,
+      logo: picture, logo-size: logo-size, logo-padding: logo-padding, logo-mask: mask,
+    )))
+  }
+}
