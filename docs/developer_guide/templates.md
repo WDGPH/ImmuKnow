@@ -2,22 +2,22 @@
 
 This guide is for people editing Typst templates or connecting another application.
 ImmuKnow supplies the client information and selected notice. Your template controls
-the wording, appearance and QR links. The maintained
-branding, names and contacts are examples; replace them with reviewed
-PHU content.
+the wording, appearance and QR links. This guide documents Core's prepared
+facts, public Typst helpers and compiled evidence contract.
 
-Use [Studio](../user_guide/studio.md) for source editing, matching example previews and
+Use [Studio](https://docs.phiz.ca/immuknow-studio/latest/) for source editing, matching example previews and
 project exports. This guide owns the native facts and Typst component contract.
 
 ## Select a complete project
 
 Get a starter project from [ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template)
-or use an authored project whose resources match your Core executable. See
-[Studio compatibility](../user_guide/studio.md) before using a browser export. Template owns the starter letters,
+or use an authored project whose resources match your Core executable.
+Template owns the starter letters,
 Settings, display translations and example images. Core supplies the shared
 Typst library and native contracts; its package contains no starter project.
-Keep `settings.typ`, `assets/`, `translations/` and
-`lib/immuknow/` together in the project's `templates/` directory.
+Keep the notice's local dependencies inside the templates directory. Follow
+[Template's documentation](https://github.com/WDGPH/ImmuKnow-Template/blob/main/README.md)
+for starter configuration, shared defaults, branding and translations.
 
 ```bash
 immuknow run clients.csv --template ./my-project/templates/overdue_diseases.en.typ --config ./my-project/config --output ./runs
@@ -34,12 +34,11 @@ Export the library with `immuknow resources --output ./resources` and copy
 and project-specific changes from Template separately.
 
 Keep `lib/immuknow/` complete and unchanged, including its nested files. Native
-runs and saved-run bundling check its bytes against the supplied library;
-Studio integrations should use the same exported copy. Rewriting a project
+runs and saved-run bundling check its bytes against the supplied library.
+Consuming applications must use the same exported copy. Rewriting a project
 manifest does not approve an edited copy. Linked library
 paths are refused. Put your own helpers outside that directory, and edit notice
-prose, Settings, assets and project translations there. Studio opens supplied
-library files for reading only.
+prose, assets and project translations there.
 
 This check protects the supplied components. It does not establish that arbitrary
 text or drawing added elsewhere in an authored template belongs to the right
@@ -48,8 +47,7 @@ client; review authored content as well as the reported checks.
 Keep dependencies inside this tree and import them through relative paths.
 Core refuses `@local` and `@preview` package imports, including paths built from
 variables. Keep library dependencies inside the project; Core does not download
-packages or read a package installed elsewhere. Check the same restriction in Studio
-when updating its integration.
+packages or read a package installed elsewhere.
 
 The filename `<version>.<language>.typ` supplies version and language. Rename
 only when the authored prose matches the intended language. Selection never
@@ -57,101 +55,66 @@ changes language or chooses a different notice automatically. See
 [configuration](../user_guide/configuration.md) for the explicit manifest schema and
 warning/failure behavior.
 
-## Entry points and Settings
+## Importing the Core library
 
-The opening stays short:
+Importing `lib.typ` does not read client data or compiler inputs. The entry point
+reads the virtual JSON path supplied in `sys.inputs.at("data")`, verifies the
+selected template identity, and passes the complete prepared notice to the
+helpers. For example, a disease-based notice can use:
 
 ```typst
-// Essential setup: keep these opening lines.
-// @immuknow-settings: settings.typ
-#import "settings.typ" as immuknow
-#show: immuknow.letter // Apply the letter layout
+#import "lib/immuknow/lib.typ" as immuknow
+#let notice = json(sys.inputs.at("data"))
+#assert(notice.template == sys.inputs.at("notice-template"),
+  message: "Selected template identity differs from the facts")
+#immuknow.check-notice(
+  notice,
+  version: sys.inputs.at("notice-version"),
+  language: sys.inputs.at("notice-language"),
+)
+#let dates = immuknow.notice-dates(notice)
+#show: immuknow.letter.with(notice: notice)
 
-#immuknow.requirements(eligibility: "has_overdue", coverage: "diseases")
-
-#immuknow.notice-page("Request for Immunization Record")[
-  #immuknow.client-block(window: immuknow.envelope-window)
-  As of *#immuknow.date_as_of*, our files show these overdue immunizations:
-  #immuknow.overdue-diseases(include-dose: false)
+#immuknow.requirements(notice, eligibility: "has_overdue", coverage: "diseases")
+#immuknow.notice-section("Request for Immunization Record")[
+  #immuknow.client-block(notice)
+  As of *#dates.date_as_of*, our files show these overdue immunizations:
+  #immuknow.overdue-diseases(notice, include-dose: false)
 ]
-#immuknow.notice-page("Immunization Record")[
-  #immuknow.immunization-history()
-  #align(center)[End of immunization record]
+#immuknow.notice-section("Immunization Record")[
+  #immuknow.immunization-history(notice)
 ]
 ```
 
-Importing `settings.typ` as `immuknow` exposes the configured helpers, dates and
-flags through one namespace. Settings reads the
-JSON supplied through `sys.inputs.at("data")` and checks trusted compiler inputs
-`notice-template`, `notice-version` and `notice-language`. It connects the client
-data to the helpers once. Entry points do not repeat data arguments or literal
-identity declarations. `#show: immuknow.letter` applies the letter layout and
-collects component findings and page count for the whole document.
+`letter` applies page styling and emits one invisible `<immuknow-report>` element
+for the document. `notice-section` supplies a named section and checks whether it
+continues onto another page. Later snippets assume the `immuknow` import and
+`notice` value above. Project-specific wrappers and shared defaults are described
+in [Template's documentation](https://github.com/WDGPH/ImmuKnow-Template/blob/main/README.md).
 
-Core's underlying functions still take explicit data arguments and never read
-compiler inputs when imported. Template owns the project setup that makes those
-functions ready to use.
+`notice-dates(notice)` returns localized delivery, as-of, due, suspension and
+birth dates. Unset optional dates format as empty strings. The
+`intended-reader(notice)` helper follows the source choice and age default
+specified in the [CSV field reference](../user_guide/input_schema.md). Address
+components use the same selection. The `addressee` option changes display text
+without changing the source facts.
 
-Settings holds shared page, envelope, theme, QR and history choices, and loads
-the project's translation JSON files through literal paths.
-Write organization names, mailing addresses, links and phone numbers directly
-in the Template where they appear. Keep notice-specific choices there too,
-including suspension dates and whether that notice shows a QR code.
-Omit helper options when their defaults already express what you want. Its configured
-`immuknow.notice-page` helper supplies the header and section styling. Dates are bound
-as `immuknow.date_of_delivery`, `immuknow.date_as_of`, `immuknow.date_due`,
-`immuknow.date_of_suspension` and `immuknow.date_of_birth`. Unset optional dates
-format as an empty string. History remains a lazy
-function so a suspension order can omit it without evaluating history display
-requirements. The configured `immuknow.immunization-history` and `immuknow.notice-page` helpers accept
-named options for one call, after the shared defaults. See
-[Template customization](https://github.com/WDGPH/ImmuKnow-Template#customizing)
-for examples. The suspension example has one order page and no history or
-privacy appendix.
+`privacy-notice[Your privacy wording here.]` places authored content at the
+bottom of the page and reports unexpected continuation. Omit the call when the
+notice has no privacy block.
 
-Privacy wording lives directly at the end of each applicable template in an
-`#immuknow.privacy-notice[Your privacy wording here.]` block. Edit its wording
-and contact details in the Template editor. The helper places the privacy block
-at the bottom of the page and reports unexpected continuation. Templates without
-a privacy notice simply omit the block; Settings does not insert one automatically.
-
-Use `immuknow.link` for clickable
-contacts, for example:
+Use `immuknow.link` for clickable contacts:
 
 ```typst
 #immuknow.link("tel:+18005550100;ext=1234")[1-800-555-0100 ext. 1234]
 #immuknow.link("mailto:privacy@example.org")
 ```
 
-Link destinations are checked for HTTPS, email or telephone address format;
-the checks do not establish that a destination exists or responds.
-
-Settings exposes boolean `immuknow.to_student` and `immuknow.to_guardian` flags:
-
-```typst
-#if immuknow.to_student [you have] else if immuknow.to_guardian [your child has] else [the named client has]
-```
-
-Only one flag can be true. Core's `intended-reader(notice)` helper uses the source
-`intended_reader` choice first, then the age default: student at 16 or older, guardian
-under 16. Without a choice or known age, both flags are false and the neutral
-branch applies. Address components use the same selection and source province.
-Use a helper's explicit `addressee:` option when authored wording requires a
-particular label. The suspension starter uses the same reader flags for its service wording,
-reader heading and default addressee. Age facts remain available independently
-of the intended reader.
-See [intended reader](../user_guide/input_schema.md) for CSV overrides and
-mailing destinations.
-
-Link labels stay together by default:
-
-```typst
-#immuknow.link("https://example.org/records")[Update your record]
-```
-
-The label moves intact to the next line when needed. A label wider than a whole
-line wraps normally and produces a `layout.link_width` warning for review.
-Use `keep-together: false` to allow normal wrapping without this width warning.
+Destinations are checked for HTTPS, email or telephone address format; the
+checks do not establish that a destination exists or responds. Link labels stay
+together when they fit a line. A label wider than a whole line wraps normally
+and produces a `layout.link_width` warning. Use `keep-together: false` to allow
+normal wrapping without that width warning.
 
 ## Facts contract
 
@@ -187,10 +150,9 @@ The fields inside `client_data` are:
 | `date_of_birth_iso` | Birth date as `YYYY-MM-DD`, or blank when unavailable |
 | `age` | Age in years on the delivery date, or null when unknown |
 
-For student or guardian wording, use `immuknow.to_student` and `immuknow.to_guardian` as described
-in [Entry points and Settings](#entry-points-and-settings). The `age` field
-supplies the age-based default; an explicit `intended_reader` choice takes priority and
-does not change the age facts.
+For student or guardian wording, use `intended-reader(notice)` or the
+[record flags](#record-and-overdue-flags). An explicit `intended_reader` choice
+takes priority over the age default and does not change the age facts.
 
 Each initial is the first character after removing spaces around the corresponding
 name. It keeps the original case and accents: `Élodie` gives `É`. A missing name
@@ -209,14 +171,10 @@ has `mapping_known: true`; it remains distinct from an unknown name.
 
 ## Record and overdue flags
 
-In `settings.typ`, `immuknow.notice-flags(notice)` returns four booleans for shared setup:
+`immuknow.notice-flags(notice)` returns four booleans:
 
 ```typst
 #let flags = immuknow.notice-flags(notice)
-#let to_student = flags.to_student
-#let to_guardian = flags.to_guardian
-#let up_to_date = flags.up_to_date
-#let no_records = flags.no_records
 ```
 
 `to_student` and `to_guardian` follow the same intended-reader selection as the
@@ -229,13 +187,12 @@ chart still count as records. A blank history or the source's empty-history
 placeholder does not. The two record/overdue flags are independent and may both
 be true.
 
-In a notice that imports Settings as `immuknow`, use the flags for individual
-phrases or to omit an entire section:
+Use the returned flags for individual phrases or to omit a section:
 
 ```typst
-#if not immuknow.no_records and not immuknow.up_to_date [
+#if not flags.no_records and not flags.up_to_date [
   Our records show the following outstanding disease requirements:
-  #immuknow.overdue-diseases()
+  #immuknow.overdue-diseases(notice)
 ]
 ```
 
@@ -245,8 +202,8 @@ for vaccination records instead of the list, using English or Canadian French
 wording selected by its language. This does not change surrounding paragraphs.
 
 ```typst
-#immuknow.overdue-diseases(no-records: auto)
-#immuknow.overdue-agents(no-records: [Please send any vaccination records you have.])
+#immuknow.overdue-diseases(notice, no-records: auto)
+#immuknow.overdue-agents(notice, no-records: [Please send any vaccination records you have.])
 ```
 
 `no-records: none` is the default and retains the regular list. A string or
@@ -290,11 +247,12 @@ exemptions or the other legal steps needed for a suspension order.
 A suspension notice declares the existing ISPA eligibility condition beside its wording:
 
 ```typst
-#immuknow.requirements(eligibility: "has_ispa_overdue", coverage: "diseases")
-#immuknow.overdue-diseases(ispa-only: true)
+#immuknow.requirements(notice, eligibility: "has_ispa_overdue", coverage: "diseases")
+#immuknow.overdue-diseases(notice, ispa-only: true)
 ```
 
-`ispa_up_to_date` uses the same selection as the list and is independent of
+`notice-flags(notice, include-ispa: true)` adds `ispa_up_to_date`, which uses
+the same selection as the list and is independent of
 `up_to_date`, which always considers the complete overdue-disease list.
 Requesting ISPA selection fails if a birth date needed for Varicella or
 Meningococcal applicability is missing or invalid, or if `date_as_of` is missing
@@ -304,7 +262,7 @@ ordinary lists remain available without those ISPA-specific facts.
 An affirmative template declares its wording requirement explicitly:
 
 ```typst
-#immuknow.requirements(eligibility: "no_overdue", coverage: "neutral")
+#immuknow.requirements(notice, eligibility: "no_overdue", coverage: "neutral")
 ```
 
 Eligibility mismatches produce structured failures while retaining readable
@@ -316,14 +274,13 @@ notice from these flags.
 
 ## Notice requirements
 
-Place one declaration beside the wording it protects. The starter Settings binds
-the notice argument, so an agent notice can use:
+Place one declaration beside the wording it protects. An agent-based notice
+can use:
 
 ```typst
-#immuknow.requirements(eligibility: "has_overdue_agents", coverage: "agents")
+#immuknow.requirements(notice, eligibility: "has_overdue_agents", coverage: "agents")
 ```
 
-The shared library's unbound API is `requirements(notice, eligibility: ..., coverage: ...)`.
 Eligibility values are `any`, `has_overdue`, `has_overdue_agents`, `no_overdue`
 and `has_ispa_overdue`. Coverage is `agents`, `diseases` or explicit `neutral`.
 Neutral does not mean missing: even an informational notice places a declaration.
@@ -338,7 +295,7 @@ original remains for review. New requirements checks cannot be disabled or downg
 
 For agent-based notices, display exclusions never change coverage or eligibility.
 If every source agent is excluded, the display check fails. Intentional no-records
-wording and `immuknow.agent-alternative[Contact the clinic.]` provide explicit
+wording and `immuknow.agent-alternative(notice)[Contact the clinic.]` provide explicit
 alternatives; empty or metadata-only replacements fail evidence validation.
 Preparation returns these checks in `deferred_checks`, not as placeholder findings.
 Validated compilation resolves them and saves `blocked_checks` separately when needed.
@@ -375,9 +332,8 @@ Shared setup connects the complete, unchanged `notice` to address, history,
 overdue-list and QR helpers. Their placed content records the source row and
 client ID. Mixing helpers from
 different rows fails the report check, even when the external ID is blank.
-Use `immuknow.address-block()` when only the mailing address is needed.
-Use `window: none` on `client-block`, or set `envelope-window = none` in Settings,
-when no envelope window is specified. The client block uses its default layout;
+Use `immuknow.address-block(notice)` when only the mailing address is needed.
+Use `window: none` on `client-block` when no envelope window is specified. The client block uses its default layout;
 fit and overlap checks are not applicable. A notice with addresses but no
 specified window warns. This also covers notices using only `address-block`.
 Address blocks stay on one page. The `addressee` and `province` options accept
@@ -387,8 +343,8 @@ The report retains the notice data used for layout and checks that each placed
 helper used the same data. Native and browser checks compare it with the prepared input.
 
 `immunization-history` accepts disease columns, ignored agents, validity markers,
-Other-column inclusion, invalid-dose omission and chart styling. Settings
-supplies the shared defaults; named options on a call change that table only.
+Other-column inclusion, invalid-dose omission and chart styling. Named options
+apply to that table only.
 The formulation footnote appears only when a displayed vaccine name contains
 `*`, as in `HB*` for `HB-unspecified`. The full source name is used for lookup;
 the marker means its formulation is unspecified. Ignored agents and omitted
@@ -405,6 +361,7 @@ localized defaults. Values accept plain text or Typst content. Use `valid`,
 
 ```typst
 #immuknow.immunization-history(
+  notice,
   show-validity: true,
   legend-labels: if notice.language == "fr" {
     (valid: "Dose prise en compte dans les exigences de vaccination",
@@ -453,14 +410,13 @@ can explicitly allow intentional overflow. Structural misuse or compiler errors
 can prevent a PDF. Report findings show which components were used, their checks,
 resolved QR URLs and layout measurements.
 
-Put options used by one component directly in its Template call. For example,
+Pass component options directly to the helper call. For example,
 set `style: "bullets"`, `columns: 1` and `include-dose: false` on
 `overdue-diseases`. Bullet lists use `indent: 0.8cm` without a surrounding
 `#set list` rule; pass `indent: 1cm` to override just that component.
 The client block defaults to `font-size: 10pt` and `details: "right"`. Omit those
 options unless changing them on that call. Omit QR calls in letters without a
-QR code. Keep shared page setup and Theme colours in Settings. Write contact details
-directly where they appear in the Template.
+QR code. Project-specific shared defaults belong in the authored project.
 
 Use an explicit image path and width inside the signature block:
 
@@ -488,11 +444,11 @@ Use `immuknow.link("https://example.org/record")[Read the record]` for
 external links. It also accepts `mailto:` and `tel:` destinations. Omitting the
 bracketed text keeps Typst's default label.
 
-In the starter's `settings.typ`, use a fixed QR destination or a function of
-the notice's client facts:
+Pass a fixed QR destination or a function of the notice's client facts:
 
 ```typst
-#let qr = (
+#immuknow.qr-code(
+  notice,
   url: notice => immuknow.query-url("https://example.org/update", (
     client_id: notice.client_id,
     dob: notice.client_data.date_of_birth_iso,
@@ -517,7 +473,7 @@ squares, one foreground colour and a four-module white quiet zone.
 | `error-correction` | `auto` uses `"l"` without an image and `"h"` with one; explicit `"l"`, `"m"`, `"q"`, `"h"` are also accepted. Images require `"h"`. |
 
 For example, set `module-shape: "separated"` and
-`corner-foreground: rgb("176b78")` in the QR settings dictionary. An authored
+`corner-foreground: rgb("176b78")` on `qr-code`. An authored
 centre graphic can use `logo: image("assets/mark.svg", width: 100%)`.
 An image clearing area that overlaps a structural marker is rejected; reduce its
 size or padding. This check does not guarantee scanning after image occlusion.
@@ -528,16 +484,17 @@ Custom styles add drawing work; unstyled RGB/grayscale square codes use a
 compact SVG path generated in Rust. Other foreground colour spaces retain
 native Typst curves. See [QR implementation](qr.md) for the encoder and verification.
 
-The helper percent-encodes query values, adds them before any `#section`, and
-uses the same destination for its code and link. Existing query values are kept.
+`query-url` percent-encodes raw query values and adds them before any `#section`,
+keeping existing query values. `qr-code` uses the resolved destination for both
+its code and PDF link.
 The pipeline supplies facts; the authored template defines QR destinations.
 
 To include initials, add `first_initial: notice.client_data.first_initial` and
 `last_initial: notice.client_data.last_initial` alongside the other URL values.
 Initials are used only when included in this function.
 
-Project display translations are editable in `translations/`; the library has
-its own packaged localization resources.
+The library includes fallback localization resources. Use the helper's `labels`
+option to supply project translations; Template documents its translation files.
 
 ## Reproduce and review a notice
 
@@ -549,16 +506,14 @@ unknown-age, long-address and long-history examples, including QR links,
 window placement, signatures, symbols and page continuation. The
 [testing guide](testing.md) describes repeatable checks.
 
-
 ## Page title alignment
 
-Set `title-align` to `left`, `center` or `right` in project Settings. The starter
-`notice-page` wrapper passes this choice to the shared header. A named override
-changes only one page:
+The `notice-header` and `notice-section` helpers accept `title-align: left`,
+`center` or `right`. For example:
 
 ```typst
-#immuknow.notice-page("Immunization Record", title-align: left)[
-  #immuknow.immunization-history()
+#immuknow.notice-section("Immunization Record", title-align: left)[
+  #immuknow.immunization-history(notice)
 ]
 ```
 

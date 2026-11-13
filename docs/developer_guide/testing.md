@@ -46,15 +46,12 @@ Prefer focused unit tests for isolated normalization, policy, PDF and queue logi
 then representative integration cases for their combined behavior. Avoid repeating
 the same malformed-input or encryption cases in every consuming project.
 
-For a Core resource or schema update, run the contract cases, refresh Template's
-complete shared library, then verify representative English/French notices,
-long histories, addresses and branding. Template owns those authored layout
-checks; Core fixtures establish the engine contract. A Studio pin update also
-requires regenerated preview facts/assets, browser import/export and draft
-checks, and a downloaded-project run against the intended native executable.
-Studio's routine CI does not run the full browser/native suite; maintainers must
-select its manual `full_tests` workflow for that handoff. See the
-[Studio development guide](https://github.com/WDGPH/ImmuKnow-Studio/blob/main/docs/development.md).
+For a Core resource or schema update, run the contract and shared-component
+checks. Template owns verification of its authored notices and layouts; Studio
+owns browser and downloaded-project integration. Follow
+[Template's contributor guide](https://github.com/WDGPH/ImmuKnow-Template/blob/main/CONTRIBUTING.md)
+and [Studio's development guide](https://docs.phiz.ca/immuknow-studio/latest/development/)
+for checks in those repositories.
 
 Before release, extract the archive outside the checkout and exercise its
 executable with a compatible fictional project and installed fonts. Verify

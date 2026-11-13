@@ -246,6 +246,6 @@ if the due date is omitted, suspension must still be later than delivery.
 Omit an optional date or set it to `null` or `''` when it does not apply. Invalid
 calendar dates or inconsistent ordering stop preparation with the field names
 in the error. Core does not infer a deadline, a suspension date or school days.
-Templates decide where these dates appear. Starter letters print the localized
-delivery date, overdue letters show a supplied deadline, and the suspension
-starter uses the supplied start instead of fixed calendar dates.
+Templates decide where these dates appear. See
+[ImmuKnow Template's documentation](https://github.com/WDGPH/ImmuKnow-Template/blob/main/README.md)
+for starter-notice wording and date display.

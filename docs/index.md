@@ -8,7 +8,7 @@ responsible for assessing immunization status.
 
 Core owns native processing and shared components. Template supplies the project
 that your organization adapts. Studio provides browser editing and previews.
-Check [Studio compatibility](user_guide/studio.md) before using an exported project.
+See [Studio’s own documentation](https://docs.phiz.ca/immuknow-studio/latest/) for editing and project export.
 
 Read [projects and contracts](ecosystem.md) for a description of each project's
 responsibilities and the files they share.

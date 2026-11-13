@@ -38,7 +38,6 @@ nav:
   - User Guide:
       - Getting Started: user_guide/getting_started.md
       - Configuration: user_guide/configuration.md
-      - ImmuKnow Studio: user_guide/studio.md
       - CSV Input Fields: user_guide/input_schema.md
       - PDF Review: user_guide/pdf_validation.md
       - Finding Code Reference: user_guide/findings.md

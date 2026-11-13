@@ -7,12 +7,10 @@ prepared facts described by `resources/schemas/rendering.json`.
 Text links and URL helpers live in `src/links.typ`; QR rendering lives in
 `src/qr.typ`. Use the public helpers exported by `lib.typ` in your templates.
 
-Template projects connect these low-level helpers to their prepared notice in
-shared setup. Letters import that setup and use `#show: immuknow.letter`,
-`#immuknow.client-block()` and `#immuknow.immunization-history()` without
-repeating the data argument. Project defaults can be overridden on one call.
-See [ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template#customizing)
-for the maintained setup. Core imports never load client data.
+The public helpers take prepared notice data explicitly. Projects can wrap them
+to provide shared defaults; see
+[ImmuKnow Template's documentation](https://github.com/WDGPH/ImmuKnow-Template/blob/main/README.md)
+for its project setup. Core imports never load client data.
 
 For a direct library import, wrap the whole document with
 `#show: immuknow.letter.with(notice: notice)`.
@@ -21,11 +19,6 @@ metadata element. `notice-page` applies page styling; `notice-section(title)[bod
 starts a named section and checks whether it continues onto another page.
 Set `allow-overflow: true` for intentional continuation. Overflows produce
 warnings while preserving visible content.
-
-Put notice-specific helper options directly in the Template. Keep shared page,
-Theme, QR and history choices in Settings. Write contact details and
-notice-specific options directly where they appear in the Template. There is no native
-display-default adapter or separate layout-settings file.
 
 - `check-notice(notice, version: ..., language: ...)` checks the authored filename
   identity against prepared facts. The caller obtains the trusted identity from
@@ -38,8 +31,8 @@ display-default adapter or separate layout-settings file.
   Place one declaration in the active branch of a conditional notice.
 - `intended-reader(notice)` returns `"student"`, `"guardian"` or `none`. An explicit
   `notice.intended_reader` takes priority over the age default. Address helpers use this
-  same selection. Template setup exposes boolean `to_student` and `to_guardian`
-  flags, with both false when the reader is unknown. Reader choice never changes
+  same selection. `notice-flags(notice)` exposes boolean `to_student` and
+  `to_guardian` flags, with both false when the reader is unknown. Reader choice never changes
   age facts or supplies another person's contact details.
 - `notice-flags(notice)` returns `to_student`, `to_guardian`, `up_to_date` and
   `no_records` booleans. Reader flags follow `intended-reader(notice)`. `up_to_date`

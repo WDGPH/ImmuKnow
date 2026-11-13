@@ -7,9 +7,9 @@ You choose the notices; the source system assesses immunization status.
 | --- | --- |
 | ImmuKnow Core | Native processing engine: prepares data, creates PDFs, encrypts copies, assembles bundles and writes reports. |
 | [ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template) | Starter notices, translations, branding, settings and reference files to adapt for your organization. |
-| [ImmuKnow Studio](docs/user_guide/studio.md) | Browser editor and preview environment; see its compatibility guide before exchanging projects. |
+| [ImmuKnow Studio](https://docs.phiz.ca/immuknow-studio/latest/) | Browser editor and preview environment. |
 
-See [projects and contracts](docs/ecosystem.md) for compatibility and resource ownership.
+See [projects and contracts](docs/ecosystem.md) for project responsibilities and shared contracts.
 
 ## Create notices
 

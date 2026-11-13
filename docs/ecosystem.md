@@ -11,20 +11,17 @@ shared library intact in `templates/lib/immuknow/`. Core reads the project,
 CSV and explicit notice choices to produce PDFs, bundles and reports. The source
 system assesses immunization status; operators review notices before delivery.
 
-See the [getting started guide](user_guide/getting_started.md) for a native
-project and [Studio](user_guide/studio.md) for the current integration status.
-Template's [native starter instructions](https://github.com/WDGPH/ImmuKnow-Template/blob/625f0b5c83d338c9ed1eda41f9de7d6e16adcbfd/README.md)
-describe its setup and project files. Each project is updated independently;
-updating Core does not update Studio's pins or a project's reference lists.
+See the [getting started guide](user_guide/getting_started.md) for native notice
+generation, [Template's setup instructions](https://github.com/WDGPH/ImmuKnow-Template/blob/main/README.md)
+for a starter project, and [Studio's documentation](https://docs.phiz.ca/immuknow-studio/latest/)
+for browser editing and project export. Each project owns its setup,
+compatibility and maintenance instructions.
 
 ## Native handoff
 
 Core exports its schemas and complete Typst library for projects and authoring
-tools. Template owns authored notices and configuration; Studio owns adoption of
-compatible Core and Template revisions. Check
-[Studio compatibility](user_guide/studio.md#compatibility-with-standalone-core)
-before exchanging projects. An executable's version alone does not establish
-its source revision.
+tools. Template supplies authored notices and configuration; Studio consumes
+Core's contracts for previews and exported projects.
 
 The [command and facts reference](developer_guide/cli.md) owns export commands,
 resource identity, schema versions and the preparation envelope. The
@@ -36,7 +33,7 @@ Each project tests its own behavior and the files it hands to its consumers.
 Core's [testing guide](developer_guide/testing.md#test-ownership-and-execution)
 defines these boundaries and the checks needed for resource and pin updates.
 See Template's
-[contributor guide](https://github.com/WDGPH/ImmuKnow-Template/blob/625f0b5c83d338c9ed1eda41f9de7d6e16adcbfd/CONTRIBUTING.md)
+[contributor guide](https://github.com/WDGPH/ImmuKnow-Template/blob/main/CONTRIBUTING.md)
 and Studio's
-[development guide](https://github.com/WDGPH/ImmuKnow-Studio/blob/main/docs/development.md)
+[development guide](https://docs.phiz.ca/immuknow-studio/latest/development/)
 for their execution instructions.
