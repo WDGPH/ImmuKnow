@@ -1,5 +1,11 @@
 #import "lib/immuknow/lib.typ" as immuknow
-#import "presentation.typ" as presentation
+// Project translation dependencies stay explicit in the shared settings module.
+#let selected-labels() = (
+  en_diseases_chart: json("translations/en_diseases_chart.json"),
+  en_diseases_overdue: json("translations/en_diseases_overdue.json"),
+  fr_diseases_chart: json("translations/fr_diseases_chart.json"),
+  fr_diseases_overdue: json("translations/fr_diseases_overdue.json"),
+)
 
 #let paper-size = "us-letter"
 
@@ -83,5 +89,5 @@
   indicator-font: "FreeSans",
   indicator-size: auto,
   indicator-offset: (x: 0pt, y: 0pt),
-  labels: presentation.selected-labels(),
+  labels: selected-labels(),
 )
