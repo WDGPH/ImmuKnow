@@ -8,14 +8,41 @@ permissions:
   contents: read
 jobs:
   test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
+    name: Test and package (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            runner: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            rustflags: ''
+          - platform: windows-x86_64
+            runner: windows-2022
+            target: x86_64-pc-windows-msvc
+            rustflags: '-C target-feature=+crt-static'
+          - platform: macos-aarch64
+            runner: macos-15
+            target: aarch64-apple-darwin
+            rustflags: ''
+          - platform: macos-x86_64
+            runner: macos-15-intel
+            target: x86_64-apple-darwin
+            rustflags: ''
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
     env:
       CARGO_BUILD_JOBS: '1'
-      TYPST_FONT_PATHS: /usr/share/fonts/truetype/freefont
+      RUSTFLAGS: ${{ matrix.rustflags }}
       TYPST_IGNORE_SYSTEM_FONTS: 'true'
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
       - name: Cache Rust dependencies and build outputs
         uses: actions/cache@v6.1.0
         with:
@@ -23,27 +50,52 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
-      - name: Install pinned notice fonts
+          key: rust-native-v2-${{ matrix.target }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+      - name: Install pinned notice fonts for the Linux test suite
+        if: matrix.platform == 'linux-x86_64'
         run: |
           curl -fL --retry 3 https://archive.ubuntu.com/ubuntu/pool/main/f/fonts-freefont/fonts-freefont-ttf_20120503-10build1_all.deb -o "$RUNNER_TEMP/notice-fonts.deb"
           echo "d1424c9d47b2a6bd0d5149ca66f2bab9b4365237bfbb6063659d961bab2f8ccb  $RUNNER_TEMP/notice-fonts.deb" | sha256sum --check
-          dpkg-deb --extract "$RUNNER_TEMP/notice-fonts.deb" "$RUNNER_TEMP/notice-fonts"
-          sudo install -d /usr/share/fonts/truetype/freefont
-          sudo install -m 644 "$RUNNER_TEMP/notice-fonts/usr/share/fonts/truetype/freefont/"*.ttf /usr/share/fonts/truetype/freefont/
-      - run: cargo fmt --all --check
-      - run: cargo clippy --release --locked --all-targets -- -D warnings
-      - run: cargo build --release --locked
-      - run: cargo test --release --locked
-      - name: Build and inspect release archive
+          dpkg-deb --extract "$RUNNER_TEMP/notice-fonts.deb" "$RUNNER_TEMP/notice-fonts-extracted"
+          mkdir -p "$RUNNER_TEMP/notice-fonts"
+          cp "$RUNNER_TEMP/notice-fonts-extracted/usr/share/fonts/truetype/freefont/"*.ttf "$RUNNER_TEMP/notice-fonts/"
+      - name: Install the pinned Rust toolchain and target
+        env:
+          TARGET: ${{ matrix.target }}
         run: |
-          mkdir -p "$RUNNER_TEMP/dist"
-          tar -czf "$RUNNER_TEMP/dist/immuknow-linux-x86_64.tar.gz" \
-            -C target/release immuknow -C "$GITHUB_WORKSPACE" LICENSE
-          tar -tzf "$RUNNER_TEMP"/dist/*.tar.gz
-      - name: Upload native release archive
+          channel=$(python -c 'import tomllib; print(tomllib.load(open("rust-toolchain.toml", "rb"))["toolchain"]["channel"])')
+          rustup toolchain install "$channel" --profile minimal --component rustfmt,clippy --target "$TARGET"
+      - name: Check formatting
+        if: matrix.platform == 'linux-x86_64'
+        run: cargo fmt --all --check
+      - name: Check Clippy
+        if: matrix.platform == 'linux-x86_64'
+        env:
+          TARGET: ${{ matrix.target }}
+        run: cargo clippy --release --locked --target "$TARGET" --all-targets -- -D warnings
+      - name: Build the release executable
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          cargo build --release --locked --target "$TARGET"
+      - name: Run the release test suite
+        if: matrix.platform == 'linux-x86_64'
+        env:
+          TARGET: ${{ matrix.target }}
+          TYPST_FONT_PATHS: ${{ runner.temp }}/notice-fonts
+        run: cargo test --release --locked --target "$TARGET"
+      - name: Package and test the extracted executable
+        env:
+          TARGET: ${{ matrix.target }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          executable=immuknow
+          if [[ "$PLATFORM" == windows-* ]]; then executable=immuknow.exe; fi
+          python tools/package_release.py --platform "$PLATFORM" \
+            --binary "target/$TARGET/release/$executable" --output "$RUNNER_TEMP/dist"
+      - name: Upload the tested release archive
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: immuknow-linux-x86_64
-          path: ${{ runner.temp }}/dist/*.tar.gz
+          name: immuknow-${{ matrix.platform }}
+          path: ${{ runner.temp }}/dist/*
           if-no-files-found: error
