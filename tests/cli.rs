@@ -139,7 +139,45 @@ fn native_project_journey_without_python_or_uv() {
     ]));
     assert!(!library.join("unexpected.typ").exists());
     assert_eq!(fs::read(&authored).unwrap(), before);
+    let sample_json = fs::read(project.join("sample.json")).unwrap();
+    let sample_csv = fs::read(input.join("sample_students.csv")).unwrap();
+    fs::remove_file(project.join("sample.json")).unwrap();
+    fs::remove_file(input.join("sample_students.csv")).unwrap();
+    let setup = native(&["project", "check", "--project", root]);
+    success(&setup);
+    assert!(String::from_utf8_lossy(&setup.stdout).contains("configuration is valid"));
+    assert!(
+        !native(&["project", "check", "--project", root, "--sample"])
+            .status
+            .success()
+    );
+    assert!(
+        !native(&[
+            "project",
+            "check",
+            "--project",
+            root,
+            "--template",
+            "overdue_agents_v1.en.typ"
+        ])
+        .status
+        .success()
+    );
+    let parameters = project.join("config/parameters.yaml");
+    let original_config = fs::read(&parameters).unwrap();
+    fs::write(&parameters, "allowed_duplicate_client_ids: [123]\n").unwrap();
+    let invalid = native(&["project", "check", "--project", root]);
+    assert!(!invalid.status.success());
+    assert!(String::from_utf8_lossy(&invalid.stderr).contains("allowed_duplicate_client_ids"));
+    fs::write(&parameters, original_config).unwrap();
+    fs::write(project.join("sample.json"), sample_json).unwrap();
     success(&native(&["project", "check", "--project", root]));
+    assert!(
+        !native(&["project", "check", "--project", root, "--sample"])
+            .status
+            .success()
+    );
+    fs::write(input.join("sample_students.csv"), sample_csv).unwrap();
     let checked = native(&["project", "check", "--project", root, "--sample"]);
     success(&checked);
     assert!(!String::from_utf8_lossy(&checked.stderr).contains("report.html"));

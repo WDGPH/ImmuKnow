@@ -42,6 +42,7 @@ Project setup and sample checks also run without Python:
 
 ```sh
 immuknow project sync --project project
+immuknow project check --project project
 immuknow project check --project project --sample
 immuknow run --sample --project project
 ```

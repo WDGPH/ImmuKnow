@@ -4,7 +4,7 @@ The standalone `immuknow` executable is the integration boundary. It embeds Typs
 
 ```text
 immuknow project sync [--project DIR] [--replace]
-immuknow project check [--project DIR] [--sample] [--template FILE]
+immuknow project check [--project DIR] [--sample [--template FILE]]
 immuknow run --sample [--project DIR] [--template FILE] [--output DIR]
 immuknow prepare --sample [--project DIR] [--template FILE]
 immuknow run CSV --project DIR (--notices JSON | --template FILENAME)
@@ -98,9 +98,9 @@ immuknow run --sample --project project
 `templates/lib/immuknow/`. It accepts identical files and refuses a different
 library unless `--replace` is supplied. Replacement affects only that directory;
 authored notices and configuration are preserved. Linked library paths are
-rejected. `project check` compares the complete library and prepares the
-project's fictional sample without modifying authored files. With `--sample`, it
-also renders the sample in a temporary folder and removes the output afterwards.
+rejected. `project check` compares the complete library and validates `config/parameters.yaml`
+without requiring fictional inputs. With `--sample`, it prepares and renders the
+project's fictional sample in a temporary folder and removes the output afterwards.
 Use `run --sample` to retain output and inspect its report. Warnings alone do
 not fail a check; failures return a nonzero status. Check and sync print a short
 text result; the existing run/prepare stdout formats are unchanged.
@@ -109,7 +109,7 @@ Project commands default to the current folder. `run` and `prepare` accept
 `--sample` instead of a CSV and explicit notice selection. The project's
 `sample.json` contains exactly `csv` and `template` paths relative to the project
 root. Both must name existing files inside the project; absolute paths, parent
-traversal and links outside the project are rejected. Use `--template` to
+traversal and links outside the project are rejected. Use `--template` with `--sample` to
 override the sample notice with a path relative to the project’s `templates/` folder, or an absolute path inside the project. A collection
 can include clients for whom the selected notice is inapplicable; inspect its
 eligibility findings. `--sample` cannot be combined with an explicit CSV,

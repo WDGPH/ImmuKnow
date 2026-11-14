@@ -34,16 +34,16 @@ force. Grouping must be enabled to produce bundles.
 ## Set up and check a project
 
 From a configured Template or Studio project folder, install the shared library
-and check the fictional sample:
+and check the setup:
 
 ```sh
 immuknow project sync
-immuknow project check --sample
-immuknow run --sample
+immuknow project check
 ```
 
-The check removes its temporary output; the run keeps notices and a report under
-`runs/`. A full sample may include clients for whom the selected notice is inapplicable; review the eligibility findings and notice routes. Setup and sample commands require no Python or uv. A project without
+When fictional inputs are included, use `immuknow project check --sample` to
+prepare and render them in a temporary folder. `immuknow run --sample` keeps
+notices and a report under `runs/`. A full sample may include clients for whom the selected notice is inapplicable; review the eligibility findings and notice routes. Setup and sample commands require no Python or uv. A project without
 fictional inputs can still run your own CSV and notice selection below.
 Use `--project /path/to/project` when running from another folder. See the
 [command reference](../developer_guide/cli.md#native-project-setup-and-samples)
