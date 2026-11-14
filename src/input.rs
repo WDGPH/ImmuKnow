@@ -21,8 +21,6 @@ pub struct Config {
     pub filenames: crate::filenames::Settings,
     pub encryption: Encryption,
     pub school_validation: School,
-    pub pipeline: Pipeline,
-    pub typst: Typst,
     pub validation: BTreeMap<String, Value>,
 }
 #[derive(Deserialize, Serialize)]
@@ -58,23 +56,6 @@ pub struct School {
     pub enabled: bool,
     pub reference_file: Option<String>,
     pub target_phu: String,
-    pub column_prefix: Option<String>,
-}
-#[derive(Deserialize, Serialize, Default)]
-#[serde(deny_unknown_fields, default)]
-pub struct Pipeline {
-    pub after_run: AfterRun,
-}
-#[derive(Deserialize, Serialize, Default)]
-#[serde(deny_unknown_fields, default)]
-pub struct AfterRun {
-    pub remove_artifacts: bool,
-}
-#[derive(Deserialize, Serialize, Default)]
-#[serde(deny_unknown_fields, default)]
-pub struct Typst {
-    pub bin: Option<String>,
-    pub timeouts_seconds: Option<Value>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -121,14 +102,6 @@ pub fn config(path: &Path) -> Result<Config> {
     let c: Config = parse_yaml(&source)?;
     validate_dates(&c)?;
     validate_allowed_duplicates(&c)?;
-    ensure!(
-        !c.pipeline.after_run.remove_artifacts,
-        "pipeline.after_run.remove_artifacts is retired; remove the run directory manually when appropriate"
-    );
-    ensure!(
-        c.school_validation.column_prefix.is_none(),
-        "school_validation.column_prefix is retired; native findings use fixed measurement names"
-    );
     if c.school_validation.enabled {
         ensure!(
             !c.school_validation.target_phu.trim().is_empty(),
@@ -144,10 +117,6 @@ pub fn config(path: &Path) -> Result<Config> {
     if !c.encryption.password.template.is_empty() {
         format_password(&c.encryption.password.template, &BTreeMap::new(), false)?;
     }
-    ensure!(
-        c.typst.bin.is_none() && c.typst.timeouts_seconds.is_none(),
-        "typst.bin and typst.timeouts_seconds are retired; remove them from parameters.yaml"
-    );
     validate_bundling(&c)?;
 
     Ok(c)
@@ -1105,6 +1074,20 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<RowPrepar
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn retired_configuration_keys_are_unknown_even_when_inert() {
+        for source in [
+            "pipeline: {after_run: {remove_artifacts: false}}",
+            "typst: {bin: null}",
+            "school_validation: {column_prefix: null}",
+        ] {
+            assert!(parse_yaml::<Config>(source).is_err(), "{source}");
+        }
+        let value = serde_json::to_value(Config::default()).unwrap();
+        assert!(value.get("pipeline").is_none());
+        assert!(value.get("typst").is_none());
+        assert!(value["school_validation"].get("column_prefix").is_none());
+    }
     #[test]
     fn duplicate_id_allowlist_requires_unique_trimmed_strings() {
         let temp = tempfile::tempdir().unwrap();
