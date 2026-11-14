@@ -1890,7 +1890,7 @@ fn repeated_overdue_facts_warn_before_display_filters_and_remain_deliverable() {
     for (name, value) in [
         (
             "overdue_disease",
-            "Poliomyelitis - 1; Polio - 2; Measles - 2",
+            "Poliomyelitis - 1; Polio - 1; Polio - 2; Measles - 2; Polio; Polio; Polio - x; Polio - x",
         ),
         ("overdue_agent", "PV; MMR; PV; MMR"),
         ("immunizations_given", ""),
@@ -1936,22 +1936,18 @@ fn repeated_overdue_facts_warn_before_display_filters_and_remain_deliverable() {
     assert_eq!(disease["status"], "warn");
     assert_eq!(
         disease["measurements"]["groups"],
-        json!([{"normalized_disease":"Polio", "count":2, "source_fragments":["Poliomyelitis - 1", "Polio - 2"]}])
+        json!([{"normalized_disease":"Polio", "dose":1, "count":2, "source_fragments":["Poliomyelitis - 1", "Polio - 1"]}])
     );
-    let agent = entry["checks"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|c| c["code"] == "data.duplicate_overdue_agents")
-        .unwrap();
-    assert_eq!(agent["status"], "warn");
-    assert_eq!(
-        agent["measurements"]["groups"],
-        json!([{"agent":"MMR", "count":2}, {"agent":"PV", "count":2}])
+    assert!(
+        !entry["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c["code"] == "data.duplicate_overdue_agents")
     );
     assert_eq!(
         entry["notice"]["overdue_diseases"],
-        json!([{"disease":"Polio","dose":1},{"disease":"Polio","dose":2},{"disease":"Measles","dose":2}])
+        json!([{"disease":"Polio","dose":1},{"disease":"Polio","dose":1},{"disease":"Polio","dose":2},{"disease":"Measles","dose":2},{"disease":"Polio","dose":null},{"disease":"Polio","dose":null},{"disease":"Polio","dose":null,"dose_raw":"x"},{"disease":"Polio","dose":null,"dose_raw":"x"}])
     );
     assert_eq!(
         entry["notice"]["overdue_agents"],
@@ -1974,16 +1970,11 @@ fn repeated_overdue_facts_warn_before_display_filters_and_remain_deliverable() {
     let (_, record) = project.record();
     let row = &record["entries"][0];
     assert_eq!(row["routing"], "deliverable");
-    for code in [
-        "data.duplicate_overdue_agents",
-        "data.duplicate_overdue_diseases",
-    ] {
-        assert!(
-            effective_checks(row)
-                .into_iter()
-                .any(|c| c["code"] == code && c["status"] == "warn")
-        );
-    }
+    assert!(
+        effective_checks(row)
+            .into_iter()
+            .any(|c| c["code"] == "data.duplicate_overdue_diseases" && c["status"] == "warn")
+    );
     assert_eq!(row["saved_evidence"]["components"]["overdue_agents"], true);
     assert_eq!(
         row["saved_evidence"]["components"]["overdue_diseases"],

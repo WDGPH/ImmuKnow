@@ -71,13 +71,9 @@ The source school name and ID were compared with the configured reference. A nam
 
 This ID occurs on multiple rows and was explicitly allowed in configuration. All rows are retained and use the same notice assignment. Review each row and its notice before sending; warnings are eligible for delivery.
 
-### `data.duplicate_overdue_agents` {#data-duplicate-overdue-agents}
-
-An overdue agent appears more than once in the source. Repetition can be expected when one agent covers several diseases. Review the source and notice; the facts are retained and this warning allows delivery.
-
 ### `data.duplicate_overdue_diseases` {#data-duplicate-overdue-diseases}
 
-An overdue disease appears more than once after disease names are standardized, even if the dose numbers differ. Review the source and dose numbers; the facts are retained and this warning allows delivery.
+An overdue disease appears more than once with the same explicit positive dose after disease names are standardized. Review the source and dose numbers; the facts are retained and this warning allows delivery.
 
 ### `data.forecast_coverage` {#data-forecast-coverage}
 
@@ -87,7 +83,7 @@ The configured agent lookup compares forecasted agents with supplied overdue dis
 
 ### `assignment.extra_manifest_row` {#assignment-extra-manifest-row}
 
-The assignment file includes client IDs absent from the CSV. Compare the two files and remove or explain extra assignments before rerunning.
+This run-level finding reports distinct assignment client IDs absent from the CSV. Compare the two files and remove or explain extra assignments before rerunning.
 
 ### `notice.requirements` {#notice-requirements}
 
