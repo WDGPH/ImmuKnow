@@ -17,8 +17,7 @@ immuknow prepare CSV (--notice-assignments JSON [--templates DIR] | --template F
 immuknow resources --output DIR
 immuknow rebundle RUN_DIR [--policy policy.json] [--withhold ROW_KEY --reason TEXT]
   [--release ROW_KEY] [--bundle-workers N] [--filenames filenames.json]
-immuknow warnings RUN_DIR [--refresh]
-immuknow acknowledge RUN_DIR ISSUE_ID --reason TEXT [--revoke]
+immuknow refresh-exports RUN_DIR
 ```
 
 With `--notices` and no explicit project or templates path, Core uses `templates/` and `config/` in the working directory. Without `--project`, relative `--template` paths are resolved from the working directory.
@@ -27,7 +26,7 @@ With `--notices` and no explicit project or templates path, Core uses `templates
 
 Global display options are `--progress auto|plain|off` and `--emoji`. Progress and summaries use stderr; redirected stdout remains a single saved-record path for `run` and `rebundle`, or JSON for `prepare` and `resources`. The terminal summary prints the selected CSV paths, while stdout retains the saved-record path. Auto mode redraws a throttled progress line only on a capable terminal; elsewhere it writes plain stage announcements and occasional counts. Plain mode avoids redraws and styling; off hides all progress and summary output. `NO_COLOR` disables styling. Progress receipts contain only counts, not client information.
 
-`warnings` lists distinct effective URL warnings from a completed saved run. `acknowledge` records or revokes review of an exact issue ID with a nonblank reason; it does not change findings or delivery. `warnings --refresh` regenerates the paired CSVs from the last checkpoint without adding a review event or compiling notices; readable failed and running `.incomplete` runs are accepted. See [PDF review](../user_guide/pdf_validation.md) for review scope and recovery.
+`refresh-exports` regenerates paired CSVs from the last readable checkpoint without compiling notices; failed and running `.incomplete` runs are accepted. See [PDF review](../user_guide/pdf_validation.md) for recovery.
 
 ## Run results
 

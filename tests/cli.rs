@@ -1106,33 +1106,6 @@ fn rebundle_applies_global_and_client_policy_without_changing_observations() {
             .count(),
         2
     );
-    let listing = cli(&project.root, &["warnings", p(&run)]);
-    success(&listing);
-    let listing = String::from_utf8(listing.stdout).unwrap();
-    let issue = listing
-        .lines()
-        .find(|line| line.contains("content.link_https"))
-        .unwrap()
-        .split_whitespace()
-        .next()
-        .unwrap();
-    success(&cli(
-        &project.root,
-        &[
-            "acknowledge",
-            p(&run),
-            issue,
-            "--reason",
-            "Reviewed static link",
-        ],
-    ));
-    let acknowledged: Value =
-        serde_json::from_slice(&fs::read(run.join("run.json")).unwrap()).unwrap();
-    assert_eq!(acknowledged["entries"], record["entries"]);
-    assert_eq!(
-        acknowledged["delivery_attempts"],
-        record["delivery_attempts"]
-    );
     let policy = project.root.join("policy.json");
     fs::write(&policy, serde_json::to_vec(&json!({
         "rules":{"content.link_https":{"severity":"fail","reason":"Require HTTPS"}},
@@ -1159,15 +1132,6 @@ fn rebundle_applies_global_and_client_policy_without_changing_observations() {
         );
     }
     assert_eq!(updated["entries"][1]["routing"], "review");
-    assert_eq!(updated["warning_reviews"], acknowledged["warning_reviews"]);
-    let listing = cli(&project.root, &["warnings", p(&run)]);
-    success(&listing);
-    let listing = String::from_utf8(listing.stdout).unwrap();
-    let reviewed = listing
-        .lines()
-        .find(|line| line.starts_with(issue))
-        .unwrap();
-    assert!(reviewed.contains("1 row(s)  acknowledged"));
     fs::write(&policy, serde_json::to_vec(&json!({"rules":{"content.link_https":{"enabled":false,"reason":"Not applicable to this delivery"}}})).unwrap()).unwrap();
     let _ = cli(
         &project.root,
@@ -1186,30 +1150,6 @@ fn rebundle_applies_global_and_client_policy_without_changing_observations() {
         findings
             .iter()
             .any(|row| row["code"] == "content.link_https" && row["disabled"] == "true")
-    );
-    let listing = cli(&project.root, &["warnings", p(&run)]);
-    success(&listing);
-    assert!(String::from_utf8_lossy(&listing.stdout).contains("inactive"));
-    success(&cli(
-        &project.root,
-        &[
-            "acknowledge",
-            p(&run),
-            issue,
-            "--revoke",
-            "--reason",
-            "Policy changed",
-        ],
-    ));
-    let revoked: Value = serde_json::from_slice(&fs::read(run.join("run.json")).unwrap()).unwrap();
-    assert_eq!(revoked["entries"], updated["entries"]);
-    assert_eq!(revoked["delivery_attempts"], updated["delivery_attempts"]);
-    assert_eq!(
-        revoked["warning_reviews"]["history"]
-            .as_array()
-            .unwrap()
-            .len(),
-        2
     );
 }
 

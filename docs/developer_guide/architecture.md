@@ -80,9 +80,8 @@ Codes outside the adjustable registry cannot be overridden through those setting
 | Source, references and assignments | `src/input.rs` | Correct the source or project configuration and rerun. Preparation findings have no rule override. |
 | Wording, links and layout | Shared Typst components | Only schema-marked adjustable checks support run-wide or exact-row rule changes. |
 | Requirements and source/evidence identity | Shared helper, schema and `src/validation.rs` | Mandatory. Correct the notice or its inputs; readable originals remain available for review. |
-| PDF creation and requested protection | Compiler, PDF writer and pipeline | Mandatory artifact outcomes. Acknowledgment cannot replace a missing original or protected copy. |
+| PDF creation and requested protection | Compiler, PDF writer and pipeline | Mandatory artifact outcomes. A missing original or protected copy requires correction. |
 | Group identity, page count and bundling | `src/bundles.rs` | Correct the source/settings or withhold the row. Releasing a hold leaves failures in force. |
-| Reviewed link warnings | `src/warnings.rs`, `src/warning_review.rs` | Run-scoped acknowledgment/revocation records attention to an exact issue; it changes no status or routing. |
 | Storage, path, lock and worker failures | Coordinator and filesystem operations | Operational errors stop the affected workflow and retain its recoverable record. |
 
 This boundary supports per-client review without making every error overridable.

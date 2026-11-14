@@ -8,7 +8,6 @@
 *.tmp
 input/*
 !input/sample_students.csv
-!input/sample_assignments.json
 # Local PHU templates; never committed
 phu_templates/
 .gitmodules

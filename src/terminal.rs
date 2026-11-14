@@ -236,7 +236,7 @@ impl Terminal {
         if let Some(parent) = result.record.parent() {
             if s.records_path.is_empty() || s.findings_path.is_empty() {
                 eprintln!(
-                    "  CSV exports unavailable; run warnings {} --refresh",
+                    "  CSV exports unavailable; run immuknow refresh-exports {}",
                     parent.display()
                 );
             } else {

@@ -1040,7 +1040,6 @@ pub fn rebundle_with_filenames(
         record["run_schema_version"] == 2,
         "Unsupported saved-run version; use the matching old executable"
     );
-    crate::warning_review::validate(&record)?;
     crate::checks::validate_record(&record, true)?;
     ensure!(
         matches!(
