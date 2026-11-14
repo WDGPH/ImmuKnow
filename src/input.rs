@@ -973,6 +973,25 @@ pub fn prepare(
                 json!({"source_value":source["overdue_disease"],"groups":disease_repeats});
             checks.push(warning);
         }
+        let mut agent_counts = BTreeMap::<&str, usize>::new();
+        for agent in &agents {
+            *agent_counts.entry(agent).or_default() += 1;
+        }
+        let agent_repeats: Vec<_> = agent_counts
+            .into_iter()
+            .filter(|(_, count)| *count > 1)
+            .map(|(agent, count)| json!({"agent":agent,"count":count}))
+            .collect();
+        if !agent_repeats.is_empty() {
+            let mut warning = check(
+                "data.duplicate_overdue_agents",
+                "warn",
+                "Some overdue agents appear more than once. Review the source entries; each agent should be listed once per client.",
+            );
+            warning["measurements"] =
+                json!({"source_value":source["overdue_agent"],"groups":agent_repeats});
+            checks.push(warning);
+        }
         let required: BTreeSet<_> = overdue
             .iter()
             .map(|d| d["disease"].as_str().unwrap().to_string())

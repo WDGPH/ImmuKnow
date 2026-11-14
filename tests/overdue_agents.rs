@@ -10,7 +10,6 @@ use std::{collections::BTreeMap, fs};
 fn repeated_agents_are_displayed_once_in_first_occurrence_order() {
     let temp = tempfile::tempdir().unwrap();
     resources::materialize(temp.path()).unwrap();
-    // A combined agent occurs once per disease in the supplied source facts.
     // A different agent interleaved between repeats checks stable ordering.
     let notice = json!({
         "row_key": "row-000001", "client_id": "0000000001", "language": "en",

@@ -1975,7 +1975,7 @@ fn repeated_overdue_facts_warn_before_display_filters_and_remain_deliverable() {
             "overdue_disease",
             "Poliomyelitis - 1; Polio - 1; Polio - 2; Measles - 2; Polio; Polio; Polio - x; Polio - x",
         ),
-        ("overdue_agent", "PV; MMR; PV; MMR"),
+        ("overdue_agent", "PV; MMR;  PV ; MMR"),
         ("immunizations_given", ""),
     ] {
         values[headers.iter().position(|h| h == name).unwrap()] = value.into();
@@ -2021,12 +2021,16 @@ fn repeated_overdue_facts_warn_before_display_filters_and_remain_deliverable() {
         disease["measurements"]["groups"],
         json!([{"normalized_disease":"Polio", "dose":1, "count":2, "source_fragments":["Poliomyelitis - 1", "Polio - 1"]}])
     );
-    assert!(
-        !entry["checks"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|c| c["code"] == "data.duplicate_overdue_agents")
+    let agents = entry["checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["code"] == "data.duplicate_overdue_agents")
+        .unwrap();
+    assert_eq!(agents["status"], "warn");
+    assert_eq!(
+        agents["measurements"],
+        json!({"source_value":"PV; MMR;  PV ; MMR", "groups":[{"agent":"MMR","count":2},{"agent":"PV","count":2}]})
     );
     assert_eq!(
         entry["notice"]["overdue_diseases"],
@@ -2058,12 +2062,55 @@ fn repeated_overdue_facts_warn_before_display_filters_and_remain_deliverable() {
             .into_iter()
             .any(|c| c["code"] == "data.duplicate_overdue_diseases" && c["status"] == "warn")
     );
+    assert!(
+        effective_checks(row)
+            .into_iter()
+            .any(|c| c["code"] == "data.duplicate_overdue_agents" && c["status"] == "warn")
+    );
     assert_eq!(row["saved_evidence"]["components"]["overdue_agents"], true);
     assert_eq!(
         row["saved_evidence"]["components"]["overdue_diseases"],
         true
     );
     assert_eq!(record["bundles"][0]["members"], json!(["row-000001"]));
+
+    values[headers.iter().position(|h| h == "overdue_disease").unwrap()] =
+        "Measles - 1; Mumps - 1; Rubella - 1".into();
+    values[headers.iter().position(|h| h == "overdue_agent").unwrap()] = "MMR".into();
+    let mut writer = csv::Writer::from_path(&project.csv).unwrap();
+    writer.write_record(&headers).unwrap();
+    writer.write_record(&values).unwrap();
+    writer.flush().unwrap();
+    drop(writer);
+    fs::write(
+        project.config.join("vaccine_reference.json"),
+        serde_json::to_vec(&json!({"MMR":["Measles", "Mumps", "Rubella"]})).unwrap(),
+    )
+    .unwrap();
+    let prepared = cli(
+        &project.root,
+        &[
+            "prepare",
+            p(&project.csv),
+            "--template",
+            p(&template),
+            "--config",
+            p(&project.config),
+        ],
+    );
+    success(&prepared);
+    let envelope: Value = serde_json::from_slice(&prepared.stdout).unwrap();
+    assert!(
+        !envelope["entries"][0]["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c["code"] == "data.duplicate_overdue_agents")
+    );
+    assert_eq!(
+        envelope["entries"][0]["notice"]["forecast_coverage"]["missing_diseases"],
+        json!([])
+    );
 }
 
 #[test]

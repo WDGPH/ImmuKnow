@@ -75,6 +75,10 @@ This ID occurs on multiple rows and was explicitly allowed in configuration. All
 
 An overdue disease appears more than once with the same explicit positive dose after disease names are standardized. Review the source and dose numbers; the facts are retained and this warning allows delivery.
 
+### `data.duplicate_overdue_agents` {#data-duplicate-overdue-agents}
+
+An overdue agent appears more than once. Source data should list each agent once per client; coverage of multiple diseases does not justify repeating the agent. Review and correct the source. The facts are retained and this warning allows delivery.
+
 ### `data.forecast_coverage` {#data-forecast-coverage}
 
 The configured agent lookup compares forecasted agents with supplied overdue diseases. Missing coverage fails an agent-based notice and warns for a disease-based notice. Extra diseases or unmapped agents warn. Review the source, notice and lookup measurements.
