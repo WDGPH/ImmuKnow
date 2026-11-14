@@ -686,6 +686,18 @@ fn exported_resources_work_outside_checkout_and_mixed_rows_remain_associated() {
 #[test]
 fn prepare_supports_both_selectors_and_does_not_create_runs() {
     let project = Project::new();
+    // An extra CSV version column is source data, not a notice selection or check.
+    let mut reader = csv::Reader::from_path(&project.csv).unwrap();
+    let mut headers = reader.headers().unwrap().clone();
+    headers.push_field("version_id");
+    let rows: Vec<_> = reader.records().map(Result::unwrap).collect();
+    let mut writer = csv::Writer::from_path(&project.csv).unwrap();
+    writer.write_record(&headers).unwrap();
+    for mut row in rows {
+        row.push_field("unrelated_source_value");
+        writer.write_record(&row).unwrap();
+    }
+    writer.flush().unwrap();
     let config = project.config.clone();
     let manifest = cli(
         &project.root,
@@ -708,6 +720,22 @@ fn prepare_supports_both_selectors_and_does_not_create_runs() {
         assert_eq!(e["notice"]["row_key"], format!("row-{:06}", i + 1));
         assert_eq!(e["notice"]["client_id"], e["source"]["client_id"]);
         assert_eq!(e["notice"]["schema_version"], 2);
+        assert_eq!(e["source"]["version_id"], "unrelated_source_value");
+        let selected = e["assignment"]["template"].as_str().unwrap();
+        let (version, language) = selected
+            .strip_suffix(".typ")
+            .unwrap()
+            .rsplit_once('.')
+            .unwrap();
+        assert_eq!(e["notice"]["version_id"], version);
+        assert_eq!(e["notice"]["language"], language);
+        assert!(
+            e["checks"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|check| { check["code"] != "assignment.version_conflict" })
+        );
         assert_eq!(
             e["deferred_checks"],
             json!([
