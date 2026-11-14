@@ -201,7 +201,7 @@ Choose one `<version_id>.<language>.typ` file for everyone in the client list, o
 ]
 ```
 
-Use `--notice-assignments assignments.json --templates ./project/templates` with the run command. Each `template` value is a filename in the `--templates` folder, without a path. Surrounding spaces are removed from IDs and filenames; leading zeros are kept. Missing or ambiguous choices and unlisted duplicate nonblank client IDs in the CSV reject the input. Extra rows in the selection file and a conflict with the source version produce warnings. The selected notice declares its own eligibility and coverage requirements; a failed requirement keeps a readable original for review. Only `en` and `fr` are supported.
+Use `--notice-assignments assignments.json --templates ./project/templates` with the run command. Each `template` value is a filename in the `--templates` folder, without a path. Surrounding spaces are removed from IDs and filenames; leading zeros are kept. Missing or ambiguous choices and unlisted duplicate nonblank client IDs in the CSV reject the input. Extra rows in the selection file produce warnings. The selected filename determines the notice version and language. The selected notice declares its own eligibility and coverage requirements; a failed requirement keeps a readable original for review. Only `en` and `fr` are supported.
 
 To accept a known repeated client ID, add it explicitly to `parameters.yaml`:
 

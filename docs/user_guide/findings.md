@@ -89,10 +89,6 @@ The configured agent lookup compares forecasted agents with supplied overdue dis
 
 The assignment file includes client IDs absent from the CSV. Compare the two files and remove or explain extra assignments before rerunning.
 
-### `assignment.version_conflict` {#assignment-version-conflict}
-
-The source version differs from the explicitly selected template version. Confirm the intended selection with the notice owner and correct the source or assignment.
-
 ### `notice.requirements` {#notice-requirements}
 
 The notice must place one valid requirements declaration. A missing, duplicate or invalid declaration fails the check and sends a readable original to review. Ask the notice maintainer to correct the declaration.

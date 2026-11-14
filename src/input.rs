@@ -1043,13 +1043,6 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<RowPrepar
         }
         let missing: Vec<_> = required.difference(&covered).cloned().collect();
         let extra: Vec<_> = covered.difference(&required).cloned().collect();
-        if !get(r, "version_id").is_empty() && get(r, "version_id") != version {
-            checks.push(check(
-                "assignment.version_conflict",
-                "warn",
-                "Source version differs from the selected version.",
-            ));
-        }
         let first = get(r, "first_name");
         let last = get(r, "last_name");
         let full_name = [first, last]
