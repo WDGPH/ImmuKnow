@@ -4,9 +4,9 @@ The standalone `immuknow` executable is the integration boundary. It embeds Typs
 
 ```text
 immuknow project sync [--project DIR] [--replace]
-immuknow project check [--project DIR] [--sample]
-immuknow run --sample [--project DIR] [--output DIR]
-immuknow prepare --sample [--project DIR]
+immuknow project check [--project DIR] [--sample] [--template FILE]
+immuknow run --sample [--project DIR] [--template FILE] [--output DIR]
+immuknow prepare --sample [--project DIR] [--template FILE]
 immuknow run CSV --project DIR (--notices JSON | --template FILENAME)
 immuknow prepare CSV --project DIR (--notices JSON | --template FILENAME)
 immuknow run CSV (--notice-assignments JSON [--templates DIR] | --template FILE)
@@ -106,13 +106,14 @@ not fail a check; failures return a nonzero status. Check and sync print a short
 text result; the existing run/prepare stdout formats are unchanged.
 
 Project commands default to the current folder. `run` and `prepare` accept
-`--sample` instead of a CSV and explicit notice selection. Sample paths come
-from `sample.json` with exactly `csv` and `assignments` fields. If absent, the
-conventional paths are `input/sample/sample_students.csv` and
-`input/sample/sample_assignments.json`. Paths must name existing files inside
-the project; absolute paths, parent traversal and links outside the project are
-rejected. `--sample` cannot be combined with explicit input, selection, template
-or configuration overrides. `--output` remains relative to the current working
+`--sample` instead of a CSV and explicit notice selection. The project's
+`sample.json` contains exactly `csv` and `template` paths relative to the project
+root. Both must name existing files inside the project; absolute paths, parent
+traversal and links outside the project are rejected. Use `--template` to
+override the sample notice with a path relative to the project’s `templates/` folder, or an absolute path inside the project. A collection
+can include clients for whom the selected notice is inapplicable; inspect its
+eligibility findings. `--sample` cannot be combined with an explicit CSV,
+assignment file, templates directory or configuration override. `--output` remains relative to the current working
 folder, defaulting to `runs/`, just as for an explicit CSV run.
 
 Template owns the sample records, authored notices, settings and reference lists;

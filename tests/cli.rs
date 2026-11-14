@@ -98,14 +98,7 @@ fn native_project_journey_without_python_or_uv() {
         .write_record(&reader.records().next().unwrap().unwrap())
         .unwrap();
     writer.flush().unwrap();
-    fs::write(
-        input.join("sample_assignments.json"),
-        serde_json::to_vec(&json!([
-            {"client_id":"0000000001","template":"overdue_agents_v1.en.typ"}
-        ]))
-        .unwrap(),
-    )
-    .unwrap();
+    fs::write(project.join("sample.json"), r#"{"csv":"input/sample/sample_students.csv","template":"templates/overdue_agents_v1.en.typ"}"#).unwrap();
     let native = |args: &[&str]| {
         Command::new(env!("CARGO_BIN_EXE_immuknow"))
             .current_dir(&fixture.root)
@@ -180,20 +173,72 @@ fn native_project_journey_without_python_or_uv() {
     assert_eq!(record["entries"][0]["original"]["status"], "completed");
     assert!(!project.join(".venv").exists());
 
-    fs::write(project.join("sample.json"), r#"{"csv":"input/sample/sample_students.csv","assignments":"input/sample/sample_assignments.json"}"#).unwrap();
+    fs::write(project.join("sample.json"), r#"{"csv":"input/sample/sample_students.csv","template":"templates/overdue_agents_v1.en.typ"}"#).unwrap();
     success(&native(&["prepare", "--sample", "--project", root]));
+    fs::write(
+        project.join("sample.json"),
+        r#"{"csv":"input/sample/sample_students.csv","template":"templates/missing.en.typ"}"#,
+    )
+    .unwrap();
     assert!(
-        !native(&[
-            "run",
-            "--sample",
-            "--project",
-            root,
-            "--template",
-            "anything.typ"
-        ])
-        .status
-        .success()
+        !native(&["prepare", "--sample", "--project", root])
+            .status
+            .success()
     );
+    success(&native(&[
+        "prepare",
+        "--sample",
+        "--project",
+        root,
+        "--template",
+        "overdue_agents_v1.en.typ",
+    ]));
+    success(&native(&[
+        "project",
+        "check",
+        "--sample",
+        "--project",
+        root,
+        "--template",
+        "overdue_agents_v1.en.typ",
+    ]));
+    success(
+        &Command::new(env!("CARGO_BIN_EXE_immuknow"))
+            .current_dir(&project)
+            .args([
+                "prepare",
+                "--sample",
+                "--template",
+                "overdue_agents_v1.en.typ",
+            ])
+            .output()
+            .unwrap(),
+    );
+    for bad in [
+        "../templates/overdue_agents_v1.en.typ",
+        p(&fixture.templates.join("overdue_agents_v1.en.typ")),
+    ] {
+        for command in ["prepare", "run"] {
+            assert!(
+                !native(&[command, "--sample", "--project", root, "--template", bad])
+                    .status
+                    .success()
+            );
+        }
+        assert!(
+            !native(&[
+                "project",
+                "check",
+                "--sample",
+                "--project",
+                root,
+                "--template",
+                bad
+            ])
+            .status
+            .success()
+        );
+    }
     assert!(
         !native(&["run", "--sample", "--project", root, "clients.csv"])
             .status
@@ -210,7 +255,7 @@ fn native_project_journey_without_python_or_uv() {
         fs::write(
             project.join("sample.json"),
             serde_json::to_vec(
-                &json!({"csv": invalid,"assignments":"input/sample/sample_assignments.json"}),
+                &json!({"csv": invalid,"template":"templates/overdue_agents_v1.en.typ"}),
             )
             .unwrap(),
         )
@@ -222,7 +267,7 @@ fn native_project_journey_without_python_or_uv() {
             "accepted {invalid}"
         );
     }
-    fs::write(project.join("sample.json"), r#"{"csv":"input/sample/sample_students.csv","csv":"input/sample/sample_students.csv","assignments":"input/sample/sample_assignments.json"}"#).unwrap();
+    fs::write(project.join("sample.json"), r#"{"csv":"input/sample/sample_students.csv","csv":"input/sample/sample_students.csv","template":"templates/overdue_agents_v1.en.typ"}"#).unwrap();
     assert!(
         !native(&["prepare", "--sample", "--project", root])
             .status
@@ -245,7 +290,7 @@ fn native_project_journey_without_python_or_uv() {
         );
         fs::write(
             project.join("sample.json"),
-            r#"{"csv":"linked.csv","assignments":"input/sample/sample_assignments.json"}"#,
+            r#"{"csv":"linked.csv","template":"templates/overdue_agents_v1.en.typ"}"#,
         )
         .unwrap();
         std::os::unix::fs::symlink(&fixture.csv, project.join("linked.csv")).unwrap();
@@ -778,7 +823,7 @@ fn prepare_supports_both_selectors_and_does_not_create_runs() {
     let checks = with_extra["checks"].as_array_mut().unwrap();
     assert_eq!(checks.len(), 1);
     assert_eq!(checks[0]["code"], "assignment.extra_manifest_row");
-    assert_eq!(checks[0]["measurements"]["extra_count"], 1);
+    assert_eq!(checks[0]["measurements"]["extra_assignment_count"], 1);
     checks.clear();
     assert_eq!(
         with_extra, prepared,
@@ -863,7 +908,7 @@ fn extra_assignments_survive_failed_rows_and_publish_once() {
     assert!(!output.status.success());
     assert!(
         String::from_utf8_lossy(&output.stderr)
-            .contains("assignment.extra_manifest_row: The assignment file contains")
+            .contains("assignment.extra_manifest_row: The assignment file contains 1 client ID(s)")
     );
     let (run, record) = project.record();
     assert_eq!(record["status"], "completed_with_failures");

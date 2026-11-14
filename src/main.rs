@@ -33,8 +33,8 @@ struct Inputs {
     /// CSV file containing client information.
     #[arg(required_unless_present = "sample", conflicts_with = "sample")]
     csv: Option<PathBuf>,
-    /// Use sample.json, or the conventional fictional sample, inside the project.
-    #[arg(long, conflicts_with_all = ["csv", "notice_assignments", "template", "templates", "config"])]
+    /// Use the fictional sample selected by sample.json inside the project.
+    #[arg(long, conflicts_with_all = ["csv", "notice_assignments", "templates", "config"])]
     sample: bool,
     /// JSON file matching each client ID to a template filename.
     #[arg(
@@ -71,9 +71,13 @@ impl Inputs {
     ) -> Result<RunOptions> {
         if self.sample {
             let project = self.project.as_deref().unwrap_or(std::path::Path::new("."));
-            let (csv, assignments) = immuknow::project::sample_paths(project)?;
+            let (csv, template) =
+                immuknow::project::sample_paths(project, self.template.is_none())?;
             self.csv = Some(csv);
-            self.notice_assignments = Some(assignments);
+            self.template = match self.template {
+                Some(path) => Some(immuknow::project::sample_template(project, &path)?),
+                None => template,
+            };
         }
         let (selection, templates) = match (self.notice_assignments, self.template) {
             (Some(manifest), None) => (
@@ -195,6 +199,9 @@ enum ProjectCommand {
         /// Also render the sample in a temporary folder, removed after checking.
         #[arg(long)]
         sample: bool,
+        /// Override the sample template, relative to the project's templates directory.
+        #[arg(long)]
+        template: Option<PathBuf>,
     },
 }
 fn main() {
@@ -212,14 +219,28 @@ fn execute() -> Result<()> {
                 immuknow::project::sync_library(&project, replace)?;
                 println!("Shared library matches this ImmuKnow executable.");
             }
-            ProjectCommand::Check { project, sample } => {
+            ProjectCommand::Check {
+                project,
+                sample,
+                template,
+            } => {
                 immuknow::project::check_library(&project)?;
-                let (csv, assignments) = immuknow::project::sample_paths(&project)?;
+                let (csv, default_template) =
+                    immuknow::project::sample_paths(&project, template.is_none())?;
+                let template = match template {
+                    Some(path) => immuknow::project::sample_template(&project, &path)?,
+                    None => default_template.expect("Sample template is selected"),
+                };
+                let templates = template
+                    .parent()
+                    .filter(|p| !p.as_os_str().is_empty())
+                    .unwrap_or(std::path::Path::new("."))
+                    .to_path_buf();
                 let temporary = tempfile::tempdir()?;
                 let options = RunOptions {
                     csv,
-                    selection: Selection::Manifest(assignments),
-                    templates: project.join("templates"),
+                    selection: Selection::Single(template),
+                    templates,
                     config: project.join("config"),
                     output: temporary.path().join("runs"),
                     encoding: None,
