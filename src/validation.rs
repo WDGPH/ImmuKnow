@@ -9,9 +9,9 @@ pub struct Validator {
     schema: Value,
 }
 impl Validator {
-    pub fn new(core: &Path) -> Result<Self> {
-        let payload: Value = crate::read_json(&core.join("schemas/rendering.json"))?;
-        let schema: Value = crate::read_json(&core.join("typst/report.json"))?;
+    pub fn new(resources: &Path) -> Result<Self> {
+        let payload: Value = crate::read_json(&resources.join("schemas/rendering.json"))?;
+        let schema: Value = crate::read_json(&resources.join("typst/report.json"))?;
         Ok(Self {
             payload: jsonschema::options()
                 .should_validate_formats(true)
@@ -242,9 +242,9 @@ mod tests {
     #[test]
     fn shared_contract_cases() -> Result<()> {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-        let core = root.join("resources");
+        let resources = root.join("resources");
         let corpus: Value = crate::read_json(&root.join("tests/fixtures/render-contract.json"))?;
-        let validator = Validator::new(&core)?;
+        let validator = Validator::new(&resources)?;
         for case in corpus["cases"].as_array().unwrap() {
             let mut values =
                 serde_json::json!({"payload":corpus["payload"],"report":corpus["report"]});

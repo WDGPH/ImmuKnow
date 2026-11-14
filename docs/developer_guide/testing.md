@@ -32,14 +32,14 @@ typst-plugins/qr/build.sh --check
 
 | Behavior | Authoritative owner | Consumers | Test level | Verify on change |
 | --- | --- | --- | --- | --- |
-| Input, coordinator, PDF and saved-run behavior | Core | Operators, downstream systems | Small unit tests in `src/`; representative end-to-end cases in `tests/cli.rs` | Row identity, failures, artifacts and bundle decisions |
-| Shared rendering schemas and evidence | Core | Template and Studio projects | Contract cases in `tests/fixtures/render-contract.json` and `src/validation.rs` | Schema and evidence handoff |
-| Shared Typst library and QR component | Core | Templates and Studio | `tests/qr.rs` and QR artifact rebuild check | Rendering and shipped plugin |
-| Settings, reference lists, notice wording and appearance | Template project | Core, operators and recipients | Project unit and representative rendering tests | Both languages and project-specific content |
-| Assessment and assignments | Upstream system | Core and operators | Upstream unit and handoff integration tests | Exported rows and explicit selections |
+| Input, coordinator, PDF and saved-run behavior | ImmuKnow | Operators, downstream systems | Small unit tests in `src/`; representative end-to-end cases in `tests/cli.rs` | Row identity, failures, artifacts and bundle decisions |
+| Shared rendering schemas and evidence | ImmuKnow | Template and Studio projects | Contract cases in `tests/fixtures/render-contract.json` and `src/validation.rs` | Schema and evidence handoff |
+| Shared Typst library and QR component | ImmuKnow | Templates and Studio | `tests/qr.rs` and QR artifact rebuild check | Rendering and shipped plugin |
+| Settings, reference lists, notice wording and appearance | Template project | ImmuKnow, operators and recipients | Project unit and representative rendering tests | Both languages and project-specific content |
+| Assessment and assignments | Upstream system | ImmuKnow and operators | Upstream unit and handoff integration tests | Exported rows and explicit selections |
 | Browser editing and preview | Studio | Template authors | Studio unit and browser integration tests | Editing, preview and shared component behavior |
 | Import and export between projects | Producing and consuming projects | Operators and other projects | Representative integration tests at each handoff | Compatibility and preservation of required fields |
-| Release executable and documentation | Core | Installers and operators | CI release build, `tests/documentation.rs`, manual release review | Packaging, commands, links and representative PDFs |
+| Release executable and documentation | ImmuKnow | Installers and operators | CI release build, `tests/documentation.rs`, manual release review | Packaging, commands, links and representative PDFs |
 
 The Rust workflow runs the full release test suite, formatting and Clippy once on Linux, using verified notice fonts. It also builds Windows x64, Apple silicon macOS and Intel macOS executables with explicit Rust targets. Each native job packages the executable and license, extracts the archive outside the checkout, and checks the extracted executable's version and resource export. The packaging helper uses Python only in CI. These smoke checks establish that the binaries launch on their build runners; they do not repeat the complete Linux test suite on every platform. The QR artifact check runs in a separate path-filtered workflow when plugin or vendored QR files change. Representative PDF inspection is manual and depends on the project’s fonts and content. Check native fonts, paths and locks on the intended deployment environment when changing platform-dependent behavior.
 
@@ -47,7 +47,7 @@ Prefer focused unit tests for isolated normalization, policy, PDF and queue logi
 then representative integration cases for their combined behavior. Avoid repeating
 the same malformed-input or encryption cases in every consuming project.
 
-For a Core resource or schema update, run the contract and shared-component
+For an ImmuKnow resource or schema update, run the contract and shared-component
 checks. Template owns verification of its authored notices and layouts; Studio
 owns browser and downloaded-project integration. Follow
 [Template's contributor guide](https://github.com/WDGPH/ImmuKnow-Template/blob/main/CONTRIBUTING.md)

@@ -98,14 +98,7 @@ fn native_project_journey_without_python_or_uv() {
         .write_record(&reader.records().next().unwrap().unwrap())
         .unwrap();
     writer.flush().unwrap();
-    fs::write(
-        input.join("sample_assignments.json"),
-        serde_json::to_vec(&json!([
-            {"client_id":"0000000001","template":"overdue_agents_v1.en.typ"}
-        ]))
-        .unwrap(),
-    )
-    .unwrap();
+    fs::write(project.join("sample.json"), r#"{"csv":"input/sample/sample_students.csv","template":"templates/overdue_agents_v1.en.typ"}"#).unwrap();
     let native = |args: &[&str]| {
         Command::new(env!("CARGO_BIN_EXE_immuknow"))
             .current_dir(&fixture.root)
@@ -146,7 +139,45 @@ fn native_project_journey_without_python_or_uv() {
     ]));
     assert!(!library.join("unexpected.typ").exists());
     assert_eq!(fs::read(&authored).unwrap(), before);
+    let sample_json = fs::read(project.join("sample.json")).unwrap();
+    let sample_csv = fs::read(input.join("sample_students.csv")).unwrap();
+    fs::remove_file(project.join("sample.json")).unwrap();
+    fs::remove_file(input.join("sample_students.csv")).unwrap();
+    let setup = native(&["project", "check", "--project", root]);
+    success(&setup);
+    assert!(String::from_utf8_lossy(&setup.stdout).contains("configuration is valid"));
+    assert!(
+        !native(&["project", "check", "--project", root, "--sample"])
+            .status
+            .success()
+    );
+    assert!(
+        !native(&[
+            "project",
+            "check",
+            "--project",
+            root,
+            "--template",
+            "overdue_agents_v1.en.typ"
+        ])
+        .status
+        .success()
+    );
+    let parameters = project.join("config/parameters.yaml");
+    let original_config = fs::read(&parameters).unwrap();
+    fs::write(&parameters, "allowed_duplicate_client_ids: [123]\n").unwrap();
+    let invalid = native(&["project", "check", "--project", root]);
+    assert!(!invalid.status.success());
+    assert!(String::from_utf8_lossy(&invalid.stderr).contains("allowed_duplicate_client_ids"));
+    fs::write(&parameters, original_config).unwrap();
+    fs::write(project.join("sample.json"), sample_json).unwrap();
     success(&native(&["project", "check", "--project", root]));
+    assert!(
+        !native(&["project", "check", "--project", root, "--sample"])
+            .status
+            .success()
+    );
+    fs::write(input.join("sample_students.csv"), sample_csv).unwrap();
     let checked = native(&["project", "check", "--project", root, "--sample"]);
     success(&checked);
     assert!(!String::from_utf8_lossy(&checked.stderr).contains("report.html"));
@@ -180,20 +211,72 @@ fn native_project_journey_without_python_or_uv() {
     assert_eq!(record["entries"][0]["original"]["status"], "completed");
     assert!(!project.join(".venv").exists());
 
-    fs::write(project.join("sample.json"), r#"{"csv":"input/sample/sample_students.csv","assignments":"input/sample/sample_assignments.json"}"#).unwrap();
+    fs::write(project.join("sample.json"), r#"{"csv":"input/sample/sample_students.csv","template":"templates/overdue_agents_v1.en.typ"}"#).unwrap();
     success(&native(&["prepare", "--sample", "--project", root]));
+    fs::write(
+        project.join("sample.json"),
+        r#"{"csv":"input/sample/sample_students.csv","template":"templates/missing.en.typ"}"#,
+    )
+    .unwrap();
     assert!(
-        !native(&[
-            "run",
-            "--sample",
-            "--project",
-            root,
-            "--template",
-            "anything.typ"
-        ])
-        .status
-        .success()
+        !native(&["prepare", "--sample", "--project", root])
+            .status
+            .success()
     );
+    success(&native(&[
+        "prepare",
+        "--sample",
+        "--project",
+        root,
+        "--template",
+        "overdue_agents_v1.en.typ",
+    ]));
+    success(&native(&[
+        "project",
+        "check",
+        "--sample",
+        "--project",
+        root,
+        "--template",
+        "overdue_agents_v1.en.typ",
+    ]));
+    success(
+        &Command::new(env!("CARGO_BIN_EXE_immuknow"))
+            .current_dir(&project)
+            .args([
+                "prepare",
+                "--sample",
+                "--template",
+                "overdue_agents_v1.en.typ",
+            ])
+            .output()
+            .unwrap(),
+    );
+    for bad in [
+        "../templates/overdue_agents_v1.en.typ",
+        p(&fixture.templates.join("overdue_agents_v1.en.typ")),
+    ] {
+        for command in ["prepare", "run"] {
+            assert!(
+                !native(&[command, "--sample", "--project", root, "--template", bad])
+                    .status
+                    .success()
+            );
+        }
+        assert!(
+            !native(&[
+                "project",
+                "check",
+                "--sample",
+                "--project",
+                root,
+                "--template",
+                bad
+            ])
+            .status
+            .success()
+        );
+    }
     assert!(
         !native(&["run", "--sample", "--project", root, "clients.csv"])
             .status
@@ -210,7 +293,7 @@ fn native_project_journey_without_python_or_uv() {
         fs::write(
             project.join("sample.json"),
             serde_json::to_vec(
-                &json!({"csv": invalid,"assignments":"input/sample/sample_assignments.json"}),
+                &json!({"csv": invalid,"template":"templates/overdue_agents_v1.en.typ"}),
             )
             .unwrap(),
         )
@@ -222,7 +305,7 @@ fn native_project_journey_without_python_or_uv() {
             "accepted {invalid}"
         );
     }
-    fs::write(project.join("sample.json"), r#"{"csv":"input/sample/sample_students.csv","csv":"input/sample/sample_students.csv","assignments":"input/sample/sample_assignments.json"}"#).unwrap();
+    fs::write(project.join("sample.json"), r#"{"csv":"input/sample/sample_students.csv","csv":"input/sample/sample_students.csv","template":"templates/overdue_agents_v1.en.typ"}"#).unwrap();
     assert!(
         !native(&["prepare", "--sample", "--project", root])
             .status
@@ -245,7 +328,7 @@ fn native_project_journey_without_python_or_uv() {
         );
         fs::write(
             project.join("sample.json"),
-            r#"{"csv":"linked.csv","assignments":"input/sample/sample_assignments.json"}"#,
+            r#"{"csv":"linked.csv","template":"templates/overdue_agents_v1.en.typ"}"#,
         )
         .unwrap();
         std::os::unix::fs::symlink(&fixture.csv, project.join("linked.csv")).unwrap();
@@ -775,16 +858,11 @@ fn prepare_supports_both_selectors_and_does_not_create_runs() {
     );
     success(&extra);
     let mut with_extra: Value = serde_json::from_slice(&extra.stdout).unwrap();
-    for entry in with_extra["entries"].as_array_mut().unwrap() {
-        let checks = entry["checks"].as_array_mut().unwrap();
-        let warnings: Vec<_> = checks
-            .iter()
-            .filter(|check| check["code"] == "assignment.extra_manifest_row")
-            .collect();
-        assert_eq!(warnings.len(), 1);
-        assert_eq!(warnings[0]["status"], "warn");
-        checks.retain(|check| check["code"] != "assignment.extra_manifest_row");
-    }
+    let checks = with_extra["checks"].as_array_mut().unwrap();
+    assert_eq!(checks.len(), 1);
+    assert_eq!(checks[0]["code"], "assignment.extra_manifest_row");
+    assert_eq!(checks[0]["measurements"]["extra_assignment_count"], 1);
+    checks.clear();
     assert_eq!(
         with_extra, prepared,
         "An extra assignment changes only its warning"
@@ -811,6 +889,75 @@ fn prepare_supports_both_selectors_and_does_not_create_runs() {
             .all(|e| e["assignment"]["template"] == "overdue_agents_v1.en.typ")
     );
     assert!(!project.runs.exists());
+}
+
+#[test]
+fn extra_assignments_survive_failed_rows_and_publish_once() {
+    let project = Project::new();
+    let mut assignments: Vec<Value> =
+        serde_json::from_slice(&fs::read(&project.assignments).unwrap()).unwrap();
+    assignments.push(json!({"client_id":"unused","template":"overdue_agents_v1.en.typ"}));
+    fs::write(
+        &project.assignments,
+        serde_json::to_vec(&assignments).unwrap(),
+    )
+    .unwrap();
+    let mut reader = csv::Reader::from_path(&project.csv).unwrap();
+    let mut headers = reader.headers().unwrap().clone();
+    let rows: Vec<_> = reader.records().map(Result::unwrap).collect();
+    drop(reader);
+    headers.push_field("intended_reader");
+    let mut writer = csv::Writer::from_path(&project.csv).unwrap();
+    writer.write_record(&headers).unwrap();
+    for row in &rows {
+        let mut values: Vec<_> = row.iter().map(str::to_owned).collect();
+        values.push("invalid".into());
+        writer.write_record(values).unwrap();
+    }
+    writer.flush().unwrap();
+    drop(writer);
+    let args = [
+        p(&project.csv),
+        "--notice-assignments",
+        p(&project.assignments),
+        "--templates",
+        p(&project.templates),
+        "--config",
+        p(&project.config),
+    ];
+    let mut prepare_args = vec!["prepare"];
+    prepare_args.extend(args);
+    let prepared = cli(&project.root, &prepare_args);
+    success(&prepared);
+    let data: Value = serde_json::from_slice(&prepared.stdout).unwrap();
+    assert_eq!(data["checks"][0]["code"], "assignment.extra_manifest_row");
+    assert_eq!(data["entries"].as_array().unwrap().len(), rows.len());
+    assert!(data["entries"].as_array().unwrap().iter().all(|e| {
+        e["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c["code"] == "source.intended_reader_invalid")
+    }));
+    let mut run_args = vec!["run"];
+    run_args.extend(args);
+    run_args.extend(["--output", p(&project.runs), "--progress", "plain"]);
+    let output = cli(&project.root, &run_args);
+    assert!(!output.status.success());
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("assignment.extra_manifest_row: The assignment file contains 1 client ID(s)")
+    );
+    let (run, record) = project.record();
+    assert_eq!(record["status"], "completed_with_failures");
+    let findings = csv_rows(&run, &record, "findings");
+    let extra: Vec<_> = findings
+        .iter()
+        .filter(|f| f["code"] == "assignment.extra_manifest_row")
+        .collect();
+    assert_eq!(extra.len(), 1);
+    assert_eq!(extra[0]["scope"], "run");
+    assert_eq!(extra[0]["row_key"], "");
 }
 
 #[test]
@@ -1106,33 +1253,6 @@ fn rebundle_applies_global_and_client_policy_without_changing_observations() {
             .count(),
         2
     );
-    let listing = cli(&project.root, &["warnings", p(&run)]);
-    success(&listing);
-    let listing = String::from_utf8(listing.stdout).unwrap();
-    let issue = listing
-        .lines()
-        .find(|line| line.contains("content.link_https"))
-        .unwrap()
-        .split_whitespace()
-        .next()
-        .unwrap();
-    success(&cli(
-        &project.root,
-        &[
-            "acknowledge",
-            p(&run),
-            issue,
-            "--reason",
-            "Reviewed static link",
-        ],
-    ));
-    let acknowledged: Value =
-        serde_json::from_slice(&fs::read(run.join("run.json")).unwrap()).unwrap();
-    assert_eq!(acknowledged["entries"], record["entries"]);
-    assert_eq!(
-        acknowledged["delivery_attempts"],
-        record["delivery_attempts"]
-    );
     let policy = project.root.join("policy.json");
     fs::write(&policy, serde_json::to_vec(&json!({
         "rules":{"content.link_https":{"severity":"fail","reason":"Require HTTPS"}},
@@ -1159,15 +1279,6 @@ fn rebundle_applies_global_and_client_policy_without_changing_observations() {
         );
     }
     assert_eq!(updated["entries"][1]["routing"], "review");
-    assert_eq!(updated["warning_reviews"], acknowledged["warning_reviews"]);
-    let listing = cli(&project.root, &["warnings", p(&run)]);
-    success(&listing);
-    let listing = String::from_utf8(listing.stdout).unwrap();
-    let reviewed = listing
-        .lines()
-        .find(|line| line.starts_with(issue))
-        .unwrap();
-    assert!(reviewed.contains("1 row(s)  acknowledged"));
     fs::write(&policy, serde_json::to_vec(&json!({"rules":{"content.link_https":{"enabled":false,"reason":"Not applicable to this delivery"}}})).unwrap()).unwrap();
     let _ = cli(
         &project.root,
@@ -1186,30 +1297,6 @@ fn rebundle_applies_global_and_client_policy_without_changing_observations() {
         findings
             .iter()
             .any(|row| row["code"] == "content.link_https" && row["disabled"] == "true")
-    );
-    let listing = cli(&project.root, &["warnings", p(&run)]);
-    success(&listing);
-    assert!(String::from_utf8_lossy(&listing.stdout).contains("inactive"));
-    success(&cli(
-        &project.root,
-        &[
-            "acknowledge",
-            p(&run),
-            issue,
-            "--revoke",
-            "--reason",
-            "Policy changed",
-        ],
-    ));
-    let revoked: Value = serde_json::from_slice(&fs::read(run.join("run.json")).unwrap()).unwrap();
-    assert_eq!(revoked["entries"], updated["entries"]);
-    assert_eq!(revoked["delivery_attempts"], updated["delivery_attempts"]);
-    assert_eq!(
-        revoked["warning_reviews"]["history"]
-            .as_array()
-            .unwrap()
-            .len(),
-        2
     );
 }
 
@@ -1886,9 +1973,9 @@ fn repeated_overdue_facts_warn_before_display_filters_and_remain_deliverable() {
     for (name, value) in [
         (
             "overdue_disease",
-            "Poliomyelitis - 1; Polio - 2; Measles - 2",
+            "Poliomyelitis - 1; Polio - 1; Polio - 2; Measles - 2; Polio; Polio; Polio - x; Polio - x",
         ),
-        ("overdue_agent", "PV; MMR; PV; MMR"),
+        ("overdue_agent", "PV; MMR;  PV ; MMR"),
         ("immunizations_given", ""),
     ] {
         values[headers.iter().position(|h| h == name).unwrap()] = value.into();
@@ -1932,22 +2019,22 @@ fn repeated_overdue_facts_warn_before_display_filters_and_remain_deliverable() {
     assert_eq!(disease["status"], "warn");
     assert_eq!(
         disease["measurements"]["groups"],
-        json!([{"normalized_disease":"Polio", "count":2, "source_fragments":["Poliomyelitis - 1", "Polio - 2"]}])
+        json!([{"normalized_disease":"Polio", "dose":1, "count":2, "source_fragments":["Poliomyelitis - 1", "Polio - 1"]}])
     );
-    let agent = entry["checks"]
+    let agents = entry["checks"]
         .as_array()
         .unwrap()
         .iter()
         .find(|c| c["code"] == "data.duplicate_overdue_agents")
         .unwrap();
-    assert_eq!(agent["status"], "warn");
+    assert_eq!(agents["status"], "warn");
     assert_eq!(
-        agent["measurements"]["groups"],
-        json!([{"agent":"MMR", "count":2}, {"agent":"PV", "count":2}])
+        agents["measurements"],
+        json!({"source_value":"PV; MMR;  PV ; MMR", "groups":[{"agent":"MMR","count":2},{"agent":"PV","count":2}]})
     );
     assert_eq!(
         entry["notice"]["overdue_diseases"],
-        json!([{"disease":"Polio","dose":1},{"disease":"Polio","dose":2},{"disease":"Measles","dose":2}])
+        json!([{"disease":"Polio","dose":1},{"disease":"Polio","dose":1},{"disease":"Polio","dose":2},{"disease":"Measles","dose":2},{"disease":"Polio","dose":null},{"disease":"Polio","dose":null},{"disease":"Polio","dose":null,"dose_raw":"x"},{"disease":"Polio","dose":null,"dose_raw":"x"}])
     );
     assert_eq!(
         entry["notice"]["overdue_agents"],
@@ -1970,22 +2057,60 @@ fn repeated_overdue_facts_warn_before_display_filters_and_remain_deliverable() {
     let (_, record) = project.record();
     let row = &record["entries"][0];
     assert_eq!(row["routing"], "deliverable");
-    for code in [
-        "data.duplicate_overdue_agents",
-        "data.duplicate_overdue_diseases",
-    ] {
-        assert!(
-            effective_checks(row)
-                .into_iter()
-                .any(|c| c["code"] == code && c["status"] == "warn")
-        );
-    }
+    assert!(
+        effective_checks(row)
+            .into_iter()
+            .any(|c| c["code"] == "data.duplicate_overdue_diseases" && c["status"] == "warn")
+    );
+    assert!(
+        effective_checks(row)
+            .into_iter()
+            .any(|c| c["code"] == "data.duplicate_overdue_agents" && c["status"] == "warn")
+    );
     assert_eq!(row["saved_evidence"]["components"]["overdue_agents"], true);
     assert_eq!(
         row["saved_evidence"]["components"]["overdue_diseases"],
         true
     );
     assert_eq!(record["bundles"][0]["members"], json!(["row-000001"]));
+
+    values[headers.iter().position(|h| h == "overdue_disease").unwrap()] =
+        "Measles - 1; Mumps - 1; Rubella - 1".into();
+    values[headers.iter().position(|h| h == "overdue_agent").unwrap()] = "MMR".into();
+    let mut writer = csv::Writer::from_path(&project.csv).unwrap();
+    writer.write_record(&headers).unwrap();
+    writer.write_record(&values).unwrap();
+    writer.flush().unwrap();
+    drop(writer);
+    fs::write(
+        project.config.join("vaccine_reference.json"),
+        serde_json::to_vec(&json!({"MMR":["Measles", "Mumps", "Rubella"]})).unwrap(),
+    )
+    .unwrap();
+    let prepared = cli(
+        &project.root,
+        &[
+            "prepare",
+            p(&project.csv),
+            "--template",
+            p(&template),
+            "--config",
+            p(&project.config),
+        ],
+    );
+    success(&prepared);
+    let envelope: Value = serde_json::from_slice(&prepared.stdout).unwrap();
+    assert!(
+        !envelope["entries"][0]["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c["code"] == "data.duplicate_overdue_agents")
+    );
+    assert_eq!(
+        envelope["entries"][0]["notice"]["forecast_coverage"]["missing_diseases"],
+        json!([])
+    );
 }
 
 #[test]

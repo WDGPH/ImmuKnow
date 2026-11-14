@@ -4,9 +4,9 @@ The standalone `immuknow` executable is the integration boundary. It embeds Typs
 
 ```text
 immuknow project sync [--project DIR] [--replace]
-immuknow project check [--project DIR] [--sample]
-immuknow run --sample [--project DIR] [--output DIR]
-immuknow prepare --sample [--project DIR]
+immuknow project check [--project DIR] [--sample [--template FILE]]
+immuknow run --sample [--project DIR] [--template FILE] [--output DIR]
+immuknow prepare --sample [--project DIR] [--template FILE]
 immuknow run CSV --project DIR (--notices JSON | --template FILENAME)
 immuknow prepare CSV --project DIR (--notices JSON | --template FILENAME)
 immuknow run CSV (--notice-assignments JSON [--templates DIR] | --template FILE)
@@ -17,17 +17,16 @@ immuknow prepare CSV (--notice-assignments JSON [--templates DIR] | --template F
 immuknow resources --output DIR
 immuknow rebundle RUN_DIR [--policy policy.json] [--withhold ROW_KEY --reason TEXT]
   [--release ROW_KEY] [--bundle-workers N] [--filenames filenames.json]
-immuknow warnings RUN_DIR [--refresh]
-immuknow acknowledge RUN_DIR ISSUE_ID --reason TEXT [--revoke]
+immuknow refresh-exports RUN_DIR
 ```
 
-With `--notices` and no explicit project or templates path, Core uses `templates/` and `config/` in the working directory. Without `--project`, relative `--template` paths are resolved from the working directory.
+With `--notices` and no explicit project or templates path, ImmuKnow uses `templates/` and `config/` in the working directory. Without `--project`, relative `--template` paths are resolved from the working directory.
 
 `--project DIR` supplies `DIR/templates` and `DIR/config`. An explicit `--config` overrides the configuration folder. With an assignment file, `--templates` overrides the templates folder; it conflicts with `--template`. With a project, relative single-template names are resolved inside its `templates` folder; absolute template paths retain their existing meaning. CSV and assignment-file paths are always relative to the working directory. Selection stays explicit. `--notices` is a visible alias for `--notice-assignments`. The same project shortcut works with `prepare`.
 
 Global display options are `--progress auto|plain|off` and `--emoji`. Progress and summaries use stderr; redirected stdout remains a single saved-record path for `run` and `rebundle`, or JSON for `prepare` and `resources`. The terminal summary prints the selected CSV paths, while stdout retains the saved-record path. Auto mode redraws a throttled progress line only on a capable terminal; elsewhere it writes plain stage announcements and occasional counts. Plain mode avoids redraws and styling; off hides all progress and summary output. `NO_COLOR` disables styling. Progress receipts contain only counts, not client information.
 
-`warnings` lists distinct effective URL warnings from a completed saved run. `acknowledge` records or revokes review of an exact issue ID with a nonblank reason; it does not change findings or delivery. `warnings --refresh` regenerates the paired CSVs from the last checkpoint without adding a review event or compiling notices; readable failed and running `.incomplete` runs are accepted. See [PDF review](../user_guide/pdf_validation.md) for review scope and recovery.
+`refresh-exports` regenerates paired CSVs from the last readable checkpoint without compiling notices; failed and running `.incomplete` runs are accepted. See [PDF review](../user_guide/pdf_validation.md) for recovery.
 
 ## Run results
 
@@ -75,7 +74,7 @@ The [template guide](templates.md) describes fields and component behavior. Stud
 ## Resource compatibility
 
 `immuknow resources --output DIR` exports `schemas/`, `typst/` and
-`resource-manifest.json`. Export into a new folder when updating Core, then replace
+`resource-manifest.json`. Export into a new folder when updating ImmuKnow, then replace
 the project's complete `templates/lib/immuknow/` copy. Existing identical files
 are accepted; different files are not overwritten. Do not mix releases.
 The manifest identifies resource contents, rather than a source commit; keep
@@ -99,22 +98,23 @@ immuknow run --sample --project project
 `templates/lib/immuknow/`. It accepts identical files and refuses a different
 library unless `--replace` is supplied. Replacement affects only that directory;
 authored notices and configuration are preserved. Linked library paths are
-rejected. `project check` compares the complete library and prepares the
-project's fictional sample without modifying authored files. With `--sample`, it
-also renders the sample in a temporary folder and removes the output afterwards.
+rejected. `project check` compares the complete library and validates `config/parameters.yaml`
+without requiring fictional inputs. With `--sample`, it prepares and renders the
+project's fictional sample in a temporary folder and removes the output afterwards.
 Use `run --sample` to retain output and inspect its report. Warnings alone do
 not fail a check; failures return a nonzero status. Check and sync print a short
 text result; the existing run/prepare stdout formats are unchanged.
 
 Project commands default to the current folder. `run` and `prepare` accept
-`--sample` instead of a CSV and explicit notice selection. Sample paths come
-from `sample.json` with exactly `csv` and `assignments` fields. If absent, the
-conventional paths are `input/sample/sample_students.csv` and
-`input/sample/sample_assignments.json`. Paths must name existing files inside
-the project; absolute paths, parent traversal and links outside the project are
-rejected. `--sample` cannot be combined with explicit input, selection, template
-or configuration overrides. `--output` remains relative to the current working
+`--sample` instead of a CSV and explicit notice selection. The project's
+`sample.json` contains exactly `csv` and `template` paths relative to the project
+root. Both must name existing files inside the project; absolute paths, parent
+traversal and links outside the project are rejected. Use `--template` with `--sample` to
+override the sample notice with a path relative to the project’s `templates/` folder, or an absolute path inside the project. A collection
+can include clients for whom the selected notice is inapplicable; inspect its
+eligibility findings. `--sample` cannot be combined with an explicit CSV,
+assignment file, templates directory or configuration override. `--output` remains relative to the current working
 folder, defaulting to `runs/`, just as for an explicit CSV run.
 
 Template owns the sample records, authored notices, settings and reference lists;
-Core supplies the generic setup and sample-selection behavior.
+ImmuKnow supplies the generic setup and sample-selection behavior.

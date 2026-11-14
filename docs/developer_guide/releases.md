@@ -1,6 +1,6 @@
 # Release builds
 
-Core ships one executable for each operating system and processor below. A
+ImmuKnow ships one executable for each operating system and processor below. A
 Cargo build normally targets the build machine; one executable does not run
 across all four platforms.
 
@@ -59,8 +59,8 @@ macOS compare `shasum -a 256 <archive>` with its entry. In Windows PowerShell us
 ## Documentation
 
 Merge [the coordinated documentation hub change](https://github.com/WDGPH/docs/pull/8)
-before merging the native Core change. The hub supplies the shared schema-table
-utility and its own MkDocs environment; Core does not need a Python lockfile.
+before merging the native ImmuKnow change. The hub supplies the shared schema-table
+utility and its own MkDocs environment; ImmuKnow does not need a Python lockfile.
 
 The **Notify documentation hub** workflow requires repository variable
 `DOCS_HUB_NOTIFY_ENABLED=true` and secret `DOCS_HUB_TRIGGER_TOKEN` with Actions
@@ -68,6 +68,6 @@ write access to `WDGPH/docs`. A push to `main` requests a hub build and deployme
 of the latest documentation. Stable `vX.Y.Z` tag creation, deletion and release
 publication request release reconciliation, including publication from an
 existing tag. Prerelease tags do not enter the stable documentation catalog.
-The hub owns release selection and publishing; a successful Core build alone
+The hub owns release selection and publishing; a successful ImmuKnow build alone
 does not deploy the site. Tags created by another workflow using `GITHUB_TOKEN`
 need an explicit hub dispatch because they do not trigger a tag-push workflow.

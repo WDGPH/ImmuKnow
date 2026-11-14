@@ -52,8 +52,6 @@ const FINDING_HEADERS: &[&str] = &[
     "component",
     "page",
     "message",
-    "issue_ids",
-    "acknowledged_issue_ids",
 ];
 
 fn text<'a>(v: &'a Value, key: &str) -> &'a str {
@@ -92,6 +90,7 @@ pub struct Summary {
     pub codes: BTreeMap<(String, String), BTreeSet<String>>,
     pub diagnostics: usize,
     pub run_findings: usize,
+    pub run_messages: Vec<(String, String)>,
 }
 #[derive(Serialize)]
 struct RecordRow {
@@ -138,8 +137,6 @@ struct FindingRow {
     component: String,
     page: String,
     message: String,
-    issue_ids: String,
-    acknowledged_issue_ids: String,
 }
 fn checks(e: &Value) -> Result<Vec<Value>> {
     if e.get("effective_checks").is_some() {
@@ -247,8 +244,6 @@ fn finding(
         component: field(c, "component"),
         page: number(&c["page"]),
         message: field(c, "message"),
-        issue_ids: "[]".into(),
-        acknowledged_issue_ids: "[]".into(),
     }
 }
 fn project(
@@ -258,8 +253,6 @@ fn project(
 ) -> Result<Summary> {
     let mut summary = Summary::default();
     let running = record["status"] == "running";
-    let active = crate::warning_review::validate(record)?.active_ids();
-    let issue_scope = crate::warnings::issue_scope(record);
     let protection_requested = record["configured_settings"]["encryption"]["enabled"] == true;
     let grouping = record["configured_settings"]["bundling"]["bundle_size"]
         .as_u64()
@@ -411,7 +404,7 @@ fn project(
                 || matches!(effective, "warn" | "fail")
                 || (effective == "not_run" && c["disabled"] != true && !running)
             {
-                let mut result = finding(
+                let result = finding(
                     record,
                     e,
                     c,
@@ -423,10 +416,6 @@ fn project(
                     "check",
                     String::new(),
                 );
-                let ids = crate::warnings::issue_ids(issue_scope.as_deref(), c)?;
-                let acknowledged: Vec<_> = ids.iter().filter(|id| active.contains(*id)).collect();
-                result.issue_ids = serde_json::to_string(&ids)?;
-                result.acknowledged_issue_ids = serde_json::to_string(&acknowledged)?;
                 emit_finding(&result)?;
             }
             if matches!(effective, "warn" | "fail") {
@@ -503,6 +492,9 @@ fn project(
     {
         if matches!(text(c, "status"), "warn" | "fail") {
             summary.run_findings += 1;
+            summary
+                .run_messages
+                .push((text(c, "code").into(), text(c, "message").into()));
             emit_finding(&finding(
                 record,
                 &Value::Null,
@@ -564,6 +556,47 @@ fn save(dir: &Path, record: &Value) -> Result<()> {
         Ok(())
     })
 }
+/// Repair the CSV pair from a readable current saved checkpoint.
+pub fn refresh(run: &Path) -> Result<()> {
+    let dir = run.canonicalize()?;
+    let _lock = crate::pipeline::lock(&dir)?;
+    let mut record: Value = crate::read_json(&dir.join("run.json"))?;
+    anyhow::ensure!(
+        record["run_schema_version"] == 2,
+        "Unsupported saved-run version"
+    );
+    anyhow::ensure!(
+        matches!(
+            record["status"].as_str(),
+            Some(
+                "running"
+                    | "failed"
+                    | "completed"
+                    | "completed_with_warnings"
+                    | "completed_with_failures"
+            )
+        ),
+        "Invalid saved-run status"
+    );
+    let completed = matches!(
+        record["status"].as_str(),
+        Some("completed" | "completed_with_warnings" | "completed_with_failures")
+    );
+    crate::checks::validate_record(&record, completed)?;
+    publish(&dir, &mut record)?;
+    for name in ["records", "findings"] {
+        println!(
+            "{}",
+            dir.join(
+                record["exports"][name]["path"]
+                    .as_str()
+                    .context("Missing export path")?
+            )
+            .display()
+        );
+    }
+    Ok(())
+}
 /// Save one semantic checkpoint; exports are invalidated before presentation is written.
 pub fn checkpoint(dir: &Path, record: &mut Value) -> Result<()> {
     record["record_revision"] = json!(record["record_revision"].as_u64().unwrap_or(0) + 1);
@@ -612,7 +645,7 @@ fn current_valid(dir: &Path, record: &Value) -> bool {
 /// Publish a complete immutable pair, then select it in the canonical record.
 pub fn publish(dir: &Path, record: &mut Value) -> Result<()> {
     publish_with_hook(dir, record, |_| Ok(())).context(
-        "Canonical state was saved, but CSV exports are unavailable; run warnings RUN --refresh",
+        "Canonical state was saved, but CSV exports are unavailable; run immuknow refresh-exports RUN",
     )
 }
 pub(crate) fn publish_with_hook(
@@ -666,16 +699,16 @@ pub(crate) fn publish_with_hook(
         Ok(())
     };
     write().context(
-        "Canonical state was saved, but CSV generation failed; run warnings RUN --refresh",
+        "Canonical state was saved, but CSV generation failed; run immuknow refresh-exports RUN",
     )?;
     fs::rename(&staging, &published).context(
-        "Canonical state was saved, but CSV publication failed; run warnings RUN --refresh",
+        "Canonical state was saved, but CSV publication failed; run immuknow refresh-exports RUN",
     )?;
     hook("after_directory_rename").context(
-        "Canonical state was saved, but CSV publication failed; run warnings RUN --refresh",
+        "Canonical state was saved, but CSV publication failed; run immuknow refresh-exports RUN",
     )?;
     hook("before_pointer_update").context(
-        "Canonical state was saved, but CSV selection failed; run warnings RUN --refresh",
+        "Canonical state was saved, but CSV selection failed; run immuknow refresh-exports RUN",
     )?;
     record["exports"] = json!({"schema_version":1,"record_revision":record["record_revision"],
         "records":{"path":format!("{stem}/records.csv"),"sha256":hash_file(&published.join("records.csv"))?},
@@ -695,7 +728,7 @@ pub(crate) fn publish_with_hook(
     if let Err(error) = save(dir, record) {
         record["exports"] = Value::Null;
         return Err(error.context(
-            "Canonical state was saved, but CSV selection failed; run warnings RUN --refresh",
+            "Canonical state was saved, but CSV selection failed; run immuknow refresh-exports RUN",
         ));
     }
     Ok(())
@@ -750,11 +783,40 @@ mod tests {
             .unwrap();
         assert_eq!(finding["row_key"], row["row_key"]);
         assert_eq!(finding["message"], "Review, \"link\"\nnext line");
-        assert_eq!(
-            serde_json::from_str::<Vec<String>>(&finding["issue_ids"])
+    }
+    #[test]
+    fn refresh_validates_completed_and_repairs_partial_checkpoints() {
+        for status in ["running", "failed"] {
+            let dir = tempdir().unwrap();
+            let mut record = fixture();
+            record["status"] = json!(status);
+            record
+                .as_object_mut()
                 .unwrap()
-                .len(),
-            1
+                .remove("configured_settings");
+            record["entries"][0]
+                .as_object_mut()
+                .unwrap()
+                .remove("effective_checks");
+            record["entries"][0]["checks"] = json!([]);
+            record["entries"][0]["original"] = json!({"status":"not_run"});
+            save(dir.path(), &record).unwrap();
+            refresh(dir.path()).unwrap();
+            let mut updated: Value = crate::read_json(&dir.path().join("run.json")).unwrap();
+            assert!(current_valid(dir.path(), &updated));
+            updated["exports"] = Value::Null;
+            assert_eq!(updated, record);
+            let _lock = crate::pipeline::lock(dir.path()).unwrap();
+            assert!(refresh(dir.path()).is_err());
+        }
+        let dir = tempdir().unwrap();
+        let mut corrupt = fixture();
+        corrupt["entries"][0]["effective_checks"] = json!([]);
+        save(dir.path(), &corrupt).unwrap();
+        assert!(refresh(dir.path()).is_err());
+        assert_eq!(
+            crate::read_json::<Value>(&dir.path().join("run.json")).unwrap(),
+            corrupt
         );
     }
     #[test]
@@ -766,7 +828,6 @@ mod tests {
         ] {
             let dir = tempdir().unwrap();
             let mut record = fixture();
-            record["warning_reviews"] = json!({"schema_version":1,"history":[]});
             checkpoint(dir.path(), &mut record).unwrap();
             let revision = record["record_revision"].clone();
             assert!(

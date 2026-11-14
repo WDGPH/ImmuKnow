@@ -27,28 +27,18 @@ If a run stops before a row is evaluated, its evaluation and unattempted origina
 `findings.csv` columns, in order:
 
 ```text
-run_id,record_revision,bundle_attempt,scope,attempt_number,row_key,client_id,finding_key,origin,code,observed_status,effective_status,disabled,policy_reason,component,page,message,issue_ids,acknowledged_issue_ids
+run_id,record_revision,bundle_attempt,scope,attempt_number,row_key,client_id,finding_key,origin,code,observed_status,effective_status,disabled,policy_reason,component,page,message
 ```
 
-Scope is `row`, `run` or `attempt`; only row findings have a row key. Origin is `check`, `compiler` or `artifact`. Observed and effective check statuses use `pass`, `warn`, `fail`, `not_run` or `not_applicable`, and `disabled` is a boolean. `issue_ids` and `acknowledged_issue_ids` are JSON arrays; an empty array is `[]`. One check can identify several subjects. A warning disabled by a rule remains visible with the original `warn`, effective `not_run`, `disabled` true and the rule reason. Compiler diagnostic blocks are separate findings. Ordinary passing checks remain in canonical evidence.
+Scope is `row`, `run` or `attempt`; only row findings have a row key. Origin is `check`, `compiler` or `artifact`. Observed and effective check statuses use `pass`, `warn`, `fail`, `not_run` or `not_applicable`, and `disabled` is a boolean. A warning disabled by a rule remains visible with the original `warn`, effective `not_run`, `disabled` true and the rule reason. Compiler diagnostic blocks are separate findings. Ordinary passing checks remain in canonical evidence.
 
 The terminal uses readable source records as its denominator, including held and failed records. Severity buckets are exclusive; code counts overlap. With zero readable records the percentages are `n/a`. Rounded percentages may not add to exactly 100 percent.
 
-## Record review of a link warning
+## Repair CSV exports
 
-List distinct current URL issues and their full IDs, then record or revoke attention with a reason that does not contain client information:
+If the CSV pair is missing or stale, repair the output problem and run `immuknow refresh-exports runs/example-run`. This reads the last saved checkpoint, including a readable failed or running `.incomplete` run, and regenerates the pair without recompiling. Earlier generations remain available as immutable snapshots.
 
-```sh
-immuknow warnings runs/example-run
-immuknow acknowledge runs/example-run ISSUE_ID --reason "Reviewed destination"
-immuknow acknowledge runs/example-run ISSUE_ID --reason "Review withdrawn" --revoke
-```
-
-An acknowledgment applies to the exact issue in that saved run, including later rebundles. A changed destination is a different issue. Acknowledgment records attention; it does not change severity, routing, exit status or PDFs. The warning command also identifies inactive acknowledgments. `findings.csv` carries issue IDs and acknowledged IDs for reviewable findings.
-
-If the CSV pair is missing or stale, repair the output problem and run `immuknow warnings runs/example-run --refresh`. Refresh reads the last saved checkpoint, including a readable failed or running `.incomplete` run, and regenerates the pair without recompiling or replaying a review action. Earlier generations remain available as immutable snapshots. Unsupported saved-run schema versions require the matching older executable.
-
-## What Core checks during a run
+## What ImmuKnow checks during a run
 
 | Check | Purpose | When it runs |
 | --- | --- | --- |
@@ -56,9 +46,9 @@ If the CSV pair is missing or stale, repair the output problem and run `immuknow
 | Notice evidence, layout and delivery rules | Check the selected client, content, placement and page count; decide whether the notice can be sent. | Every production notice. |
 | PDF creation and file operations | Require successful Typst export, a nonempty document, successful writes and publication. | Every production notice. |
 | Encryption settings and bundle structure | Require the configured protection, a usable normalized password and consistent page counts. Parse source PDFs when needed to encrypt or combine them. | Every requested protected copy or bundle. |
-| Saved-PDF reopening, password refusal/access and preserved content | Detect regressions in the pinned PDF libraries and Core's integration. | Automated round-trip tests and release acceptance checks. |
+| Saved-PDF reopening, password refusal/access and preserved content | Detect regressions in the pinned PDF libraries and ImmuKnow's integration. | Automated round-trip tests and release acceptance checks. |
 
-Core trusts successful calls to the pinned Typst exporter and PDF writer. It does not reopen every newly written PDF or authenticate every newly encrypted copy during production. Those library contracts do not establish that wording, client information or layout is correct; the notice checks and operator review still apply. Successful file operations also do not promise protection from later storage corruption or modification.
+ImmuKnow trusts successful calls to the pinned Typst exporter and PDF writer. It does not reopen every newly written PDF or authenticate every newly encrypted copy during production. Those library contracts do not establish that wording, client information or layout is correct; the notice checks and operator review still apply. Successful file operations also do not promise protection from later storage corruption or modification.
 
 ## Know which PDF you are sending
 
@@ -77,7 +67,7 @@ required. Inspect the actual delivery files as well as the originals.
 
 The [configuration guide](configuration.md#run-settings) defines run-wide and exact-row rule changes and required notice length. Mandatory checks cannot be disabled or downgraded. The saved record preserves observed checks separately from effective results and policy reasons. Warnings remain eligible under the effective rules; a required page count never adds pages to a notice.
 
-To record attention without changing rules, use [link warning review](#record-review-of-a-link-warning).
+Review the observed findings and original PDFs before delivery.
 
 ## Rebuild bundles
 

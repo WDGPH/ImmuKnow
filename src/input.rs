@@ -21,8 +21,6 @@ pub struct Config {
     pub filenames: crate::filenames::Settings,
     pub encryption: Encryption,
     pub school_validation: School,
-    pub pipeline: Pipeline,
-    pub typst: Typst,
     pub validation: BTreeMap<String, Value>,
 }
 #[derive(Deserialize, Serialize)]
@@ -58,23 +56,6 @@ pub struct School {
     pub enabled: bool,
     pub reference_file: Option<String>,
     pub target_phu: String,
-    pub column_prefix: Option<String>,
-}
-#[derive(Deserialize, Serialize, Default)]
-#[serde(deny_unknown_fields, default)]
-pub struct Pipeline {
-    pub after_run: AfterRun,
-}
-#[derive(Deserialize, Serialize, Default)]
-#[serde(deny_unknown_fields, default)]
-pub struct AfterRun {
-    pub remove_artifacts: bool,
-}
-#[derive(Deserialize, Serialize, Default)]
-#[serde(deny_unknown_fields, default)]
-pub struct Typst {
-    pub bin: Option<String>,
-    pub timeouts_seconds: Option<Value>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -121,14 +102,6 @@ pub fn config(path: &Path) -> Result<Config> {
     let c: Config = parse_yaml(&source)?;
     validate_dates(&c)?;
     validate_allowed_duplicates(&c)?;
-    ensure!(
-        !c.pipeline.after_run.remove_artifacts,
-        "pipeline.after_run.remove_artifacts is retired; remove the run directory manually when appropriate"
-    );
-    ensure!(
-        c.school_validation.column_prefix.is_none(),
-        "school_validation.column_prefix is retired; native findings use fixed measurement names"
-    );
     if c.school_validation.enabled {
         ensure!(
             !c.school_validation.target_phu.trim().is_empty(),
@@ -144,10 +117,6 @@ pub fn config(path: &Path) -> Result<Config> {
     if !c.encryption.password.template.is_empty() {
         format_password(&c.encryption.password.template, &BTreeMap::new(), false)?;
     }
-    ensure!(
-        c.typst.bin.is_none() && c.typst.timeouts_seconds.is_none(),
-        "typst.bin and typst.timeouts_seconds are retired; remove them from parameters.yaml"
-    );
     validate_bundling(&c)?;
 
     Ok(c)
@@ -603,7 +572,10 @@ pub fn source_rows(path: &Path, encoding: Option<&str>) -> Result<Vec<Value>> {
         .map(|row| json!(row))
         .collect())
 }
-pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<RowPreparation>> {
+pub fn prepare(
+    options: &PrepareOptions<'_>,
+    c: &Config,
+) -> Result<(Vec<RowPreparation>, Vec<Value>)> {
     let config_dir = options.config_dir;
     let templates = options.templates;
     let schema: Value = crate::read_json(&options.resources.join("schemas/input_schema.json"))?;
@@ -744,7 +716,19 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<RowPrepar
         rows.iter().any(|r| !get(r, "oiid").is_empty()),
         rows.iter().any(|r| get(r, "oiid").is_empty()),
     );
-    let extra_manifest_rows = single.is_none() && by_id.keys().any(|id| !counts.contains_key(id));
+    let extra_count = by_id.keys().filter(|id| !counts.contains_key(*id)).count();
+    let mut run_checks = Vec::new();
+    if extra_count > 0 {
+        let mut warning = check(
+            "assignment.extra_manifest_row",
+            "warn",
+            &format!(
+                "The assignment file contains {extra_count} client ID(s) absent from the CSV."
+            ),
+        );
+        warning["measurements"] = json!({"extra_assignment_count": extra_count});
+        run_checks.push(warning);
+    }
     let mut result = vec![];
     for (i, ((r, source), history_result)) in rows.iter().zip(sources).zip(histories).enumerate() {
         let id = get(r, "client_id");
@@ -810,13 +794,6 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<RowPrepar
                 "data.duplicate_client_id",
                 "warn",
                 &format!("This allowed client ID appears in {count} source rows. All rows are retained and share the same notice assignment; review each row."),
-            ));
-        }
-        if extra_manifest_rows {
-            checks.push(check(
-                "assignment.extra_manifest_row",
-                "warn",
-                "The assignment file contains clients who are not in the CSV.",
             ));
         }
         if let Some((mapping, hash, filename)) = &school {
@@ -926,7 +903,7 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<RowPrepar
             ));
         }
         let mut overdue = vec![];
-        let mut disease_occurrences = BTreeMap::<String, Vec<String>>::new();
+        let mut disease_occurrences = BTreeMap::<(String, u64), Vec<String>>::new();
         for token in tokens(get(r, "overdue_disease")) {
             if token.is_empty() {
                 checks.push(check(
@@ -946,13 +923,13 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<RowPrepar
                     ));
                     continue;
                 }
-                disease_occurrences
-                    .entry(d.clone())
-                    .or_default()
-                    .push(token.clone());
                 if let Ok(n) = dose.trim().parse::<u64>()
                     && n > 0
                 {
+                    disease_occurrences
+                        .entry((d.clone(), n))
+                        .or_default()
+                        .push(token.clone());
                     overdue.push(json!({"disease":d,"dose":n}));
                     continue;
                 }
@@ -964,10 +941,6 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<RowPrepar
                 overdue.push(json!({"disease":d,"dose":null,"dose_raw":dose.trim()}));
             } else {
                 let disease = normalize(&token, &normalization);
-                disease_occurrences
-                    .entry(disease.clone())
-                    .or_default()
-                    .push(token.clone());
                 overdue.push(json!({"disease":disease,"dose":null}));
             }
         }
@@ -988,13 +961,13 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<RowPrepar
             .collect();
         let disease_repeats: Vec<_> = disease_occurrences.into_iter()
             .filter(|(_, fragments)| fragments.len() > 1)
-            .map(|(disease, fragments)| json!({"normalized_disease":disease,"count":fragments.len(),"source_fragments":fragments}))
+            .map(|((disease, dose), fragments)| json!({"normalized_disease":disease,"dose":dose,"count":fragments.len(),"source_fragments":fragments}))
             .collect();
         if !disease_repeats.is_empty() {
             let mut warning = check(
                 "data.duplicate_overdue_diseases",
                 "warn",
-                "Some overdue diseases appear more than once after normalization. Review the source entries, including dose numbers.",
+                "Some overdue diseases have the same explicit dose more than once after normalization. Review the source entries.",
             );
             warning["measurements"] =
                 json!({"source_value":source["overdue_disease"],"groups":disease_repeats});
@@ -1013,7 +986,7 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<RowPrepar
             let mut warning = check(
                 "data.duplicate_overdue_agents",
                 "warn",
-                "Some overdue agents appear more than once. Repetition may be expected when an agent covers multiple diseases; review the source entries.",
+                "Some overdue agents appear more than once. Review the source entries; each agent should be listed once per client.",
             );
             warning["measurements"] =
                 json!({"source_value":source["overdue_agent"],"groups":agent_repeats});
@@ -1099,12 +1072,26 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<RowPrepar
             assignment,
         }));
     }
-    Ok(result)
+    Ok((result, run_checks))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn retired_configuration_keys_are_unknown_even_when_inert() {
+        for source in [
+            "pipeline: {after_run: {remove_artifacts: false}}",
+            "typst: {bin: null}",
+            "school_validation: {column_prefix: null}",
+        ] {
+            assert!(parse_yaml::<Config>(source).is_err(), "{source}");
+        }
+        let value = serde_json::to_value(Config::default()).unwrap();
+        assert!(value.get("pipeline").is_none());
+        assert!(value.get("typst").is_none());
+        assert!(value["school_validation"].get("column_prefix").is_none());
+    }
     #[test]
     fn duplicate_id_allowlist_requires_unique_trimmed_strings() {
         let temp = tempfile::tempdir().unwrap();

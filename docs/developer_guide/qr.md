@@ -1,7 +1,7 @@
 # Working on QR codes
 
 The shared Typst library uses a small Rust encoder to avoid doing QR calculations
-in Typst. The encoder is built as WebAssembly, which Typst can load in both Core
+in Typst. The encoder is built as WebAssembly, which Typst can load in both ImmuKnow
 and Studio. The compiled file is included in the project library; normal users
 do not need a compiler or a separate QR installation.
 

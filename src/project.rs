@@ -11,21 +11,14 @@ use std::{
 #[serde(deny_unknown_fields)]
 struct Sample {
     csv: String,
-    assignments: String,
+    template: String,
 }
 
 /// Resolve the project's selected fictional sample, without allowing outside paths.
-pub fn sample_paths(project: &Path) -> Result<(PathBuf, PathBuf)> {
+pub fn sample_paths(project: &Path, include_template: bool) -> Result<(PathBuf, Option<PathBuf>)> {
     let selection = project.join("sample.json");
-    let sample: Sample = if selection.try_exists()? {
-        crate::read_json(&selection)
-            .context("Cannot read sample.json (csv and assignments required)")?
-    } else {
-        Sample {
-            csv: "input/sample/sample_students.csv".into(),
-            assignments: "input/sample/sample_assignments.json".into(),
-        }
-    };
+    let sample: Sample = crate::read_json(&selection)
+        .context("Cannot read sample.json (csv and template required)")?;
     let root = project
         .canonicalize()
         .context("Cannot open project folder")?;
@@ -48,7 +41,40 @@ pub fn sample_paths(project: &Path) -> Result<(PathBuf, PathBuf)> {
         );
         Ok(path)
     };
-    Ok((resolve(&sample.csv)?, resolve(&sample.assignments)?))
+    Ok((
+        resolve(&sample.csv)?,
+        if include_template {
+            Some(resolve(&sample.template)?)
+        } else {
+            None
+        },
+    ))
+}
+
+/// Resolve a sample override using the project's templates directory and containment boundary.
+pub fn sample_template(project: &Path, template: &Path) -> Result<PathBuf> {
+    ensure!(
+        !template
+            .components()
+            .any(|part| matches!(part, Component::ParentDir)),
+        "Sample template must stay inside the project"
+    );
+    let root = project
+        .canonicalize()
+        .context("Cannot open project folder")?;
+    let path = if template.is_absolute() {
+        template.to_path_buf()
+    } else {
+        root.join("templates").join(template)
+    };
+    let path = path
+        .canonicalize()
+        .context("Selected sample template is missing")?;
+    ensure!(
+        path.starts_with(&root) && path.is_file(),
+        "Sample template must be a file inside the project"
+    );
+    Ok(path)
 }
 
 fn tree(root: &Path) -> Result<BTreeMap<PathBuf, Vec<u8>>> {

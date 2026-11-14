@@ -1,6 +1,6 @@
 //! Command parsing and terminal presentation; the library owns each workflow.
 mod terminal;
-use anyhow::{Result, ensure};
+use anyhow::{Context, Result, ensure};
 use clap::{Args, Parser, Subcommand};
 use immuknow::{
     input::Selection,
@@ -33,8 +33,8 @@ struct Inputs {
     /// CSV file containing client information.
     #[arg(required_unless_present = "sample", conflicts_with = "sample")]
     csv: Option<PathBuf>,
-    /// Use sample.json, or the conventional fictional sample, inside the project.
-    #[arg(long, conflicts_with_all = ["csv", "notice_assignments", "template", "templates", "config"])]
+    /// Use the fictional sample selected by sample.json inside the project.
+    #[arg(long, conflicts_with_all = ["csv", "notice_assignments", "templates", "config"])]
     sample: bool,
     /// JSON file matching each client ID to a template filename.
     #[arg(
@@ -71,9 +71,13 @@ impl Inputs {
     ) -> Result<RunOptions> {
         if self.sample {
             let project = self.project.as_deref().unwrap_or(std::path::Path::new("."));
-            let (csv, assignments) = immuknow::project::sample_paths(project)?;
+            let (csv, template) =
+                immuknow::project::sample_paths(project, self.template.is_none())?;
             self.csv = Some(csv);
-            self.notice_assignments = Some(assignments);
+            self.template = match self.template {
+                Some(path) => Some(immuknow::project::sample_template(project, &path)?),
+                None => template,
+            };
         }
         let (selection, templates) = match (self.notice_assignments, self.template) {
             (Some(manifest), None) => (
@@ -157,24 +161,8 @@ enum Command {
         #[arg(long)]
         output: PathBuf,
     },
-    /// List distinct URL warnings in a completed saved run.
-    Warnings {
-        run: PathBuf,
-        /// Regenerate the CSV pair from the saved record.
-        #[arg(long)]
-        refresh: bool,
-    },
-    /// Record or revoke review of an exact warning issue.
-    Acknowledge {
-        run: PathBuf,
-        issue: String,
-        /// Explain the review decision; avoid client information.
-        #[arg(long)]
-        reason: String,
-        /// Revoke an existing acknowledgment.
-        #[arg(long)]
-        revoke: bool,
-    },
+    /// Regenerate the paired CSV exports from a saved run checkpoint.
+    RefreshExports { run: PathBuf },
     /// Make new bundles from a saved run without rebuilding notices.
     Rebundle {
         run: PathBuf,
@@ -204,13 +192,16 @@ enum ProjectCommand {
         #[arg(long)]
         replace: bool,
     },
-    /// Verify the shared library and prepare the project's fictional sample.
+    /// Verify the shared library and project configuration.
     Check {
         #[arg(long, default_value = ".")]
         project: PathBuf,
-        /// Also render the sample in a temporary folder, removed after checking.
+        /// Prepare and render the fictional sample in a temporary folder.
         #[arg(long)]
         sample: bool,
+        /// Override the sample template, relative to the project's templates directory.
+        #[arg(long, requires = "sample")]
+        template: Option<PathBuf>,
     },
 }
 fn main() {
@@ -228,14 +219,36 @@ fn execute() -> Result<()> {
                 immuknow::project::sync_library(&project, replace)?;
                 println!("Shared library matches this ImmuKnow executable.");
             }
-            ProjectCommand::Check { project, sample } => {
+            ProjectCommand::Check {
+                project,
+                sample,
+                template,
+            } => {
                 immuknow::project::check_library(&project)?;
-                let (csv, assignments) = immuknow::project::sample_paths(&project)?;
+                if !sample {
+                    let config = project.join("config/parameters.yaml");
+                    immuknow::input::config(&config).with_context(|| {
+                        format!("Cannot load project configuration {}", config.display())
+                    })?;
+                    println!("Project checked: shared library matches and configuration is valid.");
+                    return Ok(());
+                }
+                let (csv, default_template) =
+                    immuknow::project::sample_paths(&project, template.is_none())?;
+                let template = match template {
+                    Some(path) => immuknow::project::sample_template(&project, &path)?,
+                    None => default_template.expect("Sample template is selected"),
+                };
+                let templates = template
+                    .parent()
+                    .filter(|p| !p.as_os_str().is_empty())
+                    .unwrap_or(std::path::Path::new("."))
+                    .to_path_buf();
                 let temporary = tempfile::tempdir()?;
                 let options = RunOptions {
                     csv,
-                    selection: Selection::Manifest(assignments),
-                    templates: project.join("templates"),
+                    selection: Selection::Single(template),
+                    templates,
                     config: project.join("config"),
                     output: temporary.path().join("runs"),
                     encoding: None,
@@ -244,44 +257,24 @@ fn execute() -> Result<()> {
                     encryption_workers: pipeline::default_notice_workers(),
                     bundle_workers: 4,
                 };
-                if sample {
-                    // A check removes its output, so do not print the normal
-                    // run summary's report link to a temporary file.
-                    let result = pipeline::run(&options)?;
-                    println!(
-                        "Sample: {}/{} PDFs created; {} notices with warnings; {} failed.",
-                        result.summary.originals,
-                        result.summary.rows,
-                        result.summary.warnings,
-                        result.summary.failed,
-                    );
-                    ensure!(
-                        result.succeeded,
-                        "Sample run failed; run immuknow run --sample --project {} to retain its report",
-                        project.display()
-                    );
-                    println!(
-                        "Project checked: {}/{} sample PDFs created. Temporary output removed.",
-                        result.summary.originals, result.summary.rows
-                    );
-                } else {
-                    let prepared = pipeline::prepare(&options)?;
-                    let failed = prepared["entries"]
-                        .as_array()
-                        .into_iter()
-                        .flatten()
-                        .flat_map(|entry| entry["checks"].as_array().into_iter().flatten())
-                        .any(|check| check["status"] == "fail");
-                    ensure!(
-                        !failed,
-                        "Sample preparation contains failures; use immuknow prepare --sample --project {} for findings",
-                        project.display()
-                    );
-                    println!(
-                        "Project checked: shared library matches; {} sample rows prepared.",
-                        prepared["entries"].as_array().map_or(0, Vec::len)
-                    );
-                }
+                // A check removes its output, so do not print a temporary report link.
+                let result = pipeline::run(&options)?;
+                println!(
+                    "Sample: {}/{} PDFs created; {} notices with warnings; {} failed.",
+                    result.summary.originals,
+                    result.summary.rows,
+                    result.summary.warnings,
+                    result.summary.failed,
+                );
+                ensure!(
+                    result.succeeded,
+                    "Sample run failed; run immuknow run --sample --project {} to retain its report",
+                    project.display()
+                );
+                println!(
+                    "Project checked: {}/{} sample PDFs created. Temporary output removed.",
+                    result.summary.originals, result.summary.rows
+                );
             }
         },
         Command::Run {
@@ -335,16 +328,8 @@ fn execute() -> Result<()> {
             )?;
             println!();
         }
-        Command::Warnings { run, refresh } => {
-            immuknow::warning_review::list(&run, refresh)?;
-        }
-        Command::Acknowledge {
-            run,
-            issue,
-            reason,
-            revoke,
-        } => {
-            immuknow::warning_review::acknowledge(&run, &issue, &reason, revoke)?;
+        Command::RefreshExports { run } => {
+            immuknow::report::refresh(&run)?;
         }
         Command::Rebundle {
             run,

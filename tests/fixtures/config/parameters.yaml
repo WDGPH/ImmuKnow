@@ -10,6 +10,3 @@ encryption:
   enabled: false
   password:
     template: '{date_of_birth_iso_compact}'
-pipeline:
-  after_run:
-    remove_artifacts: false
