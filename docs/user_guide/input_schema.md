@@ -27,7 +27,6 @@ the new column.
 | `board_name` | No | School board name |
 | `board_id` | No | School board identifier |
 | `school_id` | No | School identifier |
-| `version_id` | No | Version identifier |
 | `intended_reader` | No | Intended reader: student or guardian. Leave blank to use the age default (student at 16 or older, guardian under 16). Unknown age without a reader uses neutral wording. Invalid values fail that source row without creating a PDF; other valid rows continue. Supply the intended mailing destination in the address columns. |
 
 ## Vaccination history example
