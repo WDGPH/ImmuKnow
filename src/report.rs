@@ -90,6 +90,7 @@ pub struct Summary {
     pub codes: BTreeMap<(String, String), BTreeSet<String>>,
     pub diagnostics: usize,
     pub run_findings: usize,
+    pub run_messages: Vec<(String, String)>,
 }
 #[derive(Serialize)]
 struct RecordRow {
@@ -491,6 +492,9 @@ fn project(
     {
         if matches!(text(c, "status"), "warn" | "fail") {
             summary.run_findings += 1;
+            summary
+                .run_messages
+                .push((text(c, "code").into(), text(c, "message").into()));
             emit_finding(&finding(
                 record,
                 &Value::Null,

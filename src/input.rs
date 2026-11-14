@@ -572,7 +572,10 @@ pub fn source_rows(path: &Path, encoding: Option<&str>) -> Result<Vec<Value>> {
         .map(|row| json!(row))
         .collect())
 }
-pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<RowPreparation>> {
+pub fn prepare(
+    options: &PrepareOptions<'_>,
+    c: &Config,
+) -> Result<(Vec<RowPreparation>, Vec<Value>)> {
     let config_dir = options.config_dir;
     let templates = options.templates;
     let schema: Value = crate::read_json(&options.resources.join("schemas/input_schema.json"))?;
@@ -713,7 +716,19 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<RowPrepar
         rows.iter().any(|r| !get(r, "oiid").is_empty()),
         rows.iter().any(|r| get(r, "oiid").is_empty()),
     );
-    let extra_manifest_rows = single.is_none() && by_id.keys().any(|id| !counts.contains_key(id));
+    let extra_count = by_id.keys().filter(|id| !counts.contains_key(*id)).count();
+    let mut run_checks = Vec::new();
+    if extra_count > 0 {
+        let mut warning = check(
+            "assignment.extra_manifest_row",
+            "warn",
+            &format!(
+                "The assignment file contains {extra_count} client ID(s) absent from the CSV."
+            ),
+        );
+        warning["measurements"] = json!({"extra_assignment_count": extra_count});
+        run_checks.push(warning);
+    }
     let mut result = vec![];
     for (i, ((r, source), history_result)) in rows.iter().zip(sources).zip(histories).enumerate() {
         let id = get(r, "client_id");
@@ -779,13 +794,6 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<RowPrepar
                 "data.duplicate_client_id",
                 "warn",
                 &format!("This allowed client ID appears in {count} source rows. All rows are retained and share the same notice assignment; review each row."),
-            ));
-        }
-        if extra_manifest_rows {
-            checks.push(check(
-                "assignment.extra_manifest_row",
-                "warn",
-                "The assignment file contains clients who are not in the CSV.",
             ));
         }
         if let Some((mapping, hash, filename)) = &school {
@@ -1068,7 +1076,7 @@ pub fn prepare(options: &PrepareOptions<'_>, c: &Config) -> Result<Vec<RowPrepar
             assignment,
         }));
     }
-    Ok(result)
+    Ok((result, run_checks))
 }
 
 #[cfg(test)]

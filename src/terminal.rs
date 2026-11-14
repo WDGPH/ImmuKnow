@@ -232,6 +232,9 @@ impl Terminal {
         }
         if report.run_findings > 0 {
             eprintln!("  Run/attempt findings: {}", report.run_findings);
+            for (code, message) in &report.run_messages {
+                eprintln!("    {code}: {message}");
+            }
         }
         if let Some(parent) = result.record.parent() {
             if s.records_path.is_empty() || s.findings_path.is_empty() {

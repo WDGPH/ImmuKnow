@@ -775,16 +775,11 @@ fn prepare_supports_both_selectors_and_does_not_create_runs() {
     );
     success(&extra);
     let mut with_extra: Value = serde_json::from_slice(&extra.stdout).unwrap();
-    for entry in with_extra["entries"].as_array_mut().unwrap() {
-        let checks = entry["checks"].as_array_mut().unwrap();
-        let warnings: Vec<_> = checks
-            .iter()
-            .filter(|check| check["code"] == "assignment.extra_manifest_row")
-            .collect();
-        assert_eq!(warnings.len(), 1);
-        assert_eq!(warnings[0]["status"], "warn");
-        checks.retain(|check| check["code"] != "assignment.extra_manifest_row");
-    }
+    let checks = with_extra["checks"].as_array_mut().unwrap();
+    assert_eq!(checks.len(), 1);
+    assert_eq!(checks[0]["code"], "assignment.extra_manifest_row");
+    assert_eq!(checks[0]["measurements"]["extra_count"], 1);
+    checks.clear();
     assert_eq!(
         with_extra, prepared,
         "An extra assignment changes only its warning"
@@ -811,6 +806,75 @@ fn prepare_supports_both_selectors_and_does_not_create_runs() {
             .all(|e| e["assignment"]["template"] == "overdue_agents_v1.en.typ")
     );
     assert!(!project.runs.exists());
+}
+
+#[test]
+fn extra_assignments_survive_failed_rows_and_publish_once() {
+    let project = Project::new();
+    let mut assignments: Vec<Value> =
+        serde_json::from_slice(&fs::read(&project.assignments).unwrap()).unwrap();
+    assignments.push(json!({"client_id":"unused","template":"overdue_agents_v1.en.typ"}));
+    fs::write(
+        &project.assignments,
+        serde_json::to_vec(&assignments).unwrap(),
+    )
+    .unwrap();
+    let mut reader = csv::Reader::from_path(&project.csv).unwrap();
+    let mut headers = reader.headers().unwrap().clone();
+    let rows: Vec<_> = reader.records().map(Result::unwrap).collect();
+    drop(reader);
+    headers.push_field("intended_reader");
+    let mut writer = csv::Writer::from_path(&project.csv).unwrap();
+    writer.write_record(&headers).unwrap();
+    for row in &rows {
+        let mut values: Vec<_> = row.iter().map(str::to_owned).collect();
+        values.push("invalid".into());
+        writer.write_record(values).unwrap();
+    }
+    writer.flush().unwrap();
+    drop(writer);
+    let args = [
+        p(&project.csv),
+        "--notice-assignments",
+        p(&project.assignments),
+        "--templates",
+        p(&project.templates),
+        "--config",
+        p(&project.config),
+    ];
+    let mut prepare_args = vec!["prepare"];
+    prepare_args.extend(args);
+    let prepared = cli(&project.root, &prepare_args);
+    success(&prepared);
+    let data: Value = serde_json::from_slice(&prepared.stdout).unwrap();
+    assert_eq!(data["checks"][0]["code"], "assignment.extra_manifest_row");
+    assert_eq!(data["entries"].as_array().unwrap().len(), rows.len());
+    assert!(data["entries"].as_array().unwrap().iter().all(|e| {
+        e["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c["code"] == "source.intended_reader_invalid")
+    }));
+    let mut run_args = vec!["run"];
+    run_args.extend(args);
+    run_args.extend(["--output", p(&project.runs), "--progress", "plain"]);
+    let output = cli(&project.root, &run_args);
+    assert!(!output.status.success());
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("assignment.extra_manifest_row: The assignment file contains")
+    );
+    let (run, record) = project.record();
+    assert_eq!(record["status"], "completed_with_failures");
+    let findings = csv_rows(&run, &record, "findings");
+    let extra: Vec<_> = findings
+        .iter()
+        .filter(|f| f["code"] == "assignment.extra_manifest_row")
+        .collect();
+    assert_eq!(extra.len(), 1);
+    assert_eq!(extra[0]["scope"], "run");
+    assert_eq!(extra[0]["row_key"], "");
 }
 
 #[test]

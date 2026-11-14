@@ -355,7 +355,7 @@ fn prepare_data(
     config_path: &Path,
     templates: &Path,
     c: &Config,
-) -> Result<Vec<RowPreparation>> {
+) -> Result<(Vec<RowPreparation>, Vec<Value>)> {
     input::prepare(
         &options(
             source,
@@ -378,7 +378,7 @@ pub fn prepare(opts: &RunOptions) -> Result<Value> {
     drop(bytes);
     let c = input::config(&opts.config.join("parameters.yaml"))?;
     validate_project(&opts.templates, temp.path())?;
-    let prepared = prepare_data(
+    let (prepared, run_checks) = prepare_data(
         opts,
         temp.path(),
         &source,
@@ -387,6 +387,7 @@ pub fn prepare(opts: &RunOptions) -> Result<Value> {
         &opts.templates,
         &c,
     )?;
+    record["checks"] = json!(run_checks);
     let validator = validation::Validator::new(temp.path())?;
     for outcome in &prepared {
         if let RowPreparation::Ready(p) = outcome {
@@ -874,7 +875,7 @@ pub fn run_with_progress(
         for sub in ["originals", "encrypted"] {
             fs::create_dir_all(dir.join(sub))?;
         }
-        let prepared = prepare_data(
+        let (prepared, run_checks) = prepare_data(
             opts,
             resource_root.path(),
             &dir.join("source.csv"),
@@ -883,6 +884,7 @@ pub fn run_with_progress(
             &templates,
             &c,
         )?;
+        record["checks"] = json!(run_checks);
         ensure!(
             prepared.len() == record["entries"].as_array().unwrap().len(),
             "Preparation did not account for every source row"
