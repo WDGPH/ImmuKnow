@@ -1,7 +1,7 @@
 # ImmuKnow notice components
 
 Import `lib.typ` from the authored project. Importing the package does not read
-client data, inspect compiler inputs, or render components. Core supplies the
+client data, inspect compiler inputs, or render components. ImmuKnow supplies the
 prepared facts described by `resources/schemas/rendering.json`.
 
 Text links and URL helpers live in `src/links.typ`; QR rendering lives in
@@ -10,7 +10,7 @@ Text links and URL helpers live in `src/links.typ`; QR rendering lives in
 The public helpers take prepared notice data explicitly. Projects can wrap them
 to provide shared defaults; see
 [ImmuKnow Template's documentation](https://github.com/WDGPH/ImmuKnow-Template/blob/main/README.md)
-for its project setup. Core imports never load client data.
+for its project setup. ImmuKnow imports never load client data.
 
 For a direct library import, wrap the whole document with
 `#show: immuknow.letter.with(notice: notice)`.

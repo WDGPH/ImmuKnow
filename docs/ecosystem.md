@@ -2,12 +2,12 @@
 
 | Project | Description |
 | --- | --- |
-| Core | Native CSV preparation, validation, Typst compilation, PDF encryption, bundling and reporting. Supplies the shared Typst library and JSON schemas. |
+| ImmuKnow | Native CSV preparation, validation, Typst compilation, PDF encryption, bundling and reporting. Supplies the shared Typst library and JSON schemas. |
 | Template | Starter notices, wording, translations, settings, branding, project configuration and reference lists. |
 | Studio | Browser editing, previews, local drafts and project import/export. |
 
-Your organization adapts an authored notice project from Template. Keep Core's
-shared library intact in `templates/lib/immuknow/`. Core reads the project,
+Your organization adapts an authored notice project from Template. Keep ImmuKnow's
+shared library intact in `templates/lib/immuknow/`. ImmuKnow reads the project,
 CSV and explicit notice choices to produce PDFs, bundles and reports. The source
 system assesses immunization status; operators review notices before delivery.
 
@@ -19,9 +19,9 @@ compatibility and maintenance instructions.
 
 ## Native handoff
 
-Core exports its schemas and complete Typst library for projects and authoring
+ImmuKnow exports its schemas and complete Typst library for projects and authoring
 tools. Template supplies authored notices and configuration; Studio consumes
-Core's contracts for previews and exported projects.
+ImmuKnow's contracts for previews and exported projects.
 
 The [command and facts reference](developer_guide/cli.md) owns export commands,
 resource identity, schema versions and the preparation envelope. The
@@ -30,7 +30,7 @@ resource identity, schema versions and the preparation envelope. The
 ## Testing the handoffs
 
 Each project tests its own behavior and the files it hands to its consumers.
-Core's [testing guide](developer_guide/testing.md#test-ownership-and-execution)
+ImmuKnow's [testing guide](developer_guide/testing.md#test-ownership-and-execution)
 defines these boundaries and the checks needed for resource and pin updates.
 See Template's
 [contributor guide](https://github.com/WDGPH/ImmuKnow-Template/blob/main/CONTRIBUTING.md)

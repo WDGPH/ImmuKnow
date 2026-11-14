@@ -1,4 +1,4 @@
-// Core checks the factual schema; the authored project checks its filename identity.
+// ImmuKnow checks the factual schema; the authored project checks its filename identity.
 #let check-notice(notice, version: none, language: none) = {
   assert(notice.schema_version == 2, message: "Unsupported rendering schema_version")
   assert(language in ("en", "fr"), message: "Unsupported notice language")

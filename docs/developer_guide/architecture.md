@@ -1,6 +1,6 @@
 # How the application works
 
-Core follows one main path in `src/pipeline.rs`. It saves the supplied CSV, prepares
+ImmuKnow follows one main path in `src/pipeline.rs`. It saves the supplied CSV, prepares
 trusted client information for each renderable row, creates the selected notices with Typst,
 checks their reports, makes requested encrypted copies, groups PDFs, and writes
 the final report. The system supplying the CSV assesses immunization status;
@@ -94,12 +94,12 @@ histories and reference matches into schema-checked notice facts. The selected
 template, language and row identity accompany those facts. `src/compiler.rs`
 serializes the notice as virtual JSON, exposed through `sys.inputs.at("data")`;
 project setup reads it into the shared Typst components. Components return
-structured findings through placed metadata, rather than Core inferring content
+structured findings through placed metadata, rather than ImmuKnow inferring content
 from extracted PDF text. The [template guide](templates.md) owns the field and
 component contracts.
 
 Typst returns PDF data and invisible check metadata from the same compiled
-document. Core checks the metadata against `schemas/rendering.json`,
+document. ImmuKnow checks the metadata against `schemas/rendering.json`,
 `typst/report.json`, the selected client and the document's page count. The JSON
 is saved separately; it is never attached to the PDF or printed as extra pages.
 See the [command and facts reference](cli.md#resources-for-authoring-tools) for schema versions and [resource compatibility](cli.md#resource-compatibility).
@@ -112,7 +112,7 @@ uncreated original stays in the report only. A notice on hold is excluded from
 both sets. Each included original appears once per bundle attempt, with its
 page range in the run-wide records CSV. A required page count never adds blank pages.
 
-Encryption creates a separate AES-256 revision 6 PDF using the pinned `lopdf` implementation. Core requires a nonempty password, rejects passwords that become empty under the library’s R6 Unicode preparation, checks the resulting in-memory encryption dictionary and unchanged page count, and propagates encryption, write, flush and rename errors. It does not reopen each output to repeat password authentication. Release tests check empty and wrong password refusal, correct password access, encryption settings and preserved content. Bundle assembly checks its page count before writing; release tests reopen representative bundles. This boundary trusts the library and successful I/O rather than detecting storage corruption by reparsing every new artifact. The original remains available. Derived passwords are
+Encryption creates a separate AES-256 revision 6 PDF using the pinned `lopdf` implementation. ImmuKnow requires a nonempty password, rejects passwords that become empty under the library’s R6 Unicode preparation, checks the resulting in-memory encryption dictionary and unchanged page count, and propagates encryption, write, flush and rename errors. It does not reopen each output to repeat password authentication. Release tests check empty and wrong password refusal, correct password access, encryption settings and preserved content. Bundle assembly checks its page count before writing; release tests reopen representative bundles. This boundary trusts the library and successful I/O rather than detecting storage corruption by reparsing every new artifact. The original remains available. Derived passwords are
 never saved. The [coordinator and bounded workers](#processing-and-concurrency)
 keep independent work associated with its source row. Submitted encryption jobs
 are drained even if a later rendering or checkpoint step fails. Bundling works

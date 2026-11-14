@@ -2,7 +2,7 @@
 
 This guide is for people editing Typst templates or connecting another application.
 ImmuKnow supplies the client information and selected notice. Your template controls
-the wording, appearance and QR links. This guide documents Core's prepared
+the wording, appearance and QR links. This guide documents ImmuKnow's prepared
 facts, public Typst helpers and compiled evidence contract.
 
 Use [Studio](https://docs.phiz.ca/immuknow-studio/latest/) for source editing, matching example previews and
@@ -11,9 +11,9 @@ project exports. This guide owns the native facts and Typst component contract.
 ## Select a complete project
 
 Get a starter project from [ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template)
-or use an authored project whose resources match your Core executable.
+or use an authored project whose resources match your ImmuKnow executable.
 Template owns the starter letters,
-Settings, display translations and example images. Core supplies the shared
+Settings, display translations and example images. ImmuKnow supplies the shared
 Typst library and native contracts; its package contains no starter project.
 Keep the notice's local dependencies inside the templates directory. Follow
 [Template's documentation](https://github.com/WDGPH/ImmuKnow-Template/blob/main/README.md)
@@ -45,8 +45,8 @@ text or drawing added elsewhere in an authored template belongs to the right
 client; review authored content as well as the reported checks.
 
 Keep dependencies inside this tree and import them through relative paths.
-Core refuses `@local` and `@preview` package imports, including paths built from
-variables. Keep library dependencies inside the project; Core does not download
+ImmuKnow refuses `@local` and `@preview` package imports, including paths built from
+variables. Keep library dependencies inside the project; ImmuKnow does not download
 packages or read a package installed elsewhere.
 
 The filename `<version>.<language>.typ` supplies version and language. Rename
@@ -55,7 +55,7 @@ changes language or chooses a different notice automatically. See
 [configuration](../user_guide/configuration.md) for the explicit manifest schema and
 warning/failure behavior.
 
-## Importing the Core library
+## Importing the ImmuKnow library
 
 Importing `lib.typ` does not read client data or compiler inputs. The entry point
 reads the virtual JSON path supplied in `sys.inputs.at("data")`, verifies the
@@ -180,7 +180,7 @@ has `mapping_known: true`; it remains distinct from an unknown name.
 `to_student` and `to_guardian` follow the same intended-reader selection as the
 address block. `up_to_date` is true when the supplied overdue-disease list is
 empty; overdue immunizing agents do not affect it. This reflects the supplied
-assessment, rather than assessing vaccination requirements in Core.
+assessment, rather than assessing vaccination requirements in ImmuKnow.
 `no_records` is true when no administrations were supplied in the source history.
 Invalid doses, unknown vaccine names and records excluded from the displayed
 chart still count as records. A blank history or the source's empty-history
@@ -269,7 +269,7 @@ Eligibility mismatches produce structured failures while retaining readable
 originals for review. Keep assertions for fundamental input or rendering
 prerequisites where no trustworthy PDF can be produced. A dynamic notice can
 branch on the flags and place exactly one requirements declaration in its active
-branch. Its selected version and language stay fixed; Core does not choose a
+branch. Its selected version and language stay fixed; ImmuKnow does not choose a
 notice from these flags.
 
 ## Notice requirements

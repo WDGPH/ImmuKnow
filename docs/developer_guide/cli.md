@@ -20,7 +20,7 @@ immuknow rebundle RUN_DIR [--policy policy.json] [--withhold ROW_KEY --reason TE
 immuknow refresh-exports RUN_DIR
 ```
 
-With `--notices` and no explicit project or templates path, Core uses `templates/` and `config/` in the working directory. Without `--project`, relative `--template` paths are resolved from the working directory.
+With `--notices` and no explicit project or templates path, ImmuKnow uses `templates/` and `config/` in the working directory. Without `--project`, relative `--template` paths are resolved from the working directory.
 
 `--project DIR` supplies `DIR/templates` and `DIR/config`. An explicit `--config` overrides the configuration folder. With an assignment file, `--templates` overrides the templates folder; it conflicts with `--template`. With a project, relative single-template names are resolved inside its `templates` folder; absolute template paths retain their existing meaning. CSV and assignment-file paths are always relative to the working directory. Selection stays explicit. `--notices` is a visible alias for `--notice-assignments`. The same project shortcut works with `prepare`.
 
@@ -74,7 +74,7 @@ The [template guide](templates.md) describes fields and component behavior. Stud
 ## Resource compatibility
 
 `immuknow resources --output DIR` exports `schemas/`, `typst/` and
-`resource-manifest.json`. Export into a new folder when updating Core, then replace
+`resource-manifest.json`. Export into a new folder when updating ImmuKnow, then replace
 the project's complete `templates/lib/immuknow/` copy. Existing identical files
 are accepted; different files are not overwritten. Do not mix releases.
 The manifest identifies resource contents, rather than a source commit; keep
@@ -117,4 +117,4 @@ assignment file, templates directory or configuration override. `--output` remai
 folder, defaulting to `runs/`, just as for an explicit CSV run.
 
 Template owns the sample records, authored notices, settings and reference lists;
-Core supplies the generic setup and sample-selection behavior.
+ImmuKnow supplies the generic setup and sample-selection behavior.

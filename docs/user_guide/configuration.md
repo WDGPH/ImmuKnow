@@ -115,7 +115,7 @@ In the CSV, `school_name` can end in ` - FACILITY ID`; ImmuKnow uses the last su
 ## Filename templates
 
 Set filename stems in `parameters.yaml` using `{field}` placeholders, as with
-password templates. Core appends `.pdf`; do not include extensions or
+password templates. ImmuKnow appends `.pdf`; do not include extensions or
 directory paths. For example:
 
 ```yaml
@@ -127,7 +127,7 @@ filenames:
     template: '{last_name}_{first_name}_{client_id}_{notice_variant}'
   bundle:
     template: '{school}_{notice_variant}_{bundle_number}'
-  # Optional: otherwise Core prefixes the bundle pattern with review_.
+  # Optional: otherwise ImmuKnow prefixes the bundle pattern with review_.
   review_bundle:
     template: 'review_{school}_{notice_variant}_{bundle_number}'
 ```
@@ -153,7 +153,7 @@ only `{route}_{bundle_number}` works with size-only grouping. Naming does not
 change groups, notice order, source identities or delivery decisions.
 
 Names are lowercase and Unicode-normalized. Letters, digits, hyphens and
-underscores remain; other character runs become underscores. Core trims edge
+underscores remain; other character runs become underscores. ImmuKnow trims edge
 separators, protects reserved device names, limits stems to 160 UTF-8 bytes and
 adds deterministic row/bundle suffixes for collisions, including patterns that
 omit a chunk number. No artifact is overwritten because two expanded names
@@ -222,7 +222,7 @@ Each v2 notice places one requirements declaration beside its wording. The share
 
 ## Disease and history references
 
-The vaccine reference maps each forecasted agent to one or more diseases. Core standardizes disease names and records missing diseases, extra diseases and unmapped agents before display exclusions. Missing coverage fails an agent-based notice and warns on a disease-based notice; explicit neutral coverage is not applicable. Extra coverage or unmapped agents also warn when coverage applies. These findings belong to each compiled notice and do not stop later clients. An invalid dose number produces a warning and keeps the disease without the number. Original source text is retained.
+The vaccine reference maps each forecasted agent to one or more diseases. ImmuKnow standardizes disease names and records missing diseases, extra diseases and unmapped agents before display exclusions. Missing coverage fails an agent-based notice and warns on a disease-based notice; explicit neutral coverage is not applicable. Extra coverage or unmapped agents also warn when coverage applies. These findings belong to each compiled notice and do not stop later clients. An invalid dose number produces a warning and keeps the disease without the number. Original source text is retained.
 
 History entries use exact agent names from `vaccine_reference.json`. Every entry is checked before any are excluded from display. A history table included in a notice reports an error for an unknown agent unless its `ignore-agents` option excludes it. If the notice has no history table, no mapping check is needed. Formulation markers affect display names only. See [CSV input](input_schema.md) and [template authoring](../developer_guide/templates.md).
 
@@ -234,7 +234,7 @@ The standalone executable includes Typst 0.15.1 and its shared components. It us
 
 Use the existing `date_as_of` and `date_of_delivery` names for assessment and
 planned delivery. `date_due` and `date_of_suspension` are optional project dates.
-Core validates each supplied date and compares the dates that are present, in
+ImmuKnow validates each supplied date and compares the dates that are present, in
 this order:
 
 ```text
@@ -245,7 +245,7 @@ Assessment and delivery may share a day. Other supplied dates must be later;
 if the due date is omitted, suspension must still be later than delivery.
 Omit an optional date or set it to `null` or `''` when it does not apply. Invalid
 calendar dates or inconsistent ordering stop preparation with the field names
-in the error. Core does not infer a deadline, a suspension date or school days.
+in the error. ImmuKnow does not infer a deadline, a suspension date or school days.
 Templates decide where these dates appear. See
 [ImmuKnow Template's documentation](https://github.com/WDGPH/ImmuKnow-Template/blob/main/README.md)
 for starter-notice wording and date display.

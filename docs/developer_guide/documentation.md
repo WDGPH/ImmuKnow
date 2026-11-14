@@ -5,7 +5,7 @@ Keep each contract in its owning guide. [Getting started](../user_guide/getting_
 Use relative links within this repository. For another project's living guides,
 prefer its documentation website; use its repository's default branch when no
 site is configured. Keep that project's setup, compatibility and
-maintenance instructions in its own documentation. When a Core contract requires
+maintenance instructions in its own documentation. When an ImmuKnow contract requires
 a reviewed dependency revision, use an immutable commit URL and identify it. Avoid feature-branch URLs
 that break when branches are deleted after merge.
 
@@ -17,7 +17,7 @@ Check source links, commands and key schema references locally:
 cargo test --release --locked --test documentation
 ```
 
-The documentation hub consumes this repository's Markdown and `mkdocs.yml`; the Core build and its documentation check require no documentation framework. The separate notification workflow informs the hub of main-branch updates, stable release tags and published stable releases. See [release builds](releases.md#documentation) for the required hub configuration. It does not publish the site or give the hub access to run data.
+The documentation hub consumes this repository's Markdown and `mkdocs.yml`; the ImmuKnow build and its documentation check require no documentation framework. The separate notification workflow informs the hub of main-branch updates, stable release tags and published stable releases. See [release builds](releases.md#documentation) for the required hub configuration. It does not publish the site or give the hub access to run data.
 
 ## Maintaining the visuals
 

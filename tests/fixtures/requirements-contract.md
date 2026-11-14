@@ -1,12 +1,12 @@
 # Notice-local requirements contract
 
-The active schemas in `resources/schemas/rendering.json` and `resources/typst/report.json` own this contract. One Typst evaluator produces requirements/content findings in native and Studio; Core prepares trusted facts, validates evidence, retains artifacts and routes. The `subjects` on link findings remain independent.
+The active schemas in `resources/schemas/rendering.json` and `resources/typst/report.json` own this contract. One Typst evaluator produces requirements/content findings in native and Studio; ImmuKnow prepares trusted facts, validates evidence, retains artifacts and routes. The `subjects` on link findings remain independent.
 
 ## Versions, fields, lifecycle
 
 Preparation envelope and payload remain version 2 (`urn:immuknow:rendering:2`); placed reports use version 4 (`urn:immuknow:render-report:4`). The [evidence retention table](render-evidence.md) defines the measurement representation. Native saved-run schema 2 retains these validated observations for rebundling without reevaluating an edited notice. Unsupported saved-run schemas require the matching executable; no compatibility loader is provided.
 
-Core prepares `notice.forecast_coverage`: `{missing_diseases: string[], extra_diseases: string[], unmapped_agents: string[]}`. Each list sorted unique; disease names normalized, agents exact; data derives from complete input and references before display exclusions. Report `notice` must equal this prepared payload. `prepare` puts `["notice.requirements","notice.eligibility","data.forecast_coverage","content.agent_display"]` in entry `deferred_checks` outside `checks`. Deferred means unchecked, not warning or pass. A validated report (valid or failed-declaration branch) resolves and clears deferred; save final observed checks and `blocked_checks`. Compilation failure or corrupt outer evidence leaves deferred/unverified diagnostics, adds mandatory `rendering.failed` or `render.evidence_failed` respectively, and cannot route deliverable. Rebundling uses saved checks/blocked state, with no recompilation.
+ImmuKnow prepares `notice.forecast_coverage`: `{missing_diseases: string[], extra_diseases: string[], unmapped_agents: string[]}`. Each list sorted unique; disease names normalized, agents exact; data derives from complete input and references before display exclusions. Report `notice` must equal this prepared payload. `prepare` puts `["notice.requirements","notice.eligibility","data.forecast_coverage","content.agent_display"]` in entry `deferred_checks` outside `checks`. Deferred means unchecked, not warning or pass. A validated report (valid or failed-declaration branch) resolves and clears deferred; save final observed checks and `blocked_checks`. Compilation failure or corrupt outer evidence leaves deferred/unverified diagnostics, adds mandatory `rendering.failed` or `render.evidence_failed` respectively, and cannot route deliverable. Rebundling uses saved checks/blocked state, with no recompilation.
 
 ## Placed declaration API and report branches
 
@@ -35,7 +35,7 @@ For exactly one placed `overdue_agents` or alternative, component measurements h
 
 Authored starter notices and their eligibility, coverage and display choices
 belong to [ImmuKnow Template](https://github.com/WDGPH/ImmuKnow-Template).
-Core's fictional templates exercise the shared contract independently of starter
+ImmuKnow's fictional templates exercise the shared contract independently of starter
 wording. Missing, duplicate or malformed requirements must retain readable PDFs
 and produce findings rather than abort compilation.
 
