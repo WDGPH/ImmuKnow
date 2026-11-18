@@ -2,6 +2,16 @@
 // https://www.ontario.ca/page/vaccines-children-school
 // https://www.ontario.ca/laws/regulation/900645 (Table 1)
 #let ispa-overdue-diseases(notice) = {
+  // ImmuKnow classifies prepared notices (src/ispa.rs); the rules below serve notices without it.
+  let prepared = notice.at("ispa", default: none)
+  if prepared != none {
+    assert(prepared.undetermined_diseases.len() == 0, message: if notice.client_data.date_of_birth_iso == "" {
+      "ISPA disease selection requires a valid birth date for Varicella or Meningococcal disease."
+    } else {
+      "ISPA meningococcal disease selection requires date_as_of for this birth cohort."
+    })
+    return prepared.overdue_diseases
+  }
   let always = ("Diphtheria", "Tetanus", "Polio", "Measles", "Mumps", "Rubella", "Pertussis")
   let birth() = {
     let value = notice.client_data.date_of_birth_iso

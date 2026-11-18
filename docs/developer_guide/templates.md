@@ -244,6 +244,14 @@ and [Regulation 645, Table 1](https://www.ontario.ca/laws/regulation/900645).
 They select already-reported overdue diseases; they do not reassess doses,
 exemptions or the other legal steps needed for a suspension order.
 
+ImmuKnow applies this selection once during preparation and passes the result
+to templates as `notice.ispa`: a `status` of `ispa_overdue`, `no_ispa_overdue`
+or `ispa_unknown`, the selected `overdue_diseases`, and any
+`undetermined_diseases` whose cohort could not be decided. The functions below
+use that result, so a notice's wording agrees with its ISPA bundle grouping.
+Notices without `notice.ispa`, such as Studio examples or runs prepared by
+earlier versions, use the same rules in Typst.
+
 A suspension notice declares the existing ISPA eligibility condition beside its wording:
 
 ```typst

@@ -5,6 +5,7 @@ pub mod compiler;
 pub mod filenames;
 mod formatting;
 pub mod input;
+pub mod ispa;
 pub mod pdf;
 pub mod pipeline;
 pub mod policy;

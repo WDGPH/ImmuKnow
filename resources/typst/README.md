@@ -44,6 +44,8 @@ warnings while preserving visible content.
   disease selection as `overdue-diseases(ispa-only: true)`. ISPA selection needs
   a birth date for cohort-dependent diseases and, for earlier meningococcal
   cohorts, `date_as_of`. Missing required facts fail the ISPA-specific operation.
+  Prepared notices carry this selection as `notice.ispa`; the Typst rules apply
+  only when it is absent.
 - `notice-dates(notice)` returns localized delivery, as-of, due, suspension and birth dates.
   `long-date(iso, language, required: false)` leaves unknown dates blank.
 - `notice-header(title: ..., logo: ..., title-align: center)` places the title

@@ -79,6 +79,17 @@ An overdue disease appears more than once with the same explicit positive dose a
 
 An overdue agent appears more than once. Source data should list each agent once per client; coverage of multiple diseases does not justify repeating the agent. Review and correct the source. The facts are retained and this warning allows delivery.
 
+### `data.ispa_unknown` {#data-ispa-unknown}
+
+Varicella and meningococcal ISPA scope depends on the birth cohort, and some
+meningococcal cohorts also need `date_as_of`. No supplied overdue disease is
+known to be in ISPA scope, and at least one could not be classified because a
+required date is absent. The message names the diseases and missing dates. The
+notice's ISPA status is `ispa_unknown`; grouping by `ispa_status` places it in
+its own bundle, and this warning allows delivery. Templates that display ISPA
+diseases or require `has_ispa_overdue` stop with an error for this notice.
+Supply the birth date or `date_as_of` and rerun.
+
 ### `data.forecast_coverage` {#data-forecast-coverage}
 
 The configured agent lookup compares forecasted agents with supplied overdue diseases. Missing coverage fails an agent-based notice and warns for a disease-based notice. Extra diseases or unmapped agents warn. Review the source, notice and lookup measurements.

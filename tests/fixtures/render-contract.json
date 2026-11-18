@@ -38,6 +38,16 @@
       "MMR",
       "DTaP"
     ],
+    "ispa": {
+      "status": "ispa_overdue",
+      "overdue_diseases": [
+        {
+          "disease": "Measles",
+          "dose": 2
+        }
+      ],
+      "undetermined_diseases": []
+    },
     "history": [
       {
         "date_given": "2020-05-01",
@@ -117,6 +127,16 @@
         "MMR",
         "DTaP"
       ],
+      "ispa": {
+        "status": "ispa_overdue",
+        "overdue_diseases": [
+          {
+            "disease": "Measles",
+            "dose": 2
+          }
+        ],
+        "undetermined_diseases": []
+      },
       "history": [
         {
           "date_given": "2020-05-01",
@@ -1585,6 +1605,16 @@
                 "mapping_known": true
               }
             ],
+            "ispa": {
+              "undetermined_diseases": [],
+              "overdue_diseases": [
+                {
+                  "dose": 2,
+                  "disease": "Measles"
+                }
+              ],
+              "status": "ispa_overdue"
+            },
             "overdue_agents": [
               "MMR",
               "DTaP"
@@ -1769,6 +1799,110 @@
             "history_validity_coverage"
           ],
           "remove": true
+        }
+      ]
+    },
+    {
+      "name": "saved payloads without ISPA classification remain supported",
+      "valid": true,
+      "changes": [
+        {
+          "target": "payload",
+          "path": [
+            "ispa"
+          ],
+          "remove": true
+        },
+        {
+          "target": "report",
+          "path": [
+            "notice",
+            "ispa"
+          ],
+          "remove": true
+        }
+      ]
+    },
+    {
+      "name": "unknown ISPA status",
+      "valid": false,
+      "changes": [
+        {
+          "target": "payload",
+          "path": [
+            "ispa",
+            "status"
+          ],
+          "value": "ispa"
+        },
+        {
+          "target": "report",
+          "path": [
+            "notice",
+            "ispa",
+            "status"
+          ],
+          "value": "ispa"
+        }
+      ]
+    },
+    {
+      "name": "undetermined ISPA disease names are strings",
+      "valid": false,
+      "changes": [
+        {
+          "target": "payload",
+          "path": [
+            "ispa",
+            "undetermined_diseases"
+          ],
+          "value": [
+            ""
+          ]
+        },
+        {
+          "target": "report",
+          "path": [
+            "notice",
+            "ispa",
+            "undetermined_diseases"
+          ],
+          "value": [
+            ""
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ISPA disease entries follow overdue disease rules",
+      "valid": false,
+      "changes": [
+        {
+          "target": "payload",
+          "path": [
+            "ispa",
+            "overdue_diseases"
+          ],
+          "value": [
+            {
+              "disease": "Measles",
+              "dose": 0
+            }
+          ]
+        },
+        {
+          "target": "report",
+          "path": [
+            "notice",
+            "ispa",
+            "overdue_diseases"
+          ],
+          "value": [
+            {
+              "disease": "Measles",
+              "dose": 0
+            }
+          ]
         }
       ]
     },

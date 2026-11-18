@@ -1016,6 +1016,21 @@ pub fn prepare(
         }
         let missing: Vec<_> = required.difference(&covered).cloned().collect();
         let extra: Vec<_> = covered.difference(&required).cloned().collect();
+        let ispa = crate::ispa::classify(&overdue, birth, date(&c.date_as_of).ok());
+        if ispa.status == "ispa_unknown" {
+            let mut warning = check(
+                "data.ispa_unknown",
+                "warn",
+                &format!(
+                    "ISPA scope is unknown for {}. Missing: {}.",
+                    ispa.undetermined.join(", "),
+                    ispa.missing.iter().copied().collect::<Vec<_>>().join(", ")
+                ),
+            );
+            warning["measurements"] =
+                json!({"diseases": ispa.undetermined, "missing_facts": ispa.missing});
+            checks.push(warning);
+        }
         let first = get(r, "first_name");
         let last = get(r, "last_name");
         let full_name = [first, last]
@@ -1059,6 +1074,7 @@ pub fn prepare(
             "date_of_suspension": c.date_of_suspension,
             "overdue_diseases": overdue,
             "overdue_agents": agents,
+            "ispa": ispa.notice_value(),
             "forecast_coverage": {"missing_diseases":missing,"extra_diseases":extra,"unmapped_agents":unmapped},
             "history": history,
             "has_immunization_records": !history.is_empty(),

@@ -164,6 +164,34 @@
         "minLength": 1
       }
     },
+    "ispa": {
+      "type": "object",
+      "required": [
+        "status",
+        "overdue_diseases",
+        "undetermined_diseases"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "ispa_overdue",
+            "no_ispa_overdue",
+            "ispa_unknown"
+          ]
+        },
+        "overdue_diseases": {
+          "$ref": "#/properties/overdue_diseases"
+        },
+        "undetermined_diseases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "additionalProperties": false
+    },
     "has_immunization_records": {
       "type": "boolean"
     },
