@@ -247,3 +247,82 @@ fn school_name_fallback_separates_boards_including_ambiguous_ids() -> Result<()>
     );
     Ok(())
 }
+
+#[test]
+fn ispa_status_combines_with_school_and_notice_variant() -> Result<()> {
+    let mut entries = vec![];
+    for (key, school, variant, status) in [
+        ("r1", "s1", "letter", "ispa_overdue"),
+        ("r2", "s1", "letter", "no_ispa_overdue"),
+        ("r3", "s1", "letter", "ispa_unknown"),
+        ("r4", "s1", "letter", "ispa_overdue"),
+        ("r5", "s1", "order", "ispa_overdue"),
+        ("r6", "s2", "letter", "ispa_overdue"),
+        ("r7", "s2", "letter", "no_ispa_overdue"),
+    ] {
+        let mut entry = row(key, school, school, "b1", "Board", key, "2010-01-01");
+        entry["notice"]["ispa"] = json!({"status": status});
+        entry["notice"]["version_id"] = json!(variant);
+        entry["assignment"]["version_id"] = json!(variant);
+        entries.push(entry);
+    }
+    let (dir, mut record) = fixture(entries)?;
+    let mut config = Config::default();
+    config.bundling.bundle_size = 100;
+    config.bundling.group_by = json!(["ispa_status", "school", "notice_variant"]);
+    config.filenames.bundle = Some(immuknow::filenames::Template {
+        template: "{ispa_status}_{school_id}_{notice_variant}".into(),
+    });
+    bundles::bundle(dir.path(), &mut record, &config, 2)?;
+    // The first grouping field orders the bundles, so ISPA bundles stay together.
+    assert_eq!(
+        members(&record, "deliverable"),
+        [
+            vec!["r1", "r4"],
+            vec!["r5"],
+            vec!["r6"],
+            vec!["r3"],
+            vec!["r2"],
+            vec!["r7"]
+        ]
+    );
+    let names: Vec<_> = record["bundles"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|b| b["path"].as_str().unwrap().rsplit('/').next().unwrap())
+        .collect();
+    assert_eq!(
+        names,
+        [
+            "ispa_overdue_s1_letter.pdf",
+            "ispa_overdue_s1_order.pdf",
+            "ispa_overdue_s2_letter.pdf",
+            "ispa_unknown_s1_letter.pdf",
+            "no_ispa_overdue_s1_letter.pdf",
+            "no_ispa_overdue_s2_letter.pdf"
+        ]
+    );
+    Ok(())
+}
+
+#[test]
+fn ispa_grouping_requires_runs_prepared_with_ispa_status() -> Result<()> {
+    let (dir, mut record) = fixture(vec![row(
+        "r1",
+        "s1",
+        "School",
+        "b1",
+        "Board",
+        "A",
+        "2010-01-01",
+    )])?;
+    let saved = record.clone();
+    let mut config = Config::default();
+    config.bundling.bundle_size = 100;
+    config.bundling.group_by = json!("ispa_status");
+    let error = bundles::bundle(dir.path(), &mut record, &config, 2).unwrap_err();
+    assert!(format!("{error:#}").contains("prepare it again to group by ispa_status"));
+    assert_eq!(record, saved);
+    Ok(())
+}

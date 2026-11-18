@@ -183,7 +183,12 @@ pub fn grouping_fields(value: &Value) -> Result<Vec<String>> {
             ensure!(
                 matches!(
                     field.as_str(),
-                    "school" | "board" | "language" | "page_count" | "notice_variant"
+                    "school"
+                        | "board"
+                        | "language"
+                        | "page_count"
+                        | "notice_variant"
+                        | "ispa_status"
                 ),
                 "Unknown grouping field: {field}"
             );

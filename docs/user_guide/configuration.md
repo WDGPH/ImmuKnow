@@ -21,7 +21,7 @@ Edit `parameters.yaml` to set the following options:
 | `date_due`, `date_of_suspension` | Optional update deadline and suspension start, in `YYYY-MM-DD` format; omitted, null or blank means unset. |
 | `allowed_duplicate_client_ids` | Optional list of explicitly accepted repeated client IDs, quoted as strings. |
 | `bundling.bundle_size` | Maximum notices in each combined PDF. Set to zero to turn off grouping. |
-| `bundling.group_by` | Optionally group by `school`, `board`, `language`, `page_count`, or `notice_variant`, using one value or a list. `size` or null groups by size only. |
+| `bundling.group_by` | Optionally group by `school`, `board`, `language`, `page_count`, `notice_variant`, or `ispa_status`, using one value or a list. `size` or null groups by size only. |
 | `bundling.sort_by` | `source` (default) preserves input order within each group. `last_name_dob` orders by last name, birth date and row key before splitting bundles. |
 | `filenames.individual.template` | Filename stem for original and protected copies; omitted keeps row-key names. |
 | `filenames.bundle.template` | Filename stem for normal bundle PDFs. |
@@ -48,6 +48,17 @@ date_of_delivery: '2025-09-01'
 To separate selected notice versions and languages, use
 `group_by: [notice_variant, language]`. `notice_variant` uses the version ID
 from the selected template; group by `language` separately when needed.
+
+To keep notices for clients with overdue ISPA diseases together, use
+`group_by: [ispa_status, school, notice_variant]`. Each notice's ISPA status is
+`ispa_overdue`, `no_ispa_overdue` (including clients with nothing overdue) or
+`ispa_unknown`, decided during preparation from the supplied overdue diseases,
+birth date and `date_as_of`. `ispa_unknown` notices are deliverable in their own
+bundles and carry a [`data.ispa_unknown`](findings.md#data-ispa-unknown)
+warning. Bundles follow the order of `group_by`, so listing `ispa_status` first
+places all ISPA bundles together. `records.csv` reports each notice's status.
+A run prepared by an earlier version must be prepared again before it can be
+grouped by `ispa_status`.
 
 When grouping by school or board, a missing ID with a usable name produces a
 warning and groups by normalized name. School-name fallback also uses board
@@ -138,8 +149,8 @@ template. Filename settings are saved in the run; derived passwords are not.
 
 | Scope | Supported fields |
 | --- | --- |
-| Individual | `client_id`, `first_name`, `last_name`, `first_initial`, `last_initial`, `name`, `date_of_birth_iso`, `date_of_birth_iso_compact`, `school`, `board`, `street_address`, `city`, `province`, `postal_code`, `language_code`, `row_key`, `school_id`, `board_id`, `notice_variant` |
-| Bundle and review bundle | `school`, `school_id`, `board`, `board_id`, `language_code`, `notice_variant`, `bundle_number`, `route` |
+| Individual | `client_id`, `first_name`, `last_name`, `first_initial`, `last_initial`, `name`, `date_of_birth_iso`, `date_of_birth_iso_compact`, `school`, `board`, `street_address`, `city`, `province`, `postal_code`, `language_code`, `row_key`, `school_id`, `board_id`, `notice_variant`, `ispa_status` |
+| Bundle and review bundle | `school`, `school_id`, `board`, `board_id`, `language_code`, `notice_variant`, `ispa_status`, `bundle_number`, `route` |
 
 Fields shared with password templates have the same source values. `school` is
 the supplied school name, including any facility-ID suffix; `school_id` is the

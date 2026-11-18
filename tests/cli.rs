@@ -762,6 +762,8 @@ fn exported_resources_work_outside_checkout_and_mixed_rows_remain_associated() {
     assert!(!run.join("report.html").exists());
     let exported = csv_rows(&run, &record, "records");
     assert_eq!(exported.len(), rows.len());
+    // Every fixture row is overdue for Measles, which is always in ISPA scope.
+    assert_eq!(exported[0]["ispa_status"], "ispa_overdue");
     for index in [1, 4] {
         assert_eq!(exported[index]["protected_status"], "excluded");
         assert!(exported[index]["protected_path"].is_empty());

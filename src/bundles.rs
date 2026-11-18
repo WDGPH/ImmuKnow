@@ -289,6 +289,10 @@ fn bundle_with_hook(
                     .as_str()
                     .unwrap_or("")
                     .to_owned(),
+                "ispa_status" => e["notice"]["ispa"]["status"]
+                    .as_str()
+                    .context("This run was prepared without ISPA status; prepare it again to group by ispa_status")?
+                    .to_owned(),
                 _ => pages.to_string(),
             };
             key.push(value);
