@@ -92,6 +92,11 @@ jobs:
           TARGET: ${{ matrix.target }}
         run: |
           cargo build --release --locked --target "$TARGET"
+      - name: Run the Windows CLI receipt tests
+        if: matrix.platform == 'windows-x86_64'
+        env:
+          TARGET: ${{ matrix.target }}
+        run: cargo test --release --locked --target "$TARGET" --bin immuknow --test cli_receipts
       - name: Run the release test suite
         if: matrix.platform == 'linux-x86_64'
         env:

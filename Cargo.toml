@@ -9,6 +9,7 @@ license = "MIT"
 repository = "https://github.com/WDGPH/ImmuKnow"
 
 [dependencies]
+dunce = "=1.0.5"
 include_dir = "0.7"
 encoding_rs = "0.8"
 unicode-normalization = "0.1"
