@@ -943,7 +943,7 @@ pub fn run_with_progress(
                     &dir,
                     format!(
                         "Partial run saved at {}; CSV publication failed: {error:#}",
-                        dir.display()
+                        dunce::simplified(&dir).display()
                     ),
                 )
             })?;
@@ -953,7 +953,7 @@ pub fn run_with_progress(
                     &dir,
                     format!(
                         "Finalization failed; partial run saved at {}: {error}",
-                        dir.display()
+                        dunce::simplified(&dir).display()
                     ),
                 )
             })?;
@@ -984,7 +984,7 @@ pub fn run_with_progress(
                     &dir,
                     format!(
                         "Partial run at {}; processing failed: {error:#}; reporting also failed: {report_error:#}",
-                        dir.display()
+                        dunce::simplified(&dir).display()
                     ),
                 ));
             }
@@ -992,7 +992,7 @@ pub fn run_with_progress(
                 &dir,
                 format!(
                     "Partial run saved at {}; processing failed: {error:#}",
-                    dir.display()
+                    dunce::simplified(&dir).display()
                 ),
             ))
         }
@@ -1006,7 +1006,7 @@ pub fn run_with_progress(
                     &dir,
                     format!(
                         "Unexpected pipeline error; partial run at {}; reporting also failed: {error:#}",
-                        dir.display()
+                        dunce::simplified(&dir).display()
                     ),
                 ));
             }
@@ -1014,7 +1014,7 @@ pub fn run_with_progress(
                 &dir,
                 format!(
                     "Unexpected pipeline error; partial run saved at {}",
-                    dir.display()
+                    dunce::simplified(&dir).display()
                 ),
             ))
         }

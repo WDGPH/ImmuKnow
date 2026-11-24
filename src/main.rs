@@ -269,7 +269,7 @@ fn execute() -> Result<()> {
                 ensure!(
                     result.succeeded,
                     "Sample run failed; run immuknow run --sample --project {} to retain its report",
-                    project.display()
+                    terminal::command_path(&project)
                 );
                 println!(
                     "Project checked: {}/{} sample PDFs created. Temporary output removed.",
@@ -298,11 +298,8 @@ fn execute() -> Result<()> {
             let result = match outcome {
                 Ok(result) => result,
                 Err(error) => {
-                    if let Some(saved) = error.downcast_ref::<pipeline::SavedRunFailure>()
-                        && let Ok(receipt) = saved.receipt()
-                    {
-                        terminal.finish(&receipt);
-                        terminal.print_record(&receipt);
+                    if let Some(saved) = error.downcast_ref::<pipeline::SavedRunFailure>() {
+                        terminal.saved_failure(saved, "Run incomplete — review saved reports");
                     }
                     return Err(error);
                 }
@@ -356,11 +353,8 @@ fn execute() -> Result<()> {
             let result = match outcome {
                 Ok(result) => result,
                 Err(error) => {
-                    if let Some(saved) = error.downcast_ref::<pipeline::SavedRunFailure>()
-                        && let Ok(receipt) = saved.receipt()
-                    {
-                        terminal.finish(&receipt);
-                        terminal.print_record(&receipt);
+                    if let Some(saved) = error.downcast_ref::<pipeline::SavedRunFailure>() {
+                        terminal.saved_failure(saved, "Rebundle failed — review saved reports");
                     }
                     return Err(error);
                 }
