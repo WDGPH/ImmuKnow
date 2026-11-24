@@ -1,10 +1,29 @@
 //! Human-readable stderr output. Stdout remains available to scripts and Studio.
 use clap::ValueEnum;
-use immuknow::pipeline::{Progress, RunResult};
+use dunce::simplified;
+use immuknow::pipeline::{Progress, RunResult, SavedRunFailure};
 use std::{
     io::{self, IsTerminal, Write},
+    path::Path,
     time::{Duration, Instant},
 };
+
+pub fn command_path(path: &Path) -> String {
+    let path = simplified(path).to_string_lossy();
+    if cfg!(windows) {
+        let mut quoted = String::from("'");
+        for character in path.chars() {
+            quoted.push(character);
+            if matches!(character, '\'' | '‘' | '’' | '‚' | '‛') {
+                quoted.push(character);
+            }
+        }
+        quoted.push('\'');
+        quoted
+    } else {
+        format!("'{}'", path.replace('\'', "'\\''"))
+    }
+}
 
 #[derive(Clone, Copy, Default, PartialEq, ValueEnum)]
 pub enum Mode {
@@ -157,16 +176,17 @@ impl Terminal {
         self.line = true;
     }
 
-    /// Interactive users get the report link; redirected stdout keeps the record path.
+    /// Only an interactive receipt uses the display path on stdout.
     pub fn print_record(&self, result: &RunResult) {
-        println!("{}", result.record.display());
+        let path = if self.mode != Mode::Off && io::stdout().is_terminal() {
+            simplified(&result.record)
+        } else {
+            &result.record
+        };
+        println!("{}", path.display());
     }
 
     pub fn finish(&mut self, result: &RunResult) {
-        if self.mode == Mode::Off {
-            return;
-        }
-        self.clear();
         let s = &result.summary;
         let heading = if !result.succeeded {
             "Finished — review needed"
@@ -175,6 +195,22 @@ impl Terminal {
         } else {
             "Finished"
         };
+        self.summary(result, heading);
+    }
+
+    pub fn saved_failure(&mut self, saved: &SavedRunFailure, heading: &str) {
+        if let Ok(receipt) = saved.receipt() {
+            self.summary(&receipt, heading);
+            self.print_record(&receipt);
+        }
+    }
+
+    fn summary(&mut self, result: &RunResult, heading: &str) {
+        if self.mode == Mode::Off {
+            return;
+        }
+        self.clear();
+        let s = &result.summary;
         let icon = if self.emoji {
             if result.succeeded { "✨ " } else { "🔎 " }
         } else {
@@ -236,15 +272,20 @@ impl Terminal {
                 eprintln!("    {code}: {message}");
             }
         }
+        if !io::stdout().is_terminal() {
+            eprintln!("  Run record: {}", simplified(&result.record).display());
+        }
         if let Some(parent) = result.record.parent() {
             if s.records_path.is_empty() || s.findings_path.is_empty() {
                 eprintln!(
                     "  CSV exports unavailable; run immuknow refresh-exports {}",
-                    parent.display()
+                    command_path(parent)
                 );
             } else {
-                eprintln!("  Records: {}", parent.join(&s.records_path).display());
-                eprintln!("  Findings: {}", parent.join(&s.findings_path).display());
+                let records = parent.join(&s.records_path);
+                let findings = parent.join(&s.findings_path);
+                eprintln!("  Records: {}", simplified(&records).display());
+                eprintln!("  Findings: {}", simplified(&findings).display());
             }
         }
     }
@@ -252,5 +293,43 @@ impl Terminal {
 impl Drop for Terminal {
     fn drop(&mut self) {
         self.clear();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn recovery_command_quotes_spaces_parentheses_and_apostrophes() {
+        let path = Path::new("runs/Élodie's (test)");
+        let expected = if cfg!(windows) {
+            "'runs/Élodie''s (test)'"
+        } else {
+            "'runs/Élodie'\\''s (test)'"
+        };
+        assert_eq!(command_path(path), expected);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn display_simplifies_only_compatible_windows_paths() {
+        let local = Path::new(r"\\?\C:\Downloads\Élodie’s (sample)\run.json");
+        assert_eq!(
+            simplified(local),
+            Path::new(r"C:\Downloads\Élodie’s (sample)\run.json")
+        );
+        assert_eq!(
+            command_path(local),
+            r"'C:\Downloads\Élodie’’s (sample)\run.json'"
+        );
+        assert_eq!(
+            command_path(Path::new("O'Neil ‘left’ ‚low‛")),
+            "'O''Neil ‘‘left’’ ‚‚low‛‛'"
+        );
+        let long = format!(r"\\?\C:\{}\{}\run.json", "a".repeat(150), "b".repeat(150));
+        assert_eq!(simplified(Path::new(&long)), Path::new(&long));
+        let unc = Path::new(r"\\?\UNC\server\share\run.json");
+        assert_eq!(simplified(unc), unc);
     }
 }

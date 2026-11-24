@@ -92,12 +92,22 @@ jobs:
           TARGET: ${{ matrix.target }}
         run: |
           cargo build --release --locked --target "$TARGET"
+      - name: Run the Windows CLI receipt tests
+        if: matrix.platform == 'windows-x86_64'
+        env:
+          TARGET: ${{ matrix.target }}
+        run: cargo test --release --locked --target "$TARGET" --bin immuknow --test cli_receipts
       - name: Run the release test suite
         if: matrix.platform == 'linux-x86_64'
         env:
           TARGET: ${{ matrix.target }}
           TYPST_FONT_PATHS: ${{ runner.temp }}/notice-fonts
         run: cargo test --release --locked --target "$TARGET"
+      - name: Run the Windows project sample test
+        if: matrix.platform == 'windows-x86_64'
+        env:
+          TARGET: ${{ matrix.target }}
+        run: cargo test --release --locked --target "$TARGET" --test cli native_project_journey_without_python_or_uv -- --exact
       - name: Package and test the extracted executable
         env:
           TARGET: ${{ matrix.target }}

@@ -1,0 +1,2 @@
+# The executable embeds these bytes and compares them with projects on every platform.
+resources/** -text
