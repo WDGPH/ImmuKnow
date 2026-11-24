@@ -358,7 +358,7 @@ fn project(
             name: safe(if name.is_empty() { &fallback } else { name }),
             school: safe(school),
             notice_variant: field(&e["assignment"], "version_id"),
-            ispa_status: field(&e["notice"]["ispa"], "status"),
+            ispa_status: safe(&crate::ispa::status(&e["notice"])),
             language: field(&e["assignment"], "language"),
             severity: sev.into(),
             evaluation_state: ev.into(),

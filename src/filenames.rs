@@ -108,7 +108,7 @@ pub(crate) fn values(notice: &Value) -> BTreeMap<&'static str, String> {
         ("school_id", string(&notice["school"]["id"])),
         ("board_id", string(&notice["board"]["id"])),
         ("notice_variant", string(&notice["version_id"])),
-        ("ispa_status", string(&notice["ispa"]["status"])),
+        ("ispa_status", crate::ispa::status(notice)),
     ]);
     values
 }

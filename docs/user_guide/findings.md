@@ -81,14 +81,13 @@ An overdue agent appears more than once. Source data should list each agent once
 
 ### `data.ispa_unknown` {#data-ispa-unknown}
 
-Varicella and meningococcal ISPA scope depends on the birth cohort, and some
-meningococcal cohorts also need `date_as_of`. No supplied overdue disease is
-known to be in ISPA scope, and at least one could not be classified because a
-required date is absent. The message names the diseases and missing dates. The
-notice's ISPA status is `ispa_unknown`; grouping by `ispa_status` places it in
-its own bundle, and this warning allows delivery. Templates that display ISPA
-diseases or require `has_ispa_overdue` stop with an error for this notice.
-Supply the birth date or `date_as_of` and rerun.
+ISPA applies from the junior kindergarten cohort, and Varicella scope depends on
+the birth year, so ISPA classification needs a birth date and `date_as_of`. The
+message names the missing dates. The notice's ISPA status is `ispa_unknown`,
+its `ispa_up_to_date` flag is `none`, grouping by `ispa_status` places it in its
+own bundle, and this warning allows delivery. Templates that display ISPA
+diseases or require `has_ispa_overdue` stop with an error when an overdue
+disease could be in ISPA scope. Supply the birth date and rerun.
 
 ### `data.forecast_coverage` {#data-forecast-coverage}
 

@@ -40,12 +40,12 @@ warnings while preserving visible content.
   immunizing agents. `no_records` means there were no source administrations,
   before exclusions and history display choices. Both may be true. Projects
   can expose these names from shared setup for `#if` expressions.
-  `include-ispa: true` adds `ispa_up_to_date`, using the same birth-cohort-aware
-  disease selection as `overdue-diseases(ispa-only: true)`. ISPA selection needs
-  a birth date for cohort-dependent diseases and, for earlier meningococcal
-  cohorts, `date_as_of`. Missing required facts fail the ISPA-specific operation.
-  Prepared notices carry this selection as `notice.ispa`; the Typst rules apply
-  only when it is absent.
+  `ispa_up_to_date` uses the same ISPA selection as
+  `overdue-diseases(ispa-only: true)`; it is `none` for clients younger than the
+  junior kindergarten cohort (CCEYA ages) or when the birth date or `date_as_of`
+  is missing. `include-ispa: false` omits it. Displaying ISPA diseases fails
+  when their applicability cannot be decided. Prepared notices carry this
+  selection as `notice.ispa`; the Typst rules apply only when it is absent.
 - `notice-dates(notice)` returns localized delivery, as-of, due, suspension and birth dates.
   `long-date(iso, language, required: false)` leaves unknown dates blank.
 - `notice-header(title: ..., logo: ..., title-align: center)` places the title

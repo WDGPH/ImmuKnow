@@ -1,4 +1,4 @@
-//! ISPA disease scope for supplied overdue diseases; upstream systems assess whether doses are overdue.
+//! ISPA scope for supplied overdue diseases; upstream systems assess whether doses are overdue.
 //! Keep in step with `resources/typst/src/ispa.typ`, which remains the fallback for notices
 //! prepared without this classification.
 //! https://www.ontario.ca/page/vaccines-children-school
@@ -15,13 +15,14 @@ const ALWAYS: &[&str] = &[
     "Mumps",
     "Rubella",
     "Pertussis",
+    "Meningococcal",
 ];
 
 pub struct Classification {
     pub status: &'static str,
     pub overdue: Vec<Value>,
     pub undetermined: Vec<String>,
-    /// Facts whose absence left a disease undetermined: `date_of_birth` or `date_as_of`.
+    /// Facts whose absence left ISPA applicability undecided: `date_of_birth` or `date_as_of`.
     pub missing: BTreeSet<&'static str>,
 }
 
@@ -39,32 +40,16 @@ fn ymd(y: i32, m: u32, d: u32) -> NaiveDate {
     NaiveDate::from_ymd_opt(y, m, d).unwrap()
 }
 
-/// `Some(in_scope)`, or `Err(missing fact)` when the cohort cannot be decided.
-fn in_scope(
-    disease: &str,
-    birth: Option<NaiveDate>,
-    as_of: Option<NaiveDate>,
-) -> Result<bool, &'static str> {
-    if ALWAYS.contains(&disease) {
-        return Ok(true);
-    }
-    match disease {
-        "Varicella" => Ok(birth.ok_or("date_of_birth")? >= ymd(2010, 1, 1)),
-        "Meningococcal" => {
-            let born = birth.ok_or("date_of_birth")?;
-            if born >= ymd(2004, 9, 1) {
-                return Ok(true);
-            }
-            if born < ymd(1997, 1, 1) {
-                return Ok(false);
-            }
-            // Earlier eligible cohorts enter the requirement at age 12.
-            let as_of = as_of.ok_or("date_as_of")?;
-            Ok((as_of.year(), as_of.month(), as_of.day())
-                >= (born.year() + 12, born.month(), born.day()))
-        }
-        _ => Ok(false),
-    }
+/// ISPA applies from junior kindergarten: births in or before the year the client turns 4
+/// during the school year (September to August) containing `as_of`. Younger children are
+/// CCEYA ages. There is no upper age limit.
+fn school_age(birth: NaiveDate, as_of: NaiveDate) -> bool {
+    let school_year = as_of.year() - i32::from(as_of.month() < 9);
+    birth.year() <= school_year - 4
+}
+
+fn in_scope(disease: &str, birth: NaiveDate) -> bool {
+    ALWAYS.contains(&disease) || (disease == "Varicella" && birth >= ymd(2010, 1, 1))
 }
 
 pub fn classify(
@@ -72,33 +57,72 @@ pub fn classify(
     birth: Option<NaiveDate>,
     as_of: Option<NaiveDate>,
 ) -> Classification {
+    let disease = |entry: &Value| entry["disease"].as_str().unwrap_or("").to_owned();
     let mut result = Classification {
         status: "no_ispa_overdue",
         overdue: vec![],
         undetermined: vec![],
         missing: BTreeSet::new(),
     };
-    for entry in overdue {
-        let disease = entry["disease"].as_str().unwrap_or("");
-        match in_scope(disease, birth, as_of) {
-            Ok(true) => result.overdue.push(entry.clone()),
-            Ok(false) => {}
-            Err(missing) => {
-                result.missing.insert(missing);
-                if !result.undetermined.iter().any(|d| d == disease) {
-                    result.undetermined.push(disease.to_owned());
-                }
+    let (Some(birth), Some(as_of)) = (birth, as_of) else {
+        result.status = "ispa_unknown";
+        if birth.is_none() {
+            result.missing.insert("date_of_birth");
+        }
+        if as_of.is_none() {
+            result.missing.insert("date_as_of");
+        }
+        // Any disease ISPA can designate, since applicability and cohort are both unknown.
+        for name in overdue.iter().map(disease) {
+            if (ALWAYS.contains(&name.as_str()) || name == "Varicella")
+                && !result.undetermined.contains(&name)
+            {
+                result.undetermined.push(name);
             }
         }
-    }
-    result.status = if !result.overdue.is_empty() {
-        "ispa_overdue"
-    } else if !result.undetermined.is_empty() {
-        "ispa_unknown"
-    } else {
-        "no_ispa_overdue"
+        return result;
     };
+    if !school_age(birth, as_of) {
+        result.status = "ispa_not_applicable";
+        return result;
+    }
+    result.overdue = overdue
+        .iter()
+        .filter(|entry| in_scope(&disease(entry), birth))
+        .cloned()
+        .collect();
+    if !result.overdue.is_empty() {
+        result.status = "ispa_overdue";
+    }
     result
+}
+
+fn iso(value: &Value) -> Option<NaiveDate> {
+    let text = value.as_str()?;
+    NaiveDate::parse_from_str(text, "%Y-%m-%d")
+        .ok()
+        .filter(|d| d.format("%Y-%m-%d").to_string() == text)
+}
+
+/// A prepared notice's ISPA status, classifying notices prepared before `notice.ispa` existed.
+/// Rows without a notice have no status.
+pub fn status(notice: &Value) -> String {
+    if notice.is_null() {
+        return String::new();
+    }
+    if let Some(status) = notice["ispa"]["status"].as_str() {
+        return status.to_owned();
+    }
+    let overdue = notice["overdue_diseases"]
+        .as_array()
+        .map_or(&[][..], Vec::as_slice);
+    classify(
+        overdue,
+        iso(&notice["client_data"]["date_of_birth_iso"]),
+        iso(&notice["date_as_of"]),
+    )
+    .status
+    .to_owned()
 }
 
 #[cfg(test)]
@@ -123,11 +147,16 @@ mod tests {
     }
 
     #[test]
-    fn always_scoped_diseases_need_no_dates() {
-        let c = classify(&diseases(&["Measles", "Hepatitis B"]), None, None);
-        assert_eq!(c.status, "ispa_overdue");
-        assert_eq!(c.overdue, diseases(&["Measles"]));
-        assert!(c.undetermined.is_empty() && c.missing.is_empty());
+    fn designated_diseases_include_meningococcal_for_every_cohort() {
+        let all = &["Measles", "Meningococcal", "Hepatitis B"];
+        assert_eq!(
+            scoped(all, "2001-03-04", "2026-11-01"),
+            ["Measles", "Meningococcal"]
+        );
+        assert_eq!(
+            scoped(all, "2020-03-04", "2026-11-01"),
+            ["Measles", "Meningococcal"]
+        );
     }
 
     #[test]
@@ -140,43 +169,40 @@ mod tests {
     }
 
     #[test]
-    fn meningococcal_cohort_boundaries() {
-        let m = &["Meningococcal"];
-        assert!(scoped(m, "1996-12-31", "2026-11-01").is_empty());
-        assert_eq!(scoped(m, "2004-09-01", "2005-01-01"), ["Meningococcal"]);
-        // 2004-08-31 is in the age-12 cohort.
-        assert!(scoped(m, "2004-08-31", "2016-08-30").is_empty());
-        assert_eq!(scoped(m, "2004-08-31", "2016-08-31"), ["Meningococcal"]);
-        assert!(scoped(m, "1997-01-01", "2008-12-31").is_empty());
-        assert_eq!(scoped(m, "1997-01-01", "2009-01-01"), ["Meningococcal"]);
+    fn applicability_starts_with_the_junior_kindergarten_cohort() {
+        let status =
+            |birth, as_of| classify(&diseases(&["Measles"]), date(birth), date(as_of)).status;
+        // The 2022 cohort enters JK in September 2026, before its fourth birthday.
+        assert_eq!(status("2022-12-31", "2026-08-31"), "ispa_not_applicable");
+        assert_eq!(status("2022-12-31", "2026-09-01"), "ispa_overdue");
+        assert_eq!(status("2023-01-01", "2027-08-31"), "ispa_not_applicable");
+        assert_eq!(status("2023-01-01", "2027-09-01"), "ispa_overdue");
+        // Adult pupils remain in scope.
+        assert_eq!(status("1990-06-01", "2026-11-01"), "ispa_overdue");
+        let c = classify(
+            &diseases(&["Measles"]),
+            date("2024-01-01"),
+            date("2026-11-01"),
+        );
+        assert!(c.overdue.is_empty() && c.undetermined.is_empty() && c.missing.is_empty());
     }
 
     #[test]
-    fn leap_day_birthdays_compare_like_iso_text() {
-        let m = &["Meningococcal"];
-        assert!(scoped(m, "2000-02-29", "2012-02-28").is_empty());
-        assert_eq!(scoped(m, "2000-02-29", "2012-02-29"), ["Meningococcal"]);
-        assert_eq!(scoped(m, "2000-02-29", "2013-02-28"), ["Meningococcal"]);
-    }
-
-    #[test]
-    fn missing_facts_leave_diseases_undetermined() {
-        let c = classify(&diseases(&["Varicella", "Varicella"]), None, None);
+    fn missing_dates_leave_applicability_undetermined() {
+        let c = classify(
+            &diseases(&["Varicella", "Measles", "Varicella", "HPV"]),
+            None,
+            date("2026-11-01"),
+        );
         assert_eq!(c.status, "ispa_unknown");
-        assert_eq!(c.undetermined, ["Varicella"]);
+        assert!(c.overdue.is_empty());
+        assert_eq!(c.undetermined, ["Varicella", "Measles"]);
         assert_eq!(c.missing, BTreeSet::from(["date_of_birth"]));
 
-        let c = classify(&diseases(&["Meningococcal"]), date("2000-05-01"), None);
+        let c = classify(&[], date("2015-05-01"), None);
         assert_eq!(c.status, "ispa_unknown");
+        assert!(c.undetermined.is_empty());
         assert_eq!(c.missing, BTreeSet::from(["date_as_of"]));
-    }
-
-    #[test]
-    fn a_scoped_disease_settles_status_despite_undetermined_ones() {
-        let c = classify(&diseases(&["Meningococcal", "Tetanus"]), None, None);
-        assert_eq!(c.status, "ispa_overdue");
-        assert_eq!(c.overdue, diseases(&["Tetanus"]));
-        assert_eq!(c.undetermined, ["Meningococcal"]);
     }
 
     #[test]
@@ -193,9 +219,26 @@ mod tests {
         let entry = json!({"disease": "Polio", "dose": null, "dose_raw": "x"});
         let c = classify(
             &[entry.clone(), json!({"disease": "Polio", "dose": 2})],
-            None,
-            None,
+            date("2015-01-01"),
+            date("2026-11-01"),
         );
         assert_eq!(c.overdue, [entry, json!({"disease": "Polio", "dose": 2})]);
+    }
+
+    #[test]
+    fn status_prefers_prepared_and_classifies_earlier_runs() {
+        assert_eq!(status(&Value::Null), "");
+        assert_eq!(
+            status(&json!({"ispa": {"status": "ispa_unknown"}})),
+            "ispa_unknown"
+        );
+        let earlier = |birth: &str| {
+            json!({"client_data": {"date_of_birth_iso": birth}, "date_as_of": "2026-11-01",
+                "overdue_diseases": diseases(&["Mumps"])})
+        };
+        assert_eq!(status(&earlier("2015-01-01")), "ispa_overdue");
+        assert_eq!(status(&earlier("2024-01-01")), "ispa_not_applicable");
+        assert_eq!(status(&earlier("")), "ispa_unknown");
+        assert_eq!(status(&earlier("2015-02-30")), "ispa_unknown");
     }
 }

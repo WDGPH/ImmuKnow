@@ -51,14 +51,15 @@ from the selected template; group by `language` separately when needed.
 
 To keep notices for clients with overdue ISPA diseases together, use
 `group_by: [ispa_status, school, notice_variant]`. Each notice's ISPA status is
-`ispa_overdue`, `no_ispa_overdue` (including clients with nothing overdue) or
-`ispa_unknown`, decided during preparation from the supplied overdue diseases,
-birth date and `date_as_of`. `ispa_unknown` notices are deliverable in their own
-bundles and carry a [`data.ispa_unknown`](findings.md#data-ispa-unknown)
-warning. Bundles follow the order of `group_by`, so listing `ispa_status` first
-places all ISPA bundles together. `records.csv` reports each notice's status.
-A run prepared by an earlier version must be prepared again before it can be
-grouped by `ispa_status`.
+`ispa_overdue`, `no_ispa_overdue` (including clients with nothing overdue),
+`ispa_not_applicable` (younger than the junior kindergarten cohort, such as
+CCEYA ages) or `ispa_unknown`, decided during preparation from the supplied
+overdue diseases, birth date and `date_as_of`. `ispa_unknown` notices are
+deliverable in their own bundles and carry a
+[`data.ispa_unknown`](findings.md#data-ispa-unknown) warning. Bundles follow
+the order of `group_by`, so listing `ispa_status` first places all ISPA bundles
+together. `records.csv` reports each notice's status. Runs prepared by earlier
+versions are classified with the same rules when they are bundled.
 
 When grouping by school or board, a missing ID with a usable name produces a
 warning and groups by normalized name. School-name fallback also uses board

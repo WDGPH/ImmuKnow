@@ -176,6 +176,7 @@
           "enum": [
             "ispa_overdue",
             "no_ispa_overdue",
+            "ispa_not_applicable",
             "ispa_unknown"
           ]
         },

@@ -398,13 +398,13 @@ fn preparation_records_ispa_scope_and_unknown_cohorts() {
     let headers = reader.headers().unwrap().clone();
     let rows: Vec<_> = reader.records().map(Result::unwrap).collect();
     let column = |name| headers.iter().position(|h| h == name).unwrap();
-    // date_as_of in the fixture is 2025-04-01, so the 2008 cohort has reached age 12.
+    // date_as_of in the fixture is 2025-04-01, so the 2020 cohort is the youngest in JK.
     let cases = [
         ("2015-01-02", "Measles - 2; HPV - 1", "ispa_overdue"),
         ("2015-01-02", "HPV - 1", "no_ispa_overdue"),
         ("", "Varicella - 1", "ispa_unknown"),
-        ("2015-01-02", "Varicella - 1", "ispa_overdue"),
-        ("2008-01-01", "Meningococcal - 1", "ispa_overdue"),
+        ("2021-01-01", "Measles - 1", "ispa_not_applicable"),
+        ("2001-01-01", "Meningococcal - 1", "ispa_overdue"),
     ];
     let mut writer = csv::Writer::from_path(&project.csv).unwrap();
     writer.write_record(&headers).unwrap();

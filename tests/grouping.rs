@@ -307,22 +307,27 @@ fn ispa_status_combines_with_school_and_notice_variant() -> Result<()> {
 }
 
 #[test]
-fn ispa_grouping_requires_runs_prepared_with_ispa_status() -> Result<()> {
-    let (dir, mut record) = fixture(vec![row(
-        "r1",
-        "s1",
-        "School",
-        "b1",
-        "Board",
-        "A",
-        "2010-01-01",
-    )])?;
-    let saved = record.clone();
+fn ispa_grouping_classifies_runs_prepared_without_ispa_status() -> Result<()> {
+    let mut entries = vec![];
+    for (key, dob, overdue) in [
+        ("r1", "2015-01-01", json!([{"disease":"Measles","dose":1}])),
+        ("r2", "2015-01-01", json!([])),
+        ("r3", "2024-01-01", json!([{"disease":"Measles","dose":1}])),
+        ("r4", "2015-01-01", json!([{"disease":"Polio","dose":2}])),
+    ] {
+        let mut entry = row(key, "s1", "School", "b1", "Board", key, dob);
+        entry["notice"]["date_as_of"] = json!("2026-11-01");
+        entry["notice"]["overdue_diseases"] = overdue;
+        entries.push(entry);
+    }
+    let (dir, mut record) = fixture(entries)?;
     let mut config = Config::default();
     config.bundling.bundle_size = 100;
     config.bundling.group_by = json!("ispa_status");
-    let error = bundles::bundle(dir.path(), &mut record, &config, 2).unwrap_err();
-    assert!(format!("{error:#}").contains("prepare it again to group by ispa_status"));
-    assert_eq!(record, saved);
+    bundles::bundle(dir.path(), &mut record, &config, 2)?;
+    assert_eq!(
+        members(&record, "deliverable"),
+        [vec!["r3"], vec!["r1", "r4"], vec!["r2"]]
+    );
     Ok(())
 }
