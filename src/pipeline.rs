@@ -164,16 +164,69 @@ impl RunSummary {
     }
 }
 
-pub(crate) fn lock(dir: &Path) -> Result<File> {
-    let f = fs::OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .truncate(false)
-        .open(dir.join(".run.lock"))?;
-    f.try_lock().context("This run is already in use")?;
-    Ok(f)
+fn staging_lock_path(dir: &Path) -> Option<PathBuf> {
+    if dir.extension()? != "incomplete" {
+        return None;
+    }
+    let mut name = std::ffi::OsString::from(".");
+    name.push(dir.file_name()?);
+    name.push(".lock");
+    Some(dir.with_file_name(name))
 }
+
+fn try_lock(file: File) -> Result<File> {
+    file.try_lock().context("This run is already in use")?;
+    Ok(file)
+}
+
+fn lock_inside_run(dir: &Path) -> Result<File> {
+    try_lock(
+        fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(dir.join(".run.lock"))?,
+    )
+}
+
+pub(crate) fn lock(dir: &Path) -> Result<(Option<File>, File)> {
+    let staging = match staging_lock_path(dir) {
+        Some(path) => match fs::OpenOptions::new().read(true).write(true).open(path) {
+            Ok(file) => Some(try_lock(file)?),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+            Err(error) => return Err(error.into()),
+        },
+        None => None,
+    };
+    // The inner lock also coordinates with saved-run commands from older releases.
+    Ok((staging, lock_inside_run(dir)?))
+}
+
+fn create_staged_run(dir: &Path) -> Result<(PathBuf, File, File)> {
+    // Windows can refuse to rename a directory containing an open file.
+    // Reserve the lock beside the staging directory before exposing it.
+    let path = staging_lock_path(dir).context("Invalid staging directory name")?;
+    let file = try_lock(
+        fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .open(&path)?,
+    )?;
+    match fs::create_dir(dir)
+        .map_err(anyhow::Error::from)
+        .and_then(|_| lock_inside_run(dir))
+    {
+        Ok(inner) => Ok((path, file, inner)),
+        Err(error) => {
+            drop(file);
+            let _ = fs::remove_file(&path);
+            Err(error)
+        }
+    }
+}
+
 fn timestamp(value: Option<i64>) -> Result<i64> {
     match value {
         Some(v) => Ok(v),
@@ -796,8 +849,7 @@ pub fn run_with_progress(
     }
     let name = format!("run-{timestamp}-{:016x}", rand::random::<u64>());
     let dir = output.join(format!("{name}.incomplete"));
-    fs::create_dir(&dir)?;
-    let _lock = lock(&dir)?;
+    let (staging_lock_path, staging_lock, inner_lock) = create_staged_run(&dir)?;
     let mut record = json!({
         "run_schema_version": 2,
         "run_id": name,
@@ -948,6 +1000,8 @@ pub fn run_with_progress(
                 )
             })?;
             let completed = output.join(name);
+            // The sidecar still guards the staging path while Windows renames it.
+            drop(inner_lock);
             fs::rename(&dir, &completed).map_err(|error| {
                 SavedRunFailure::error(
                     &dir,
@@ -957,6 +1011,9 @@ pub fn run_with_progress(
                     ),
                 )
             })?;
+            // Once published, saved-run commands use the finalized directory's lock.
+            drop(staging_lock);
+            let _ = fs::remove_file(staging_lock_path);
             Ok(RunResult {
                 record: completed.join("run.json"),
                 succeeded: record["status"] != "completed_with_failures",
@@ -1205,5 +1262,39 @@ mod checkpoint_tests {
         checkpoint.saved(20, start + Duration::from_secs(31));
         assert!(!checkpoint.due(21, start + Duration::from_secs(60)));
         assert!(checkpoint.due(21, start + Duration::from_secs(61)));
+    }
+}
+
+#[cfg(test)]
+mod staging_tests {
+    use super::*;
+
+    #[test]
+    fn staged_run_lock_coordinates_saved_run_changes_and_allows_rename() -> Result<()> {
+        let output = tempfile::Builder::new()
+            .prefix("ImmuKnow (sample) ")
+            .tempdir()?;
+        let staged = output.path().join("run-sample.incomplete");
+        let completed = output.path().join("run-sample");
+        let (lock_path, staging, inner) = create_staged_run(&staged)?;
+        assert!(lock(&staged).is_err());
+        assert!(lock_inside_run(&staged).is_err());
+
+        drop(inner);
+        drop(staging);
+        let legacy = lock_inside_run(&staged)?;
+        assert!(lock(&staged).is_err());
+        drop(legacy);
+
+        let (staging, inner) = lock(&staged)?;
+        drop(inner);
+        assert!(lock(&staged).is_err());
+        fs::rename(&staged, &completed)?;
+        assert!(completed.is_dir());
+        drop(staging);
+        fs::remove_file(lock_path)?;
+        let _published = lock(&completed)?;
+        assert!(lock(&completed).is_err());
+        Ok(())
     }
 }
