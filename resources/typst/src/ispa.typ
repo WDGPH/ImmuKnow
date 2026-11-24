@@ -22,23 +22,26 @@
   let always = ("Diphtheria", "Tetanus", "Polio", "Measles", "Mumps", "Rubella", "Pertussis", "Meningococcal")
   let birth = iso-date(notice.client_data.at("date_of_birth_iso", default: none))
   let as-of = iso-date(notice.at("date_as_of", default: none))
-  if birth == none or as-of == none {
+  // Designated for this birth cohort; an unknown birth date keeps Varicella possible.
+  let in-scope(disease) = disease in always or (disease == "Varicella" and (birth == none or birth.at(0) >= 2010))
+  // ISPA applies from the junior kindergarten cohort of the school year containing date_as_of.
+  // Births before 2010 are past JK for any current assessment date; none means undecided.
+  let school-age = if birth == none { none } else if birth.at(0) < 2010 { true }
+    else if as-of == none { none }
+    else { birth.at(0) <= (if as-of.at(1) < 9 { as-of.at(0) - 1 } else { as-of.at(0) }) - 4 }
+  if school-age == none {
     let undetermined = ()
     for entry in notice.overdue_diseases {
-      if (entry.disease in always or entry.disease == "Varicella") and entry.disease not in undetermined {
+      if in-scope(entry.disease) and entry.disease not in undetermined {
         undetermined.push(entry.disease)
       }
     }
     return (status: "ispa_unknown", overdue_diseases: (), undetermined_diseases: undetermined)
   }
-  // ISPA applies from the junior kindergarten cohort of the school year containing date_as_of.
-  let school-year = if as-of.at(1) < 9 { as-of.at(0) - 1 } else { as-of.at(0) }
-  if birth.at(0) > school-year - 4 {
+  if not school-age {
     return (status: "ispa_not_applicable", overdue_diseases: (), undetermined_diseases: ())
   }
-  let overdue = notice.overdue_diseases.filter(entry => (
-    entry.disease in always or (entry.disease == "Varicella" and birth.at(0) >= 2010)
-  ))
+  let overdue = notice.overdue_diseases.filter(entry => in-scope(entry.disease))
   (
     status: if overdue.len() > 0 { "ispa_overdue" } else { "no_ispa_overdue" },
     overdue_diseases: overdue,

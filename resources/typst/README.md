@@ -42,8 +42,8 @@ warnings while preserving visible content.
   can expose these names from shared setup for `#if` expressions.
   `ispa_up_to_date` uses the same ISPA selection as
   `overdue-diseases(ispa-only: true)`; it is `none` for clients younger than the
-  junior kindergarten cohort (CCEYA ages) or when the birth date or `date_as_of`
-  is missing. `include-ispa: false` omits it. Displaying ISPA diseases fails
+  junior kindergarten cohort (CCEYA ages) or when applicability is unknown: a
+  missing birth date, or a missing `date_as_of` for births from 2010. `include-ispa: false` omits it. Displaying ISPA diseases fails
   when their applicability cannot be decided. Prepared notices carry this
   selection as `notice.ispa`; the Typst rules apply only when it is absent.
 - `notice-dates(notice)` returns localized delivery, as-of, due, suspension and birth dates.

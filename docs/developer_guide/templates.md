@@ -237,7 +237,8 @@ ISPA selection uses canonical disease identifiers and the client's birth cohort.
 ISPA applies from junior kindergarten: to births in or before the year a child
 turns 4 during the school year (September to August) containing `date_as_of`.
 There is no upper age limit. Younger clients are at CCEYA ages and have no ISPA
-diseases. For school-age clients, Diphtheria, Tetanus, Polio, Measles, Mumps,
+diseases. Births before 2010 are past junior kindergarten for any current
+assessment date, so they are classified without `date_as_of`. For school-age clients, Diphtheria, Tetanus, Polio, Measles, Mumps,
 Rubella, Pertussis and Meningococcal disease are included; Varicella is included
 for births on or after January 1, 2010. These scope rules come from
 [Ontario's school requirements](https://www.ontario.ca/page/vaccines-children-school)
@@ -263,8 +264,9 @@ A suspension notice declares the existing ISPA eligibility condition beside its 
 `notice-flags(notice)` includes `ispa_up_to_date`, which uses the same
 selection as the list and is independent of `up_to_date`, which always
 considers the complete overdue-disease list. It is `true` or `false` for
-school-age clients and `none` for CCEYA ages or when the birth date or
-`date_as_of` is missing or invalid, so compare it explicitly, as in
+school-age clients and `none` for CCEYA ages or when applicability is unknown
+(a missing or invalid birth date, or a missing `date_as_of` for births from
+2010), so compare it explicitly, as in
 `#if flags.ispa_up_to_date == true`. `include-ispa: false` omits it. The flag
 never stops a render; listing ISPA diseases or requiring `has_ispa_overdue`
 fails when an overdue disease's ISPA applicability cannot be decided.

@@ -42,14 +42,23 @@ fn ymd(y: i32, m: u32, d: u32) -> NaiveDate {
 
 /// ISPA applies from junior kindergarten: births in or before the year the client turns 4
 /// during the school year (September to August) containing `as_of`. Younger children are
-/// CCEYA ages. There is no upper age limit.
-fn school_age(birth: NaiveDate, as_of: NaiveDate) -> bool {
+/// CCEYA ages. There is no upper age limit. Births before 2010 are past JK for any current
+/// assessment date, so they need no `as_of`. `None` when applicability cannot be decided.
+fn school_age(birth: Option<NaiveDate>, as_of: Option<NaiveDate>) -> Option<bool> {
+    let birth = birth?;
+    if birth < ymd(2010, 1, 1) {
+        return Some(true);
+    }
+    let as_of = as_of?;
     let school_year = as_of.year() - i32::from(as_of.month() < 9);
-    birth.year() <= school_year - 4
+    Some(birth.year() <= school_year - 4)
 }
 
-fn in_scope(disease: &str, birth: NaiveDate) -> bool {
-    ALWAYS.contains(&disease) || (disease == "Varicella" && birth >= ymd(2010, 1, 1))
+/// Whether a disease is designated for this birth cohort; an unknown birth date keeps
+/// Varicella possible.
+fn in_scope(disease: &str, birth: Option<NaiveDate>) -> bool {
+    ALWAYS.contains(&disease)
+        || (disease == "Varicella" && birth.is_none_or(|b| b >= ymd(2010, 1, 1)))
 }
 
 pub fn classify(
@@ -64,35 +73,33 @@ pub fn classify(
         undetermined: vec![],
         missing: BTreeSet::new(),
     };
-    let (Some(birth), Some(as_of)) = (birth, as_of) else {
-        result.status = "ispa_unknown";
-        if birth.is_none() {
-            result.missing.insert("date_of_birth");
-        }
-        if as_of.is_none() {
-            result.missing.insert("date_as_of");
-        }
-        // Any disease ISPA can designate, since applicability and cohort are both unknown.
-        for name in overdue.iter().map(disease) {
-            if (ALWAYS.contains(&name.as_str()) || name == "Varicella")
-                && !result.undetermined.contains(&name)
-            {
-                result.undetermined.push(name);
+    match school_age(birth, as_of) {
+        None => {
+            // Applicability is unknown; list the diseases that could be designated.
+            result.status = "ispa_unknown";
+            if birth.is_none() {
+                result.missing.insert("date_of_birth");
+            }
+            if as_of.is_none() {
+                result.missing.insert("date_as_of");
+            }
+            for name in overdue.iter().map(disease) {
+                if in_scope(&name, birth) && !result.undetermined.contains(&name) {
+                    result.undetermined.push(name);
+                }
             }
         }
-        return result;
-    };
-    if !school_age(birth, as_of) {
-        result.status = "ispa_not_applicable";
-        return result;
-    }
-    result.overdue = overdue
-        .iter()
-        .filter(|entry| in_scope(&disease(entry), birth))
-        .cloned()
-        .collect();
-    if !result.overdue.is_empty() {
-        result.status = "ispa_overdue";
+        Some(false) => result.status = "ispa_not_applicable",
+        Some(true) => {
+            result.overdue = overdue
+                .iter()
+                .filter(|entry| in_scope(&disease(entry), birth))
+                .cloned()
+                .collect();
+            if !result.overdue.is_empty() {
+                result.status = "ispa_overdue";
+            }
+        }
     }
     result
 }
@@ -141,6 +148,15 @@ mod tests {
     fn scoped(names: &[&str], birth: &str, as_of: &str) -> Vec<String> {
         classify(&diseases(names), date(birth), date(as_of))
             .overdue
+            .iter()
+            .map(|e| e["disease"].as_str().unwrap().to_owned())
+            .collect()
+    }
+
+    fn scoped_without_as_of(names: &[&str], birth: &str) -> Vec<String> {
+        let c = classify(&diseases(names), date(birth), None);
+        assert_eq!(c.status, "ispa_overdue");
+        c.overdue
             .iter()
             .map(|e| e["disease"].as_str().unwrap().to_owned())
             .collect()
@@ -203,6 +219,25 @@ mod tests {
         assert_eq!(c.status, "ispa_unknown");
         assert!(c.undetermined.is_empty());
         assert_eq!(c.missing, BTreeSet::from(["date_as_of"]));
+
+        let c = classify(&diseases(&["Varicella"]), date("2010-01-01"), None);
+        assert_eq!(c.status, "ispa_unknown");
+        assert_eq!(c.undetermined, ["Varicella"]);
+        let c = classify(&diseases(&["HPV"]), None, None);
+        assert_eq!(c.status, "ispa_unknown");
+        assert_eq!(c.missing, BTreeSet::from(["date_of_birth", "date_as_of"]));
+    }
+
+    #[test]
+    fn births_before_2010_need_no_assessment_date() {
+        // Past JK for any assessment date, and never designated for Varicella.
+        let c = classify(&diseases(&["Varicella"]), date("2009-12-31"), None);
+        assert_eq!(c.status, "no_ispa_overdue");
+        assert!(c.overdue.is_empty() && c.undetermined.is_empty() && c.missing.is_empty());
+        assert_eq!(
+            scoped_without_as_of(&["Varicella", "Polio"], "2009-12-31"),
+            ["Polio"]
+        );
     }
 
     #[test]
