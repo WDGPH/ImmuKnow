@@ -183,7 +183,12 @@ pub fn grouping_fields(value: &Value) -> Result<Vec<String>> {
             ensure!(
                 matches!(
                     field.as_str(),
-                    "school" | "board" | "language" | "page_count" | "notice_variant"
+                    "school"
+                        | "board"
+                        | "language"
+                        | "page_count"
+                        | "notice_variant"
+                        | "ispa_status"
                 ),
                 "Unknown grouping field: {field}"
             );
@@ -394,17 +399,19 @@ fn coverage(known: bool, unknown: bool) -> &'static str {
 }
 fn history(raw: &str, reference: &BTreeMap<String, Value>) -> Result<(Vec<Value>, bool, bool)> {
     let raw = raw.trim_matches([' ', '\t', '\r', '\n']);
-    if raw.is_empty() || matches!(raw, "-;" | "-  -;") {
+    if raw.is_empty() {
         return Ok((vec![], false, false));
     }
     ensure!(raw.ends_with(';'), "History must end with ';'");
     let mut doses = vec![];
     let (mut known, mut unknown) = (false, false);
     for (i, fragment) in raw[..raw.len() - 1].split(';').enumerate() {
-        let p: Vec<_> = fragment
-            .trim_matches([' ', '\t', '\r', '\n'])
-            .split(" - ")
-            .collect();
+        let fragment = fragment.trim_matches([' ', '\t', '\r', '\n']);
+        // Exports mark "no history" with blank fields, e.g. "-;", "-  -;" or " -  - ;".
+        if fragment.starts_with('-') && fragment.chars().all(|c| c == '-' || c.is_whitespace()) {
+            continue;
+        }
+        let p: Vec<_> = fragment.split(" - ").collect();
         ensure!(
             (2..=3).contains(&p.len()),
             "History fragment {} has invalid fields",
@@ -1016,6 +1023,20 @@ pub fn prepare(
         }
         let missing: Vec<_> = required.difference(&covered).cloned().collect();
         let extra: Vec<_> = covered.difference(&required).cloned().collect();
+        let ispa = crate::ispa::classify(&overdue, birth, date(&c.date_as_of).ok());
+        if ispa.status == "ispa_unknown" {
+            let mut warning = check(
+                "data.ispa_unknown",
+                "warn",
+                &format!(
+                    "ISPA applicability is unknown. Missing: {}.",
+                    ispa.missing.iter().copied().collect::<Vec<_>>().join(", ")
+                ),
+            );
+            warning["measurements"] =
+                json!({"diseases": ispa.undetermined, "missing_facts": ispa.missing});
+            checks.push(warning);
+        }
         let first = get(r, "first_name");
         let last = get(r, "last_name");
         let full_name = [first, last]
@@ -1059,6 +1080,7 @@ pub fn prepare(
             "date_of_suspension": c.date_of_suspension,
             "overdue_diseases": overdue,
             "overdue_agents": agents,
+            "ispa": ispa.notice_value(),
             "forecast_coverage": {"missing_diseases":missing,"extra_diseases":extra,"unmapped_agents":unmapped},
             "history": history,
             "has_immunization_records": !history.is_empty(),
@@ -1160,6 +1182,12 @@ mod tests {
         assert_eq!(h.len(), 1);
         assert_eq!(h[0]["validity"], "unknown");
         assert!(k && u);
+        for s in ["-;", "-  -;", " -  - ;", "-  -  -;\n"] {
+            assert_eq!(history(s, &r).unwrap(), (vec![], false, false), "{s:?}");
+        }
+        let (h, k, u) = history("-  - ; 2020-01-01 - MMR - Valid;", &r).unwrap();
+        assert_eq!(h.len(), 1);
+        assert!(k && !u);
     }
     #[test]
     fn input_decoding_and_delimiters() {

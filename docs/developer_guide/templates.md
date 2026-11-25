@@ -171,7 +171,7 @@ has `mapping_known: true`; it remains distinct from an unknown name.
 
 ## Record and overdue flags
 
-`immuknow.notice-flags(notice)` returns four booleans:
+`immuknow.notice-flags(notice)` returns four booleans and `ispa_up_to_date`:
 
 ```typst
 #let flags = immuknow.notice-flags(notice)
@@ -233,16 +233,26 @@ supplied overdue diseases. Mixed ISPA/non-ISPA input remains valid; the default
 are preserved. `overdue-agents(ispa-only: true)` is unsupported and raises an
 error, including when a no-records replacement would otherwise be shown.
 
-ISPA selection uses canonical disease identifiers and the client's birth cohort:
-Diphtheria, Tetanus, Polio, Measles, Mumps, Rubella and Pertussis are included;
-Varicella is included for births on or after January 1, 2010. Meningococcal
-disease applies to births on or after September 1, 2004, or births on or after
-January 1, 1997 once the client is 12. The earlier meningococcal cohort uses
-`date_as_of` for that age boundary. These scope rules come from
+ISPA selection uses canonical disease identifiers and the client's birth cohort.
+ISPA applies from junior kindergarten: to births in or before the year a child
+turns 4 during the school year (September to August) containing `date_as_of`.
+There is no upper age limit. Younger clients are at CCEYA ages and have no ISPA
+diseases. Births before 2010 are past junior kindergarten for any current
+assessment date, so they are classified without `date_as_of`. For school-age clients, Diphtheria, Tetanus, Polio, Measles, Mumps,
+Rubella, Pertussis and Meningococcal disease are included; Varicella is included
+for births on or after January 1, 2010. These scope rules come from
 [Ontario's school requirements](https://www.ontario.ca/page/vaccines-children-school)
 and [Regulation 645, Table 1](https://www.ontario.ca/laws/regulation/900645).
 They select already-reported overdue diseases; they do not reassess doses,
 exemptions or the other legal steps needed for a suspension order.
+
+ImmuKnow applies this selection once during preparation and passes the result
+to templates as `notice.ispa`: a `status` of `ispa_overdue`, `no_ispa_overdue`,
+`ispa_not_applicable` or `ispa_unknown`, the selected `overdue_diseases`, and any
+`undetermined_diseases` whose applicability could not be decided. The functions below
+use that result, so a notice's wording agrees with its ISPA bundle grouping.
+Notices without `notice.ispa`, such as Studio examples or runs prepared by
+earlier versions, use the same rules in Typst.
 
 A suspension notice declares the existing ISPA eligibility condition beside its wording:
 
@@ -251,13 +261,15 @@ A suspension notice declares the existing ISPA eligibility condition beside its 
 #immuknow.overdue-diseases(notice, ispa-only: true)
 ```
 
-`notice-flags(notice, include-ispa: true)` adds `ispa_up_to_date`, which uses
-the same selection as the list and is independent of
-`up_to_date`, which always considers the complete overdue-disease list.
-Requesting ISPA selection fails if a birth date needed for Varicella or
-Meningococcal applicability is missing or invalid, or if `date_as_of` is missing
-when needed for the meningococcal age boundary. The default four flags and
-ordinary lists remain available without those ISPA-specific facts.
+`notice-flags(notice)` includes `ispa_up_to_date`, which uses the same
+selection as the list and is independent of `up_to_date`, which always
+considers the complete overdue-disease list. It is `true` or `false` for
+school-age clients and `none` for CCEYA ages or when applicability is unknown
+(a missing or invalid birth date, or a missing `date_as_of` for births from
+2010), so compare it explicitly, as in
+`#if flags.ispa_up_to_date == true`. `include-ispa: false` omits it. The flag
+never stops a render; listing ISPA diseases or requiring `has_ispa_overdue`
+fails when an overdue disease's ISPA applicability cannot be decided.
 
 An affirmative template declares its wording requirement explicitly:
 

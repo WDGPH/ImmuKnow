@@ -19,6 +19,7 @@ const RECORD_HEADERS: &[&str] = &[
     "name",
     "school",
     "notice_variant",
+    "ispa_status",
     "language",
     "severity",
     "evaluation_state",
@@ -103,6 +104,7 @@ struct RecordRow {
     name: String,
     school: String,
     notice_variant: String,
+    ispa_status: String,
     language: String,
     severity: String,
     evaluation_state: String,
@@ -356,6 +358,7 @@ fn project(
             name: safe(if name.is_empty() { &fallback } else { name }),
             school: safe(school),
             notice_variant: field(&e["assignment"], "version_id"),
+            ispa_status: safe(&crate::ispa::status(&e["notice"])),
             language: field(&e["assignment"], "language"),
             severity: sev.into(),
             evaluation_state: ev.into(),
@@ -619,7 +622,7 @@ fn hash_file(path: &Path) -> Result<String> {
 }
 fn current_valid(dir: &Path, record: &Value) -> bool {
     let e = &record["exports"];
-    if e["record_revision"] != record["record_revision"] || e["schema_version"] != 1 {
+    if e["record_revision"] != record["record_revision"] || e["schema_version"] != 2 {
         return false;
     }
     ["records", "findings"].iter().all(|name| {
@@ -710,7 +713,7 @@ pub(crate) fn publish_with_hook(
     hook("before_pointer_update").context(
         "Canonical state was saved, but CSV selection failed; run immuknow refresh-exports RUN",
     )?;
-    record["exports"] = json!({"schema_version":1,"record_revision":record["record_revision"],
+    record["exports"] = json!({"schema_version":2,"record_revision":record["record_revision"],
         "records":{"path":format!("{stem}/records.csv"),"sha256":hash_file(&published.join("records.csv"))?},
         "findings":{"path":format!("{stem}/findings.csv"),"sha256":hash_file(&published.join("findings.csv"))?}});
     let revision = record["record_revision"].clone();

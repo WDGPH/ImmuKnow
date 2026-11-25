@@ -37,6 +37,7 @@ const INDIVIDUAL: &[&str] = &[
     "school_id",
     "board_id",
     "notice_variant",
+    "ispa_status",
 ];
 const BUNDLE: &[&str] = &[
     "school",
@@ -45,6 +46,7 @@ const BUNDLE: &[&str] = &[
     "board_id",
     "language_code",
     "notice_variant",
+    "ispa_status",
     "bundle_number",
     "route",
 ];
@@ -106,6 +108,7 @@ pub(crate) fn values(notice: &Value) -> BTreeMap<&'static str, String> {
         ("school_id", string(&notice["school"]["id"])),
         ("board_id", string(&notice["board"]["id"])),
         ("notice_variant", string(&notice["version_id"])),
+        ("ispa_status", crate::ispa::status(notice)),
     ]);
     values
 }
@@ -331,5 +334,14 @@ mod tests {
         );
         assert_eq!(name.stem, "review-0001");
         assert!(name.warning.is_some());
+    }
+    #[test]
+    fn ispa_status_names_bundles_only_when_shared() {
+        let notice = |status: &str| json!({"notice":{"ispa":{"status":status}}});
+        let shared = vec![notice("ispa_overdue"), notice("ispa_overdue")];
+        let values = bundle_values(&shared, &[0, 1], 1, "deliverable");
+        assert_eq!(values["ispa_status"], "ispa_overdue");
+        let mixed = vec![notice("ispa_overdue"), notice("no_ispa_overdue")];
+        assert!(!bundle_values(&mixed, &[0, 1], 1, "deliverable").contains_key("ispa_status"));
     }
 }

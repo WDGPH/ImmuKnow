@@ -391,6 +391,72 @@ fn optional_deadlines_reach_prepared_facts_and_bad_order_preserves_source_rows()
     let (_, record) = project.record();
     assert_eq!(record["entries"].as_array().unwrap().len(), 5);
 }
+#[test]
+fn preparation_records_ispa_scope_and_unknown_cohorts() {
+    let project = Project::new();
+    let mut reader = csv::Reader::from_path(&project.csv).unwrap();
+    let headers = reader.headers().unwrap().clone();
+    let rows: Vec<_> = reader.records().map(Result::unwrap).collect();
+    let column = |name| headers.iter().position(|h| h == name).unwrap();
+    // date_as_of in the fixture is 2025-04-01, so the 2020 cohort is the youngest in JK.
+    let cases = [
+        ("2015-01-02", "Measles - 2; HPV - 1", "ispa_overdue"),
+        ("2015-01-02", "HPV - 1", "no_ispa_overdue"),
+        ("", "Varicella - 1", "ispa_unknown"),
+        ("2021-01-01", "Measles - 1", "ispa_not_applicable"),
+        ("2001-01-01", "Meningococcal - 1", "ispa_overdue"),
+    ];
+    let mut writer = csv::Writer::from_path(&project.csv).unwrap();
+    writer.write_record(&headers).unwrap();
+    for (row, (birth, overdue, _)) in rows.iter().zip(cases) {
+        let mut values: Vec<String> = row.iter().map(str::to_owned).collect();
+        values[column("date_of_birth")] = birth.into();
+        values[column("overdue_disease")] = overdue.into();
+        writer.write_record(&values).unwrap();
+    }
+    writer.flush().unwrap();
+    drop(writer);
+    let prepared = cli(
+        &project.root,
+        &[
+            "prepare",
+            p(&project.csv),
+            "--template",
+            p(&project.templates.join("overdue_agents_v1.en.typ")),
+            "--config",
+            p(&project.config),
+        ],
+    );
+    success(&prepared);
+    let record: Value = serde_json::from_slice(&prepared.stdout).unwrap();
+    let entries = record["entries"].as_array().unwrap();
+    assert_eq!(entries.len(), cases.len());
+    for (entry, (_, _, status)) in entries.iter().zip(cases) {
+        assert_eq!(entry["notice"]["ispa"]["status"], status);
+        let unknown: Vec<_> = entry["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|c| c["code"] == "data.ispa_unknown")
+            .collect();
+        assert_eq!(unknown.len(), usize::from(status == "ispa_unknown"));
+    }
+    assert_eq!(
+        entries[0]["notice"]["ispa"]["overdue_diseases"],
+        json!([{"disease":"Measles","dose":2}])
+    );
+    let unknown = entries[2]["checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["code"] == "data.ispa_unknown")
+        .unwrap();
+    assert_eq!(unknown["status"], "warn");
+    assert_eq!(
+        unknown["measurements"],
+        json!({"diseases":["Varicella"],"missing_facts":["date_of_birth"]})
+    );
+}
 impl Project {
     fn new() -> Self {
         let temp = tempfile::tempdir().unwrap();
@@ -696,6 +762,8 @@ fn exported_resources_work_outside_checkout_and_mixed_rows_remain_associated() {
     assert!(!run.join("report.html").exists());
     let exported = csv_rows(&run, &record, "records");
     assert_eq!(exported.len(), rows.len());
+    // Every fixture row is overdue for Measles, which is always in ISPA scope.
+    assert_eq!(exported[0]["ispa_status"], "ispa_overdue");
     for index in [1, 4] {
         assert_eq!(exported[index]["protected_status"], "excluded");
         assert!(exported[index]["protected_path"].is_empty());

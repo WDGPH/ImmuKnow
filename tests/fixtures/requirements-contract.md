@@ -25,7 +25,7 @@ Corrupt outer report, payload/report notice mismatch, wrong outer/declaration/co
 
 ## Rule outcomes
 
-Eligibility: `any`→not_applicable; `has_overdue` is nonempty `notice.overdue_diseases`; `has_overdue_agents` is nonempty `notice.overdue_agents`; `no_overdue` is empty diseases; `has_ispa_overdue` uses existing `ispa-overdue-diseases` selection and cohort/date logic. All other eligibility outcomes pass/fail; no new clinical assessment. Existing ISPA invalid date assertions remain fundamental errors.
+Eligibility: `any`→not_applicable; `has_overdue` is nonempty `notice.overdue_diseases`; `has_overdue_agents` is nonempty `notice.overdue_agents`; `no_overdue` is empty diseases; `has_ispa_overdue` uses `ispa-overdue-diseases`, which reads prepared `notice.ispa` when present and otherwise applies the same cohort/date logic in Typst. All other eligibility outcomes pass/fail; no new clinical assessment. Existing ISPA invalid date assertions remain fundamental errors.
 
 Coverage `neutral`→not_applicable. For `agents`/`diseases`, no source diseases and agents→not_applicable; otherwise missing→fail for agents or warn for diseases; no missing but extra/unmapped→warn; otherwise pass. Preserve all missing/extra/unmapped measurements even when several conditions overlap; `data.forecast_coverage.measurements` exactly equals `notice.forecast_coverage`. Source eligibility and version-conflict safeguards remain separate from notice-local requirements.
 

@@ -12,12 +12,12 @@ A warning can be eligible for sending. A failed check or mandatory check that wa
 
 ## CSV fields and types
 
-Both CSVs use export schema 1 and carry `run_id`, integer `record_revision` and the active `bundle_attempt` (empty before a successful attempt). A failed later attempt is identified separately on its finding. `row_key` joins the files; `source_record` is the 1-based data-record ordinal, including multiline CSV records. IDs are text and may repeat. Paths are relative to the run root. Empty cells indicate unavailable values; page counts and inclusive ranges are positive integers when present.
+Both CSVs use export schema 2 and carry `run_id`, integer `record_revision` and the active `bundle_attempt` (empty before a successful attempt). A failed later attempt is identified separately on its finding. `row_key` joins the files; `source_record` is the 1-based data-record ordinal, including multiline CSV records. IDs are text and may repeat. Paths are relative to the run root. Empty cells indicate unavailable values; page counts and inclusive ranges are positive integers when present.
 
 `records.csv` columns, in order:
 
 ```text
-run_id,record_revision,bundle_attempt,row_key,source_record,client_id,name,school,notice_variant,language,severity,evaluation_state,route,hold_reason,original_status,original_path,original_pages,protected_status,protected_path,bundle_status,bundle_path,bundle_start_page,bundle_end_page
+run_id,record_revision,bundle_attempt,row_key,source_record,client_id,name,school,notice_variant,ispa_status,language,severity,evaluation_state,route,hold_reason,original_status,original_path,original_pages,protected_status,protected_path,bundle_status,bundle_path,bundle_start_page,bundle_end_page
 ```
 
 Severity is one of `error`, `warning`, `clear` or `pending`; evaluation is `complete`, `pending` or `blocked`. Artifact statuses use `completed`, `failed`, `pending`, `not_requested` or `excluded`. For example, a held warning has severity `warning`, route `withheld`, and bundle status `excluded`; an invalid source row may have severity `error` and route `report_only` with no PDF path. A still-running row may be `pending`; a warning already observed takes precedence while evaluation remains pending.

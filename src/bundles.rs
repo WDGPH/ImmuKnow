@@ -289,6 +289,7 @@ fn bundle_with_hook(
                     .as_str()
                     .unwrap_or("")
                     .to_owned(),
+                "ispa_status" => crate::ispa::status(&e["notice"]),
                 _ => pages.to_string(),
             };
             key.push(value);
